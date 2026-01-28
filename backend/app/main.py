@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.routes import connections, documents, embeddings, meta, sync
+
+app = FastAPI(title="Paperless Intelligence API")
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+api = FastAPI(title="Paperless Intelligence API")
+
+api.include_router(documents.router)
+api.include_router(meta.router)
+api.include_router(connections.router)
+api.include_router(sync.router)
+api.include_router(embeddings.router)
+
+app.mount("/api", api)
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"status": "ok"}

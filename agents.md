@@ -1,7 +1,7 @@
 # Paperless Intelligence Layer (Arcane)
 
 ## Mission
-Build a separate “intelligence” project that augments Paperless-ngx with:
+Build a separate "intelligence" project that augments Paperless-ngx with:
 - AI-generated structured metadata (entities, dates, doc type, risks, etc.)
 - embeddings + semantic search + reasoning chat
 - citations with PDF highlights (page plus bounding boxes when available)
@@ -15,7 +15,7 @@ Paperless-ngx remains the source of truth. This project:
 2) optionally fetches PDF pages for highlighting or vision-based OCR fallback
 3) runs LLM analysis (remote Ollama server)
 4) stores results in Postgres plus embeddings in Qdrant
-5) provides a UI/API (NiceGUI later) for inspection and manual, per-field writeback
+5) provides a FastAPI backend plus separate Vue frontend for inspection and manual, per-field writeback
 
 ## Constraints / Non-goals
 - No automatic writeback to Paperless. Default is read-only.
@@ -42,11 +42,14 @@ Paperless-ngx remains the source of truth. This project:
 - Qdrant (embeddings and chunk metadata)
 - Redis optional (queue/ cache can be added later)
 
-### Later (application layer)
-- NiceGUI app (FastAPI + UI):
-  - Read-only views: doc list, doc details, analysis results, similarity, chat UI
-  - Manual writeback buttons per doc plus per field
-  - PDF viewer with highlight overlays
+### Application layer (current)
+- FastAPI backend:
+  - Read-only API for documents, tags, correspondents, document types, and connections
+  - Manual writeback endpoints later (per-field, per-doc)
+- Vue 3 (Vite, Composition API) frontend:
+  - Read-only views: doc list, doc details, analysis results (later), chat UI (later)
+  - Manual writeback buttons per doc plus per field (later)
+  - PDF viewer with highlight overlays (later)
 
 ## Paperless integration
 ### Auth
@@ -120,15 +123,15 @@ Per document, via explicit user action:
 
 ### Summary note formatting
 All AI summaries stored in Paperless notes must be bracketed for easy detection:
---- AI_SUMMARY v1 ---
-<summary text>
---- /AI_SUMMARY ---
+- AI_SUMMARY v1 –
+...summary text...
+- /AI_SUMMARY -
 
 ### Audit logging
 Every writeback must be stored locally:
 - doc_id, field, old value, new value, timestamp, user
 
-## API ideas (for later NiceGUI/FastAPI service)
+## API ideas (backend)
 - GET /documents
 - GET  /documents/{id}
 - POST /documents/{id}/sync
@@ -142,9 +145,41 @@ Environment variables (examples):
 - PAPERLESS_BASE_URL=https://paperless.elysium.lan
 - PAPERLESS_API_TOKEN=...
 - OLLAMA_BASE_URL=http://<ollama-host>:11434
+- EMBEDDING_MODEL=qwen3-embedding
 - DATABASE_URL=postgres://...
 - QDRANT_URL=https://qdrant.elysium.lan (or internal http://qdrant:6333)
 - QDRANT_API_KEY optional (future hardening)
+- QDRANT_COLLECTION=paperless_chunks
+- EMBED_ON_SYNC=1
+- CHUNK_MODE=heuristic
+- CHUNK_MAX_CHARS=1200
+- CHUNK_OVERLAP=200
+- CHUNK_SIMILARITY_THRESHOLD=0.75
+
+## Repo layout
+- /backend: FastAPI service (Python, uv)
+- /frontend: Vue 3 + Vite SPA (Composition API)
+
+## Local development
+### Backend
+- cd backend
+- uv sync
+- uv run uvicorn app.main:app --reload --port 8000
+
+### Migrations (Alembic)
+- cd backend
+- uv sync
+- uv run alembic revision --autogenerate -m "init"
+- uv run alembic upgrade head
+
+### Frontend
+- cd frontend
+- npm install
+- npm run dev
+
+### Dev URLs
+- Backend: http://localhost:8000
+- Frontend: http://localhost:5173
 
 ## MVP Definition of Done
 - Compose stack runs on Arcane: Postgres + Qdrant (+optional Redis), persistent in ./data
@@ -168,7 +203,9 @@ Environment:
 
 ### Primary Model
 - Default reasoning / extraction / chat model:
-  - MODEL_NAME=gpt-oss:120b
+  - MODEL_NAME=gpt-oss:20b
+- Default-Model for Vectorization:
+- VECTORIZATION_MODEL=snowflake-arctic-embed2
 
 This model is used for:
 - Structured document analysis (JSON output)
