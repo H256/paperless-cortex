@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.config import Settings, load_settings
-from app.services.queue import enqueue_docs, queue_length
+from app.services.queue import enqueue_docs, queue_stats
 
 router = APIRouter(prefix="/queue", tags=["queue"])
 
@@ -21,8 +21,8 @@ class QueueEnqueue(BaseModel):
 def get_queue_status(settings: Settings = Depends(settings_dep)):
     if not settings.queue_enabled:
         return {"enabled": False, "length": None}
-    length = queue_length(settings)
-    return {"enabled": True, "length": length}
+    stats = queue_stats(settings) or {"length": None, "total": 0, "in_progress": 0, "done": 0}
+    return {"enabled": True, **stats}
 
 
 @router.post("/enqueue")

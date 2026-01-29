@@ -14,6 +14,15 @@
       <div v-if="queueStatus.enabled">
         Queue: {{ queueStatus.length ?? 'n/a' }}
       </div>
+      <div v-if="queueStatus.enabled">
+        In progress: {{ queueStatus.in_progress ?? 0 }}
+      </div>
+      <div v-if="queueStatus.enabled">
+        Done: {{ queueStatus.done ?? 0 }}
+      </div>
+      <div v-if="queueStatus.enabled">
+        Total: {{ queueStatus.total ?? 0 }}
+      </div>
       <div v-else>
         Queue: disabled
       </div>
@@ -32,7 +41,9 @@ const queueStatus = ref<{ enabled: boolean; length: number | null }>({
 
 const fetchQueueStatus = async () => {
   try {
-    const { data } = await api.get<{ enabled: boolean; length: number | null }>('/queue/status');
+    const { data } = await api.get<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>(
+      '/queue/status'
+    );
     queueStatus.value = data;
   } catch {
     queueStatus.value = { enabled: false, length: null };
@@ -74,5 +85,7 @@ onMounted(() => {
   border-top: 1px solid #e2e8f0;
   color: #64748b;
   font-size: 12px;
+  display: flex;
+  gap: 12px;
 }
 </style>

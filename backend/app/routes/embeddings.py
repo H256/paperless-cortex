@@ -21,6 +21,7 @@ from app.services.embeddings import (
 from app.services.text_pages import get_page_text_layers
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
+from app.services.queue import enqueue_docs
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
@@ -62,6 +63,12 @@ def ingest_embeddings(
         state.last_synced_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return {"ingested": 0, "documents_embedded": 0}
+    if settings.queue_enabled:
+        enqueue_docs(settings, [doc.id for doc in documents])
+        state.status = "idle"
+        state.last_synced_at = datetime.now(timezone.utc).isoformat()
+        db.commit()
+        return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
 
     sample_embedding = embed_text(settings, "dimension probe")
     ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
@@ -173,6 +180,9 @@ def ingest_documents(
     documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
     if not documents:
         return {"ingested": 0, "documents_embedded": 0}
+    if settings.queue_enabled:
+        enqueue_docs(settings, [doc.id for doc in documents])
+        return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
     sample_embedding = embed_text(settings, "dimension probe")
     ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
     state = db.get(SyncState, "embeddings")

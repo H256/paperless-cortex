@@ -29,6 +29,7 @@ from app.services.embeddings import (
 )
 from app.services.text_pages import get_page_text_layers
 from app.services.page_text_store import upsert_page_texts
+from app.services.queue import enqueue_docs
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -116,7 +117,11 @@ def sync_documents(
     db.commit()
     embedded = 0
     if embed and embed_queue:
-        embedded = _embed_documents(db, settings, embed_queue, force_embed=force_embed)
+        if settings.queue_enabled:
+            enqueue_docs(settings, [doc.id for doc in embed_queue])
+            embedded = 0
+        else:
+            embedded = _embed_documents(db, settings, embed_queue, force_embed=force_embed)
     return {
         "count": total,
         "upserted": upserted,
@@ -281,7 +286,11 @@ def sync_document(
     if embed:
         doc = db.get(Document, doc_id)
         if doc:
-            embedded = _embed_documents(db, settings, [doc], force_embed=force_embed)
+            if settings.queue_enabled:
+                enqueue_docs(settings, [doc.id])
+                embedded = 0
+            else:
+                embedded = _embed_documents(db, settings, [doc], force_embed=force_embed)
     logger.info("Sync doc=%s done embedded=%s", doc_id, embedded)
     return {"id": doc_id, "status": "synced", "embedded": embedded}
 
