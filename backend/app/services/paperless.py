@@ -10,7 +10,7 @@ from app.config import Settings
 def _api_base(settings: Settings) -> str:
     base = settings.paperless_base_url.rstrip("/")
     if base.endswith("/api"):
-        return base
+        base = base[:-4]
     return f"{base}/api"
 
 
