@@ -115,8 +115,8 @@ def merge_suggestions(
 ) -> dict[str, Any] | None:
     if not paperless and not vision:
         return None
-    base = paperless if not _is_error_payload(paperless) else {}
-    alt = vision if not _is_error_payload(vision) else {}
+    base = (paperless or {}) if not _is_error_payload(paperless) else {}
+    alt = (vision or {}) if not _is_error_payload(vision) else {}
     def pick(field: str) -> object:
         val = alt.get(field)
         if isinstance(val, str) and val.strip():
