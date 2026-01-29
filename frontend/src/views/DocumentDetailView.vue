@@ -147,7 +147,15 @@
                 <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ bestPickSuggestion.raw }}</pre>
               </div>
               <div v-if="bestPickSuggestion.data" class="space-y-2">
-                <div class="text-xs text-slate-500">Summary</div>
+                <div class="flex items-center justify-between text-xs text-slate-500">
+                  <span>Summary</span>
+                  <button
+                    class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                    @click="applyToDocument('best_pick', 'note', bestPickSuggestion.data)"
+                  >
+                    Save note
+                  </button>
+                </div>
                 <div class="text-sm text-slate-900">{{ bestPickSuggestion.data.summary }}</div>
                 <div class="grid gap-2">
                   <div class="flex items-center justify-between text-xs text-slate-500">

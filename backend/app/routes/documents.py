@@ -10,7 +10,7 @@ import json
 
 from pydantic import BaseModel
 
-from app.models import Document, DocumentPageText, DocumentSuggestion, DocumentEmbedding, Tag, Correspondent
+from app.models import Document, DocumentPageText, DocumentSuggestion, DocumentEmbedding, Tag, Correspondent, DocumentNote
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
     generate_suggestions,
@@ -385,7 +385,7 @@ def apply_suggestion_to_document(
         return {"status": "missing"}
     field = payload.field
     value = payload.value
-    if field not in ("title", "date", "correspondent", "tags"):
+    if field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
     old_value = None
     updated = False
@@ -435,6 +435,18 @@ def apply_suggestion_to_document(
             doc.tags = matched
             updated = True
         details["unmatched"] = unmatched
+    elif field == "note":
+        old_value = None
+        summary = str(value).strip() if value is not None else ""
+        if summary:
+            marker_text = f"AI_SUMMARY v1 –\n{summary}\n- /AI_SUMMARY -"
+            note = DocumentNote(
+                document_id=doc_id,
+                note=marker_text,
+                created=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            )
+            db.add(note)
+            updated = True
 
     if updated:
         audit_suggestion_run(db, doc_id, payload.source or "manual", f"apply_to_document:{field}")
