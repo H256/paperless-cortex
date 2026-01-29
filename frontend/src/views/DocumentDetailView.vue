@@ -351,6 +351,14 @@
           <h3 class="text-lg font-semibold text-slate-900">Extracted page texts (debug)</h3>
           <span class="text-xs text-slate-500">Page-wise OCR</span>
         </div>
+        <div class="mt-4">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Aggregated text context</div>
+          <textarea
+            class="mt-2 w-full min-h-[180px] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900"
+            readonly
+            :value="aggregatedText"
+          ></textarea>
+        </div>
         <div v-if="pageTextsError" class="mt-3 text-sm text-rose-600">{{ pageTextsError }}</div>
         <div v-else-if="pageTexts.length === 0" class="mt-3 text-sm text-slate-500">
           No extracted page text loaded.
@@ -483,10 +491,18 @@ const suggestionVariants = ref<Record<string, any[]>>({});
 const suggestionVariantLoading = ref<Record<string, boolean>>({});
 const suggestionVariantError = ref<Record<string, string>>({});
 
+const aggregatedText = computed(() => {
+  if (!pageTexts.value.length) return document.value?.content || '';
+  return pageTexts.value.map((page) => page.text).join('\n\n');
+});
+
 const fieldValue = (data: any, field: string) => {
   if (!data) return '';
   if (field === 'title') return data.title || data.suggested_title || '';
-  if (field === 'date') return data.date || data.suggested_document_date || '';
+  if (field === 'date') {
+    const raw = data.date || data.suggested_document_date || '';
+    return formatDate(raw);
+  }
   if (field === 'correspondent') return data.correspondent || data.suggested_correspondent || '';
   if (field === 'tags') return (data.tags || data.suggested_tags || []).join(', ');
   return data[field] ?? '';
