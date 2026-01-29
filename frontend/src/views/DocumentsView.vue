@@ -1,31 +1,54 @@
 <template>
-  <section class="documents">
-    <div class="documents__header">
-      <h2>Documents</h2>
-      <div class="documents__controls">
-        <button :disabled="syncing" @click="sync">
-          {{ syncing ? 'Syncing...' : 'Sync (DB only)' }}
+  <section>
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
+        <p class="text-sm text-slate-500">Manage ingestion, embedding, and review analysis status.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+          :disabled="syncing"
+          @click="sync"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-3.3-6.9" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+          {{ syncing ? 'Syncing...' : 'Sync (DB)' }}
         </button>
-        <button :disabled="syncing" @click="reprocessAll">
-          Reprocess all (sync + embed)
+        <button
+          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          :disabled="syncing"
+          @click="reprocessAll"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4v6h6" />
+            <path d="M20 20v-6h-6" />
+            <path d="M4 10a8 8 0 0 1 14.9-3" />
+            <path d="M20 14a8 8 0 0 1-14.9 3" />
+          </svg>
+          Re-process all
         </button>
-        <button :disabled="embedding" @click="reembedCurrent">
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
+          :disabled="embedding"
+          @click="reembedCurrent"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v6m0 6v6" />
+            <path d="M3 12h6m6 0h6" />
+          </svg>
           Re-embed current
         </button>
-        <button v-if="syncStatus.status === 'running'" @click="cancelSync">
-          Cancel sync
-        </button>
-        <label>
-          Current page only
-          <input type="checkbox" v-model="pageOnly" />
-        </label>
-        <label>
-          Incremental
-          <input type="checkbox" v-model="incremental" />
-        </label>
-        <label>
-          Sort
-          <select v-model="ordering">
+      </div>
+    </div>
+
+    <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Sort</label>
+          <select v-model="ordering" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm">
             <option value="-date">Date desc</option>
             <option value="date">Date asc</option>
             <option value="-title">Title desc</option>
@@ -33,181 +56,159 @@
             <option value="-id">ID desc</option>
             <option value="id">ID asc</option>
           </select>
-        </label>
-        <label>
-          Correspondent
-          <select v-model="selectedCorrespondent">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Correspondent</label>
+          <select v-model="selectedCorrespondent" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm">
             <option value="">All</option>
             <option v-for="c in correspondents" :key="c.id" :value="String(c.id)">
               {{ c.name }}
             </option>
           </select>
-        </label>
-        <label>
-          Tag
-          <select v-model="selectedTag">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Tag</label>
+          <select v-model="selectedTag" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm">
             <option value="">All</option>
             <option v-for="t in tags" :key="t.id" :value="String(t.id)">
               {{ t.name }}
             </option>
           </select>
-        </label>
-        <label>
-          From
-          <input type="date" v-model="dateFrom" />
-        </label>
-        <label>
-          To
-          <input type="date" v-model="dateTo" />
-        </label>
-        <label>
-          Page size
-          <select v-model.number="pageSize">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500">From</label>
+          <input type="date" v-model="dateFrom" class="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500">To</label>
+          <input type="date" v-model="dateTo" class="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Page size</label>
+          <select v-model.number="pageSize" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm">
             <option :value="10">10</option>
             <option :value="20">20</option>
             <option :value="50">50</option>
           </select>
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" v-model="pageOnly" />
+          Current page only
         </label>
-        <button @click="load">Reload</button>
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" v-model="incremental" />
+          Incremental
+        </label>
+        <button class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300" @click="load">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-3.3-6.9" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+          Reload
+        </button>
       </div>
-    </div>
-    <div class="documents__search">
-      <div class="documents__search__header">
-        <h3>Semantic search</h3>
-        <div class="documents__search__controls">
-          <input
-            v-model="searchQuery"
-            class="documents__search__input"
-            type="text"
-            placeholder="Ask a question or search..."
-            @keyup.enter="runSearch"
-          />
-          <label>
-            Top K
-            <select v-model.number="searchTopK">
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-            </select>
-          </label>
-          <label>
-            Source
-            <select v-model="searchSource">
-              <option value="">All</option>
-              <option value="vision_ocr">Vision OCR</option>
-              <option value="paperless_ocr">Paperless OCR</option>
-              <option value="pdf_text">PDF text</option>
-            </select>
-          </label>
-          <label>
-            Only vision OCR
-            <input type="checkbox" v-model="searchOnlyVision" />
-          </label>
-          <label>
-            Dedupe
-            <input type="checkbox" v-model="searchDedupe" />
-          </label>
-          <label>
-            Rerank
-            <input type="checkbox" v-model="searchRerank" />
-          </label>
-          <label>
-            Min quality: {{ searchMinQuality }}
-            <input type="range" min="0" max="100" v-model.number="searchMinQuality" />
-          </label>
-          <button :disabled="searchLoading || !searchQuery" @click="runSearch">
-            {{ searchLoading ? 'Searching...' : 'Search' }}
-          </button>
-        </div>
+    </section>
+
+    <section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4 text-sm text-slate-600">
+        <span>Last synced: {{ lastSynced ?? 'never' }}</span>
+        <span v-if="syncStatus.status === 'running'" class="ml-4">Sync: {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA: {{ etaText }}</span>
+        <span v-if="embedStatus.status === 'running'" class="ml-4">Embed: {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%) - ETA: {{ embedEtaText }}</span>
       </div>
-      <div v-if="searchError" class="documents__search__error">{{ searchError }}</div>
-      <div v-else-if="searchResults.length === 0">
-        <em>No results yet.</em>
-      </div>
-      <div v-else class="documents__search__results">
-        <div
-          v-for="result in filteredSearchResults"
-          :key="`${result.doc_id}-${result.page}-${result.source}`"
-          class="documents__search__result"
-          @click="open(result.doc_id)"
-        >
-          <div class="documents__search__meta">
-            Doc {{ result.doc_id }} · Page {{ result.page ?? 'n/a' }} ·
-            {{ result.source || 'unknown' }} ·
-            Score {{ result.score?.toFixed ? result.score.toFixed(3) : result.score }} ·
-            Quality {{ result.quality_score }}
-          </div>
-          <div v-if="result.document" class="documents__search__doc">
-            <strong>{{ result.document.title || `Document ${result.doc_id}` }}</strong>
-            <span>
-              · {{ result.document.document_date || result.document.created || 'n/a' }}
-            </span>
-            <span v-if="result.document.correspondent_name">
-              · {{ result.document.correspondent_name }}
-            </span>
-            <a
-              v-if="paperlessBaseUrl"
-              class="documents__search__paperless"
-              :href="`${paperlessBaseUrl.replace(/\/$/, '')}/documents/${result.doc_id}`"
-              target="_blank"
-              rel="noopener"
-              @click.stop
+      <div class="overflow-hidden">
+        <table class="w-full border-collapse text-sm">
+          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-6 py-3">
+                <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('id')">
+                  ID
+                  <svg
+                    v-if="sortDir('id')"
+                    class="h-3 w-3 text-slate-400"
+                    :class="{ 'rotate-180': sortDir('id') === 'desc' }"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10 4l5 6H5l5-6z" />
+                  </svg>
+                </button>
+              </th>
+              <th class="px-6 py-3">
+                <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('title')">
+                  Title
+                  <svg
+                    v-if="sortDir('title')"
+                    class="h-3 w-3 text-slate-400"
+                    :class="{ 'rotate-180': sortDir('title') === 'desc' }"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10 4l5 6H5l5-6z" />
+                  </svg>
+                </button>
+              </th>
+              <th class="px-6 py-3">
+                <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('date')">
+                  Date
+                  <svg
+                    v-if="sortDir('date')"
+                    class="h-3 w-3 text-slate-400"
+                    :class="{ 'rotate-180': sortDir('date') === 'desc' }"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10 4l5 6H5l5-6z" />
+                  </svg>
+                </button>
+              </th>
+              <th class="px-6 py-3">Correspondent</th>
+              <th class="px-6 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="doc in documents"
+              :key="doc.id"
+              class="border-b border-slate-100 hover:bg-slate-50"
+              @click="open(doc.id)"
             >
-              Open in Paperless
-            </a>
-          </div>
-          <div class="documents__search__snippet">{{ result.snippet }}</div>
-        </div>
+              <td class="px-6 py-3 font-medium text-slate-900">{{ doc.id }}</td>
+              <td class="px-6 py-3 text-slate-900">{{ doc.title }}</td>
+              <td class="px-6 py-3 text-slate-600">{{ formatDate(doc.document_date || doc.created) }}</td>
+              <td class="px-6 py-3 text-slate-600">{{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}</td>
+              <td class="px-6 py-3">
+                <span
+                  v-if="!hasDerived(doc)"
+                  class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700"
+                >
+                  No analysis
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+                >
+                  Analyzed
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-    <div class="documents__status">
-      <span>Last synced: {{ lastSynced ?? 'never' }}</span>
-      <span v-if="syncStatus.status === 'running'">
-        Sync: {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%)
-        - ETA: {{ etaText }}
-      </span>
-      <span v-if="embedStatus.status === 'running'">
-        Embed: {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%)
-        - ETA: {{ embedEtaText }}
-      </span>
-      <div v-if="syncStatus.status === 'running'" class="documents__progress" />
-      <div v-if="embedStatus.status === 'running'" class="documents__progress documents__progress--embed" />
-    </div>
 
-    <table class="documents__table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Title</th>
-          <th>Date</th>
-          <th>Correspondent</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="doc in documents" :key="doc.id" @click="open(doc.id)">
-          <td>{{ doc.id }}</td>
-          <td>{{ doc.title }}</td>
-          <td>{{ doc.document_date || doc.created }}</td>
-          <td>{{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}</td>
-          <td>
-            <span v-if="!hasDerived(doc)" class="badge badge--warn">No analysis</span>
-            <span v-else class="badge badge--ok">Analyzed</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="documents__pagination">
-      <button :disabled="page <= 1" @click="page -= 1; load()">Prev</button>
-      <span>Page {{ page }} of {{ totalPages }}</span>
-      <button :disabled="page >= totalPages" @click="page += 1; load()">Next</button>
-    </div>
+      <div class="flex items-center justify-between px-6 py-4 text-sm text-slate-600">
+        <button class="rounded-lg border border-slate-200 bg-white px-3 py-2" :disabled="page <= 1" @click="page -= 1; load()">Prev</button>
+        <span>Page {{ page }} of {{ totalPages }}</span>
+        <button class="rounded-lg border border-slate-200 bg-white px-3 py-2" :disabled="page >= totalPages" @click="page += 1; load()">Next</button>
+      </div>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, Page } from '../api';
 
@@ -221,23 +222,6 @@ interface DocumentRow {
   has_embeddings?: boolean;
   has_suggestions?: boolean;
   has_vision_pages?: boolean;
-}
-
-interface SearchResult {
-  doc_id: number;
-  page?: number | null;
-  snippet: string;
-  score?: number | null;
-  source?: string | null;
-  quality_score?: number | null;
-  document?: {
-    id: number;
-    title?: string | null;
-    document_date?: string | null;
-    created?: string | null;
-    correspondent_id?: number | null;
-    correspondent_name?: string | null;
-  } | null;
 }
 
 interface Tag {
@@ -282,17 +266,6 @@ const embedStatus = ref({
   eta_seconds: null as number | null,
 });
 let pollHandle: number | null = null;
-const searchQuery = ref('');
-const searchTopK = ref(10);
-const searchSource = ref('');
-const searchResults = ref<SearchResult[]>([]);
-const searchLoading = ref(false);
-const searchError = ref('');
-const searchDedupe = ref(true);
-const searchRerank = ref(true);
-const searchOnlyVision = ref(false);
-const searchMinQuality = ref(0);
-const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
 
 const startPolling = () => {
   if (pollHandle !== null) return;
@@ -311,6 +284,21 @@ const startPolling = () => {
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(totalCount.value / pageSize.value))
 );
+const sortDir = (field: string) => {
+  const current = ordering.value.replace('-', '');
+  if (current !== field) return null;
+  return ordering.value.startsWith('-') ? 'desc' : 'asc';
+};
+
+const toggleSort = (field: string) => {
+  const dir = sortDir(field);
+  if (!dir || dir === 'desc') {
+    ordering.value = field;
+  } else {
+    ordering.value = `-${field}`;
+  }
+  page.value = 1;
+};
 const progressPercent = computed(() => {
   if (!syncStatus.value.total) return 0;
   return Math.min(100, Math.round((syncStatus.value.processed / syncStatus.value.total) * 100));
@@ -354,14 +342,6 @@ const embedEtaText = computed(() => {
   const minutes = Math.floor(etaSec / 60);
   const seconds = etaSec % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-});
-const effectiveSource = computed(() => {
-  if (searchOnlyVision.value) return 'vision_ocr';
-  return searchSource.value || '';
-});
-const filteredSearchResults = computed(() => {
-  if (!effectiveSource.value) return searchResults.value;
-  return searchResults.value.filter((result) => result.source === effectiveSource.value);
 });
 
 const load = async () => {
@@ -479,29 +459,6 @@ const cancelSync = async () => {
   await fetchSyncStatus();
 };
 
-const runSearch = async () => {
-  if (!searchQuery.value) return;
-  searchLoading.value = true;
-  searchError.value = '';
-  try {
-    const { data } = await api.get<{ matches: SearchResult[] }>('/embeddings/search', {
-      params: {
-        q: searchQuery.value,
-        top_k: searchTopK.value,
-        source: effectiveSource.value || undefined,
-        dedupe: searchDedupe.value,
-        rerank: searchRerank.value,
-        min_quality: searchMinQuality.value || undefined,
-      },
-    });
-    searchResults.value = data.matches ?? [];
-  } catch (err: any) {
-    searchError.value = err?.message ?? 'Search failed';
-  } finally {
-    searchLoading.value = false;
-  }
-};
-
 const loadMeta = async () => {
   const [tagsResp, corrResp] = await Promise.all([
     api.get<Page<Tag>>('/tags', { params: { page: 1, page_size: 200 } }),
@@ -525,6 +482,13 @@ const hasDerived = (doc: DocumentRow) => {
   return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages);
 };
 
+const formatDate = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat(navigator.language).format(parsed);
+};
+
 onMounted(async () => {
   await loadMeta();
   await fetchSyncStatus();
@@ -532,150 +496,8 @@ onMounted(async () => {
   await load();
   startPolling();
 });
+
+watch(ordering, async () => {
+  await load();
+});
 </script>
-
-<style scoped>
-.documents__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.documents__controls {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.documents__status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-  color: #475569;
-  flex-wrap: wrap;
-}
-.documents__search {
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  padding: 12px;
-  margin-bottom: 16px;
-}
-.documents__search__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.documents__search__controls {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.documents__search__input {
-  min-width: 280px;
-}
-.documents__search__error {
-  color: #b91c1c;
-}
-.documents__search__results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.documents__search__result {
-  padding: 8px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  cursor: pointer;
-}
-.documents__search__result:hover {
-  background: #f1f5f9;
-}
-.documents__search__meta {
-  font-size: 12px;
-  color: #475569;
-  margin-bottom: 4px;
-}
-.documents__search__doc {
-  font-size: 13px;
-  color: #111827;
-  margin-bottom: 4px;
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-.documents__search__paperless {
-  font-size: 12px;
-  color: #2563eb;
-  text-decoration: none;
-}
-.documents__search__paperless:hover {
-  text-decoration: underline;
-}
-.documents__search__snippet {
-  color: #111827;
-}
-.documents__progress {
-  position: relative;
-  width: 200px;
-  height: 4px;
-  background: #e2e8f0;
-  overflow: hidden;
-  border-radius: 999px;
-}
-.documents__progress::after {
-  content: "";
-  position: absolute;
-  left: -40%;
-  width: 40%;
-  height: 100%;
-  background: #2563eb;
-  animation: progress 1.2s infinite;
-}
-.documents__progress--embed::after {
-  background: #16a34a;
-}
-.documents__table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border: 1px solid #e2e8f0;
-}
-.documents__table th,
-.documents__table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #e2e8f0;
-}
-.documents__table tbody tr:hover {
-  background: #f1f5f9;
-  cursor: pointer;
-}
-.documents__pagination {
-  margin-top: 12px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.badge {
-  display: inline-flex;
-  padding: 2px 8px;
-  font-size: 12px;
-  border-radius: 999px;
-}
-.badge--ok {
-  background: #dcfce7;
-  color: #166534;
-}
-.badge--warn {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-@keyframes progress {
-  0% { left: -40%; }
-  50% { left: 30%; }
-  100% { left: 100%; }
-}
-</style>

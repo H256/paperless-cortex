@@ -6,10 +6,20 @@
           <h1 class="text-lg font-semibold tracking-tight">Paperless Intelligence</h1>
           <p class="text-xs text-slate-500">Arcane · read-only intelligence layer</p>
         </div>
-        <nav class="flex items-center gap-4 text-sm font-medium">
-          <RouterLink class="text-slate-600 hover:text-slate-900" to="/documents">Documents</RouterLink>
-          <RouterLink class="text-slate-600 hover:text-slate-900" to="/connections">Connections</RouterLink>
-          <RouterLink class="text-slate-600 hover:text-slate-900" to="/queue">Queue</RouterLink>
+        <nav class="flex items-center gap-2 text-sm font-medium">
+          <RouterLink to="/documents" v-slot="{ isActive }">
+            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Documents</span>
+          </RouterLink>
+          <RouterLink to="/search" v-slot="{ isActive }">
+            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Search</span>
+          </RouterLink>
+          <RouterLink to="/connections" v-slot="{ isActive }">
+            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Connections</span>
+          </RouterLink>
+          <RouterLink to="/queue" v-slot="{ isActive }">
+            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Queue</span>
+          </RouterLink>
+          <span class="rounded-full px-3 py-1 text-slate-400">Chat</span>
         </nav>
       </div>
     </header>

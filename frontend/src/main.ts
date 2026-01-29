@@ -5,6 +5,7 @@ import DocumentsView from './views/DocumentsView.vue';
 import DocumentDetailView from './views/DocumentDetailView.vue';
 import ConnectionsView from './views/ConnectionsView.vue';
 import QueueView from './views/QueueView.vue';
+import SearchView from './views/SearchView.vue';
 import './index.css';
 
 const router = createRouter({
@@ -13,6 +14,7 @@ const router = createRouter({
     { path: '/', redirect: '/documents' },
     { path: '/documents', component: DocumentsView },
     { path: '/documents/:id', component: DocumentDetailView, props: true },
+    { path: '/search', component: SearchView },
     { path: '/connections', component: ConnectionsView },
     { path: '/queue', component: QueueView },
   ],
