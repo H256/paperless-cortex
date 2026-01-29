@@ -135,169 +135,7 @@
         <div v-else-if="!suggestions" class="mt-3 text-sm text-slate-500">
           No suggestions loaded.
         </div>
-        <div v-else class="mt-4 grid gap-4 lg:grid-cols-3">
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div class="flex items-center justify-between">
-              <strong class="text-sm text-slate-900">Paperless OCR</strong>
-              <button
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                :disabled="suggestionsLoading"
-                @click="refreshSuggestions('paperless_ocr')"
-              >
-                Refresh
-              </button>
-            </div>
-            <div v-if="!paperlessSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
-            <div v-else class="mt-3 space-y-3">
-              <div v-if="paperlessSuggestion.raw">
-                <div class="text-xs font-semibold text-slate-500">Raw output</div>
-                <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ paperlessSuggestion.raw }}</pre>
-              </div>
-              <div v-if="paperlessSuggestion.data" class="space-y-2">
-                <div class="text-xs text-slate-500">Summary</div>
-                <div class="text-sm text-slate-900">{{ paperlessSuggestion.data.summary }}</div>
-                <div class="grid gap-2">
-                  <div class="flex items-center justify-between text-xs text-slate-500">
-                    <span>Document type</span>
-                    <span class="text-slate-900">{{ paperlessSuggestion.data.documentType || paperlessSuggestion.data.suggested_document_type }}</span>
-                  </div>
-                  <div class="flex items-center justify-between text-xs text-slate-500">
-                    <span>Language</span>
-                    <span class="text-slate-900">{{ paperlessSuggestion.data.language }}</span>
-                  </div>
-                </div>
-                <div v-for="field in suggestionFields" :key="`paperless-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
-                  <span class="text-xs text-slate-500">{{ field.label }}</span>
-                  <div class="text-sm text-slate-900">{{ fieldValue(paperlessSuggestion.data, field.key) }}</div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                      :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
-                      @click="suggestField('paperless_ocr', field.key)"
-                    >
-                      Suggest new
-                    </button>
-                    <button
-                      class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
-                      @click="saveField('paperless_ocr', field.key, paperlessSuggestion.data)"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-                <div
-                  v-if="(paperlessSuggestion.data.suggested_tags_existing || []).length || (paperlessSuggestion.data.suggested_tags_new || []).length"
-                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
-                >
-                  <div>Existing tags: {{ (paperlessSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
-                  <div>New tags: {{ (paperlessSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
-                </div>
-                <div
-                  v-for="field in suggestionFields"
-                  :key="`paperless-variants-${field.key}`"
-                  class="rounded-md border border-dashed border-slate-200 bg-white p-2"
-                >
-                  <div v-if="suggestionVariantError[`paperless_ocr:${field.key}`]" class="text-xs text-rose-600">
-                    {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
-                  </div>
-                  <div v-if="(suggestionVariants[`paperless_ocr:${field.key}`] || []).length">
-                    <div class="text-xs font-semibold text-slate-500">Variants for {{ field.label }}</div>
-                    <div v-for="variant in suggestionVariants[`paperless_ocr:${field.key}`]" :key="`${field.key}-${variant}`" class="mt-1 flex items-center justify-between gap-2 text-xs">
-                      <span class="text-slate-700">{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
-                      <button
-                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
-                        @click="applyVariant('paperless_ocr', field.key, variant)"
-                      >
-                        Use
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div class="flex items-center justify-between">
-              <strong class="text-sm text-slate-900">Vision OCR</strong>
-              <button
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                :disabled="suggestionsLoading"
-                @click="refreshSuggestions('vision_ocr')"
-              >
-                Refresh
-              </button>
-            </div>
-            <div v-if="!visionSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
-            <div v-else class="mt-3 space-y-3">
-              <div v-if="visionSuggestion.raw">
-                <div class="text-xs font-semibold text-slate-500">Raw output</div>
-                <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ visionSuggestion.raw }}</pre>
-              </div>
-              <div v-if="visionSuggestion.data" class="space-y-2">
-                <div class="text-xs text-slate-500">Summary</div>
-                <div class="text-sm text-slate-900">{{ visionSuggestion.data.summary }}</div>
-                <div class="grid gap-2">
-                  <div class="flex items-center justify-between text-xs text-slate-500">
-                    <span>Document type</span>
-                    <span class="text-slate-900">{{ visionSuggestion.data.documentType || visionSuggestion.data.suggested_document_type }}</span>
-                  </div>
-                  <div class="flex items-center justify-between text-xs text-slate-500">
-                    <span>Language</span>
-                    <span class="text-slate-900">{{ visionSuggestion.data.language }}</span>
-                  </div>
-                </div>
-                <div v-for="field in suggestionFields" :key="`vision-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
-                  <span class="text-xs text-slate-500">{{ field.label }}</span>
-                  <div class="text-sm text-slate-900">{{ fieldValue(visionSuggestion.data, field.key) }}</div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                      :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
-                      @click="suggestField('vision_ocr', field.key)"
-                    >
-                      Suggest new
-                    </button>
-                    <button
-                      class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
-                      @click="saveField('vision_ocr', field.key, visionSuggestion.data)"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-                <div
-                  v-if="(visionSuggestion.data.suggested_tags_existing || []).length || (visionSuggestion.data.suggested_tags_new || []).length"
-                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
-                >
-                  <div>Existing tags: {{ (visionSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
-                  <div>New tags: {{ (visionSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
-                </div>
-                <div
-                  v-for="field in suggestionFields"
-                  :key="`vision-variants-${field.key}`"
-                  class="rounded-md border border-dashed border-slate-200 bg-white p-2"
-                >
-                  <div v-if="suggestionVariantError[`vision_ocr:${field.key}`]" class="text-xs text-rose-600">
-                    {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
-                  </div>
-                  <div v-if="(suggestionVariants[`vision_ocr:${field.key}`] || []).length">
-                    <div class="text-xs font-semibold text-slate-500">Variants for {{ field.label }}</div>
-                    <div v-for="variant in suggestionVariants[`vision_ocr:${field.key}`]" :key="`${field.key}-${variant}`" class="mt-1 flex items-center justify-between gap-2 text-xs">
-                      <span class="text-slate-700">{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
-                      <button
-                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
-                        @click="applyVariant('vision_ocr', field.key, variant)"
-                      >
-                        Use
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div v-else class="mt-4 space-y-4">
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div class="flex items-center justify-between">
               <strong class="text-sm text-slate-900">Best pick</strong>
@@ -337,6 +175,170 @@
                 >
                   <div>Existing tags: {{ (bestPickSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
                   <div>New tags: {{ (bestPickSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div class="flex items-center justify-between">
+                <strong class="text-sm text-slate-900">Paperless OCR</strong>
+                <button
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                  :disabled="suggestionsLoading"
+                  @click="refreshSuggestions('paperless_ocr')"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div v-if="!paperlessSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
+              <div v-else class="mt-3 space-y-3">
+                <div v-if="paperlessSuggestion.raw">
+                  <div class="text-xs font-semibold text-slate-500">Raw output</div>
+                  <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ paperlessSuggestion.raw }}</pre>
+                </div>
+                <div v-if="paperlessSuggestion.data" class="space-y-2">
+                  <div class="text-xs text-slate-500">Summary</div>
+                  <div class="text-sm text-slate-900">{{ paperlessSuggestion.data.summary }}</div>
+                  <div class="grid gap-2">
+                    <div class="flex items-center justify-between text-xs text-slate-500">
+                      <span>Document type</span>
+                      <span class="text-slate-900">{{ paperlessSuggestion.data.documentType || paperlessSuggestion.data.suggested_document_type }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-slate-500">
+                      <span>Language</span>
+                      <span class="text-slate-900">{{ paperlessSuggestion.data.language }}</span>
+                    </div>
+                  </div>
+                  <div v-for="field in suggestionFields" :key="`paperless-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
+                    <span class="text-xs text-slate-500">{{ field.label }}</span>
+                    <div class="text-sm text-slate-900">{{ fieldValue(paperlessSuggestion.data, field.key) }}</div>
+                    <div class="flex items-center gap-2">
+                      <button
+                        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                        :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
+                        @click="suggestField('paperless_ocr', field.key)"
+                      >
+                        Suggest new
+                      </button>
+                      <button
+                        class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                        @click="saveField('paperless_ocr', field.key, paperlessSuggestion.data)"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="(paperlessSuggestion.data.suggested_tags_existing || []).length || (paperlessSuggestion.data.suggested_tags_new || []).length"
+                    class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
+                  >
+                    <div>Existing tags: {{ (paperlessSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
+                    <div>New tags: {{ (paperlessSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
+                  </div>
+                  <div
+                    v-for="field in suggestionFields"
+                    :key="`paperless-variants-${field.key}`"
+                    class="rounded-md border border-dashed border-slate-200 bg-white p-2"
+                  >
+                    <div v-if="suggestionVariantError[`paperless_ocr:${field.key}`]" class="text-xs text-rose-600">
+                      {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
+                    </div>
+                    <div v-if="(suggestionVariants[`paperless_ocr:${field.key}`] || []).length">
+                      <div class="text-xs font-semibold text-slate-500">Variants for {{ field.label }}</div>
+                      <div v-for="variant in suggestionVariants[`paperless_ocr:${field.key}`]" :key="`${field.key}-${variant}`" class="mt-1 flex items-center justify-between gap-2 text-xs">
+                        <span class="text-slate-700">{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
+                        <button
+                          class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
+                          @click="applyVariant('paperless_ocr', field.key, variant)"
+                        >
+                          Use
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div class="flex items-center justify-between">
+                <strong class="text-sm text-slate-900">Vision OCR</strong>
+                <button
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                  :disabled="suggestionsLoading"
+                  @click="refreshSuggestions('vision_ocr')"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div v-if="!visionSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
+              <div v-else class="mt-3 space-y-3">
+                <div v-if="visionSuggestion.raw">
+                  <div class="text-xs font-semibold text-slate-500">Raw output</div>
+                  <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ visionSuggestion.raw }}</pre>
+                </div>
+                <div v-if="visionSuggestion.data" class="space-y-2">
+                  <div class="text-xs text-slate-500">Summary</div>
+                  <div class="text-sm text-slate-900">{{ visionSuggestion.data.summary }}</div>
+                  <div class="grid gap-2">
+                    <div class="flex items-center justify-between text-xs text-slate-500">
+                      <span>Document type</span>
+                      <span class="text-slate-900">{{ visionSuggestion.data.documentType || visionSuggestion.data.suggested_document_type }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-slate-500">
+                      <span>Language</span>
+                      <span class="text-slate-900">{{ visionSuggestion.data.language }}</span>
+                    </div>
+                  </div>
+                  <div v-for="field in suggestionFields" :key="`vision-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
+                    <span class="text-xs text-slate-500">{{ field.label }}</span>
+                    <div class="text-sm text-slate-900">{{ fieldValue(visionSuggestion.data, field.key) }}</div>
+                    <div class="flex items-center gap-2">
+                      <button
+                        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                        :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
+                        @click="suggestField('vision_ocr', field.key)"
+                      >
+                        Suggest new
+                      </button>
+                      <button
+                        class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                        @click="saveField('vision_ocr', field.key, visionSuggestion.data)"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="(visionSuggestion.data.suggested_tags_existing || []).length || (visionSuggestion.data.suggested_tags_new || []).length"
+                    class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
+                  >
+                    <div>Existing tags: {{ (visionSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
+                    <div>New tags: {{ (visionSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
+                  </div>
+                  <div
+                    v-for="field in suggestionFields"
+                    :key="`vision-variants-${field.key}`"
+                    class="rounded-md border border-dashed border-slate-200 bg-white p-2"
+                  >
+                    <div v-if="suggestionVariantError[`vision_ocr:${field.key}`]" class="text-xs text-rose-600">
+                      {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
+                    </div>
+                    <div v-if="(suggestionVariants[`vision_ocr:${field.key}`] || []).length">
+                      <div class="text-xs font-semibold text-slate-500">Variants for {{ field.label }}</div>
+                      <div v-for="variant in suggestionVariants[`vision_ocr:${field.key}`]" :key="`${field.key}-${variant}`" class="mt-1 flex items-center justify-between gap-2 text-xs">
+                        <span class="text-slate-700">{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
+                        <button
+                          class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
+                          @click="applyVariant('vision_ocr', field.key, variant)"
+                        >
+                          Use
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
