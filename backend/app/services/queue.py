@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 QUEUE_KEY = "paperless_intelligence:doc_queue"
 QUEUE_SET = "paperless_intelligence:doc_queue_set"
+TASK_TYPES = ['vision_ocr', 'suggestions', 'embeddings', 'sync']
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
@@ -49,11 +50,12 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     for doc_id in ids:
         if client.sadd(QUEUE_SET, doc_id):
             added.append(doc_id)
-        # If a vision-refresh task exists for this doc, remove it in favor of full.
-        refresh_key = f"{doc_id}:vision_refresh"
-        if client.srem(QUEUE_SET, refresh_key):
-            payload = __import__("json").dumps({"doc_id": int(doc_id), "task": "vision_refresh"})
-            client.lrem(QUEUE_KEY, 0, payload)
+        # If task-specific items exist for this doc, remove them in favor of full.
+        for task_type in TASK_TYPES:
+            task_key = f"{doc_id}:{task_type}"
+            if client.srem(QUEUE_SET, task_key):
+                payload = __import__("json").dumps({"doc_id": int(doc_id), "task": task_type})
+                client.lrem(QUEUE_KEY, 0, payload)
     if not added:
         return 0
     client.rpush(QUEUE_KEY, *added)
@@ -105,6 +107,16 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
     client.lpush(QUEUE_KEY, payload)
     logger.info("Prioritized task=%s", key)
     return 1
+
+
+def enqueue_task_sequence_front(settings: Settings, tasks: list[dict]) -> int:
+    if not tasks:
+        return 0
+    added = 0
+    # lpush in reverse so the first task runs first
+    for task in reversed(tasks):
+        added += enqueue_task_front(settings, task)
+    return added
 
 
 def enqueue_docs_front(settings: Settings, doc_ids: Iterable[int]) -> int:

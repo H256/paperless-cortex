@@ -23,7 +23,7 @@ from app.services.text_pages import get_baseline_page_texts, get_page_text_layer
 from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
 from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
-from app.services.queue import enqueue_docs_front, enqueue_task_front
+from app.services.queue import enqueue_docs_front, enqueue_task_front, enqueue_task_sequence_front
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -268,8 +268,17 @@ def get_document_suggestions(
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
         return vision_suggestions
 
-    if refresh and priority and source == "vision_ocr" and settings.queue_enabled:
-        enqueue_task_front(settings, {"doc_id": doc_id, "task": "vision_refresh"})
+    if refresh and priority and settings.queue_enabled:
+        if source == "vision_ocr":
+            enqueue_task_sequence_front(
+                settings,
+                [
+                    {"doc_id": doc_id, "task": "vision_ocr"},
+                    {"doc_id": doc_id, "task": "suggestions"},
+                ],
+            )
+        elif source == "paperless_ocr":
+            enqueue_task_front(settings, {"doc_id": doc_id, "task": "suggestions"})
         stored = (
             db.query(DocumentSuggestion)
             .filter(DocumentSuggestion.doc_id == doc_id)

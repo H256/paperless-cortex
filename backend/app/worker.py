@@ -122,15 +122,14 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         upsert_suggestion(db, doc_id, "vision_ocr", __import__("json").dumps(vision_suggestions, ensure_ascii=False))
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
 
-
-def _process_vision_refresh(settings, db: Session, doc_id: int) -> None:
+def _process_vision_ocr_only(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort vision refresh doc=%s", doc_id)
+        logger.info("Worker cancel requested; abort vision OCR doc=%s", doc_id)
         return
     doc = db.get(Document, doc_id)
     if not doc:
         return
-    baseline_pages, vision_pages = get_page_text_layers(
+    _, vision_pages = get_page_text_layers(
         settings,
         doc.content,
         fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
@@ -138,11 +137,33 @@ def _process_vision_refresh(settings, db: Session, doc_id: int) -> None:
     )
     if vision_pages:
         upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+    db.commit()
+
+
+def _process_suggestions_only(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort suggestions doc=%s", doc_id)
+        return
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return
+    tags = get_cached_tags(settings)
+    correspondents = get_cached_correspondents(settings)
+    raw = paperless.get_document(settings, doc_id)
+    baseline_text = doc.content or ""
+    baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
+    baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
+    upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+    audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
+    vision_pages = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+        .order_by(DocumentPageText.page.asc())
+        .all()
+    )
+    if vision_pages:
         vision_text = "\n\n".join(page.text or "" for page in vision_pages).strip()
         if vision_text:
-            tags = get_cached_tags(settings)
-            correspondents = get_cached_correspondents(settings)
-            raw = paperless.get_document(settings, doc_id)
             vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
             vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
             upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
@@ -197,8 +218,10 @@ def main() -> None:
         mark_in_progress(settings)
         try:
             with SessionLocal() as db:
-                if task_type == "vision_refresh":
-                    _process_vision_refresh(settings, db, doc_id)
+                if task_type == "vision_ocr":
+                    _process_vision_ocr_only(settings, db, doc_id)
+                elif task_type == "suggestions":
+                    _process_suggestions_only(settings, db, doc_id)
                 else:
                     _process_doc(settings, db, doc_id)
         except Exception as exc:
@@ -206,8 +229,8 @@ def main() -> None:
         finally:
             mark_done(settings)
             if client:
-                if task_type == "vision_refresh":
-                    client.srem(QUEUE_SET, f"{doc_id}:vision_refresh")
+                if task_type in ("vision_ocr", "suggestions", "embeddings", "sync"):
+                    client.srem(QUEUE_SET, f"{doc_id}:{task_type}")
                 else:
                     client.srem(QUEUE_SET, str(doc_id))
 
