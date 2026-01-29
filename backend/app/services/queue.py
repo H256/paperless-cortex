@@ -65,6 +65,30 @@ def queue_stats(settings: Settings) -> dict[str, int] | None:
     }
 
 
+def peek_queue(settings: Settings, limit: int = 20) -> list[int]:
+    client = _get_client(settings)
+    if not client:
+        return []
+    raw = client.lrange(QUEUE_KEY, 0, max(0, limit - 1))
+    return [int(x) for x in raw if str(x).isdigit()]
+
+
+def clear_queue(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.delete(QUEUE_KEY)
+
+
+def reset_stats(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.set(STATS_TOTAL, 0)
+    client.set(STATS_IN_PROGRESS, 0)
+    client.set(STATS_DONE, 0)
+
+
 def mark_in_progress(settings: Settings) -> None:
     client = _get_client(settings)
     if not client:

@@ -4,6 +4,7 @@ import App from './App.vue';
 import DocumentsView from './views/DocumentsView.vue';
 import DocumentDetailView from './views/DocumentDetailView.vue';
 import ConnectionsView from './views/ConnectionsView.vue';
+import QueueView from './views/QueueView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -12,6 +13,7 @@ const router = createRouter({
     { path: '/documents', component: DocumentsView },
     { path: '/documents/:id', component: DocumentDetailView, props: true },
     { path: '/connections', component: ConnectionsView },
+    { path: '/queue', component: QueueView },
   ],
 });
 

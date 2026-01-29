@@ -5,6 +5,7 @@
       <nav class="app__nav">
         <RouterLink to="/documents">Documents</RouterLink>
         <RouterLink to="/connections">Connections</RouterLink>
+        <RouterLink to="/queue">Queue</RouterLink>
       </nav>
     </header>
     <main class="app__main">
