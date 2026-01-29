@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import connections, documents, embeddings, meta, sync
+from app.routes import connections, documents, embeddings, meta, sync, queue
 from app.config import load_settings
 from app.services.meta_cache import refresh_cache
 
@@ -27,6 +27,7 @@ api.include_router(meta.router)
 api.include_router(connections.router)
 api.include_router(sync.router)
 api.include_router(embeddings.router)
+api.include_router(queue.router)
 
 app.mount("/api", api)
 

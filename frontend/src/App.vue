@@ -10,10 +10,40 @@
     <main class="app__main">
       <RouterView />
     </main>
+    <footer class="app__footer">
+      <div v-if="queueStatus.enabled">
+        Queue: {{ queueStatus.length ?? 'n/a' }}
+      </div>
+      <div v-else>
+        Queue: disabled
+      </div>
+    </footer>
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { api } from './api';
+
+const queueStatus = ref<{ enabled: boolean; length: number | null }>({
+  enabled: false,
+  length: null,
+});
+
+const fetchQueueStatus = async () => {
+  try {
+    const { data } = await api.get<{ enabled: boolean; length: number | null }>('/queue/status');
+    queueStatus.value = data;
+  } catch {
+    queueStatus.value = { enabled: false, length: null };
+  }
+};
+
+onMounted(() => {
+  fetchQueueStatus();
+  setInterval(fetchQueueStatus, 5000);
+});
+</script>
 
 <style scoped>
 .app {
@@ -37,5 +67,12 @@
 }
 .app__main {
   padding: 24px;
+}
+.app__footer {
+  padding: 12px 24px;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
 }
 </style>

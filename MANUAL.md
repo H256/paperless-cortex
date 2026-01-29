@@ -60,6 +60,11 @@ Paperless Intelligence is a read‑only companion to Paperless‑ngx. It syncs m
 ## Auditing
 - Suggestion runs and field overrides are written to `suggestion_audit`.
 
+## Queue
+- Optional Redis queue for document processing.
+- Enable with `QUEUE_ENABLED=1` and `REDIS_HOST=...`.
+- UI footer shows current queue length.
+
 ## Important notes
 - No automatic writeback to Paperless (read‑only).
 - If Vision OCR is enabled, reprocessing embeds both baseline and vision layers.

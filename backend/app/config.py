@@ -15,6 +15,7 @@ class Settings:
     qdrant_url: str | None
     qdrant_api_key: str | None
     redis_host: str | None
+    queue_enabled: bool
     ollama_base_url: str | None
     ollama_model: str | None
     embedding_model: str | None
@@ -54,6 +55,7 @@ def load_settings() -> Settings:
         qdrant_url=os.getenv("QDRANT_URL"),
         qdrant_api_key=os.getenv("QDRANT_API_KEY"),
         redis_host=os.getenv("REDIS_HOST"),
+        queue_enabled=os.getenv("QUEUE_ENABLED", "0") == "1",
         ollama_base_url=os.getenv("OLLAMA_BASE_URL"),
         ollama_model=os.getenv("OLLAMA_MODEL"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
