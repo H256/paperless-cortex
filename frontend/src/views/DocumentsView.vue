@@ -5,8 +5,11 @@
         <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
         <p class="text-sm text-slate-500">Manage ingestion, embedding, and review analysis status.</p>
       </div>
+    </div>
+
+    <section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+        <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
           <label class="inline-flex items-center gap-2">
             <input type="checkbox" v-model="pageOnly" />
             Current page only
@@ -69,9 +72,10 @@
           Re-process missing
         </button>
       </div>
-    </div>
+    </section>
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Filters</div>
       <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <div>
           <label class="text-xs font-semibold text-slate-500">Sort</label>
