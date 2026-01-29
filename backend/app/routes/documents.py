@@ -147,6 +147,8 @@ def get_document(doc_id: int, settings: Settings = Depends(settings_dep)):
 def get_document_text_quality(doc_id: int, settings: Settings = Depends(settings_dep)):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch text quality doc=%s", doc_id)
+    if settings.queue_enabled:
+        enqueue_docs_front(settings, [doc_id])
     raw = paperless.get_document(settings, doc_id)
     content = raw.get("content") or ""
     quality = score_text_quality(content, settings)
@@ -372,6 +374,8 @@ def get_document_page_texts(
 ):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch page texts doc=%s", doc_id)
+    if settings.queue_enabled:
+        enqueue_docs_front(settings, [doc_id])
     raw = paperless.get_document(settings, doc_id)
     content = raw.get("content")
     baseline_pages = get_baseline_page_texts(
