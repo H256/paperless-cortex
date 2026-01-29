@@ -5,6 +5,7 @@ import DocumentsView from './views/DocumentsView.vue';
 import DocumentDetailView from './views/DocumentDetailView.vue';
 import ConnectionsView from './views/ConnectionsView.vue';
 import QueueView from './views/QueueView.vue';
+import './index.css';
 
 const router = createRouter({
   history: createWebHistory(),

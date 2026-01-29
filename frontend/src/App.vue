@@ -1,31 +1,28 @@
 <template>
-  <div class="app">
-    <header class="app__header">
-      <h1>Paperless Intelligence</h1>
-      <nav class="app__nav">
-        <RouterLink to="/documents">Documents</RouterLink>
-        <RouterLink to="/connections">Connections</RouterLink>
-        <RouterLink to="/queue">Queue</RouterLink>
-      </nav>
+  <div class="min-h-screen bg-slate-50 text-slate-900">
+    <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight">Paperless Intelligence</h1>
+          <p class="text-xs text-slate-500">Arcane · read-only intelligence layer</p>
+        </div>
+        <nav class="flex items-center gap-4 text-sm font-medium">
+          <RouterLink class="text-slate-600 hover:text-slate-900" to="/documents">Documents</RouterLink>
+          <RouterLink class="text-slate-600 hover:text-slate-900" to="/connections">Connections</RouterLink>
+          <RouterLink class="text-slate-600 hover:text-slate-900" to="/queue">Queue</RouterLink>
+        </nav>
+      </div>
     </header>
-    <main class="app__main">
+    <main class="mx-auto max-w-7xl px-6 py-6">
       <RouterView />
     </main>
-    <footer class="app__footer">
-      <div v-if="queueStatus.enabled">
-        Queue: {{ queueStatus.length ?? 'n/a' }}
-      </div>
-      <div v-if="queueStatus.enabled">
-        In progress: {{ queueStatus.in_progress ?? 0 }}
-      </div>
-      <div v-if="queueStatus.enabled">
-        Done: {{ queueStatus.done ?? 0 }}
-      </div>
-      <div v-if="queueStatus.enabled">
-        Total: {{ queueStatus.total ?? 0 }}
-      </div>
-      <div v-else>
-        Queue: disabled
+    <footer class="border-t border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-6 py-3 text-xs text-slate-500">
+        <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
+        <div v-if="queueStatus.enabled">In progress: {{ queueStatus.in_progress ?? 0 }}</div>
+        <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
+        <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
+        <div v-else>Queue: disabled</div>
       </div>
     </footer>
   </div>
@@ -35,7 +32,7 @@
 import { onMounted, ref } from 'vue';
 import { api } from './api';
 
-const queueStatus = ref<{ enabled: boolean; length: number | null }>({
+const queueStatus = ref<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>({
   enabled: false,
   length: null,
 });
@@ -56,37 +53,3 @@ onMounted(() => {
   setInterval(fetchQueueStatus, 5000);
 });
 </script>
-
-<style scoped>
-.app {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: #1f2937;
-  background: #f8fafc;
-  min-height: 100vh;
-}
-.app__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
-}
-.app__nav a {
-  margin-left: 12px;
-  color: #2563eb;
-  text-decoration: none;
-}
-.app__main {
-  padding: 24px;
-}
-.app__footer {
-  padding: 12px 24px;
-  background: white;
-  border-top: 1px solid #e2e8f0;
-  color: #64748b;
-  font-size: 12px;
-  display: flex;
-  gap: 12px;
-}
-</style>
