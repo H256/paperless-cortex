@@ -169,13 +169,21 @@
                 <div v-for="field in suggestionFields" :key="`paperless-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
                   <span class="text-xs text-slate-500">{{ field.label }}</span>
                   <div class="text-sm text-slate-900">{{ fieldValue(paperlessSuggestion.data, field.key) }}</div>
-                  <button
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                    :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
-                    @click="suggestField('paperless_ocr', field.key)"
-                  >
-                    Suggest new
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                      :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
+                      @click="suggestField('paperless_ocr', field.key)"
+                    >
+                      Suggest new
+                    </button>
+                    <button
+                      class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                      @click="saveField('paperless_ocr', field.key, paperlessSuggestion.data)"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
                 <div
                   v-if="(paperlessSuggestion.data.suggested_tags_existing || []).length || (paperlessSuggestion.data.suggested_tags_new || []).length"
@@ -242,13 +250,21 @@
                 <div v-for="field in suggestionFields" :key="`vision-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
                   <span class="text-xs text-slate-500">{{ field.label }}</span>
                   <div class="text-sm text-slate-900">{{ fieldValue(visionSuggestion.data, field.key) }}</div>
-                  <button
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                    :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
-                    @click="suggestField('vision_ocr', field.key)"
-                  >
-                    Suggest new
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                      :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
+                      @click="suggestField('vision_ocr', field.key)"
+                    >
+                      Suggest new
+                    </button>
+                    <button
+                      class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                      @click="saveField('vision_ocr', field.key, visionSuggestion.data)"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
                 <div
                   v-if="(visionSuggestion.data.suggested_tags_existing || []).length || (visionSuggestion.data.suggested_tags_new || []).length"
@@ -512,6 +528,17 @@ const applyVariant = async (
   }
 };
 
+const saveField = async (source: 'paperless_ocr' | 'vision_ocr', field: string, data: any) => {
+  if (!data) return;
+  let value: any = data[field];
+  if (field === 'title') value = data.title || data.suggested_title || '';
+  if (field === 'date') value = data.date || data.suggested_document_date || '';
+  if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || '';
+  if (field === 'tags') value = data.tags || data.suggested_tags || [];
+  if (value === null || value === undefined || value === '') return;
+  await applyVariant(source, field, value);
+};
+
 
 const rows = computed(() => {
   if (!document.value) return [];
@@ -530,9 +557,9 @@ const rows = computed(() => {
   return [
     { label: 'ID', value: document.value.id },
     { label: 'Title', value: document.value.title },
-    { label: 'Document date', value: document.value.document_date },
-    { label: 'Created', value: document.value.created },
-    { label: 'Modified', value: document.value.modified },
+    { label: 'Document date', value: formatDate(document.value.document_date) },
+    { label: 'Created', value: formatDateTime(document.value.created) },
+    { label: 'Modified', value: formatDateTime(document.value.modified) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
@@ -540,6 +567,23 @@ const rows = computed(() => {
     { label: 'Notes', value: notes },
   ];
 });
+
+const formatDate = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat(navigator.language).format(parsed);
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat(navigator.language, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsed);
+};
 
 const load = async () => {
   loading.value = true;
