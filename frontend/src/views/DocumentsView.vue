@@ -6,15 +6,26 @@
         <p class="text-sm text-slate-500">Manage ingestion, embedding, and review analysis status.</p>
       </div>
       <div class="flex items-center gap-3">
-        <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+        <div class="grid grid-cols-4 gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
           <div class="text-slate-500">Synced</div>
           <div class="font-semibold text-slate-900">{{ stats.total }}</div>
-          <div class="text-slate-500">Processed</div>
-          <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
-          <div class="text-slate-500">Pending</div>
-          <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
           <div class="text-slate-500">Queued</div>
           <div class="font-semibold text-indigo-600">{{ queueStatus.enabled ? (queueStatus.length ?? 0) : 0 }}</div>
+
+          <div class="text-slate-500">Embeddings</div>
+          <div class="font-semibold text-emerald-600">{{ stats.embeddings }}</div>
+          <div class="text-slate-500">Vision OCR</div>
+          <div class="font-semibold text-emerald-600">{{ stats.vision }}</div>
+
+          <div class="text-slate-500">Suggestions</div>
+          <div class="font-semibold text-emerald-600">{{ stats.suggestions }}</div>
+          <div class="text-slate-500">Fully processed</div>
+          <div class="font-semibold text-emerald-700">{{ stats.fully_processed }}</div>
+
+          <div class="text-slate-500">Pending</div>
+          <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
+          <div class="text-slate-500">Processed*</div>
+          <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
         </div>
         <div v-if="isProcessing" class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
           <svg
@@ -334,7 +345,15 @@ const queueStatus = ref<{ enabled: boolean; length: number | null; total?: numbe
   enabled: false,
   length: null,
 });
-const stats = ref({ total: 0, processed: 0, unprocessed: 0 });
+const stats = ref({
+  total: 0,
+  processed: 0,
+  unprocessed: 0,
+  embeddings: 0,
+  vision: 0,
+  suggestions: 0,
+  fully_processed: 0,
+});
 let pollHandle: number | null = null;
 
 const startPolling = () => {
@@ -572,10 +591,26 @@ const fetchQueueStatus = async () => {
 
 const fetchStats = async () => {
   try {
-    const { data } = await api.get<{ total: number; processed: number; unprocessed: number }>('/documents/stats');
+    const { data } = await api.get<{
+      total: number;
+      processed: number;
+      unprocessed: number;
+      embeddings: number;
+      vision: number;
+      suggestions: number;
+      fully_processed: number;
+    }>('/documents/stats');
     stats.value = data;
   } catch {
-    stats.value = { total: 0, processed: 0, unprocessed: 0 };
+    stats.value = {
+      total: 0,
+      processed: 0,
+      unprocessed: 0,
+      embeddings: 0,
+      vision: 0,
+      suggestions: 0,
+      fully_processed: 0,
+    };
   }
 };
 

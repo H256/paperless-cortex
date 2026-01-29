@@ -89,7 +89,29 @@ def list_documents(
 @router.get("/stats")
 def get_document_stats(db: Session = Depends(get_db)):
     total = db.query(Document).count()
-    processed = (
+    embeddings = (
+        db.query(Document.id)
+        .filter(exists().where(DocumentEmbedding.doc_id == Document.id))
+        .count()
+    )
+    vision = (
+        db.query(Document.id)
+        .filter(
+            exists().where(
+                and_(
+                    DocumentPageText.doc_id == Document.id,
+                    DocumentPageText.source == "vision_ocr",
+                )
+            )
+        )
+        .count()
+    )
+    suggestions = (
+        db.query(Document.id)
+        .filter(exists().where(DocumentSuggestion.doc_id == Document.id))
+        .count()
+    )
+    fully_processed = (
         db.query(Document.id)
         .filter(
             exists().where(DocumentEmbedding.doc_id == Document.id),
@@ -103,8 +125,16 @@ def get_document_stats(db: Session = Depends(get_db)):
         )
         .count()
     )
-    unprocessed = max(0, total - processed)
-    return {"total": total, "processed": processed, "unprocessed": unprocessed}
+    unprocessed = max(0, total - fully_processed)
+    return {
+        "total": total,
+        "processed": embeddings,
+        "unprocessed": unprocessed,
+        "embeddings": embeddings,
+        "vision": vision,
+        "suggestions": suggestions,
+        "fully_processed": fully_processed,
+    }
 
 
 @router.get("/{doc_id}")
