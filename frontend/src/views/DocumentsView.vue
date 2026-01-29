@@ -139,8 +139,6 @@
             <option value="date">Date asc</option>
             <option value="-title">Title desc</option>
             <option value="title">Title asc</option>
-            <option value="-id">ID desc</option>
-            <option value="id">ID asc</option>
           </select>
         </div>
         <div>
@@ -196,20 +194,6 @@
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-6 py-3">
-                <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('id')">
-                  ID
-                  <svg
-                    v-if="sortDir('id')"
-                    class="h-3 w-3 text-slate-400"
-                    :class="{ 'rotate-180': sortDir('id') === 'desc' }"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path d="M10 4l5 6H5l5-6z" />
-                  </svg>
-                </button>
-              </th>
-              <th class="px-6 py-3">
                 <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('title')">
                   Title
                   <svg
@@ -238,6 +222,7 @@
                 </button>
               </th>
               <th class="px-6 py-3">Correspondent</th>
+              <th class="px-6 py-3">Links</th>
               <th class="px-6 py-3">Status</th>
             </tr>
           </thead>
@@ -248,10 +233,26 @@
               class="border-b border-slate-100 hover:bg-slate-50"
               @click="open(doc.id)"
             >
-              <td class="px-6 py-3 font-medium text-slate-900">{{ doc.id }}</td>
               <td class="px-6 py-3 text-slate-900">{{ doc.title }}</td>
               <td class="px-6 py-3 text-slate-600">{{ formatDate(doc.document_date || doc.created) }}</td>
               <td class="px-6 py-3 text-slate-600">{{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}</td>
+              <td class="px-6 py-3 text-slate-600">
+                <a
+                  v-if="paperlessBaseUrl"
+                  class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                  :href="`${paperlessBaseUrl.replace(/\\/$/, '')}/documents/${doc.id}`"
+                  target="_blank"
+                  rel="noopener"
+                  @click.stop
+                >
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 3h7v7" />
+                    <path d="M10 14L21 3" />
+                    <path d="M5 7v14h14v-7" />
+                  </svg>
+                  Paperless
+                </a>
+              </td>
               <td class="px-6 py-3">
                 <span
                   v-if="!hasDerived(doc)"
@@ -354,6 +355,7 @@ const stats = ref({
   suggestions: 0,
   fully_processed: 0,
 });
+const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
 let pollHandle: number | null = null;
 
 const startPolling = () => {
