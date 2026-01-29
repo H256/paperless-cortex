@@ -8,18 +8,49 @@
         </div>
         <nav class="flex items-center gap-2 text-sm font-medium">
           <RouterLink to="/documents" v-slot="{ isActive }">
-            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Documents</span>
+            <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M7 3h7l5 5v13H7z" />
+                <path d="M14 3v5h5" />
+              </svg>
+              Documents
+            </span>
           </RouterLink>
           <RouterLink to="/search" v-slot="{ isActive }">
-            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Search</span>
+            <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="16.65" y1="16.65" x2="21" y2="21" />
+              </svg>
+              Search
+            </span>
           </RouterLink>
           <RouterLink to="/connections" v-slot="{ isActive }">
-            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Connections</span>
+            <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 0 1 7 0l1 1" />
+                <path d="M4 11a5 5 0 0 1 7 0l1 1" />
+                <path d="M8 7a5 5 0 0 1 7 0l1 1" />
+              </svg>
+              Connections
+            </span>
           </RouterLink>
           <RouterLink to="/queue" v-slot="{ isActive }">
-            <span :class="['rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">Queue</span>
+            <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16" />
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
+              </svg>
+              Queue
+            </span>
           </RouterLink>
-          <span class="rounded-full px-3 py-1 text-slate-400">Chat</span>
+          <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-slate-400">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+            </svg>
+            Chat
+          </span>
         </nav>
       </div>
     </header>

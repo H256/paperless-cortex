@@ -5,11 +5,22 @@
         <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
         <p class="text-sm text-slate-500">Manage ingestion, embedding, and review analysis status.</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="pageOnly" />
+            Current page only
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="incremental" />
+            Incremental
+          </label>
+        </div>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
           :disabled="syncing"
           @click="sync"
+          title="Sync documents into the local database"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12a9 9 0 1 1-3.3-6.9" />
@@ -21,6 +32,7 @@
           class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
           :disabled="syncing"
           @click="reprocessAll"
+          title="Reprocess all documents: sync + OCR/embeddings"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 4v6h6" />
@@ -34,12 +46,27 @@
           class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
           :disabled="embedding"
           @click="reembedCurrent"
+          title="Re-embed documents (all or current page depending on settings)"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 3v6m0 6v6" />
             <path d="M3 12h6m6 0h6" />
           </svg>
-          Re-embed current
+          Re-embed listed
+        </button>
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:border-amber-300"
+          :disabled="syncing"
+          @click="reprocessMissing"
+          title="Reprocess only documents missing embeddings and/or vision OCR (current list)"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9" />
+            <path d="M12 4h9" />
+            <path d="M12 12h9" />
+            <path d="M3 12l3 3 6-6" />
+          </svg>
+          Re-process missing
         </button>
       </div>
     </div>
@@ -94,15 +121,7 @@
       </div>
 
       <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-        <label class="inline-flex items-center gap-2">
-          <input type="checkbox" v-model="pageOnly" />
-          Current page only
-        </label>
-        <label class="inline-flex items-center gap-2">
-          <input type="checkbox" v-model="incremental" />
-          Incremental
-        </label>
-        <button class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300" @click="load">
+        <button class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300" @click="load" title="Reload current list">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12a9 9 0 1 1-3.3-6.9" />
             <polyline points="21 3 21 9 15 9" />
@@ -427,6 +446,29 @@ const reembedCurrent = async () => {
     await fetchEmbedStatus();
   } finally {
     embedding.value = false;
+  }
+};
+
+const reprocessMissing = async () => {
+  syncing.value = true;
+  startPolling();
+  try {
+    const missing = documents.value.filter(
+      (doc) => !doc.has_embeddings || !doc.has_vision_pages
+    );
+    for (const doc of missing) {
+      await api.post(`/sync/documents/${doc.id}`, undefined, {
+        params: {
+          embed: true,
+          force_embed: true,
+        },
+      });
+    }
+    await fetchSyncStatus();
+    await fetchEmbedStatus();
+    await load();
+  } finally {
+    syncing.value = false;
   }
 };
 
