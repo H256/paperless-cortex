@@ -567,6 +567,7 @@ const applyToDocument = async (source: string, field: string, data: any) => {
   if (field === 'date') value = data.date || data.suggested_document_date || '';
   if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || '';
   if (field === 'tags') value = data.tags || data.suggested_tags || [];
+  if (field === 'note') value = data.summary || '';
   if (value === null || value === undefined || value === '') return;
   const label = typeof value === 'string' ? value : JSON.stringify(value);
   const ok = window.confirm(`Apply ${field} to document: ${label}?`);
