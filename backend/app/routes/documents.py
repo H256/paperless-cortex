@@ -251,7 +251,10 @@ def get_document_suggestions(
         if not vision_pages:
             logger.warning("Vision OCR produced no pages doc=%s", doc_id)
             return {"error": "vision_ocr_empty"}
-        vision_text = "\n\n".join(page.text or "" for page in vision_pages)
+        vision_text = "\n\n".join(page.text or "" for page in vision_pages).strip()
+        if not vision_text:
+            logger.warning("Vision OCR returned empty text doc=%s", doc_id)
+            return {"error": "vision_ocr_empty_text"}
         vision_suggestions = generate_suggestions(
             settings,
             raw,
@@ -271,6 +274,31 @@ def get_document_suggestions(
             vision = run_vision()
             if vision is not None:
                 suggestions_by_source["vision_ocr"] = vision
+        # Ensure best_pick has both sources when refreshing only one side.
+        if source == "vision_ocr" and "paperless_ocr" not in suggestions_by_source:
+            stored = (
+                db.query(DocumentSuggestion)
+                .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == "paperless_ocr")
+                .one_or_none()
+            )
+            if stored:
+                try:
+                    parsed = json.loads(stored.payload)
+                    suggestions_by_source["paperless_ocr"] = normalize_suggestions_payload(parsed, tags)
+                except Exception:
+                    suggestions_by_source["paperless_ocr"] = {"raw": stored.payload}
+        if source == "paperless_ocr" and "vision_ocr" not in suggestions_by_source:
+            stored = (
+                db.query(DocumentSuggestion)
+                .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == "vision_ocr")
+                .one_or_none()
+            )
+            if stored:
+                try:
+                    parsed = json.loads(stored.payload)
+                    suggestions_by_source["vision_ocr"] = normalize_suggestions_payload(parsed, tags)
+                except Exception:
+                    suggestions_by_source["vision_ocr"] = {"raw": stored.payload}
     else:
         stored = (
             db.query(DocumentSuggestion)

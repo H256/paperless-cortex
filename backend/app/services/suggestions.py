@@ -106,13 +106,17 @@ def normalize_suggestions_payload(payload: dict[str, Any], known_tags: list[str]
     return data
 
 
+def _is_error_payload(payload: dict[str, Any] | None) -> bool:
+    return bool(payload) and "error" in payload
+
+
 def merge_suggestions(
     paperless: dict[str, Any] | None, vision: dict[str, Any] | None
 ) -> dict[str, Any] | None:
     if not paperless and not vision:
         return None
-    base = paperless or {}
-    alt = vision or {}
+    base = paperless if not _is_error_payload(paperless) else {}
+    alt = vision if not _is_error_payload(vision) else {}
     def pick(field: str) -> object:
         val = alt.get(field)
         if isinstance(val, str) and val.strip():
