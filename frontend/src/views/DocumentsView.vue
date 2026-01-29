@@ -77,7 +77,7 @@
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
           :disabled="syncing || isProcessing"
-          @click="reprocessAll"
+          @click="reprocessFiltered"
           title="Reprocess all documents: sync + OCR/embeddings"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -86,19 +86,19 @@
             <path d="M4 10a8 8 0 0 1 14.9-3" />
             <path d="M20 14a8 8 0 0 1-14.9 3" />
           </svg>
-          Re-process all
+          Re-process filtered
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
           :disabled="embedding || isProcessing"
-          @click="reembedCurrent"
-          title="Re-embed documents (all or current page depending on settings)"
+          @click="reembedFiltered"
+          title="Re-embed listed documents"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 3v6m0 6v6" />
             <path d="M3 12h6m6 0h6" />
           </svg>
-          Re-embed listed
+          Re-embed filtered
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:border-amber-300"
@@ -250,7 +250,6 @@
                     <path d="M10 14L21 3" />
                     <path d="M5 7v14h14v-7" />
                   </svg>
-                  Paperless
                 </a>
               </td>
               <td class="px-6 py-3">
@@ -520,7 +519,27 @@ const reprocessAll = async () => {
   }
 };
 
+const reprocessFiltered = async () => {
+  syncing.value = true;
+  startPolling();
+  try {
+    const ids = documents.value.map((doc) => doc.id);
+    for (const docId of ids) {
+      await api.post(`/sync/documents/${docId}`, undefined, {
+        params: { embed: true, force_embed: true },
+      });
+    }
+    await fetchSyncStatus();
+    await fetchEmbedStatus();
+    await load();
+  } finally {
+    syncing.value = false;
+  }
+};
+
 const reembedCurrent = async () => {
+  // legacy (unused)
+
   embedding.value = true;
   startPolling();
   try {
@@ -531,6 +550,18 @@ const reembedCurrent = async () => {
     } else {
       await api.post('/embeddings/ingest', undefined, { params: { force, limit: 0 } });
     }
+    await fetchEmbedStatus();
+  } finally {
+    embedding.value = false;
+  }
+};
+
+const reembedFiltered = async () => {
+  embedding.value = true;
+  startPolling();
+  try {
+    const ids = documents.value.map((doc) => doc.id);
+    await api.post('/embeddings/ingest-docs', ids, { params: { force: !incremental.value } });
     await fetchEmbedStatus();
   } finally {
     embedding.value = false;
