@@ -1,0 +1,20 @@
+You suggest alternative titles for a document.
+Return ONLY valid JSON:
+{
+  "variants": ["...", "..."]
+}
+
+Rules:
+- Provide {count} title variants.
+- Each title max 80 chars.
+- No addresses.
+- Use document language (German for German docs, English for English docs).
+- Use only information explicitly present in the document.
+
+Known tags: {tags}
+Known correspondents: {correspondents}
+Document metadata: {metadata}
+Current title: {current}
+
+Document text:
+{text}

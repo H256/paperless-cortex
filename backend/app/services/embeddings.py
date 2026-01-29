@@ -8,6 +8,8 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.services.page_types import PageText
+from app.services.text_pages import score_text_quality
 
 logger = logging.getLogger(__name__)
 _model_ready: set[str] = set()
@@ -31,6 +33,7 @@ def ensure_model(settings: Settings, model: str) -> None:
         if model in models:
             _model_ready.add(model)
             return
+        logger.info("Ollama pull model=%s", model)
         pull = client.post(f"{base}/api/pull", json={"name": model, "stream": False}, timeout=300)
         pull.raise_for_status()
         _model_ready.add(model)
@@ -43,6 +46,7 @@ def embed_text(settings: Settings, text: str) -> list[float]:
         raise RuntimeError("EMBEDDING_MODEL not set")
     ensure_model(settings, settings.embedding_model)
     base = settings.ollama_base_url.rstrip("/")
+    logger.info("Ollama embeddings model=%s chars=%s", settings.embedding_model, len(text))
     with httpx.Client(timeout=60) as client:
         response = client.post(
             f"{base}/api/embeddings",
@@ -192,6 +196,39 @@ def chunk_text(settings: Settings, text: str) -> list[str]:
     chunks = semantic_chunks(text, max_chars=settings.chunk_max_chars, overlap=settings.chunk_overlap)
     logger.info("Chunking mode=heuristic chunks=%s", len(chunks))
     return chunks
+
+
+def chunk_document_with_pages(
+    settings: Settings,
+    content: str,
+    pages: list[PageText] | None = None,
+) -> list[dict[str, object]]:
+    if pages:
+        chunks: list[dict[str, object]] = []
+        for page in pages:
+            quality = score_text_quality(page.text, settings)
+            if not page.text:
+                continue
+            for chunk in chunk_text(settings, page.text):
+                chunks.append(
+                    {
+                        "text": chunk,
+                        "page": page.page,
+                        "source": page.source,
+                        "quality_score": quality.score,
+                    }
+                )
+        return chunks
+    quality = score_text_quality(content, settings)
+    return [
+        {
+            "text": chunk,
+            "page": None,
+            "source": "paperless_ocr",
+            "quality_score": quality.score,
+        }
+        for chunk in chunk_text(settings, content)
+    ]
 
 
 def ensure_qdrant_collection(

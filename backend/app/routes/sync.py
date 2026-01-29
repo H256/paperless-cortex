@@ -20,13 +20,15 @@ from app.models import (
 from app.schemas import CorrespondentIn, DocumentIn, DocumentTypeIn, TagIn
 from app.services import paperless
 from app.services.embeddings import (
-    chunk_text,
+    chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
     ensure_qdrant_collection,
     make_point_id,
     upsert_points,
 )
+from app.services.text_pages import get_page_text_layers
+from app.services.page_text_store import upsert_page_texts
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -266,8 +268,10 @@ def sync_document(
     embed: bool | None = None,
     force_embed: bool = False,
 ):
+    logger = __import__("logging").getLogger(__name__)
     if embed is None:
         embed = settings.embed_on_sync
+    logger.info("Sync doc=%s embed=%s force_embed=%s", doc_id, embed, force_embed)
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
     cache = {"correspondents": set(), "document_types": set(), "tags": set()}
@@ -278,6 +282,7 @@ def sync_document(
         doc = db.get(Document, doc_id)
         if doc:
             embedded = _embed_documents(db, settings, [doc], force_embed=force_embed)
+    logger.info("Sync doc=%s done embedded=%s", doc_id, embedded)
     return {"id": doc_id, "status": "synced", "embedded": embedded}
 
 
@@ -398,11 +403,25 @@ def _embed_documents(
     logger = __import__("logging").getLogger(__name__)
     logger.info("Embedding run docs=%s", len(documents))
     for doc in documents:
-        if not doc.content:
+        content_value = doc.content or ""
+        baseline_pages, vision_pages = get_page_text_layers(
+            settings,
+            doc.content,
+            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            force_full_vision=bool(force_embed),
+        )
+        if vision_pages:
+            upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        page_texts = baseline_pages + vision_pages
+        if not content_value and not page_texts:
             processed += 1
             state.processed = processed
             continue
-        content_hash = sha256(doc.content.encode("utf-8")).hexdigest()
+        if page_texts:
+            hash_source = "\f".join(f"{page.source}:{page.text}" for page in page_texts)
+        else:
+            hash_source = content_value
+        content_hash = sha256((hash_source or "").encode("utf-8")).hexdigest()
         existing = db.get(DocumentEmbedding, doc.id)
         if (not force_embed) and existing and existing.content_hash == content_hash and existing.embedding_model == settings.embedding_model:
             if existing.chunk_count:
@@ -413,16 +432,26 @@ def _embed_documents(
                     db.commit()
                 continue
         delete_points_for_doc(settings, doc.id)
-        chunks = chunk_text(settings, doc.content)
+        baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
+        vision_chunks = chunk_document_with_pages(settings, content_value, vision_pages or None) if vision_pages else []
+        chunks = baseline_chunks + vision_chunks
         logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
         doc_points = []
         for idx, chunk in enumerate(chunks):
-            vector = embed_text(settings, chunk)
+            chunk_text_value = str(chunk["text"])
+            vector = embed_text(settings, chunk_text_value)
             doc_points.append(
                 {
                     "id": make_point_id(doc.id, idx),
                     "vector": vector,
-                    "payload": {"doc_id": doc.id, "chunk": idx, "text": chunk},
+                    "payload": {
+                        "doc_id": doc.id,
+                        "chunk": idx,
+                        "text": chunk_text_value,
+                        "page": chunk.get("page"),
+                        "source": chunk.get("source"),
+                        "quality_score": chunk.get("quality_score"),
+                    },
                 }
             )
         if doc_points:

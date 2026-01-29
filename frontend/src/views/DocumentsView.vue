@@ -71,6 +71,91 @@
         <button @click="load">Reload</button>
       </div>
     </div>
+    <div class="documents__search">
+      <div class="documents__search__header">
+        <h3>Semantic search</h3>
+        <div class="documents__search__controls">
+          <input
+            v-model="searchQuery"
+            class="documents__search__input"
+            type="text"
+            placeholder="Ask a question or search..."
+            @keyup.enter="runSearch"
+          />
+          <label>
+            Top K
+            <select v-model.number="searchTopK">
+              <option :value="5">5</option>
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+            </select>
+          </label>
+          <label>
+            Source
+            <select v-model="searchSource">
+              <option value="">All</option>
+              <option value="vision_ocr">Vision OCR</option>
+              <option value="paperless_ocr">Paperless OCR</option>
+              <option value="pdf_text">PDF text</option>
+            </select>
+          </label>
+          <label>
+            Dedupe
+            <input type="checkbox" v-model="searchDedupe" />
+          </label>
+          <label>
+            Rerank
+            <input type="checkbox" v-model="searchRerank" />
+          </label>
+          <label>
+            Min quality
+            <input type="number" min="0" max="100" v-model.number="searchMinQuality" />
+          </label>
+          <button :disabled="searchLoading || !searchQuery" @click="runSearch">
+            {{ searchLoading ? 'Searching...' : 'Search' }}
+          </button>
+        </div>
+      </div>
+      <div v-if="searchError" class="documents__search__error">{{ searchError }}</div>
+      <div v-else-if="searchResults.length === 0">
+        <em>No results yet.</em>
+      </div>
+      <div v-else class="documents__search__results">
+        <div
+          v-for="result in filteredSearchResults"
+          :key="`${result.doc_id}-${result.page}-${result.source}`"
+          class="documents__search__result"
+          @click="open(result.doc_id)"
+        >
+          <div class="documents__search__meta">
+            Doc {{ result.doc_id }} · Page {{ result.page ?? 'n/a' }} ·
+            {{ result.source || 'unknown' }} ·
+            Score {{ result.score?.toFixed ? result.score.toFixed(3) : result.score }} ·
+            Quality {{ result.quality_score }}
+          </div>
+          <div v-if="result.document" class="documents__search__doc">
+            <strong>{{ result.document.title || `Document ${result.doc_id}` }}</strong>
+            <span>
+              · {{ result.document.document_date || result.document.created || 'n/a' }}
+            </span>
+            <span v-if="result.document.correspondent_name">
+              · {{ result.document.correspondent_name }}
+            </span>
+            <a
+              v-if="paperlessBaseUrl"
+              class="documents__search__paperless"
+              :href="`${paperlessBaseUrl.replace(/\/$/, '')}/documents/${result.doc_id}`"
+              target="_blank"
+              rel="noopener"
+              @click.stop
+            >
+              Open in Paperless
+            </a>
+          </div>
+          <div class="documents__search__snippet">{{ result.snippet }}</div>
+        </div>
+      </div>
+    </div>
     <div class="documents__status">
       <span>Last synced: {{ lastSynced ?? 'never' }}</span>
       <span v-if="syncStatus.status === 'running'">
@@ -126,6 +211,23 @@ interface DocumentRow {
   correspondent_name?: string | null;
 }
 
+interface SearchResult {
+  doc_id: number;
+  page?: number | null;
+  snippet: string;
+  score?: number | null;
+  source?: string | null;
+  quality_score?: number | null;
+  document?: {
+    id: number;
+    title?: string | null;
+    document_date?: string | null;
+    created?: string | null;
+    correspondent_id?: number | null;
+    correspondent_name?: string | null;
+  } | null;
+}
+
 interface Tag {
   id: number;
   name: string;
@@ -168,6 +270,16 @@ const embedStatus = ref({
   eta_seconds: null as number | null,
 });
 let pollHandle: number | null = null;
+const searchQuery = ref('');
+const searchTopK = ref(10);
+const searchSource = ref('');
+const searchResults = ref<SearchResult[]>([]);
+const searchLoading = ref(false);
+const searchError = ref('');
+const searchDedupe = ref(true);
+const searchRerank = ref(true);
+const searchMinQuality = ref(0);
+const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
 
 const startPolling = () => {
   if (pollHandle !== null) return;
@@ -230,6 +342,10 @@ const embedEtaText = computed(() => {
   const seconds = etaSec % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
+const filteredSearchResults = computed(() => {
+  if (!searchSource.value) return searchResults.value;
+  return searchResults.value.filter((result) => result.source === searchSource.value);
+});
 
 const load = async () => {
   const { data } = await api.get<Page<DocumentRow>>('/documents', {
@@ -288,6 +404,7 @@ const reprocessAll = async () => {
         incremental: false,
         page_only: false,
         embed: true,
+        force_embed: true,
       },
     });
     await fetchSyncStatus();
@@ -344,6 +461,29 @@ const cancelSync = async () => {
   await fetchSyncStatus();
 };
 
+const runSearch = async () => {
+  if (!searchQuery.value) return;
+  searchLoading.value = true;
+  searchError.value = '';
+  try {
+    const { data } = await api.get<{ matches: SearchResult[] }>('/embeddings/search', {
+      params: {
+        q: searchQuery.value,
+        top_k: searchTopK.value,
+        source: searchSource.value || undefined,
+        dedupe: searchDedupe.value,
+        rerank: searchRerank.value,
+        min_quality: searchMinQuality.value || undefined,
+      },
+    });
+    searchResults.value = data.matches ?? [];
+  } catch (err: any) {
+    searchError.value = err?.message ?? 'Search failed';
+  } finally {
+    searchLoading.value = false;
+  }
+};
+
 const loadMeta = async () => {
   const [tagsResp, corrResp] = await Promise.all([
     api.get<Page<Tag>>('/tags', { params: { page: 1, page_size: 200 } }),
@@ -386,6 +526,68 @@ onMounted(async () => {
   margin-bottom: 12px;
   color: #475569;
   flex-wrap: wrap;
+}
+.documents__search {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.documents__search__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.documents__search__controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.documents__search__input {
+  min-width: 280px;
+}
+.documents__search__error {
+  color: #b91c1c;
+}
+.documents__search__results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.documents__search__result {
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+}
+.documents__search__result:hover {
+  background: #f1f5f9;
+}
+.documents__search__meta {
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 4px;
+}
+.documents__search__doc {
+  font-size: 13px;
+  color: #111827;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.documents__search__paperless {
+  font-size: 12px;
+  color: #2563eb;
+  text-decoration: none;
+}
+.documents__search__paperless:hover {
+  text-decoration: underline;
+}
+.documents__search__snippet {
+  color: #111827;
 }
 .documents__progress {
   position: relative;

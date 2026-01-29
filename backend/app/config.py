@@ -24,6 +24,19 @@ class Settings:
     chunk_max_chars: int
     chunk_overlap: int
     chunk_similarity_threshold: float
+    enable_pdf_page_extract: bool
+    enable_vision_ocr: bool
+    vision_model: str | None
+    vision_ocr_prompt: str | None
+    vision_ocr_prompt_path: str | None
+    suggestions_prompt_path: str | None
+    suggestions_debug: bool
+    vision_ocr_min_chars: int
+    vision_ocr_min_score: int
+    vision_ocr_max_non_alnum_ratio: float
+    vision_ocr_max_pages: int
+    vision_ocr_timeout_seconds: int
+    vision_ocr_max_dim: int
 
 
 def load_settings() -> Settings:
@@ -52,4 +65,19 @@ def load_settings() -> Settings:
         chunk_similarity_threshold=float(
             os.getenv("CHUNK_SIMILARITY_THRESHOLD", "0.75")
         ),
+        enable_pdf_page_extract=os.getenv("ENABLE_PDF_PAGE_EXTRACT", "1") == "1",
+        enable_vision_ocr=os.getenv("ENABLE_VISION_OCR", "0") == "1",
+        vision_model=os.getenv("VISION_MODEL"),
+        vision_ocr_prompt=os.getenv("VISION_OCR_PROMPT"),
+        vision_ocr_prompt_path=os.getenv("VISION_OCR_PROMPT_PATH"),
+        suggestions_prompt_path=os.getenv("SUGGESTIONS_PROMPT_PATH"),
+        suggestions_debug=os.getenv("SUGGESTIONS_DEBUG", "0") == "1",
+        vision_ocr_min_chars=int(os.getenv("VISION_OCR_MIN_CHARS", "40")),
+        vision_ocr_min_score=int(os.getenv("VISION_OCR_MIN_SCORE", "60")),
+        vision_ocr_max_non_alnum_ratio=float(
+            os.getenv("VISION_OCR_MAX_NONALNUM_RATIO", "0.6")
+        ),
+        vision_ocr_max_pages=int(os.getenv("VISION_OCR_MAX_PAGES", "0")),
+        vision_ocr_timeout_seconds=int(os.getenv("VISION_OCR_TIMEOUT_SECONDS", "120")),
+        vision_ocr_max_dim=int(os.getenv("VISION_OCR_MAX_DIM", "1024")),
     )

@@ -1,0 +1,19 @@
+You suggest possible tags for a document.
+Return ONLY valid JSON:
+{
+  "variants": [["tag1", "tag2"], ["tagA"]]
+}
+
+Rules:
+- Provide {count} tag-set variants.
+- Each variant should have 1-4 tags.
+- Prefer known tags list if there is a match.
+- Avoid duplicates and overly generic tags.
+- Use only information explicitly present in the document.
+
+Known tags: {tags}
+Document metadata: {metadata}
+Current tags: {current}
+
+Document text:
+{text}

@@ -93,6 +93,45 @@ class DocumentEmbedding(Base):
     chunk_count: Mapped[int | None] = mapped_column(Integer)
 
 
+class DocumentPageText(Base):
+    __tablename__ = "document_page_texts"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    page: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    text: Mapped[str | None] = mapped_column(Text)
+    quality_score: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
+class DocumentSuggestion(Base):
+    __tablename__ = "document_suggestions"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
+class SuggestionAudit(Base):
+    __tablename__ = "suggestion_audit"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    action: Mapped[str] = mapped_column(String(64))
+    source: Mapped[str | None] = mapped_column(String(32))
+    field: Mapped[str | None] = mapped_column(String(32))
+    old_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

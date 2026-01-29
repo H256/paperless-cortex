@@ -1,0 +1,5 @@
+Extract all readable text from this page image.
+Return only the text content.
+Preserve line breaks where they appear in the document.
+Keep tables and lists in a readable plain-text layout.
+Do not add commentary or summaries.

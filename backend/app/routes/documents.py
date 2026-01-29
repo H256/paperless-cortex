@@ -1,9 +1,27 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.config import Settings, load_settings
+from app.db import get_db
+import json
+
+from pydantic import BaseModel
+
+from app.models import DocumentPageText, DocumentSuggestion
+from app.services.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services.suggestions import (
+    generate_suggestions,
+    generate_field_variants,
+    normalize_suggestions_payload,
+    merge_suggestions,
+)
 from app.services import paperless
+from app.services.text_pages import get_baseline_page_texts, get_page_text_layers, score_text_quality
+from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
+from app.services.suggestion_store import update_suggestion_field
+from app.services.page_text_store import upsert_page_texts
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -38,3 +56,277 @@ def list_documents(
 @router.get("/{doc_id}")
 def get_document(doc_id: int, settings: Settings = Depends(settings_dep)):
     return paperless.get_document(settings, doc_id)
+
+
+@router.get("/{doc_id}/text-quality")
+def get_document_text_quality(doc_id: int, settings: Settings = Depends(settings_dep)):
+    logger = __import__("logging").getLogger(__name__)
+    logger.info("Fetch text quality doc=%s", doc_id)
+    raw = paperless.get_document(settings, doc_id)
+    content = raw.get("content") or ""
+    quality = score_text_quality(content, settings)
+    logger.info(
+        "Text quality doc=%s score=%s reasons=%s",
+        doc_id,
+        quality.score,
+        quality.reasons,
+    )
+    return {
+        "doc_id": doc_id,
+        "quality": {
+            "score": quality.score,
+            "reasons": quality.reasons,
+            "metrics": quality.metrics,
+        },
+    }
+
+
+@router.get("/{doc_id}/suggestions")
+def get_document_suggestions(
+    doc_id: int,
+    source: str | None = None,
+    refresh: bool = False,
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    logger = __import__("logging").getLogger(__name__)
+    logger.info("Fetch suggestions doc=%s source=%s refresh=%s", doc_id, source, refresh)
+    raw = paperless.get_document(settings, doc_id)
+    tags = get_cached_tags(settings)
+    correspondents = get_cached_correspondents(settings)
+
+    suggestions_by_source: dict[str, object] = {}
+
+    def run_baseline() -> dict[str, object]:
+        baseline_text = raw.get("content") or ""
+    baseline_suggestions = generate_suggestions(
+        settings,
+        raw,
+        baseline_text,
+        tags=tags,
+        correspondents=correspondents,
+    )
+    baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
+    upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+    audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
+        return baseline_suggestions
+
+    def run_vision() -> dict[str, object] | None:
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if not vision_pages and settings.enable_vision_ocr:
+            logger.info("Vision OCR pages missing; running OCR on-demand doc=%s", doc_id)
+            _, vision_generated = get_page_text_layers(
+                settings,
+                raw.get("content") or "",
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc_id),
+                force_full_vision=True,
+            )
+            if vision_generated:
+                upsert_page_texts(db, settings, doc_id, vision_generated, source_filter="vision_ocr")
+                vision_pages = (
+                    db.query(DocumentPageText)
+                    .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+                    .order_by(DocumentPageText.page.asc())
+                    .all()
+                )
+        if not vision_pages:
+            return None
+        vision_text = "\n\n".join(page.text or "" for page in vision_pages)
+        vision_suggestions = generate_suggestions(
+            settings,
+            raw,
+            vision_text,
+            tags=tags,
+            correspondents=correspondents,
+        )
+        vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
+        upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
+        audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
+        return vision_suggestions
+
+    if refresh:
+        if source in (None, "paperless_ocr"):
+            suggestions_by_source["paperless_ocr"] = run_baseline()
+        if source in (None, "vision_ocr"):
+            vision = run_vision()
+            if vision is not None:
+                suggestions_by_source["vision_ocr"] = vision
+    else:
+        stored = (
+            db.query(DocumentSuggestion)
+            .filter(DocumentSuggestion.doc_id == doc_id)
+            .order_by(DocumentSuggestion.source.asc())
+            .all()
+        )
+        for row in stored:
+            try:
+                parsed = json.loads(row.payload)
+                suggestions_by_source[row.source] = normalize_suggestions_payload(parsed, tags)
+            except Exception:
+                suggestions_by_source[row.source] = {"raw": row.payload}
+
+    best = merge_suggestions(
+        suggestions_by_source.get("paperless_ocr"),
+        suggestions_by_source.get("vision_ocr"),
+    )
+    if best:
+        suggestions_by_source["best_pick"] = best
+    return {"doc_id": doc_id, "suggestions": suggestions_by_source}
+
+
+class SuggestionFieldRequest(BaseModel):
+    source: str
+    field: str
+    count: int = 3
+
+
+class SuggestionFieldApply(BaseModel):
+    source: str
+    field: str
+    value: object
+
+
+@router.post("/{doc_id}/suggestions/field")
+def suggest_field_variants(
+    doc_id: int,
+    payload: SuggestionFieldRequest,
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    raw = paperless.get_document(settings, doc_id)
+    tags = get_cached_tags(settings)
+    correspondents = get_cached_correspondents(settings)
+    if payload.source not in ("paperless_ocr", "vision_ocr"):
+        raise ValueError("Invalid source")
+    if payload.field not in ("title", "date", "correspondent", "tags"):
+        raise ValueError("Invalid field")
+
+    if payload.source == "vision_ocr":
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if not vision_pages and settings.enable_vision_ocr:
+            _, vision_generated = get_page_text_layers(
+                settings,
+                raw.get("content") or "",
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc_id),
+                force_full_vision=True,
+            )
+            if vision_generated:
+                upsert_page_texts(db, settings, doc_id, vision_generated, source_filter="vision_ocr")
+                vision_pages = (
+                    db.query(DocumentPageText)
+                    .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+                    .order_by(DocumentPageText.page.asc())
+                    .all()
+                )
+        text = "\n\n".join(page.text or "" for page in vision_pages) if vision_pages else ""
+    else:
+        text = raw.get("content") or ""
+
+    current = None
+    stored = (
+        db.query(DocumentSuggestion)
+        .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == payload.source)
+        .one_or_none()
+    )
+    if stored:
+        try:
+            payload_json = json.loads(stored.payload)
+        except Exception:
+            payload_json = {}
+        if isinstance(payload_json, dict):
+            current = payload_json.get(payload.field)
+    variants = generate_field_variants(
+        settings,
+        raw,
+        text,
+        tags=tags,
+        correspondents=correspondents,
+        field=payload.field,
+        count=max(1, min(payload.count, 5)),
+        current_value=current,
+    )
+    audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")
+    return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "variants": variants}
+
+
+@router.post("/{doc_id}/suggestions/field/apply")
+def apply_field_suggestion(
+    doc_id: int,
+    payload: SuggestionFieldApply,
+    db: Session = Depends(get_db),
+):
+    if payload.source not in ("paperless_ocr", "vision_ocr"):
+        raise ValueError("Invalid source")
+    if payload.field not in ("title", "date", "correspondent", "tags"):
+        raise ValueError("Invalid field")
+    updated = update_suggestion_field(db, doc_id, payload.source, payload.field, payload.value)
+    if updated is None:
+        return {"status": "missing"}
+    return {"status": "ok", "suggestions": {payload.source: updated}}
+
+
+@router.get("/{doc_id}/page-texts")
+def get_document_page_texts(
+    doc_id: int,
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    logger = __import__("logging").getLogger(__name__)
+    logger.info("Fetch page texts doc=%s", doc_id)
+    raw = paperless.get_document(settings, doc_id)
+    content = raw.get("content")
+    baseline_pages = get_baseline_page_texts(
+        settings,
+        content,
+        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc_id),
+    )
+    vision_pages = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+        .order_by(DocumentPageText.page.asc())
+        .all()
+    )
+    pages = []
+    for page in baseline_pages:
+        quality = score_text_quality(page.text, settings)
+        pages.append(
+            {
+                "page": page.page,
+                "source": page.source,
+                "text": page.text,
+                "quality": {
+                    "score": quality.score,
+                    "reasons": quality.reasons,
+                    "metrics": quality.metrics,
+                },
+            }
+        )
+    for page in vision_pages:
+        pages.append(
+            {
+                "page": page.page,
+                "source": page.source,
+                "text": page.text,
+                "quality": {
+                    "score": page.quality_score,
+                    "reasons": [],
+                    "metrics": {},
+                },
+            }
+        )
+    pages.sort(key=lambda p: (p.get("page") or 0, str(p.get("source") or "")))
+    logger.info("Page texts doc=%s pages=%s", doc_id, len(pages))
+    return {
+        "doc_id": doc_id,
+        "pages": pages,
+    }

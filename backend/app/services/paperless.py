@@ -61,6 +61,13 @@ def get_document(settings: Settings, doc_id: int) -> dict[str, Any]:
         return response.json()
 
 
+def get_document_pdf(settings: Settings, doc_id: int) -> bytes:
+    with client(settings) as http:
+        response = http.get(f"/documents/{doc_id}/download/")
+        response.raise_for_status()
+        return response.content
+
+
 def list_tags(settings: Settings, page: int = 1, page_size: int = 50) -> dict[str, Any]:
     with client(settings) as http:
         response = http.get("/tags/", params={"page": page, "page_size": page_size})

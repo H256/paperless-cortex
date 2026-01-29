@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import connections, documents, embeddings, meta, sync
+from app.config import load_settings
+from app.services.meta_cache import refresh_cache
 
 app = FastAPI(title="Paperless Intelligence API")
 
@@ -32,3 +34,11 @@ app.mount("/api", api)
 @app.get("/")
 def root() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.on_event("startup")
+def preload_meta_cache() -> None:
+    try:
+        refresh_cache(load_settings())
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Meta cache preload failed: %s", exc)
