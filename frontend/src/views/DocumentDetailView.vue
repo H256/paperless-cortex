@@ -712,7 +712,7 @@ const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
   try {
     const { data } = await api.get<{ suggestions: { paperless_ocr?: any; vision_ocr?: any } }>(
       `/documents/${id}/suggestions`,
-      { params: { source, refresh: true } }
+      { params: { source, refresh: true, priority: source === 'vision_ocr' } }
     );
     suggestions.value = {
       ...(suggestions.value ?? {}),

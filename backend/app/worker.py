@@ -36,6 +36,7 @@ from app.services.suggestion_store import upsert_suggestion, audit_suggestion_ru
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,33 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
 
 
+def _process_vision_refresh(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort vision refresh doc=%s", doc_id)
+        return
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return
+    baseline_pages, vision_pages = get_page_text_layers(
+        settings,
+        doc.content,
+        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+        force_full_vision=True,
+    )
+    if vision_pages:
+        upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        vision_text = "\n\n".join(page.text or "" for page in vision_pages).strip()
+        if vision_text:
+            tags = get_cached_tags(settings)
+            correspondents = get_cached_correspondents(settings)
+            raw = paperless.get_document(settings, doc_id)
+            vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
+            vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
+            upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
+            audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
+    db.commit()
+
+
 def main() -> None:
     settings = load_settings()
     if not settings.queue_enabled:
@@ -144,11 +172,21 @@ def main() -> None:
             time.sleep(0.5)
             continue
         _, doc_id_str = item
+        task = None
         try:
-            doc_id = int(doc_id_str)
+            task = json.loads(doc_id_str)
         except Exception:
-            logger.warning("Invalid doc_id in queue: %s", doc_id_str)
-            continue
+            task = None
+        if isinstance(task, dict) and "doc_id" in task:
+            doc_id = int(task.get("doc_id"))
+            task_type = str(task.get("task") or "full")
+        else:
+            try:
+                doc_id = int(doc_id_str)
+            except Exception:
+                logger.warning("Invalid doc_id in queue: %s", doc_id_str)
+                continue
+            task_type = "full"
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; skipping doc=%s", doc_id)
             clear_queue(settings)
@@ -159,13 +197,19 @@ def main() -> None:
         mark_in_progress(settings)
         try:
             with SessionLocal() as db:
-                _process_doc(settings, db, doc_id)
+                if task_type == "vision_refresh":
+                    _process_vision_refresh(settings, db, doc_id)
+                else:
+                    _process_doc(settings, db, doc_id)
         except Exception as exc:
             logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
         finally:
             mark_done(settings)
             if client:
-                client.srem(QUEUE_SET, str(doc_id))
+                if task_type == "vision_refresh":
+                    client.srem(QUEUE_SET, f"{doc_id}:vision_refresh")
+                else:
+                    client.srem(QUEUE_SET, str(doc_id))
 
 
 if __name__ == "__main__":

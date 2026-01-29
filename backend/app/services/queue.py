@@ -57,6 +57,45 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     return len(added)
 
 
+def _task_key(task: dict) -> str:
+    doc_id = task.get("doc_id")
+    task_type = task.get("task") or "full"
+    return f"{doc_id}:{task_type}"
+
+
+def enqueue_task(settings: Settings, task: dict) -> int:
+    client = _get_client(settings)
+    if not client:
+        return 0
+    if is_cancel_requested(settings):
+        return 0
+    payload = __import__("json").dumps(task)
+    key = _task_key(task)
+    if client.sadd(QUEUE_SET, key):
+        client.rpush(QUEUE_KEY, payload)
+        client.incr(STATS_TOTAL)
+        logger.info("Enqueued task=%s", key)
+        return 1
+    return 0
+
+
+def enqueue_task_front(settings: Settings, task: dict) -> int:
+    client = _get_client(settings)
+    if not client:
+        return 0
+    if is_cancel_requested(settings):
+        return 0
+    payload = __import__("json").dumps(task)
+    key = _task_key(task)
+    is_new = client.sadd(QUEUE_SET, key)
+    if is_new:
+        client.incr(STATS_TOTAL)
+    client.lrem(QUEUE_KEY, 0, payload)
+    client.lpush(QUEUE_KEY, payload)
+    logger.info("Prioritized task=%s", key)
+    return 1
+
+
 def enqueue_docs_front(settings: Settings, doc_ids: Iterable[int]) -> int:
     client = _get_client(settings)
     if not client:

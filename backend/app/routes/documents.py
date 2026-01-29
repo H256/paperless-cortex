@@ -23,7 +23,7 @@ from app.services.text_pages import get_baseline_page_texts, get_page_text_layer
 from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
 from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
-from app.services.queue import enqueue_docs_front
+from app.services.queue import enqueue_docs_front, enqueue_task_front
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -197,6 +197,7 @@ def get_document_suggestions(
     doc_id: int,
     source: str | None = None,
     refresh: bool = False,
+    priority: bool = False,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
@@ -266,6 +267,22 @@ def get_document_suggestions(
         upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
         return vision_suggestions
+
+    if refresh and priority and source == "vision_ocr" and settings.queue_enabled:
+        enqueue_task_front(settings, {"doc_id": doc_id, "task": "vision_refresh"})
+        stored = (
+            db.query(DocumentSuggestion)
+            .filter(DocumentSuggestion.doc_id == doc_id)
+            .order_by(DocumentSuggestion.source.asc())
+            .all()
+        )
+        for row in stored:
+            try:
+                parsed = json.loads(row.payload)
+                suggestions_by_source[row.source] = normalize_suggestions_payload(parsed, tags)
+            except Exception:
+                suggestions_by_source[row.source] = {"raw": row.payload}
+        return {"doc_id": doc_id, "queued": True, "suggestions": suggestions_by_source}
 
     if refresh:
         if source in (None, "paperless_ocr"):
