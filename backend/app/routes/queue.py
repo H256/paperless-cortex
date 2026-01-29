@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.config import Settings, load_settings
-from app.services.queue import enqueue_docs, queue_stats, peek_queue, clear_queue, reset_stats
+from app.services.queue import enqueue_docs, queue_stats, peek_queue, cancel_queue, reset_stats
 
 router = APIRouter(prefix="/queue", tags=["queue"])
 
@@ -45,8 +45,16 @@ def peek(limit: int = 20, settings: Settings = Depends(settings_dep)):
 def clear(settings: Settings = Depends(settings_dep)):
     if not settings.queue_enabled:
         return {"enabled": False}
-    clear_queue(settings)
-    return {"enabled": True}
+    cancel_queue(settings)
+    return {"enabled": True, "cancelled": True}
+
+
+@router.post("/cancel")
+def cancel(settings: Settings = Depends(settings_dep)):
+    if not settings.queue_enabled:
+        return {"enabled": False}
+    cancel_queue(settings)
+    return {"enabled": True, "cancelled": True}
 
 
 @router.post("/reset-stats")

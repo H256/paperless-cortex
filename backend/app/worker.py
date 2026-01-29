@@ -24,6 +24,10 @@ from app.services.queue import (
     mark_done,
     QUEUE_SET,
     mark_worker_heartbeat,
+    is_cancel_requested,
+    clear_cancel,
+    reset_stats,
+    clear_queue,
 )
 from app.services.text_pages import get_page_text_layers
 from app.services.page_text_store import upsert_page_texts
@@ -125,6 +129,13 @@ def main() -> None:
     logger.info("Worker started queue=%s", QUEUE_KEY)
     while True:
         mark_worker_heartbeat(settings)
+        if is_cancel_requested(settings):
+            logger.info("Worker cancel requested; clearing queue")
+            clear_queue(settings)
+            reset_stats(settings)
+            clear_cancel(settings)
+            time.sleep(0.5)
+            continue
         item = client.blpop(QUEUE_KEY, timeout=5)
         if not item:
             time.sleep(0.5)
@@ -134,6 +145,13 @@ def main() -> None:
             doc_id = int(doc_id_str)
         except Exception:
             logger.warning("Invalid doc_id in queue: %s", doc_id_str)
+            continue
+        if is_cancel_requested(settings):
+            logger.info("Worker cancel requested; skipping doc=%s", doc_id)
+            clear_queue(settings)
+            reset_stats(settings)
+            clear_cancel(settings)
+            time.sleep(0.5)
             continue
         mark_in_progress(settings)
         try:

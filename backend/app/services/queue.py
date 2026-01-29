@@ -15,6 +15,8 @@ STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
 WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
 WORKER_HEARTBEAT_TTL = 30
+CANCEL_KEY = "paperless_intelligence:queue_cancel"
+CANCEL_TTL = 60
 
 
 def _redis_url(host: str) -> str:
@@ -134,6 +136,33 @@ def mark_done(settings: Settings) -> None:
         return
     client.decr(STATS_IN_PROGRESS)
     client.incr(STATS_DONE)
+
+
+def request_cancel(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.set(CANCEL_KEY, "1", ex=CANCEL_TTL)
+
+
+def clear_cancel(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.delete(CANCEL_KEY)
+
+
+def cancel_queue(settings: Settings) -> None:
+    request_cancel(settings)
+    clear_queue(settings)
+    reset_stats(settings)
+
+
+def is_cancel_requested(settings: Settings) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    return bool(client.get(CANCEL_KEY))
 
 
 def mark_worker_heartbeat(settings: Settings) -> None:
