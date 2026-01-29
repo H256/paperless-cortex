@@ -181,6 +181,7 @@
           <th>Title</th>
           <th>Date</th>
           <th>Correspondent</th>
+          <th>Status</th>
         </tr>
       </thead>
       <tbody>
@@ -188,7 +189,11 @@
           <td>{{ doc.id }}</td>
           <td>{{ doc.title }}</td>
           <td>{{ doc.document_date || doc.created }}</td>
-          <td>{{ doc.correspondent_name || doc.correspondent }}</td>
+          <td>{{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}</td>
+          <td>
+            <span v-if="!hasDerived(doc)" class="badge badge--warn">No analysis</span>
+            <span v-else class="badge badge--ok">Analyzed</span>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -213,6 +218,9 @@ interface DocumentRow {
   created?: string | null;
   correspondent?: number | null;
   correspondent_name?: string | null;
+  has_embeddings?: boolean;
+  has_suggestions?: boolean;
+  has_vision_pages?: boolean;
 }
 
 interface SearchResult {
@@ -366,6 +374,7 @@ const load = async () => {
       tags__id: selectedTag.value || undefined,
       document_date__gte: dateFrom.value || undefined,
       document_date__lte: dateTo.value || undefined,
+      include_derived: true,
     },
   });
   documents.value = data.results ?? [];
@@ -506,6 +515,16 @@ const open = (id: number) => {
   router.push(`/documents/${id}`);
 };
 
+const correspondentLabel = (id?: number | null, name?: string | null) => {
+  if (name) return name;
+  if (!id) return '';
+  return correspondents.value.find((c) => c.id === id)?.name ?? String(id);
+};
+
+const hasDerived = (doc: DocumentRow) => {
+  return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages);
+};
+
 onMounted(async () => {
   await loadMeta();
   await fetchSyncStatus();
@@ -638,6 +657,20 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+.badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+.badge--ok {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge--warn {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 @keyframes progress {

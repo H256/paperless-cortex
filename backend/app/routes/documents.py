@@ -9,7 +9,7 @@ import json
 
 from pydantic import BaseModel
 
-from app.models import DocumentPageText, DocumentSuggestion
+from app.models import DocumentPageText, DocumentSuggestion, DocumentEmbedding
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
     generate_suggestions,
@@ -39,9 +39,11 @@ def list_documents(
     tags__id: int | None = None,
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
+    include_derived: bool = False,
     settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
 ):
-    return paperless.list_documents(
+    payload = paperless.list_documents(
         settings,
         page=page,
         page_size=page_size,
@@ -51,6 +53,36 @@ def list_documents(
         document_date__gte=document_date__gte,
         document_date__lte=document_date__lte,
     )
+    if not include_derived:
+        return payload
+    results = payload.get("results", []) or []
+    doc_ids = [doc.get("id") for doc in results if doc.get("id") is not None]
+    if not doc_ids:
+        return payload
+    embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
+    suggestion_rows = (
+        db.query(DocumentSuggestion)
+        .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+        .all()
+    )
+    suggestions_by_doc: dict[int, set[str]] = {}
+    for row in suggestion_rows:
+        suggestions_by_doc.setdefault(row.doc_id, set()).add(row.source)
+    vision_pages = {
+        row.doc_id
+        for row in db.query(DocumentPageText)
+        .filter(DocumentPageText.doc_id.in_(doc_ids), DocumentPageText.source == "vision_ocr")
+        .all()
+    }
+    for doc in results:
+        doc_id = doc.get("id")
+        if doc_id is None:
+            continue
+        doc["has_embeddings"] = doc_id in embed_ids
+        sources = suggestions_by_doc.get(doc_id, set())
+        doc["has_suggestions"] = bool(sources)
+        doc["has_vision_pages"] = doc_id in vision_pages
+    return payload
 
 
 @router.get("/{doc_id}")
