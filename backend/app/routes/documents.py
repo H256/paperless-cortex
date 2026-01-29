@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import and_, exists
+from sqlalchemy import and_, exists, func
 from sqlalchemy.orm import Session
 
 from app.config import Settings, load_settings
@@ -456,17 +456,30 @@ def apply_suggestion_to_document(
             updated = True
         details["unmatched"] = unmatched
     elif field == "note":
-        old_value = None
         summary = str(value).strip() if value is not None else ""
         if summary:
             marker_text = f"AI_SUMMARY v1 –\n{summary}\n- /AI_SUMMARY -"
-            note = DocumentNote(
-                document_id=doc_id,
-                note=marker_text,
-                created=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            existing_note = (
+                db.query(DocumentNote)
+                .filter(DocumentNote.document_id == doc_id, DocumentNote.note.like("AI_SUMMARY v1 –%"))
+                .order_by(DocumentNote.id.asc())
+                .first()
             )
-            db.add(note)
-            updated = True
+            if existing_note:
+                old_value = existing_note.note
+                existing_note.note = marker_text
+                existing_note.created = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+                updated = True
+            else:
+                max_id = db.query(func.max(DocumentNote.id)).scalar() or 0
+                note = DocumentNote(
+                    id=int(max_id) + 1,
+                    document_id=doc_id,
+                    note=marker_text,
+                    created=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+                )
+                db.add(note)
+                updated = True
 
     if updated:
         audit_suggestion_run(db, doc_id, payload.source or "manual", f"apply_to_document:{field}")
