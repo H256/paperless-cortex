@@ -23,6 +23,7 @@ from app.services.text_pages import get_baseline_page_texts, get_page_text_layer
 from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
 from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
+from app.services.queue import enqueue_docs_front
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -178,6 +179,8 @@ def get_document_suggestions(
     raw = paperless.get_document(settings, doc_id)
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
+    if refresh and settings.queue_enabled:
+        enqueue_docs_front(settings, [doc_id])
 
     suggestions_by_source: dict[str, object] = {}
 
@@ -285,6 +288,8 @@ def suggest_field_variants(
     raw = paperless.get_document(settings, doc_id)
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
+    if settings.queue_enabled:
+        enqueue_docs_front(settings, [doc_id])
     if payload.source not in ("paperless_ocr", "vision_ocr"):
         raise ValueError("Invalid source")
     if payload.field not in ("title", "date", "correspondent", "tags"):

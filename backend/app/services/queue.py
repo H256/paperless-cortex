@@ -53,6 +53,26 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     return len(added)
 
 
+def enqueue_docs_front(settings: Settings, doc_ids: Iterable[int]) -> int:
+    client = _get_client(settings)
+    if not client:
+        return 0
+    ids = [str(doc_id) for doc_id in doc_ids]
+    if not ids:
+        return 0
+    added_count = 0
+    for doc_id in ids:
+        is_new = client.sadd(QUEUE_SET, doc_id)
+        if is_new:
+            added_count += 1
+            client.incr(STATS_TOTAL)
+        # Move to front even if already queued.
+        client.lrem(QUEUE_KEY, 0, doc_id)
+        client.lpush(QUEUE_KEY, doc_id)
+    logger.info("Prioritized docs count=%s", len(ids))
+    return len(ids)
+
+
 def queue_length(settings: Settings) -> int | None:
     client = _get_client(settings)
     if not client:
