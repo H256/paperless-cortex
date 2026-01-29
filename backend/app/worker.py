@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import load_settings
 from app.db import SessionLocal
-from app.models import Document, DocumentEmbedding, SyncState
+from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState
 from app.services import paperless
 from app.services.embeddings import (
     chunk_document_with_pages,
