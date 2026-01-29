@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 
 
 def _process_doc(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort doc=%s", doc_id)
+        return
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
     cache = {"correspondents": set(), "document_types": set(), "tags": set()}

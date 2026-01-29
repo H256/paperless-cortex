@@ -16,7 +16,7 @@ STATS_DONE = "paperless_intelligence:queue_done"
 WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
 WORKER_HEARTBEAT_TTL = 30
 CANCEL_KEY = "paperless_intelligence:queue_cancel"
-CANCEL_TTL = 60
+CANCEL_TTL = 300
 
 
 def _redis_url(host: str) -> str:
@@ -39,6 +39,8 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     client = _get_client(settings)
     if not client:
         return 0
+    if is_cancel_requested(settings):
+        return 0
     ids = [str(doc_id) for doc_id in doc_ids]
     if not ids:
         return 0
@@ -58,6 +60,8 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
 def enqueue_docs_front(settings: Settings, doc_ids: Iterable[int]) -> int:
     client = _get_client(settings)
     if not client:
+        return 0
+    if is_cancel_requested(settings):
         return 0
     ids = [str(doc_id) for doc_id in doc_ids]
     if not ids:

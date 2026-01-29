@@ -164,10 +164,14 @@ def get_local_document(doc_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{doc_id}/text-quality")
-def get_document_text_quality(doc_id: int, settings: Settings = Depends(settings_dep)):
+def get_document_text_quality(
+    doc_id: int,
+    priority: bool = False,
+    settings: Settings = Depends(settings_dep),
+):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch text quality doc=%s", doc_id)
-    if settings.queue_enabled:
+    if priority and settings.queue_enabled:
         enqueue_docs_front(settings, [doc_id])
     raw = paperless.get_document(settings, doc_id)
     content = raw.get("content") or ""
@@ -492,12 +496,13 @@ def apply_suggestion_to_document(
 @router.get("/{doc_id}/page-texts")
 def get_document_page_texts(
     doc_id: int,
+    priority: bool = False,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch page texts doc=%s", doc_id)
-    if settings.queue_enabled:
+    if priority and settings.queue_enabled:
         enqueue_docs_front(settings, [doc_id])
     raw = paperless.get_document(settings, doc_id)
     content = raw.get("content")

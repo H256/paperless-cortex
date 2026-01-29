@@ -662,11 +662,13 @@ const loadMeta = async () => {
   }
 };
 
-const loadPageTexts = async () => {
+const loadPageTexts = async (priority = false) => {
   pageTextsLoading.value = true;
   pageTextsError.value = '';
   try {
-    const { data } = await api.get<{ pages: PageText[] }>(`/documents/${id}/page-texts`);
+    const { data } = await api.get<{ pages: PageText[] }>(`/documents/${id}/page-texts`, {
+      params: { priority },
+    });
     pageTexts.value = data.pages ?? [];
   } catch (err: any) {
     pageTextsError.value = err?.message ?? 'Failed to load page texts';
@@ -675,12 +677,13 @@ const loadPageTexts = async () => {
   }
 };
 
-const loadContentQuality = async () => {
+const loadContentQuality = async (priority = false) => {
   contentQualityLoading.value = true;
   contentQualityError.value = '';
   try {
     const { data } = await api.get<{ quality: { score: number; reasons: string[]; metrics: Record<string, number> } }>(
-      `/documents/${id}/text-quality`
+      `/documents/${id}/text-quality`,
+      { params: { priority } }
     );
     contentQuality.value = data.quality ?? null;
   } catch (err: any) {
@@ -729,10 +732,10 @@ const runReprocess = async () => {
       await resync();
     }
     if (doQuality.value) {
-      await loadContentQuality();
+      await loadContentQuality(true);
     }
     if (doPages.value) {
-      await loadPageTexts();
+      await loadPageTexts(true);
     }
     if (doSuggestions.value) {
       await loadSuggestions();
