@@ -23,7 +23,45 @@
 5) **Search**  
    `/embeddings/search` returns matches with `doc_id`, `page`, `snippet`, `score`, `source`, and `quality_score`.
 
+## What’s implemented now
+- **Backend**
+  - Sync Paperless metadata into Postgres (read-only).
+  - Page-aware text extraction + quality scoring per page.
+  - Vision OCR (Ollama) with per-page rendering, max-dimension scaling, and logging.
+  - Embeddings stored in Qdrant with `doc_id`, `page`, `source`, `quality_score`.
+  - Suggestions pipeline (two runs: Paperless OCR + Vision OCR) stored in DB with “best pick.”
+  - Queue-backed processing with Redis + worker and status/ETA.
+  - Health/status endpoint and system heartbeat for worker.
+- **Frontend**
+  - Documents list with filters, sorting, status badges, and Paperless link.
+  - Document detail: text quality, page texts, suggestions side-by-side with field variants and apply.
+  - Semantic search page with source filter, quality slider, dedupe/rerank.
+  - Queue management page.
+  - Footer status lights for Web / Worker / Ollama.
+
+## Key endpoints (backend)
+- `POST /api/sync/documents` syncs Paperless → DB (optional embedding).
+- `POST /api/embeddings/ingest` or `/ingest-docs` enqueues/embeds.
+- `GET /api/embeddings/search` semantic search.
+- `GET /api/documents/{id}/suggestions` (paperless_ocr / vision_ocr / best_pick).
+- `POST /api/documents/{id}/suggestions/field` field variants (title/date/correspondent/tags).
+- `POST /api/documents/{id}/suggestions/field/apply` store selected variant.
+- `GET /api/queue/status`, `POST /api/queue/clear`, `POST /api/queue/reset`.
+- `GET /api/status` system status (web/worker/ollama + paperless_base_url).
+
+## Queue + worker
+- When `QUEUE_ENABLED=1`, sync/embedding calls enqueue doc IDs to Redis.
+- Worker consumes queue and runs full processing: OCR → embeddings → suggestions.
+- UI shows queue stats and ETA from `/api/embeddings/status`.
+
+## Prompts
+- Stored under `backend/app/prompts/`.
+- Main suggestions prompt: `suggestions.txt`.
+- Field prompts: `suggestions_title.txt`, `suggestions_date.txt`, `suggestions_correspondent.txt`, `suggestions_tags.txt`.
+- Vision OCR prompt: `vision_ocr.txt` (or `VISION_OCR_PROMPT`).
+
 ## Notes
 - Paperless remains the source of truth; no automatic writeback is performed.  
 - Vision OCR is optional and controlled by env (`ENABLE_VISION_OCR`, `VISION_MODEL`).  
 - Re-process uses full vision OCR to improve handwritten/low-quality pages.
+ - TLS verification can be disabled for internal certs via `HTTPX_VERIFY_TLS=0`.
