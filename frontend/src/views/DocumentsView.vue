@@ -240,7 +240,7 @@
                 <a
                   v-if="paperlessBaseUrl"
                   class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
-                  :href="`${paperlessBaseUrl.replace(/\\/$/, '')}/documents/${doc.id}`"
+                  :href="paperlessDocUrl(doc.id)"
                   target="_blank"
                   rel="noopener"
                   @click.stop
@@ -356,6 +356,10 @@ const stats = ref({
   fully_processed: 0,
 });
 const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
+const paperlessDocUrl = (id: number) => {
+  if (!paperlessBaseUrl) return '';
+  return `${paperlessBaseUrl.replace(/\/$/, '')}/documents/${id}`;
+};
 let pollHandle: number | null = null;
 
 const startPolling = () => {
