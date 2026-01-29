@@ -23,6 +23,7 @@ from app.services.queue import (
     mark_in_progress,
     mark_done,
     QUEUE_SET,
+    mark_worker_heartbeat,
 )
 from app.services.text_pages import get_page_text_layers
 from app.services.page_text_store import upsert_page_texts
@@ -123,6 +124,7 @@ def main() -> None:
         raise SystemExit("Redis not configured")
     logger.info("Worker started queue=%s", QUEUE_KEY)
     while True:
+        mark_worker_heartbeat(settings)
         item = client.blpop(QUEUE_KEY, timeout=5)
         if not item:
             time.sleep(0.5)

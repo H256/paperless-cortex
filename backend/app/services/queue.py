@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Iterable
 
 from app.config import Settings
@@ -12,6 +13,8 @@ QUEUE_SET = "paperless_intelligence:doc_queue_set"
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
+WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
+WORKER_HEARTBEAT_TTL = 30
 
 
 def _redis_url(host: str) -> str:
@@ -111,3 +114,28 @@ def mark_done(settings: Settings) -> None:
         return
     client.decr(STATS_IN_PROGRESS)
     client.incr(STATS_DONE)
+
+
+def mark_worker_heartbeat(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    now = int(time.time())
+    client.set(WORKER_HEARTBEAT_KEY, now, ex=WORKER_HEARTBEAT_TTL)
+
+
+def worker_status(settings: Settings) -> tuple[bool, str]:
+    client = _get_client(settings)
+    if not client:
+        return False, "Redis not configured"
+    raw = client.get(WORKER_HEARTBEAT_KEY)
+    if not raw:
+        return False, "No heartbeat"
+    try:
+        last = int(raw)
+    except Exception:
+        return False, "Invalid heartbeat"
+    age = max(0, int(time.time()) - last)
+    if age > WORKER_HEARTBEAT_TTL:
+        return False, f"Heartbeat stale ({age}s)"
+    return True, f"Heartbeat {age}s ago"

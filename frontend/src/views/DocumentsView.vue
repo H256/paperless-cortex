@@ -5,10 +5,32 @@
         <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
         <p class="text-sm text-slate-500">Manage ingestion, embedding, and review analysis status.</p>
       </div>
+      <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+        <svg
+          v-if="isProcessing"
+          class="h-4 w-4 animate-spin text-indigo-500"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.2" />
+          <path d="M22 12a10 10 0 0 1-10 10" />
+        </svg>
+        <div v-if="isProcessing" class="space-y-0.5">
+          <div v-if="syncStatus.status === 'running'">
+            Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) · ETA {{ etaText }}
+          </div>
+          <div v-if="embedStatus.status === 'running'">
+            Embed {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%) · ETA {{ embedEtaText }}
+          </div>
+        </div>
+        <span v-else class="text-slate-500">Idle</span>
+      </div>
     </div>
 
     <section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
         <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
           <label class="inline-flex items-center gap-2">
             <input type="checkbox" v-model="pageOnly" />
@@ -136,11 +158,6 @@
     </section>
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-6 py-4 text-sm text-slate-600">
-        <span>Last synced: {{ lastSynced ?? 'never' }}</span>
-        <span v-if="syncStatus.status === 'running'" class="ml-4">Sync: {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA: {{ etaText }}</span>
-        <span v-if="embedStatus.status === 'running'" class="ml-4">Embed: {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%) - ETA: {{ embedEtaText }}</span>
-      </div>
       <div class="overflow-hidden">
         <table class="w-full border-collapse text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -222,9 +239,12 @@
       </div>
 
       <div class="flex items-center justify-between px-6 py-4 text-sm text-slate-600">
-        <button class="rounded-lg border border-slate-200 bg-white px-3 py-2" :disabled="page <= 1" @click="page -= 1; load()">Prev</button>
-        <span>Page {{ page }} of {{ totalPages }}</span>
-        <button class="rounded-lg border border-slate-200 bg-white px-3 py-2" :disabled="page >= totalPages" @click="page += 1; load()">Next</button>
+        <button class="rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm" :disabled="page <= 1" @click="page -= 1; load()">Prev</button>
+        <div class="text-center">
+          <div class="text-sm font-semibold text-slate-700">Page {{ page }} of {{ totalPages }}</div>
+          <div class="text-xs text-slate-400">Last synced: {{ formatDateTime(lastSynced) }}</div>
+        </div>
+        <button class="rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm" :disabled="page >= totalPages" @click="page += 1; load()">Next</button>
       </div>
     </section>
   </section>
@@ -306,6 +326,9 @@ const startPolling = () => {
 
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(totalCount.value / pageSize.value))
+);
+const isProcessing = computed(() =>
+  syncStatus.value.status === 'running' || embedStatus.value.status === 'running'
 );
 const sortDir = (field: string) => {
   const current = ordering.value.replace('-', '');
@@ -533,6 +556,16 @@ const formatDate = (value?: string | null) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return new Intl.DateTimeFormat(navigator.language).format(parsed);
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return 'never';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat(navigator.language, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsed);
 };
 
 onMounted(async () => {

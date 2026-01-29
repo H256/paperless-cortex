@@ -25,16 +25,6 @@
               Search
             </span>
           </RouterLink>
-          <RouterLink to="/connections" v-slot="{ isActive }">
-            <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10 13a5 5 0 0 1 7 0l1 1" />
-                <path d="M4 11a5 5 0 0 1 7 0l1 1" />
-                <path d="M8 7a5 5 0 0 1 7 0l1 1" />
-              </svg>
-              Connections
-            </span>
-          </RouterLink>
           <RouterLink to="/queue" v-slot="{ isActive }">
             <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -58,12 +48,28 @@
       <RouterView />
     </main>
     <footer class="border-t border-slate-200 bg-white">
-      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-6 py-3 text-xs text-slate-500">
-        <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
-        <div v-if="queueStatus.enabled">In progress: {{ queueStatus.in_progress ?? 0 }}</div>
-        <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
-        <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
-        <div v-else>Queue: disabled</div>
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3 text-xs text-slate-500">
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="inline-flex items-center gap-2">
+            <span :class="statusDot(healthStatus.web)"></span>
+            Web
+          </div>
+          <div class="inline-flex items-center gap-2">
+            <span :class="statusDot(healthStatus.worker)"></span>
+            Worker
+          </div>
+          <div class="inline-flex items-center gap-2">
+            <span :class="statusDot(healthStatus.ollama)"></span>
+            Ollama
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
+          <div v-if="queueStatus.enabled">In progress: {{ queueStatus.in_progress ?? 0 }}</div>
+          <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
+          <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
+          <div v-else>Queue: disabled</div>
+        </div>
       </div>
     </footer>
   </div>
@@ -78,6 +84,12 @@ const queueStatus = ref<{ enabled: boolean; length: number | null; total?: numbe
   length: null,
 });
 
+const healthStatus = ref<{ web: string; worker: string; ollama: string }>({
+  web: 'DOWN',
+  worker: 'DOWN',
+  ollama: 'DOWN',
+});
+
 const fetchQueueStatus = async () => {
   try {
     const { data } = await api.get<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>(
@@ -89,8 +101,27 @@ const fetchQueueStatus = async () => {
   }
 };
 
+const fetchHealth = async () => {
+  try {
+    const { data } = await api.get<{ web?: { status?: string }; worker?: { status?: string }; ollama?: { status?: string } }>('/status');
+    healthStatus.value = {
+      web: data.web?.status ?? 'DOWN',
+      worker: data.worker?.status ?? 'DOWN',
+      ollama: data.ollama?.status ?? 'DOWN',
+    };
+  } catch {
+    healthStatus.value = { web: 'DOWN', worker: 'DOWN', ollama: 'DOWN' };
+  }
+};
+
+const statusDot = (status: string) =>
+  `h-2 w-2 rounded-full ${status === 'UP' ? 'bg-emerald-500' : 'bg-rose-500'}`;
+
 onMounted(() => {
   fetchQueueStatus();
+  fetchHealth();
   setInterval(fetchQueueStatus, 5000);
+  setInterval(fetchHealth, 7000);
 });
 </script>
+
