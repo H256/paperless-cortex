@@ -229,7 +229,10 @@ def get_document_suggestions(
             .order_by(DocumentPageText.page.asc())
             .all()
         )
-        if not vision_pages and settings.enable_vision_ocr:
+        if not vision_pages:
+            if not settings.enable_vision_ocr:
+                logger.warning("Vision OCR refresh requested but ENABLE_VISION_OCR=0 doc=%s", doc_id)
+                return {"error": "vision_ocr_disabled"}
             logger.info("Vision OCR pages missing; running OCR on-demand doc=%s", doc_id)
             _, vision_generated = get_page_text_layers(
                 settings,
@@ -246,7 +249,8 @@ def get_document_suggestions(
                     .all()
                 )
         if not vision_pages:
-            return None
+            logger.warning("Vision OCR produced no pages doc=%s", doc_id)
+            return {"error": "vision_ocr_empty"}
         vision_text = "\n\n".join(page.text or "" for page in vision_pages)
         vision_suggestions = generate_suggestions(
             settings,
