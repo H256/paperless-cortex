@@ -143,6 +143,26 @@ def get_document(doc_id: int, settings: Settings = Depends(settings_dep)):
     return paperless.get_document(settings, doc_id)
 
 
+@router.get("/{doc_id}/local")
+def get_local_document(doc_id: int, db: Session = Depends(get_db)):
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return {"status": "missing"}
+    return {
+        "id": doc.id,
+        "title": doc.title,
+        "content": doc.content,
+        "document_date": doc.document_date,
+        "created": doc.created,
+        "modified": doc.modified,
+        "correspondent": doc.correspondent_id,
+        "document_type": doc.document_type_id,
+        "tags": [tag.id for tag in doc.tags],
+        "notes": [{"note": note.note} for note in doc.notes],
+        "original_file_name": doc.original_file_name,
+    }
+
+
 @router.get("/{doc_id}/text-quality")
 def get_document_text_quality(doc_id: int, settings: Settings = Depends(settings_dep)):
     logger = __import__("logging").getLogger(__name__)

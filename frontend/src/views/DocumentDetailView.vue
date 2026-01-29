@@ -627,8 +627,12 @@ const formatDateTime = (value?: string | null) => {
 
 const load = async () => {
   loading.value = true;
-  const { data } = await api.get<DocumentDetail>(`/documents/${id}`);
-  document.value = data;
+  const { data } = await api.get<DocumentDetail>(`/documents/${id}/local`);
+  if (data?.status === 'missing') {
+    document.value = null;
+  } else {
+    document.value = data;
+  }
   loading.value = false;
 };
 
