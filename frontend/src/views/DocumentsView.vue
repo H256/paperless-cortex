@@ -100,6 +100,10 @@
             </select>
           </label>
           <label>
+            Only vision OCR
+            <input type="checkbox" v-model="searchOnlyVision" />
+          </label>
+          <label>
             Dedupe
             <input type="checkbox" v-model="searchDedupe" />
           </label>
@@ -108,8 +112,8 @@
             <input type="checkbox" v-model="searchRerank" />
           </label>
           <label>
-            Min quality
-            <input type="number" min="0" max="100" v-model.number="searchMinQuality" />
+            Min quality: {{ searchMinQuality }}
+            <input type="range" min="0" max="100" v-model.number="searchMinQuality" />
           </label>
           <button :disabled="searchLoading || !searchQuery" @click="runSearch">
             {{ searchLoading ? 'Searching...' : 'Search' }}
@@ -278,6 +282,7 @@ const searchLoading = ref(false);
 const searchError = ref('');
 const searchDedupe = ref(true);
 const searchRerank = ref(true);
+const searchOnlyVision = ref(false);
 const searchMinQuality = ref(0);
 const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
 
@@ -342,9 +347,13 @@ const embedEtaText = computed(() => {
   const seconds = etaSec % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
+const effectiveSource = computed(() => {
+  if (searchOnlyVision.value) return 'vision_ocr';
+  return searchSource.value || '';
+});
 const filteredSearchResults = computed(() => {
-  if (!searchSource.value) return searchResults.value;
-  return searchResults.value.filter((result) => result.source === searchSource.value);
+  if (!effectiveSource.value) return searchResults.value;
+  return searchResults.value.filter((result) => result.source === effectiveSource.value);
 });
 
 const load = async () => {
@@ -470,7 +479,7 @@ const runSearch = async () => {
       params: {
         q: searchQuery.value,
         top_k: searchTopK.value,
-        source: searchSource.value || undefined,
+        source: effectiveSource.value || undefined,
         dedupe: searchDedupe.value,
         rerank: searchRerank.value,
         min_quality: searchMinQuality.value || undefined,
