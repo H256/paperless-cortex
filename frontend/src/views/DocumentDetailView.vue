@@ -324,6 +324,12 @@
                 <div v-for="field in suggestionFields" :key="`best-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
                   <span class="text-xs text-slate-500">{{ field.label }}</span>
                   <div class="text-sm text-slate-900">{{ fieldValue(bestPickSuggestion.data, field.key) }}</div>
+                  <button
+                    class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                    @click="saveBestPick(field.key, bestPickSuggestion.data)"
+                  >
+                    Save
+                  </button>
                 </div>
                 <div
                   v-if="(bestPickSuggestion.data.suggested_tags_existing || []).length || (bestPickSuggestion.data.suggested_tags_new || []).length"
@@ -537,6 +543,16 @@ const saveField = async (source: 'paperless_ocr' | 'vision_ocr', field: string, 
   if (field === 'tags') value = data.tags || data.suggested_tags || [];
   if (value === null || value === undefined || value === '') return;
   await applyVariant(source, field, value);
+};
+
+const saveBestPick = async (field: string, data: any) => {
+  if (!data) return;
+  const ok = window.confirm(`Save best pick ${field} to suggestions (paperless_ocr)?`);
+  if (!ok) return;
+  await saveField('paperless_ocr', field, data);
+  if (suggestions.value) {
+    suggestions.value = { ...suggestions.value };
+  }
 };
 
 
