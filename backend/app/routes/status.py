@@ -32,10 +32,13 @@ def status(settings: Settings = Depends(settings_dep)):
     started = time.perf_counter()
     ollama_ok, ollama_detail = check_ollama(settings)
     worker_ok, worker_detail = worker_status(settings) if settings.queue_enabled else (False, "Queue disabled")
+    paperless_base = (settings.paperless_base_url or "").rstrip("/")
+    if paperless_base.endswith("/api"):
+        paperless_base = paperless_base[:-4]
     return {
         "web": {"status": "UP"},
         "worker": {"status": "UP" if worker_ok else "DOWN", "detail": worker_detail},
         "ollama": {"status": "UP" if ollama_ok else "DOWN", "detail": ollama_detail},
-        "paperless_base_url": settings.paperless_base_url or "",
+        "paperless_base_url": paperless_base,
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }
