@@ -119,6 +119,15 @@ def sync_documents(
     if embed and embed_queue:
         if settings.queue_enabled:
             enqueue_docs(settings, [doc.id for doc in embed_queue])
+            embed_state = db.get(SyncState, "embeddings")
+            if not embed_state:
+                embed_state = SyncState(key="embeddings")
+                db.add(embed_state)
+            embed_state.status = "running"
+            if not embed_state.started_at:
+                embed_state.started_at = datetime.now(timezone.utc).isoformat()
+            embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
+            db.commit()
             embedded = 0
         else:
             embedded = _embed_documents(db, settings, embed_queue, force_embed=force_embed)
@@ -288,6 +297,15 @@ def sync_document(
         if doc:
             if settings.queue_enabled:
                 enqueue_docs(settings, [doc.id])
+                embed_state = db.get(SyncState, "embeddings")
+                if not embed_state:
+                    embed_state = SyncState(key="embeddings")
+                    db.add(embed_state)
+                embed_state.status = "running"
+                if not embed_state.started_at:
+                    embed_state.started_at = datetime.now(timezone.utc).isoformat()
+                embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
+                db.commit()
                 embedded = 0
             else:
                 embedded = _embed_documents(db, settings, [doc], force_embed=force_embed)

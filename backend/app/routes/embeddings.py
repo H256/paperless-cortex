@@ -21,7 +21,7 @@ from app.services.embeddings import (
 from app.services.text_pages import get_page_text_layers
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
-from app.services.queue import enqueue_docs
+from app.services.queue import enqueue_docs, queue_stats
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
@@ -65,7 +65,9 @@ def ingest_embeddings(
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
         enqueue_docs(settings, [doc.id for doc in documents])
-        state.status = "idle"
+        state.status = "running"
+        if not state.started_at:
+            state.started_at = datetime.now(timezone.utc).isoformat()
         state.last_synced_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
@@ -182,6 +184,15 @@ def ingest_documents(
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
         enqueue_docs(settings, [doc.id for doc in documents])
+        state = db.get(SyncState, "embeddings")
+        if not state:
+            state = SyncState(key="embeddings")
+            db.add(state)
+        state.status = "running"
+        if not state.started_at:
+            state.started_at = datetime.now(timezone.utc).isoformat()
+        state.last_synced_at = datetime.now(timezone.utc).isoformat()
+        db.commit()
         return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
     sample_embedding = embed_text(settings, "dimension probe")
     ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
@@ -401,6 +412,34 @@ def search(
 @router.get("/status")
 def embedding_status(db: Session = Depends(get_db)):
     state = db.get(SyncState, "embeddings")
+    settings = load_settings()
+    if settings.queue_enabled:
+        stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
+        status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
+        if status == "running" and state and not state.started_at:
+            state.started_at = datetime.now(timezone.utc).isoformat()
+            state.status = "running"
+            db.commit()
+        started_at = state.started_at if state else None
+        eta_seconds = None
+        if started_at and stats["done"] and stats["total"]:
+            try:
+                started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+                rate = stats["done"] / max(1.0, elapsed)
+                remaining = stats["total"] - stats["done"]
+                eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
+            except Exception:
+                eta_seconds = None
+        return {
+            "status": status,
+            "processed": stats["done"],
+            "total": stats["total"],
+            "started_at": started_at,
+            "last_synced_at": state.last_synced_at if state else None,
+            "cancel_requested": state.cancel_requested if state else False,
+            "eta_seconds": eta_seconds,
+        }
     if not state:
         return {"status": "idle", "processed": 0, "total": 0, "started_at": None}
     eta_seconds = None
