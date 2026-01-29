@@ -99,16 +99,16 @@ def get_document_suggestions(
 
     def run_baseline() -> dict[str, object]:
         baseline_text = raw.get("content") or ""
-    baseline_suggestions = generate_suggestions(
-        settings,
-        raw,
-        baseline_text,
-        tags=tags,
-        correspondents=correspondents,
-    )
-    baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
-    audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
+        baseline_suggestions = generate_suggestions(
+            settings,
+            raw,
+            baseline_text,
+            tags=tags,
+            correspondents=correspondents,
+        )
+        baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
+        upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+        audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
         return baseline_suggestions
 
     def run_vision() -> dict[str, object] | None:
