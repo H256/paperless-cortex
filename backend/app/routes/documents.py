@@ -10,7 +10,7 @@ import json
 
 from pydantic import BaseModel
 
-from app.models import Document, DocumentPageText, DocumentSuggestion, DocumentEmbedding
+from app.models import Document, DocumentPageText, DocumentSuggestion, DocumentEmbedding, Tag, Correspondent
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
     generate_suggestions,
@@ -280,6 +280,12 @@ class SuggestionFieldApply(BaseModel):
     value: object
 
 
+class ApplySuggestionToDocument(BaseModel):
+    source: str | None = None
+    field: str
+    value: object
+
+
 @router.post("/{doc_id}/suggestions/field")
 def suggest_field_variants(
     doc_id: int,
@@ -364,6 +370,78 @@ def apply_field_suggestion(
     if updated is None:
         return {"status": "missing"}
     return {"status": "ok", "suggestions": {payload.source: updated}}
+
+
+@router.post("/{doc_id}/apply-suggestion")
+def apply_suggestion_to_document(
+    doc_id: int,
+    payload: ApplySuggestionToDocument,
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    logger = __import__("logging").getLogger(__name__)
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return {"status": "missing"}
+    field = payload.field
+    value = payload.value
+    if field not in ("title", "date", "correspondent", "tags"):
+        raise ValueError("Invalid field")
+    old_value = None
+    updated = False
+    details: dict[str, object] = {}
+
+    if field == "title":
+        old_value = doc.title
+        doc.title = str(value).strip() if value is not None else None
+        updated = True
+    elif field == "date":
+        old_value = doc.document_date
+        doc.document_date = str(value).strip() if value is not None else None
+        updated = True
+    elif field == "correspondent":
+        old_value = doc.correspondent_id
+        name = str(value).strip() if value is not None else ""
+        if name:
+            match = (
+                db.query(Correspondent)
+                .filter(Correspondent.name.ilike(name))
+                .one_or_none()
+            )
+            if match:
+                doc.correspondent_id = match.id
+                updated = True
+            else:
+                details["unmatched"] = name
+        else:
+            doc.correspondent_id = None
+            updated = True
+    elif field == "tags":
+        old_value = [tag.name for tag in doc.tags]
+        tag_names: list[str] = []
+        if isinstance(value, list):
+            tag_names = [str(v).strip() for v in value if str(v).strip()]
+        elif isinstance(value, str):
+            tag_names = [v.strip() for v in value.split(",") if v.strip()]
+        matched: list[Tag] = []
+        unmatched: list[str] = []
+        for name in tag_names:
+            row = db.query(Tag).filter(Tag.name.ilike(name)).one_or_none()
+            if row:
+                matched.append(row)
+            else:
+                unmatched.append(name)
+        if matched:
+            doc.tags = matched
+            updated = True
+        details["unmatched"] = unmatched
+
+    if updated:
+        audit_suggestion_run(db, doc_id, payload.source or "manual", f"apply_to_document:{field}")
+        db.commit()
+        logger.info("Applied suggestion to document doc=%s field=%s", doc_id, field)
+        return {"status": "ok", "updated": True, **details}
+    return {"status": "skipped", "updated": False, **details}
 
 
 @router.get("/{doc_id}/page-texts")

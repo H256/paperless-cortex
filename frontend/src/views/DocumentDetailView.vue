@@ -164,7 +164,7 @@
                   <div class="text-sm text-slate-900">{{ fieldValue(bestPickSuggestion.data, field.key) }}</div>
                   <button
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
-                    @click="saveBestPick(field.key, bestPickSuggestion.data)"
+                    @click="applyToDocument('best_pick', field.key, bestPickSuggestion.data)"
                   >
                     Save
                   </button>
@@ -224,7 +224,7 @@
                       </button>
                       <button
                         class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
-                        @click="saveField('paperless_ocr', field.key, paperlessSuggestion.data)"
+                        @click="applyToDocument('paperless_ocr', field.key, paperlessSuggestion.data)"
                       >
                         Save
                       </button>
@@ -305,7 +305,7 @@
                       </button>
                       <button
                         class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
-                        @click="saveField('vision_ocr', field.key, visionSuggestion.data)"
+                        @click="applyToDocument('vision_ocr', field.key, visionSuggestion.data)"
                       >
                         Save
                       </button>
@@ -552,7 +552,7 @@ const applyVariant = async (
   }
 };
 
-const saveField = async (source: 'paperless_ocr' | 'vision_ocr', field: string, data: any) => {
+const applyToDocument = async (source: string, field: string, data: any) => {
   if (!data) return;
   let value: any = data[field];
   if (field === 'title') value = data.title || data.suggested_title || '';
@@ -560,16 +560,14 @@ const saveField = async (source: 'paperless_ocr' | 'vision_ocr', field: string, 
   if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || '';
   if (field === 'tags') value = data.tags || data.suggested_tags || [];
   if (value === null || value === undefined || value === '') return;
-  await applyVariant(source, field, value);
-};
-
-const saveBestPick = async (field: string, data: any) => {
-  if (!data) return;
-  const ok = window.confirm(`Save best pick ${field} to suggestions (paperless_ocr)?`);
+  const label = typeof value === 'string' ? value : JSON.stringify(value);
+  const ok = window.confirm(`Apply ${field} to document: ${label}?`);
   if (!ok) return;
-  await saveField('paperless_ocr', field, data);
-  if (suggestions.value) {
-    suggestions.value = { ...suggestions.value };
+  try {
+    await api.post(`/documents/${id}/apply-suggestion`, { source, field, value });
+    await load();
+  } catch (err: any) {
+    suggestionsError.value = err?.message ?? 'Failed to apply suggestion to document';
   }
 };
 
