@@ -49,6 +49,11 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     for doc_id in ids:
         if client.sadd(QUEUE_SET, doc_id):
             added.append(doc_id)
+        # If a vision-refresh task exists for this doc, remove it in favor of full.
+        refresh_key = f"{doc_id}:vision_refresh"
+        if client.srem(QUEUE_SET, refresh_key):
+            payload = __import__("json").dumps({"doc_id": int(doc_id), "task": "vision_refresh"})
+            client.lrem(QUEUE_KEY, 0, payload)
     if not added:
         return 0
     client.rpush(QUEUE_KEY, *added)
@@ -71,6 +76,9 @@ def enqueue_task(settings: Settings, task: dict) -> int:
         return 0
     payload = __import__("json").dumps(task)
     key = _task_key(task)
+    doc_id = task.get("doc_id")
+    if doc_id is not None and client.sismember(QUEUE_SET, str(doc_id)):
+        return 0
     if client.sadd(QUEUE_SET, key):
         client.rpush(QUEUE_KEY, payload)
         client.incr(STATS_TOTAL)
@@ -87,6 +95,9 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
         return 0
     payload = __import__("json").dumps(task)
     key = _task_key(task)
+    doc_id = task.get("doc_id")
+    if doc_id is not None and client.sismember(QUEUE_SET, str(doc_id)):
+        return 0
     is_new = client.sadd(QUEUE_SET, key)
     if is_new:
         client.incr(STATS_TOTAL)
