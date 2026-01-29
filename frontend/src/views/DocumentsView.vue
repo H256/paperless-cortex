@@ -355,10 +355,10 @@ const stats = ref({
   suggestions: 0,
   fully_processed: 0,
 });
-const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
+const paperlessBaseUrl = ref(import.meta.env.VITE_PAPERLESS_BASE_URL || '');
 const paperlessDocUrl = (id: number) => {
-  if (!paperlessBaseUrl) return '';
-  return `${paperlessBaseUrl.replace(/\/$/, '')}/documents/${id}`;
+  if (!paperlessBaseUrl.value) return '';
+  return `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${id}`;
 };
 let pollHandle: number | null = null;
 
@@ -620,6 +620,17 @@ const fetchStats = async () => {
   }
 };
 
+const fetchPaperlessBaseUrl = async () => {
+  if (paperlessBaseUrl.value) return;
+  try {
+    const { data } = await api.get<{ paperless_base_url?: string }>('/status');
+    if (data.paperless_base_url) {
+      paperlessBaseUrl.value = data.paperless_base_url;
+    }
+  } catch {
+    // ignore
+  }
+};
 const cancelSync = async () => {
   await api.post('/sync/documents/cancel');
   await fetchSyncStatus();
@@ -682,6 +693,7 @@ onMounted(async () => {
   await fetchEmbedStatus();
   await fetchQueueStatus();
   await fetchStats();
+  await fetchPaperlessBaseUrl();
   await load();
   startPolling();
 });

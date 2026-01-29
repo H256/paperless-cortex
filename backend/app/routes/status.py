@@ -36,5 +36,6 @@ def status(settings: Settings = Depends(settings_dep)):
         "web": {"status": "UP"},
         "worker": {"status": "UP" if worker_ok else "DOWN", "detail": worker_detail},
         "ollama": {"status": "UP" if ollama_ok else "DOWN", "detail": ollama_detail},
+        "paperless_base_url": settings.paperless_base_url or "",
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }
