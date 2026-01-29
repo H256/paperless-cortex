@@ -29,9 +29,9 @@ from app.services.queue import (
     reset_stats,
     clear_queue,
 )
-from app.services.text_pages import get_page_text_layers
+from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services.page_text_store import upsert_page_texts
-from app.services.suggestions import generate_suggestions, normalize_suggestions_payload
+from app.services.suggestions import generate_suggestions, normalize_suggestions_payload, generate_field_variants
 from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.routes.sync import _upsert_document
@@ -41,31 +41,9 @@ import json
 logger = logging.getLogger(__name__)
 
 
-def _process_doc(settings, db: Session, doc_id: int) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort doc=%s", doc_id)
-        return
-    raw = paperless.get_document(settings, doc_id)
-    data = DocumentIn.model_validate(raw)
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
-    _upsert_document(db, settings, data, cache)
-    db.commit()
-
-    doc = db.get(Document, doc_id)
-    if not doc:
-        return
-
-    # Embeddings (with vision OCR)
+def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages) -> None:
     content_value = doc.content or ""
-    baseline_pages, vision_pages = get_page_text_layers(
-        settings,
-        doc.content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-        force_full_vision=True,
-    )
-    if vision_pages:
-        upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
-    page_texts = baseline_pages + vision_pages
+    page_texts = (baseline_pages or []) + (vision_pages or [])
     hash_source = "\f".join(f"{page.source}:{page.text}" for page in page_texts) if page_texts else content_value
     content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
 
@@ -108,10 +86,48 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     existing.chunk_count = len(chunks)
     db.commit()
 
+
+def _process_sync_only(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort sync doc=%s", doc_id)
+        return
+    raw = paperless.get_document(settings, doc_id)
+    data = DocumentIn.model_validate(raw)
+    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    _upsert_document(db, settings, data, cache)
+    db.commit()
+
+
+def _process_doc(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort doc=%s", doc_id)
+        return
+    raw = paperless.get_document(settings, doc_id)
+    data = DocumentIn.model_validate(raw)
+    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    _upsert_document(db, settings, data, cache)
+    db.commit()
+
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return
+
+    # Embeddings (with vision OCR)
+    baseline_pages, vision_pages = get_page_text_layers(
+        settings,
+        doc.content,
+        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+        force_full_vision=True,
+    )
+    if vision_pages:
+        upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages)
+
     # Suggestions
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
-    baseline_suggestions = generate_suggestions(settings, raw, content_value, tags, correspondents)
+    baseline_text = doc.content or ""
+    baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
     baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
     upsert_suggestion(db, doc_id, "paperless_ocr", __import__("json").dumps(baseline_suggestions, ensure_ascii=False))
     audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
@@ -139,8 +155,43 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int) -> None:
         upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
     db.commit()
 
+def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
+        return
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return
+    baseline_pages = get_baseline_page_texts(
+        settings,
+        doc.content,
+        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+    )
+    _embed_with_pages(settings, db, doc, baseline_pages, [])
 
-def _process_suggestions_only(settings, db: Session, doc_id: int) -> None:
+
+def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
+        return
+    doc = db.get(Document, doc_id)
+    if not doc:
+        return
+    baseline_pages = get_baseline_page_texts(
+        settings,
+        doc.content,
+        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+    )
+    vision_pages = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+        .order_by(DocumentPageText.page.asc())
+        .all()
+    )
+    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages)
+
+
+def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort suggestions doc=%s", doc_id)
         return
@@ -155,6 +206,16 @@ def _process_suggestions_only(settings, db: Session, doc_id: int) -> None:
     baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
     upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
     audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
+    db.commit()
+
+
+def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort vision suggestions doc=%s", doc_id)
+        return
+    tags = get_cached_tags(settings)
+    correspondents = get_cached_correspondents(settings)
+    raw = paperless.get_document(settings, doc_id)
     vision_pages = (
         db.query(DocumentPageText)
         .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
@@ -168,6 +229,44 @@ def _process_suggestions_only(settings, db: Session, doc_id: int) -> None:
             vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
             upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
             audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
+    db.commit()
+
+
+def _process_suggest_field(settings, db: Session, task: dict) -> None:
+    doc_id = int(task.get("doc_id"))
+    source = str(task.get("source") or "paperless_ocr")
+    field = str(task.get("field") or "")
+    count = int(task.get("count") or 3)
+    current = task.get("current")
+    if source not in ("paperless_ocr", "vision_ocr") or field not in ("title", "date", "correspondent", "tags"):
+        return
+    raw = paperless.get_document(settings, doc_id)
+    tags = get_cached_tags(settings)
+    correspondents = get_cached_correspondents(settings)
+    if source == "vision_ocr":
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        text = "\n\n".join(page.text or "" for page in vision_pages)
+    else:
+        doc = db.get(Document, doc_id)
+        text = doc.content if doc else ""
+    variants = generate_field_variants(
+        settings,
+        raw,
+        text or "",
+        tags=tags,
+        correspondents=correspondents,
+        field=field,
+        count=max(1, min(count, 5)),
+        current_value=current,
+    )
+    variant_source = ("pvar" if source == "paperless_ocr" else "vvar") + f":{field}"
+    upsert_suggestion(db, doc_id, variant_source, json.dumps({"variants": variants.get("variants") if isinstance(variants, dict) else variants}, ensure_ascii=False))
+    audit_suggestion_run(db, doc_id, source, f"field_variants:{field}")
     db.commit()
 
 
@@ -218,10 +317,20 @@ def main() -> None:
         mark_in_progress(settings)
         try:
             with SessionLocal() as db:
-                if task_type == "vision_ocr":
+                if task_type == "sync":
+                    _process_sync_only(settings, db, doc_id)
+                elif task_type == "vision_ocr":
                     _process_vision_ocr_only(settings, db, doc_id)
-                elif task_type == "suggestions":
-                    _process_suggestions_only(settings, db, doc_id)
+                elif task_type == "embeddings_paperless":
+                    _process_embeddings_paperless(settings, db, doc_id)
+                elif task_type == "embeddings_vision":
+                    _process_embeddings_vision(settings, db, doc_id)
+                elif task_type == "suggestions_paperless":
+                    _process_suggestions_paperless(settings, db, doc_id)
+                elif task_type == "suggestions_vision":
+                    _process_suggestions_vision(settings, db, doc_id)
+                elif task_type == "suggest_field":
+                    _process_suggest_field(settings, db, task if isinstance(task, dict) else {})
                 else:
                     _process_doc(settings, db, doc_id)
         except Exception as exc:
@@ -229,8 +338,15 @@ def main() -> None:
         finally:
             mark_done(settings)
             if client:
-                if task_type in ("vision_ocr", "suggestions", "embeddings", "sync"):
-                    client.srem(QUEUE_SET, f"{doc_id}:{task_type}")
+                if isinstance(task, dict):
+                    source = task.get("source")
+                    field = task.get("field")
+                    suffix = ""
+                    if source:
+                        suffix += f":{source}"
+                    if field:
+                        suffix += f":{field}"
+                    client.srem(QUEUE_SET, f"{doc_id}:{task_type}{suffix}")
                 else:
                     client.srem(QUEUE_SET, str(doc_id))
 

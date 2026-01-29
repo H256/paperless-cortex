@@ -29,7 +29,7 @@ from app.services.embeddings import (
 )
 from app.services.text_pages import get_page_text_layers
 from app.services.page_text_store import upsert_page_texts
-from app.services.queue import enqueue_docs
+from app.services.queue import enqueue_task_sequence
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -118,7 +118,17 @@ def sync_documents(
     embedded = 0
     if embed and embed_queue:
         if settings.queue_enabled:
-            enqueue_docs(settings, [doc.id for doc in embed_queue])
+            for doc in embed_queue:
+                tasks = []
+                if settings.enable_vision_ocr:
+                    tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
+                    tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
+                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                    tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
+                else:
+                    tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
+                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                enqueue_task_sequence(settings, tasks)
             embed_state = db.get(SyncState, "embeddings")
             if not embed_state:
                 embed_state = SyncState(key="embeddings")
@@ -296,7 +306,16 @@ def sync_document(
         doc = db.get(Document, doc_id)
         if doc:
             if settings.queue_enabled:
-                enqueue_docs(settings, [doc.id])
+                tasks = []
+                if settings.enable_vision_ocr:
+                    tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
+                    tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
+                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                    tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
+                else:
+                    tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
+                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                enqueue_task_sequence(settings, tasks)
                 embed_state = db.get(SyncState, "embeddings")
                 if not embed_state:
                     embed_state = SyncState(key="embeddings")

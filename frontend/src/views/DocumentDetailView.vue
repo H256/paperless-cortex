@@ -516,18 +516,42 @@ const fieldValue = (data: any, field: string) => {
   return data[field] ?? '';
 };
 
+const pollVariants = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
+  const key = `${source}:${field}`;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    try {
+      const { data } = await api.get<{ variants: any[] }>(
+        `/documents/${id}/suggestions/field/variants`,
+        { params: { source, field } }
+      );
+      if (Array.isArray(data.variants) && data.variants.length) {
+        suggestionVariants.value[key] = data.variants;
+        return;
+      }
+    } catch (err: any) {
+      suggestionVariantError.value[key] = err?.message ?? 'Failed to fetch variants';
+      return;
+    }
+  }
+};
+
 const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
   const key = `${source}:${field}`;
   suggestionVariantLoading.value[key] = true;
   suggestionVariantError.value[key] = '';
   try {
-    const { data } = await api.post<{ variants: any }>(`/documents/${id}/suggestions/field`, {
-      source,
-      field,
-      count: 3,
-    });
-    const variants = data.variants?.parsed?.variants || data.variants?.variants || [];
-    suggestionVariants.value[key] = Array.isArray(variants) ? variants : [];
+    const { data } = await api.post<{ variants?: any; queued?: boolean }>(
+      `/documents/${id}/suggestions/field`,
+      { source, field, count: 3 },
+      { params: { priority: true } }
+    );
+    const variants = data?.variants?.parsed?.variants || data?.variants?.variants || [];
+    if (Array.isArray(variants) && variants.length) {
+      suggestionVariants.value[key] = variants;
+    } else if (data?.queued) {
+      await pollVariants(source, field);
+    }
   } catch (err: any) {
     suggestionVariantError.value[key] = err?.message ?? 'Failed to generate variants';
   } finally {
@@ -712,7 +736,7 @@ const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
   try {
     const { data } = await api.get<{ suggestions: { paperless_ocr?: any; vision_ocr?: any } }>(
       `/documents/${id}/suggestions`,
-      { params: { source, refresh: true, priority: source === 'vision_ocr' } }
+      { params: { source, refresh: true, priority: true } }
     );
     suggestions.value = {
       ...(suggestions.value ?? {}),

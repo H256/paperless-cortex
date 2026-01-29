@@ -10,7 +10,15 @@ logger = logging.getLogger(__name__)
 
 QUEUE_KEY = "paperless_intelligence:doc_queue"
 QUEUE_SET = "paperless_intelligence:doc_queue_set"
-TASK_TYPES = ['vision_ocr', 'suggestions', 'embeddings', 'sync']
+TASK_TYPES = [
+    "sync",
+    "vision_ocr",
+    "embeddings_paperless",
+    "embeddings_vision",
+    "suggestions_paperless",
+    "suggestions_vision",
+    "suggest_field",
+]
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
@@ -37,37 +45,20 @@ def _get_client(settings: Settings):
 
 
 def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
-    client = _get_client(settings)
-    if not client:
-        return 0
-    if is_cancel_requested(settings):
-        return 0
-    ids = [str(doc_id) for doc_id in doc_ids]
-    if not ids:
-        return 0
-    # de-dupe via set
-    added = []
-    for doc_id in ids:
-        if client.sadd(QUEUE_SET, doc_id):
-            added.append(doc_id)
-        # If task-specific items exist for this doc, remove them in favor of full.
-        for task_type in TASK_TYPES:
-            task_key = f"{doc_id}:{task_type}"
-            if client.srem(QUEUE_SET, task_key):
-                payload = __import__("json").dumps({"doc_id": int(doc_id), "task": task_type})
-                client.lrem(QUEUE_KEY, 0, payload)
-    if not added:
-        return 0
-    client.rpush(QUEUE_KEY, *added)
-    client.incrby(STATS_TOTAL, len(added))
-    logger.info("Enqueued docs count=%s", len(added))
-    return len(added)
+    return enqueue_full_sequence(settings, doc_ids, include_sync=True)
 
 
 def _task_key(task: dict) -> str:
     doc_id = task.get("doc_id")
     task_type = task.get("task") or "full"
-    return f"{doc_id}:{task_type}"
+    source = task.get("source")
+    field = task.get("field")
+    suffix = ""
+    if source:
+        suffix += f":{source}"
+    if field:
+        suffix += f":{field}"
+    return f"{doc_id}:{task_type}{suffix}"
 
 
 def enqueue_task(settings: Settings, task: dict) -> int:
@@ -78,9 +69,6 @@ def enqueue_task(settings: Settings, task: dict) -> int:
         return 0
     payload = __import__("json").dumps(task)
     key = _task_key(task)
-    doc_id = task.get("doc_id")
-    if doc_id is not None and client.sismember(QUEUE_SET, str(doc_id)):
-        return 0
     if client.sadd(QUEUE_SET, key):
         client.rpush(QUEUE_KEY, payload)
         client.incr(STATS_TOTAL)
@@ -97,9 +85,6 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
         return 0
     payload = __import__("json").dumps(task)
     key = _task_key(task)
-    doc_id = task.get("doc_id")
-    if doc_id is not None and client.sismember(QUEUE_SET, str(doc_id)):
-        return 0
     is_new = client.sadd(QUEUE_SET, key)
     if is_new:
         client.incr(STATS_TOTAL)
@@ -119,26 +104,57 @@ def enqueue_task_sequence_front(settings: Settings, tasks: list[dict]) -> int:
     return added
 
 
+def enqueue_task_sequence(settings: Settings, tasks: list[dict]) -> int:
+    if not tasks:
+        return 0
+    added = 0
+    for task in tasks:
+        added += enqueue_task(settings, task)
+    return added
+
+
+def enqueue_full_sequence(
+    settings: Settings, doc_ids: Iterable[int], include_sync: bool = False
+) -> int:
+    total = 0
+    for doc_id in doc_ids:
+        tasks: list[dict] = []
+        if include_sync:
+            tasks.append({"doc_id": int(doc_id), "task": "sync"})
+        if settings.enable_vision_ocr:
+            tasks.append({"doc_id": int(doc_id), "task": "vision_ocr"})
+            tasks.append({"doc_id": int(doc_id), "task": "embeddings_vision"})
+        else:
+            tasks.append({"doc_id": int(doc_id), "task": "embeddings_paperless"})
+        tasks.append({"doc_id": int(doc_id), "task": "suggestions_paperless"})
+        if settings.enable_vision_ocr:
+            tasks.append({"doc_id": int(doc_id), "task": "suggestions_vision"})
+        total += enqueue_task_sequence(settings, tasks)
+    return total
+
+
 def enqueue_docs_front(settings: Settings, doc_ids: Iterable[int]) -> int:
-    client = _get_client(settings)
-    if not client:
-        return 0
-    if is_cancel_requested(settings):
-        return 0
-    ids = [str(doc_id) for doc_id in doc_ids]
-    if not ids:
-        return 0
-    added_count = 0
-    for doc_id in ids:
-        is_new = client.sadd(QUEUE_SET, doc_id)
-        if is_new:
-            added_count += 1
-            client.incr(STATS_TOTAL)
-        # Move to front even if already queued.
-        client.lrem(QUEUE_KEY, 0, doc_id)
-        client.lpush(QUEUE_KEY, doc_id)
-    logger.info("Prioritized docs count=%s", len(ids))
-    return len(ids)
+    return enqueue_full_sequence_front(settings, doc_ids, include_sync=True)
+
+
+def enqueue_full_sequence_front(
+    settings: Settings, doc_ids: Iterable[int], include_sync: bool = False
+) -> int:
+    total = 0
+    for doc_id in doc_ids:
+        tasks: list[dict] = []
+        if include_sync:
+            tasks.append({"doc_id": int(doc_id), "task": "sync"})
+        if settings.enable_vision_ocr:
+            tasks.append({"doc_id": int(doc_id), "task": "vision_ocr"})
+            tasks.append({"doc_id": int(doc_id), "task": "embeddings_vision"})
+        else:
+            tasks.append({"doc_id": int(doc_id), "task": "embeddings_paperless"})
+        tasks.append({"doc_id": int(doc_id), "task": "suggestions_paperless"})
+        if settings.enable_vision_ocr:
+            tasks.append({"doc_id": int(doc_id), "task": "suggestions_vision"})
+        total += enqueue_task_sequence_front(settings, tasks)
+    return total
 
 
 def queue_length(settings: Settings) -> int | None:
@@ -164,12 +180,25 @@ def queue_stats(settings: Settings) -> dict[str, int] | None:
     }
 
 
-def peek_queue(settings: Settings, limit: int = 20) -> list[int]:
+def peek_queue(settings: Settings, limit: int = 20) -> list[dict]:
     client = _get_client(settings)
     if not client:
         return []
     raw = client.lrange(QUEUE_KEY, 0, max(0, limit - 1))
-    return [int(x) for x in raw if str(x).isdigit()]
+    items: list[dict] = []
+    for entry in raw:
+        try:
+            payload = __import__("json").loads(entry)
+            if isinstance(payload, dict):
+                items.append(payload)
+                continue
+        except Exception:
+            pass
+        if str(entry).isdigit():
+            items.append({"doc_id": int(entry), "task": "full"})
+        else:
+            items.append({"raw": entry})
+    return items
 
 
 def clear_queue(settings: Settings) -> None:

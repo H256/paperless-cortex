@@ -31,7 +31,10 @@
         <em>No items.</em>
       </div>
       <ul v-else class="queue__list">
-        <li v-for="item in peekItems" :key="item">Doc ID: {{ item }}</li>
+        <li v-for="(item, index) in peekItems" :key="index">
+          <span v-if="item.doc_id">Doc {{ item.doc_id }} · {{ item.task || 'full' }}</span>
+          <span v-else>{{ item.raw || 'unknown' }}</span>
+        </li>
       </ul>
     </div>
   </section>
@@ -45,7 +48,7 @@ const queueStatus = ref<{ enabled: boolean; length: number | null; total?: numbe
   enabled: false,
   length: null,
 });
-const peekItems = ref<number[]>([]);
+const peekItems = ref<Array<{ doc_id?: number; task?: string; raw?: string }>>([]);
 const peekLimit = ref(20);
 const peekError = ref('');
 
@@ -61,7 +64,7 @@ const refresh = async () => {
 const loadPeek = async () => {
   peekError.value = '';
   try {
-    const { data } = await api.get<{ items: number[] }>('/queue/peek', {
+    const { data } = await api.get<{ items: Array<{ doc_id?: number; task?: string; raw?: string }> }>('/queue/peek', {
       params: { limit: peekLimit.value },
     });
     peekItems.value = data.items ?? [];

@@ -274,11 +274,12 @@ def get_document_suggestions(
                 settings,
                 [
                     {"doc_id": doc_id, "task": "vision_ocr"},
-                    {"doc_id": doc_id, "task": "suggestions"},
+                    {"doc_id": doc_id, "task": "embeddings_vision"},
+                    {"doc_id": doc_id, "task": "suggestions_vision"},
                 ],
             )
         elif source == "paperless_ocr":
-            enqueue_task_front(settings, {"doc_id": doc_id, "task": "suggestions"})
+            enqueue_task_front(settings, {"doc_id": doc_id, "task": "suggestions_paperless"})
         stored = (
             db.query(DocumentSuggestion)
             .filter(DocumentSuggestion.doc_id == doc_id)
@@ -360,6 +361,11 @@ class SuggestionFieldApply(BaseModel):
     value: object
 
 
+def _variant_source_key(source: str, field: str) -> str:
+    prefix = "pvar" if source == "paperless_ocr" else "vvar"
+    return f"{prefix}:{field}"
+
+
 class ApplySuggestionToDocument(BaseModel):
     source: str | None = None
     field: str
@@ -370,6 +376,7 @@ class ApplySuggestionToDocument(BaseModel):
 def suggest_field_variants(
     doc_id: int,
     payload: SuggestionFieldRequest,
+    priority: bool = False,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
@@ -420,6 +427,21 @@ def suggest_field_variants(
             payload_json = {}
         if isinstance(payload_json, dict):
             current = payload_json.get(payload.field)
+    if settings.queue_enabled:
+        task = {
+            "doc_id": doc_id,
+            "task": "suggest_field",
+            "source": payload.source,
+            "field": payload.field,
+            "count": max(1, min(payload.count, 5)),
+            "current": current,
+        }
+        if priority:
+            enqueue_task_front(settings, task)
+        else:
+            enqueue_task_front(settings, task)
+        return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "queued": True}
+
     variants = generate_field_variants(
         settings,
         raw,
@@ -432,6 +454,29 @@ def suggest_field_variants(
     )
     audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")
     return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "variants": variants}
+
+
+@router.get("/{doc_id}/suggestions/field/variants")
+def get_field_variants(
+    doc_id: int,
+    source: str,
+    field: str,
+    db: Session = Depends(get_db),
+):
+    variant_source = _variant_source_key(source, field)
+    row = (
+        db.query(DocumentSuggestion)
+        .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == variant_source)
+        .one_or_none()
+    )
+    if not row:
+        return {"doc_id": doc_id, "source": source, "field": field, "variants": []}
+    try:
+        payload_json = json.loads(row.payload)
+    except Exception:
+        payload_json = {}
+    variants = payload_json.get("variants") or []
+    return {"doc_id": doc_id, "source": source, "field": field, "variants": variants}
 
 
 @router.post("/{doc_id}/suggestions/field/apply")

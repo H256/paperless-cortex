@@ -21,7 +21,7 @@ from app.services.embeddings import (
 from app.services.text_pages import get_page_text_layers
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
-from app.services.queue import enqueue_docs, queue_stats
+from app.services.queue import enqueue_task, queue_stats
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
@@ -64,7 +64,9 @@ def ingest_embeddings(
         db.commit()
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
-        enqueue_docs(settings, [doc.id for doc in documents])
+        task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
+        for doc in documents:
+            enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
         state.status = "running"
         if not state.started_at:
             state.started_at = datetime.now(timezone.utc).isoformat()
@@ -183,7 +185,9 @@ def ingest_documents(
     if not documents:
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
-        enqueue_docs(settings, [doc.id for doc in documents])
+        task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
+        for doc in documents:
+            enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
         state = db.get(SyncState, "embeddings")
         if not state:
             state = SyncState(key="embeddings")
