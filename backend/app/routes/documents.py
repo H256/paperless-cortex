@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import and_, exists
 from sqlalchemy.orm import Session
 
 from app.config import Settings, load_settings
@@ -9,7 +10,7 @@ import json
 
 from pydantic import BaseModel
 
-from app.models import DocumentPageText, DocumentSuggestion, DocumentEmbedding
+from app.models import Document, DocumentPageText, DocumentSuggestion, DocumentEmbedding
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
     generate_suggestions,
@@ -83,6 +84,27 @@ def list_documents(
         doc["has_suggestions"] = bool(sources)
         doc["has_vision_pages"] = doc_id in vision_pages
     return payload
+
+
+@router.get("/stats")
+def get_document_stats(db: Session = Depends(get_db)):
+    total = db.query(Document).count()
+    processed = (
+        db.query(Document.id)
+        .filter(
+            exists().where(DocumentEmbedding.doc_id == Document.id),
+            exists().where(
+                and_(
+                    DocumentPageText.doc_id == Document.id,
+                    DocumentPageText.source == "vision_ocr",
+                )
+            ),
+            exists().where(DocumentSuggestion.doc_id == Document.id),
+        )
+        .count()
+    )
+    unprocessed = max(0, total - processed)
+    return {"total": total, "processed": processed, "unprocessed": unprocessed}
 
 
 @router.get("/{doc_id}")

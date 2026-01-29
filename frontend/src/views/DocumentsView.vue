@@ -5,27 +5,35 @@
         <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
         <p class="text-sm text-slate-500">Manage ingestion, embedding, and review analysis status.</p>
       </div>
-      <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
-        <svg
-          v-if="isProcessing"
-          class="h-4 w-4 animate-spin text-indigo-500"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.2" />
-          <path d="M22 12a10 10 0 0 1-10 10" />
-        </svg>
-        <div v-if="isProcessing" class="space-y-0.5">
-          <div v-if="syncStatus.status === 'running'">
-            Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) · ETA {{ etaText }}
-          </div>
-          <div v-if="embedStatus.status === 'running'">
-            Embed {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%) · ETA {{ embedEtaText }}
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+          <div class="text-slate-500">Synced</div>
+          <div class="font-semibold text-slate-900">{{ stats.total }}</div>
+          <div class="text-slate-500">Processed</div>
+          <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
+          <div class="text-slate-500">Pending</div>
+          <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
+        </div>
+        <div v-if="isProcessing" class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+          <svg
+            class="h-4 w-4 animate-spin text-indigo-500"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.2" />
+            <path d="M22 12a10 10 0 0 1-10 10" />
+          </svg>
+          <div class="space-y-0.5">
+            <div v-if="syncStatus.status === 'running'">
+              Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) · ETA {{ etaText }}
+            </div>
+            <div v-if="embedStatus.status === 'running'">
+              {{ embedLabel }} {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%) · ETA {{ embedEtaText }}
+            </div>
           </div>
         </div>
-        <span v-else class="text-slate-500">Idle</span>
       </div>
     </div>
 
@@ -43,7 +51,7 @@
         </div>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-          :disabled="syncing"
+          :disabled="syncing || isProcessing"
           @click="sync"
           title="Sync documents into the local database"
         >
@@ -55,7 +63,7 @@
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-          :disabled="syncing"
+          :disabled="syncing || isProcessing"
           @click="reprocessAll"
           title="Reprocess all documents: sync + OCR/embeddings"
         >
@@ -69,7 +77,7 @@
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
-          :disabled="embedding"
+          :disabled="embedding || isProcessing"
           @click="reembedCurrent"
           title="Re-embed documents (all or current page depending on settings)"
         >
@@ -81,7 +89,7 @@
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:border-amber-300"
-          :disabled="syncing"
+          :disabled="syncing || isProcessing"
           @click="reprocessMissing"
           title="Reprocess only documents missing embeddings and/or vision OCR (current list)"
         >
@@ -92,6 +100,18 @@
             <path d="M3 12l3 3 6-6" />
           </svg>
           Re-process missing
+        </button>
+        <button
+          v-if="isProcessing"
+          class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300"
+          @click="cancelProcessing"
+          title="Cancel processing and clear queued jobs"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M8 8l8 8M16 8l-8 8" />
+          </svg>
+          Cancel processing
         </button>
       </div>
     </section>
@@ -308,6 +328,11 @@ const embedStatus = ref({
   started_at: null as string | null,
   eta_seconds: null as number | null,
 });
+const queueStatus = ref<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>({
+  enabled: false,
+  length: null,
+});
+const stats = ref({ total: 0, processed: 0, unprocessed: 0 });
 let pollHandle: number | null = null;
 
 const startPolling = () => {
@@ -315,6 +340,8 @@ const startPolling = () => {
   pollHandle = window.setInterval(async () => {
     await fetchSyncStatus();
     await fetchEmbedStatus();
+    await fetchQueueStatus();
+    await fetchStats();
     if (syncStatus.value.status !== 'running' && embedStatus.value.status !== 'running') {
       if (pollHandle !== null) {
         window.clearInterval(pollHandle);
@@ -330,6 +357,12 @@ const totalPages = computed(() =>
 const isProcessing = computed(() =>
   syncStatus.value.status === 'running' || embedStatus.value.status === 'running'
 );
+const embedLabel = computed(() => {
+  if (queueStatus.value.enabled && (queueStatus.value.length || queueStatus.value.in_progress)) {
+    return 'Queue';
+  }
+  return 'Embed';
+});
 const sortDir = (field: string) => {
   const current = ordering.value.replace('-', '');
   if (current !== field) return null;
@@ -405,6 +438,7 @@ const load = async () => {
   });
   documents.value = data.results ?? [];
   totalCount.value = data.count ?? documents.value.length;
+  await fetchStats();
 };
 
 const sync = async () => {
@@ -523,9 +557,40 @@ const fetchEmbedStatus = async () => {
   embedStatus.value = data;
 };
 
+const fetchQueueStatus = async () => {
+  try {
+    const { data } = await api.get<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>(
+      '/queue/status'
+    );
+    queueStatus.value = data;
+  } catch {
+    queueStatus.value = { enabled: false, length: null };
+  }
+};
+
+const fetchStats = async () => {
+  try {
+    const { data } = await api.get<{ total: number; processed: number; unprocessed: number }>('/documents/stats');
+    stats.value = data;
+  } catch {
+    stats.value = { total: 0, processed: 0, unprocessed: 0 };
+  }
+};
+
 const cancelSync = async () => {
   await api.post('/sync/documents/cancel');
   await fetchSyncStatus();
+};
+
+const cancelProcessing = async () => {
+  await api.post('/sync/documents/cancel');
+  await api.post('/embeddings/cancel');
+  await api.post('/queue/clear');
+  await fetchSyncStatus();
+  await fetchEmbedStatus();
+  await fetchQueueStatus();
+  await load();
+  await fetchStats();
 };
 
 const loadMeta = async () => {
@@ -572,6 +637,8 @@ onMounted(async () => {
   await loadMeta();
   await fetchSyncStatus();
   await fetchEmbedStatus();
+  await fetchQueueStatus();
+  await fetchStats();
   await load();
   startPolling();
 });
