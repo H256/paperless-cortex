@@ -22,6 +22,7 @@ from app.services.queue import (
     _get_client,
     mark_in_progress,
     mark_done,
+    QUEUE_SET,
 )
 from app.services.text_pages import get_page_text_layers
 from app.services.page_text_store import upsert_page_texts
@@ -140,6 +141,8 @@ def main() -> None:
             logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
         finally:
             mark_done(settings)
+            if client:
+                client.srem(QUEUE_SET, str(doc_id))
 
 
 if __name__ == "__main__":

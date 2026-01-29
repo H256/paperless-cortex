@@ -8,6 +8,7 @@ from app.config import Settings
 logger = logging.getLogger(__name__)
 
 QUEUE_KEY = "paperless_intelligence:doc_queue"
+QUEUE_SET = "paperless_intelligence:doc_queue_set"
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
@@ -36,10 +37,17 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     ids = [str(doc_id) for doc_id in doc_ids]
     if not ids:
         return 0
-    client.rpush(QUEUE_KEY, *ids)
-    client.incrby(STATS_TOTAL, len(ids))
-    logger.info("Enqueued docs count=%s", len(ids))
-    return len(ids)
+    # de-dupe via set
+    added = []
+    for doc_id in ids:
+        if client.sadd(QUEUE_SET, doc_id):
+            added.append(doc_id)
+    if not added:
+        return 0
+    client.rpush(QUEUE_KEY, *added)
+    client.incrby(STATS_TOTAL, len(added))
+    logger.info("Enqueued docs count=%s", len(added))
+    return len(added)
 
 
 def queue_length(settings: Settings) -> int | None:
@@ -78,6 +86,7 @@ def clear_queue(settings: Settings) -> None:
     if not client:
         return
     client.delete(QUEUE_KEY)
+    client.delete(QUEUE_SET)
 
 
 def reset_stats(settings: Settings) -> None:
