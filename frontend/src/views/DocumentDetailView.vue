@@ -1,124 +1,176 @@
 <template>
-  <section class="detail">
-    <div class="detail__header">
-      <h2>{{ document?.title || `Document ${id}` }}</h2>
-      <div class="detail__actions">
-        <a v-if="paperlessUrl" :href="paperlessUrl" target="_blank" rel="noopener">
-          <button type="button">View in Paperless</button>
+  <section>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight text-slate-900">
+          {{ document?.title || `Document ${id}` }}
+        </h2>
+        <p class="text-sm text-slate-500">Document ID: {{ id }}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a
+          v-if="paperlessUrl"
+          :href="paperlessUrl"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 3h7v7" />
+            <path d="M10 14L21 3" />
+            <path d="M5 7v14h14v-7" />
+          </svg>
+          Paperless
         </a>
-        <button @click="load">Reload</button>
+        <button
+          class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+          @click="load"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-3.3-6.9" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+          Reload
+        </button>
       </div>
     </div>
-    <div class="detail__reprocess">
-      <div class="detail__reprocess__controls">
-        <label>
-          <input type="checkbox" v-model="doResync" />
-          Resync
-        </label>
-        <label>
-          <input type="checkbox" v-model="doReembed" :disabled="!doResync" />
-          Re-embed
-        </label>
-        <label>
-          <input type="checkbox" v-model="doQuality" />
-          Analyze quality
-        </label>
-        <label>
-          <input type="checkbox" v-model="doPages" />
-          Load extracted pages
-        </label>
-        <label>
-          <input type="checkbox" v-model="doSuggestions" />
-          Generate suggestions
-        </label>
+
+    <section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="doResync" />
+            Resync
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="doReembed" :disabled="!doResync" />
+            Re-embed
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="doQuality" />
+            Analyze quality
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="doPages" />
+            Load extracted pages
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="doSuggestions" />
+            Generate suggestions
+          </label>
+        </div>
+        <button
+          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          :disabled="processing"
+          @click="runReprocess"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4v6h6" />
+            <path d="M20 20v-6h-6" />
+            <path d="M4 10a8 8 0 0 1 14.9-3" />
+            <path d="M20 14a8 8 0 0 1-14.9 3" />
+          </svg>
+          {{ processing ? 'Processing...' : 'Re-process' }}
+        </button>
       </div>
-      <button :disabled="processing" @click="runReprocess">
-        {{ processing ? 'Processing...' : 'Re-process' }}
-      </button>
-    </div>
+    </section>
 
-    <div v-if="loading">Loading...</div>
-    <div v-else>
-      <table class="detail__table">
-        <tbody>
-          <tr v-for="row in rows" :key="row.label">
-            <th>{{ row.label }}</th>
-            <td>{{ row.value }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3>Text layer</h3>
-      <textarea class="detail__text" readonly :value="document?.content || ''"></textarea>
-      <div class="detail__text-quality">
-        <div class="detail__text-quality__header">
-          <strong>Text quality (baseline)</strong>
-        </div>
-        <div v-if="contentQualityError" class="detail__text-quality__error">
-          {{ contentQualityError }}
-        </div>
-        <div v-else-if="!contentQuality">
-          <em>No quality metrics loaded.</em>
-        </div>
-        <div v-else class="detail__text-quality__body">
-          <div class="detail__text-quality__score">Quality score: {{ contentQuality.score }}</div>
-          <div v-if="contentQuality.reasons?.length" class="detail__text-quality__reasons">
-            Reasons: {{ contentQuality.reasons.join(', ') }}
+    <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
+    <div v-else class="mt-6 space-y-6">
+      <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Metadata</div>
+        <dl class="mt-4 grid gap-4 md:grid-cols-2">
+          <div v-for="row in rows" :key="row.label" class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ row.label }}</dt>
+            <dd class="mt-1 text-sm text-slate-900 break-words">{{ row.value }}</dd>
           </div>
-          <div class="detail__text-quality__metrics">
-            <div
-              v-for="(value, key) in contentQuality.metrics"
-              :key="key"
-              class="detail__text-quality__metric"
-            >
-              {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
+        </dl>
+      </section>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-slate-900">Text layer</h3>
+          <span class="text-xs font-semibold text-slate-500">Baseline OCR</span>
+        </div>
+        <textarea
+          class="mt-4 w-full min-h-[260px] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900"
+          readonly
+          :value="document?.content || ''"
+        ></textarea>
+
+        <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div class="text-sm font-semibold text-slate-700">Text quality (baseline)</div>
+          <div v-if="contentQualityError" class="mt-2 text-sm text-rose-600">
+            {{ contentQualityError }}
+          </div>
+          <div v-else-if="!contentQuality" class="mt-2 text-sm text-slate-500">
+            No quality metrics loaded.
+          </div>
+          <div v-else class="mt-3 text-xs text-slate-600">
+            <div class="font-semibold text-slate-700">Quality score: {{ contentQuality.score }}</div>
+            <div v-if="contentQuality.reasons?.length" class="mt-1">
+              Reasons: {{ contentQuality.reasons.join(', ') }}
+            </div>
+            <div class="mt-3 grid gap-2 md:grid-cols-3">
+              <div
+                v-for="(value, key) in contentQuality.metrics"
+                :key="key"
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600"
+              >
+                {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="detail__suggestions">
-        <div class="detail__suggestions__header">
-          <strong>AI suggestions</strong>
+      <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-slate-900">AI suggestions</h3>
+          <span class="text-xs text-slate-500">Paperless OCR ? Vision OCR ? Best pick</span>
         </div>
-        <div v-if="suggestionsError" class="detail__suggestions__error">
+        <div v-if="suggestionsError" class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {{ suggestionsError }}
         </div>
-        <div v-else-if="!suggestions">
-          <em>No suggestions loaded.</em>
+        <div v-else-if="!suggestions" class="mt-3 text-sm text-slate-500">
+          No suggestions loaded.
         </div>
-        <div v-else class="detail__suggestions__body detail__suggestions__grid">
-          <div class="detail__suggestions__column">
-            <div class="detail__suggestions__column-header">
-              <strong>Paperless OCR</strong>
-              <button :disabled="suggestionsLoading" @click="refreshSuggestions('paperless_ocr')">
+        <div v-else class="mt-4 grid gap-4 lg:grid-cols-3">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between">
+              <strong class="text-sm text-slate-900">Paperless OCR</strong>
+              <button
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                :disabled="suggestionsLoading"
+                @click="refreshSuggestions('paperless_ocr')"
+              >
                 Refresh
               </button>
             </div>
-            <div v-if="!paperlessSuggestion"><em>No data.</em></div>
-            <div v-else>
+            <div v-if="!paperlessSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
+            <div v-else class="mt-3 space-y-3">
               <div v-if="paperlessSuggestion.raw">
-                <strong>Raw output</strong>
-                <pre class="detail__suggestions__raw">{{ paperlessSuggestion.raw }}</pre>
+                <div class="text-xs font-semibold text-slate-500">Raw output</div>
+                <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ paperlessSuggestion.raw }}</pre>
               </div>
-              <div v-if="paperlessSuggestion.data">
-                <div class="detail__suggestions__row">
-                  <span>Summary:</span>
-                  <div class="detail__suggestions__value">{{ paperlessSuggestion.data.summary }}</div>
+              <div v-if="paperlessSuggestion.data" class="space-y-2">
+                <div class="text-xs text-slate-500">Summary</div>
+                <div class="text-sm text-slate-900">{{ paperlessSuggestion.data.summary }}</div>
+                <div class="grid gap-2">
+                  <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span>Document type</span>
+                    <span class="text-slate-900">{{ paperlessSuggestion.data.documentType || paperlessSuggestion.data.suggested_document_type }}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span>Language</span>
+                    <span class="text-slate-900">{{ paperlessSuggestion.data.language }}</span>
+                  </div>
                 </div>
-                <div class="detail__suggestions__row">
-                  <span>Document type:</span>
-                  <div class="detail__suggestions__value">{{ paperlessSuggestion.data.documentType || paperlessSuggestion.data.suggested_document_type }}</div>
-                </div>
-                <div class="detail__suggestions__row">
-                  <span>Language:</span>
-                  <div class="detail__suggestions__value">{{ paperlessSuggestion.data.language }}</div>
-                </div>
-                <div v-for="field in suggestionFields" :key="`paperless-${field.key}`" class="detail__suggestions__row">
-                  <span>{{ field.label }}:</span>
-                  <div class="detail__suggestions__value">{{ fieldValue(paperlessSuggestion.data, field.key) }}</div>
+                <div v-for="field in suggestionFields" :key="`paperless-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
+                  <span class="text-xs text-slate-500">{{ field.label }}</span>
+                  <div class="text-sm text-slate-900">{{ fieldValue(paperlessSuggestion.data, field.key) }}</div>
                   <button
-                    class="detail__suggestions__button"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
                     :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
                     @click="suggestField('paperless_ocr', field.key)"
                   >
@@ -127,7 +179,7 @@
                 </div>
                 <div
                   v-if="(paperlessSuggestion.data.suggested_tags_existing || []).length || (paperlessSuggestion.data.suggested_tags_new || []).length"
-                  class="detail__suggestions__tag-hints"
+                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
                 >
                   <div>Existing tags: {{ (paperlessSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
                   <div>New tags: {{ (paperlessSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
@@ -135,21 +187,17 @@
                 <div
                   v-for="field in suggestionFields"
                   :key="`paperless-variants-${field.key}`"
-                  class="detail__suggestions__variants"
+                  class="rounded-md border border-dashed border-slate-200 bg-white p-2"
                 >
-                  <div v-if="suggestionVariantError[`paperless_ocr:${field.key}`]" class="detail__suggestions__error">
+                  <div v-if="suggestionVariantError[`paperless_ocr:${field.key}`]" class="text-xs text-rose-600">
                     {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
                   </div>
                   <div v-if="(suggestionVariants[`paperless_ocr:${field.key}`] || []).length">
-                    <div class="detail__suggestions__variants-title">Variants for {{ field.label }}</div>
-                    <div
-                      v-for="variant in suggestionVariants[`paperless_ocr:${field.key}`]"
-                      :key="`${field.key}-${variant}`"
-                      class="detail__suggestions__variant"
-                    >
-                      <span>{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
+                    <div class="text-xs font-semibold text-slate-500">Variants for {{ field.label }}</div>
+                    <div v-for="variant in suggestionVariants[`paperless_ocr:${field.key}`]" :key="`${field.key}-${variant}`" class="mt-1 flex items-center justify-between gap-2 text-xs">
+                      <span class="text-slate-700">{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
                       <button
-                        class="detail__suggestions__button"
+                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
                         @click="applyVariant('paperless_ocr', field.key, variant)"
                       >
                         Use
@@ -160,37 +208,42 @@
               </div>
             </div>
           </div>
-          <div class="detail__suggestions__column">
-            <div class="detail__suggestions__column-header">
-              <strong>Vision OCR</strong>
-              <button :disabled="suggestionsLoading" @click="refreshSuggestions('vision_ocr')">
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between">
+              <strong class="text-sm text-slate-900">Vision OCR</strong>
+              <button
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+                :disabled="suggestionsLoading"
+                @click="refreshSuggestions('vision_ocr')"
+              >
                 Refresh
               </button>
             </div>
-            <div v-if="!visionSuggestion"><em>No data.</em></div>
-            <div v-else>
+            <div v-if="!visionSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
+            <div v-else class="mt-3 space-y-3">
               <div v-if="visionSuggestion.raw">
-                <strong>Raw output</strong>
-                <pre class="detail__suggestions__raw">{{ visionSuggestion.raw }}</pre>
+                <div class="text-xs font-semibold text-slate-500">Raw output</div>
+                <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ visionSuggestion.raw }}</pre>
               </div>
-              <div v-if="visionSuggestion.data">
-                <div class="detail__suggestions__row">
-                  <span>Summary:</span>
-                  <div class="detail__suggestions__value">{{ visionSuggestion.data.summary }}</div>
+              <div v-if="visionSuggestion.data" class="space-y-2">
+                <div class="text-xs text-slate-500">Summary</div>
+                <div class="text-sm text-slate-900">{{ visionSuggestion.data.summary }}</div>
+                <div class="grid gap-2">
+                  <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span>Document type</span>
+                    <span class="text-slate-900">{{ visionSuggestion.data.documentType || visionSuggestion.data.suggested_document_type }}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span>Language</span>
+                    <span class="text-slate-900">{{ visionSuggestion.data.language }}</span>
+                  </div>
                 </div>
-                <div class="detail__suggestions__row">
-                  <span>Document type:</span>
-                  <div class="detail__suggestions__value">{{ visionSuggestion.data.documentType || visionSuggestion.data.suggested_document_type }}</div>
-                </div>
-                <div class="detail__suggestions__row">
-                  <span>Language:</span>
-                  <div class="detail__suggestions__value">{{ visionSuggestion.data.language }}</div>
-                </div>
-                <div v-for="field in suggestionFields" :key="`vision-${field.key}`" class="detail__suggestions__row">
-                  <span>{{ field.label }}:</span>
-                  <div class="detail__suggestions__value">{{ fieldValue(visionSuggestion.data, field.key) }}</div>
+                <div v-for="field in suggestionFields" :key="`vision-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
+                  <span class="text-xs text-slate-500">{{ field.label }}</span>
+                  <div class="text-sm text-slate-900">{{ fieldValue(visionSuggestion.data, field.key) }}</div>
                   <button
-                    class="detail__suggestions__button"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
                     :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
                     @click="suggestField('vision_ocr', field.key)"
                   >
@@ -199,7 +252,7 @@
                 </div>
                 <div
                   v-if="(visionSuggestion.data.suggested_tags_existing || []).length || (visionSuggestion.data.suggested_tags_new || []).length"
-                  class="detail__suggestions__tag-hints"
+                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
                 >
                   <div>Existing tags: {{ (visionSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
                   <div>New tags: {{ (visionSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
@@ -207,21 +260,17 @@
                 <div
                   v-for="field in suggestionFields"
                   :key="`vision-variants-${field.key}`"
-                  class="detail__suggestions__variants"
+                  class="rounded-md border border-dashed border-slate-200 bg-white p-2"
                 >
-                  <div v-if="suggestionVariantError[`vision_ocr:${field.key}`]" class="detail__suggestions__error">
+                  <div v-if="suggestionVariantError[`vision_ocr:${field.key}`]" class="text-xs text-rose-600">
                     {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
                   </div>
                   <div v-if="(suggestionVariants[`vision_ocr:${field.key}`] || []).length">
-                    <div class="detail__suggestions__variants-title">Variants for {{ field.label }}</div>
-                    <div
-                      v-for="variant in suggestionVariants[`vision_ocr:${field.key}`]"
-                      :key="`${field.key}-${variant}`"
-                      class="detail__suggestions__variant"
-                    >
-                      <span>{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
+                    <div class="text-xs font-semibold text-slate-500">Variants for {{ field.label }}</div>
+                    <div v-for="variant in suggestionVariants[`vision_ocr:${field.key}`]" :key="`${field.key}-${variant}`" class="mt-1 flex items-center justify-between gap-2 text-xs">
+                      <span class="text-slate-700">{{ Array.isArray(variant) ? variant.join(', ') : variant }}</span>
                       <button
-                        class="detail__suggestions__button"
+                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
                         @click="applyVariant('vision_ocr', field.key, variant)"
                       >
                         Use
@@ -232,36 +281,37 @@
               </div>
             </div>
           </div>
-          <div class="detail__suggestions__column">
-            <div class="detail__suggestions__column-header">
-              <strong>Best pick</strong>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between">
+              <strong class="text-sm text-slate-900">Best pick</strong>
             </div>
-            <div v-if="!bestPickSuggestion"><em>No data.</em></div>
-            <div v-else>
+            <div v-if="!bestPickSuggestion" class="mt-3 text-sm text-slate-500"><em>No data.</em></div>
+            <div v-else class="mt-3 space-y-3">
               <div v-if="bestPickSuggestion.raw">
-                <strong>Raw output</strong>
-                <pre class="detail__suggestions__raw">{{ bestPickSuggestion.raw }}</pre>
+                <div class="text-xs font-semibold text-slate-500">Raw output</div>
+                <pre class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">{{ bestPickSuggestion.raw }}</pre>
               </div>
-              <div v-if="bestPickSuggestion.data">
-                <div class="detail__suggestions__row">
-                  <span>Summary:</span>
-                  <div class="detail__suggestions__value">{{ bestPickSuggestion.data.summary }}</div>
+              <div v-if="bestPickSuggestion.data" class="space-y-2">
+                <div class="text-xs text-slate-500">Summary</div>
+                <div class="text-sm text-slate-900">{{ bestPickSuggestion.data.summary }}</div>
+                <div class="grid gap-2">
+                  <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span>Document type</span>
+                    <span class="text-slate-900">{{ bestPickSuggestion.data.documentType }}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span>Language</span>
+                    <span class="text-slate-900">{{ bestPickSuggestion.data.language }}</span>
+                  </div>
                 </div>
-                <div class="detail__suggestions__row">
-                  <span>Document type:</span>
-                  <div class="detail__suggestions__value">{{ bestPickSuggestion.data.documentType }}</div>
-                </div>
-                <div class="detail__suggestions__row">
-                  <span>Language:</span>
-                  <div class="detail__suggestions__value">{{ bestPickSuggestion.data.language }}</div>
-                </div>
-                <div v-for="field in suggestionFields" :key="`best-${field.key}`" class="detail__suggestions__row">
-                  <span>{{ field.label }}:</span>
-                  <div class="detail__suggestions__value">{{ fieldValue(bestPickSuggestion.data, field.key) }}</div>
+                <div v-for="field in suggestionFields" :key="`best-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
+                  <span class="text-xs text-slate-500">{{ field.label }}</span>
+                  <div class="text-sm text-slate-900">{{ fieldValue(bestPickSuggestion.data, field.key) }}</div>
                 </div>
                 <div
                   v-if="(bestPickSuggestion.data.suggested_tags_existing || []).length || (bestPickSuggestion.data.suggested_tags_new || []).length"
-                  class="detail__suggestions__tag-hints"
+                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600"
                 >
                   <div>Existing tags: {{ (bestPickSuggestion.data.suggested_tags_existing || []).join(', ') }}</div>
                   <div>New tags: {{ (bestPickSuggestion.data.suggested_tags_new || []).join(', ') }}</div>
@@ -270,47 +320,45 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="detail__page-texts">
-        <div class="detail__page-texts__header">
-          <h3>Extracted page texts (debug)</h3>
+      <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-slate-900">Extracted page texts (debug)</h3>
+          <span class="text-xs text-slate-500">Page-wise OCR</span>
         </div>
-        <div v-if="pageTextsError" class="detail__page-texts__error">
-          {{ pageTextsError }}
+        <div v-if="pageTextsError" class="mt-3 text-sm text-rose-600">{{ pageTextsError }}</div>
+        <div v-else-if="pageTexts.length === 0" class="mt-3 text-sm text-slate-500">
+          No extracted page text loaded.
         </div>
-        <div v-else-if="pageTexts.length === 0">
-          <em>No extracted page text loaded.</em>
-        </div>
-        <div v-else class="detail__page-texts__list">
-          <div v-for="page in pageTexts" :key="page.page" class="detail__page-texts__item">
-            <div class="detail__page-texts__meta">
-              Page {{ page.page }} · Source: {{ page.source }}
-            </div>
-            <div v-if="page.quality" class="detail__page-texts__quality">
-              <div class="detail__page-texts__quality-score">
-                Quality score: {{ page.quality.score }}
-              </div>
-              <div v-if="page.quality.reasons?.length" class="detail__page-texts__quality-reasons">
-                Reasons: {{ page.quality.reasons.join(', ') }}
-              </div>
-              <div class="detail__page-texts__quality-metrics">
+        <div v-else class="mt-4 space-y-4">
+          <div v-for="page in pageTexts" :key="page.page" class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs text-slate-500">Page {{ page.page }} ? Source: {{ page.source }}</div>
+            <div v-if="page.quality" class="mt-2 text-xs text-slate-600">
+              <div class="font-semibold text-slate-700">Quality score: {{ page.quality.score }}</div>
+              <div v-if="page.quality.reasons?.length" class="mt-1">Reasons: {{ page.quality.reasons.join(', ') }}</div>
+              <div class="mt-3 grid gap-2 md:grid-cols-3">
                 <div
                   v-for="(value, key) in page.quality.metrics"
                   :key="key"
-                  class="detail__page-texts__quality-metric"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600"
                 >
                   {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
                 </div>
               </div>
             </div>
-            <textarea class="detail__page-texts__text" readonly :value="page.text"></textarea>
+            <textarea
+              class="mt-3 w-full min-h-[140px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
+              readonly
+              :value="page.text"
+            ></textarea>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </section>
 </template>
+
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
@@ -613,227 +661,3 @@ onMounted(async () => {
   await loadSuggestions();
 });
 </script>
-
-<style scoped>
-.detail__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.detail__actions {
-  display: flex;
-  gap: 8px;
-}
-.detail__reprocess {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  margin-bottom: 16px;
-}
-.detail__reprocess__controls {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.detail__table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 16px;
-}
-.detail__table th,
-.detail__table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
-  text-align: left;
-}
-.detail__text {
-  width: 100%;
-  min-height: 320px;
-}
-.detail__text-quality {
-  margin-top: 12px;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-.detail__text-quality__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.detail__text-quality__error {
-  color: #b91c1c;
-  margin-bottom: 6px;
-}
-.detail__text-quality__body {
-  font-size: 12px;
-  color: #334155;
-}
-.detail__text-quality__score {
-  font-weight: 600;
-}
-.detail__text-quality__reasons {
-  margin-top: 4px;
-}
-.detail__text-quality__metrics {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 4px 12px;
-}
-.detail__text-quality__metric {
-  color: #475569;
-}
-.detail__suggestions {
-  margin-top: 16px;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-}
-.detail__suggestions__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.detail__suggestions__error {
-  color: #b91c1c;
-  margin-bottom: 6px;
-}
-.detail__suggestions__body {
-  font-size: 12px;
-  color: #334155;
-}
-.detail__suggestions__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-}
-.detail__suggestions__column {
-  border: 1px solid #e2e8f0;
-  padding: 8px;
-  background: #f8fafc;
-}
-.detail__suggestions__column-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.detail__suggestions__row {
-  display: grid;
-  grid-template-columns: 160px 1fr auto;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid #e2e8f0;
-}
-.detail__suggestions__row:last-child {
-  border-bottom: none;
-}
-.detail__suggestions__value {
-  color: #111827;
-}
-.detail__suggestions__raw {
-  white-space: pre-wrap;
-  background: #f8fafc;
-  padding: 8px;
-  border: 1px solid #e2e8f0;
-}
-.detail__suggestions__parsed {
-  margin-top: 8px;
-}
-.detail__suggestions__button {
-  background: #e2e8f0;
-  border: 1px solid #cbd5f5;
-  padding: 2px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.detail__suggestions__button:hover {
-  background: #cbd5f5;
-}
-.detail__suggestions__variants {
-  margin: 6px 0 10px 0;
-  padding: 6px;
-  border: 1px dashed #cbd5e1;
-  background: #f8fafc;
-}
-.detail__suggestions__variants-title {
-  font-size: 12px;
-  color: #475569;
-  margin-bottom: 4px;
-}
-.detail__suggestions__variant {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 4px;
-}
-.detail__suggestions__tag-hints {
-  font-size: 12px;
-  color: #475569;
-  padding: 4px 0;
-}
-.detail__page-texts {
-  margin-top: 24px;
-}
-.detail__page-texts__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.detail__page-texts__error {
-  color: #b91c1c;
-  margin-bottom: 8px;
-}
-.detail__page-texts__list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.detail__page-texts__item {
-  border: 1px solid #e2e8f0;
-  padding: 10px;
-  background: #f8fafc;
-}
-.detail__page-texts__meta {
-  font-size: 12px;
-  color: #475569;
-  margin-bottom: 6px;
-}
-.detail__page-texts__text {
-  width: 100%;
-  min-height: 120px;
-}
-.detail__page-texts__quality {
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #334155;
-}
-.detail__page-texts__quality-score {
-  font-weight: 600;
-}
-.detail__page-texts__quality-reasons {
-  margin-top: 4px;
-}
-.detail__page-texts__quality-metrics {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 4px 12px;
-}
-.detail__page-texts__quality-metric {
-  color: #475569;
-}
-</style>
