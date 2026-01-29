@@ -9,7 +9,9 @@ Rules:
 - Use ISO format YYYY-MM-DD.
 - Prefer issue/invoice/receipt date, not scan/print date.
 - Use only information explicitly present in the document.
-- If no date is found, return an empty list.
+- If multiple dates exist, choose the most relevant business date.
+- If no date is clearly present, return an empty list.
+- Accept common German/English date formats and normalize to ISO.
 
 Document metadata: {metadata}
 Current date: {current}

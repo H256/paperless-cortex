@@ -10,6 +10,7 @@ Rules:
 - No addresses.
 - Use document language (German for German docs, English for English docs).
 - Use only information explicitly present in the document.
+- Prefer a concise document type + topic.
 
 Known tags: {tags}
 Known correspondents: {correspondents}

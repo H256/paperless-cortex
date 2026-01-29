@@ -9,6 +9,8 @@ Rules:
 - Use short organization names, no full addresses.
 - Prefer known correspondents list if there is a match.
 - Use only information explicitly present in the document.
+- If a known correspondent appears in header/footer, prefer it.
+- If no correspondent is present, return an empty list.
 
 Known correspondents: {correspondents}
 Document metadata: {metadata}

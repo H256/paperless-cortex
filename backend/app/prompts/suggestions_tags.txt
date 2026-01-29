@@ -10,6 +10,8 @@ Rules:
 - Prefer known tags list if there is a match.
 - Avoid duplicates and overly generic tags.
 - Use only information explicitly present in the document.
+- If a known tag is a clear match, use it.
+- If no known tag fits, you may propose 1-2 new tags.
 
 Known tags: {tags}
 Document metadata: {metadata}
