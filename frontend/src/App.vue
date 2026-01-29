@@ -50,22 +50,21 @@
     <footer class="border-t border-slate-200 bg-white">
       <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3 text-xs text-slate-500">
         <div class="flex flex-wrap items-center gap-4">
-          <div class="inline-flex items-center gap-2">
+          <div class="inline-flex items-center gap-2" :title="healthStatus.web_detail">
             <span :class="statusDot(healthStatus.web)"></span>
             Web
           </div>
-          <div class="inline-flex items-center gap-2">
+          <div class="inline-flex items-center gap-2" :title="healthStatus.worker_detail">
             <span :class="statusDot(healthStatus.worker)"></span>
             Worker
           </div>
-          <div class="inline-flex items-center gap-2">
+          <div class="inline-flex items-center gap-2" :title="healthStatus.ollama_detail">
             <span :class="statusDot(healthStatus.ollama)"></span>
             Ollama
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-4">
           <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
-          <div v-if="queueStatus.enabled">In progress: {{ queueStatus.in_progress ?? 0 }}</div>
           <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
           <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
@@ -84,10 +83,13 @@ const queueStatus = ref<{ enabled: boolean; length: number | null; total?: numbe
   length: null,
 });
 
-const healthStatus = ref<{ web: string; worker: string; ollama: string }>({
+const healthStatus = ref<{ web: string; worker: string; ollama: string; web_detail: string; worker_detail: string; ollama_detail: string }>({
   web: 'DOWN',
   worker: 'DOWN',
   ollama: 'DOWN',
+  web_detail: 'unknown',
+  worker_detail: 'unknown',
+  ollama_detail: 'unknown',
 });
 
 const fetchQueueStatus = async () => {
@@ -103,14 +105,24 @@ const fetchQueueStatus = async () => {
 
 const fetchHealth = async () => {
   try {
-    const { data } = await api.get<{ web?: { status?: string }; worker?: { status?: string }; ollama?: { status?: string } }>('/status');
+    const { data } = await api.get<{ web?: { status?: string; detail?: string }; worker?: { status?: string; detail?: string }; ollama?: { status?: string; detail?: string } }>('/status');
     healthStatus.value = {
       web: data.web?.status ?? 'DOWN',
       worker: data.worker?.status ?? 'DOWN',
       ollama: data.ollama?.status ?? 'DOWN',
+      web_detail: data.web?.detail ?? 'ok',
+      worker_detail: data.worker?.detail ?? 'unknown',
+      ollama_detail: data.ollama?.detail ?? 'unknown',
     };
   } catch {
-    healthStatus.value = { web: 'DOWN', worker: 'DOWN', ollama: 'DOWN' };
+    healthStatus.value = {
+      web: 'DOWN',
+      worker: 'DOWN',
+      ollama: 'DOWN',
+      web_detail: 'unreachable',
+      worker_detail: 'unreachable',
+      ollama_detail: 'unreachable',
+    };
   }
 };
 

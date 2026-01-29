@@ -13,6 +13,8 @@
           <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
           <div class="text-slate-500">Pending</div>
           <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
+          <div class="text-slate-500">Queued</div>
+          <div class="font-semibold text-indigo-600">{{ queueStatus.enabled ? (queueStatus.length ?? 0) : 0 }}</div>
         </div>
         <div v-if="isProcessing" class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
           <svg
