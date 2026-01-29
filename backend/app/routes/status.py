@@ -19,7 +19,7 @@ def check_ollama(settings: Settings) -> tuple[bool, str]:
     if not settings.ollama_base_url:
         return False, "OLLAMA_BASE_URL not set"
     try:
-        with httpx.Client(timeout=5) as client:
+        with httpx.Client(timeout=5, verify=settings.httpx_verify_tls) as client:
             response = client.get(f"{settings.ollama_base_url.rstrip('/')}/api/tags")
             response.raise_for_status()
         return True, "ok"

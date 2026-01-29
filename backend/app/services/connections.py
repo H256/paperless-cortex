@@ -24,7 +24,7 @@ def check_qdrant(settings: Settings) -> tuple[bool, str]:
     if settings.qdrant_api_key:
         headers["api-key"] = settings.qdrant_api_key
     try:
-        with httpx.Client(timeout=5) as client:
+        with httpx.Client(timeout=5, verify=settings.httpx_verify_tls) as client:
             response = client.get(f"{settings.qdrant_url.rstrip('/')}/healthz", headers=headers)
             response.raise_for_status()
         return True, "ok"
@@ -36,7 +36,7 @@ def check_ollama(settings: Settings) -> tuple[bool, str]:
     if not settings.ollama_base_url or not settings.ollama_model:
         return False, "OLLAMA_BASE_URL/OLLAMA_MODEL not set"
     try:
-        with httpx.Client(timeout=15) as client:
+        with httpx.Client(timeout=15, verify=settings.httpx_verify_tls) as client:
             response = client.post(
                 f"{settings.ollama_base_url.rstrip('/')}/api/generate",
                 json={"model": settings.ollama_model, "prompt": "warum ist der himmel blau?", "stream": False},

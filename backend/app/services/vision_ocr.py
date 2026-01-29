@@ -72,7 +72,7 @@ def ensure_model(settings: Settings, model: str) -> None:
     if model in _model_ready:
         return
     base = settings.ollama_base_url.rstrip("/")
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
         response = client.get(f"{base}/api/tags")
         response.raise_for_status()
         data = response.json()
@@ -140,7 +140,7 @@ def _ollama_generate(settings: Settings, model: str, prompt: str, image_bytes: b
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Vision OCR prompt:\n%s", prompt)
-    with httpx.Client(timeout=settings.vision_ocr_timeout_seconds) as client:
+    with httpx.Client(timeout=settings.vision_ocr_timeout_seconds, verify=settings.httpx_verify_tls) as client:
         response = client.post(f"{base}/api/generate", json=payload)
         response.raise_for_status()
         data = response.json()

@@ -38,6 +38,7 @@ class Settings:
     vision_ocr_max_pages: int
     vision_ocr_timeout_seconds: int
     vision_ocr_max_dim: int
+    httpx_verify_tls: bool
 
 
 def load_settings() -> Settings:
@@ -82,4 +83,5 @@ def load_settings() -> Settings:
         vision_ocr_max_pages=int(os.getenv("VISION_OCR_MAX_PAGES", "0")),
         vision_ocr_timeout_seconds=int(os.getenv("VISION_OCR_TIMEOUT_SECONDS", "120")),
         vision_ocr_max_dim=int(os.getenv("VISION_OCR_MAX_DIM", "1024")),
+        httpx_verify_tls=os.getenv("HTTPX_VERIFY_TLS", "1") == "1",
     )

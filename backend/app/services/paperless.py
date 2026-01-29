@@ -21,6 +21,7 @@ def client(settings: Settings) -> httpx.Client:
         base_url=_api_base(settings),
         headers={"Authorization": f"Token {settings.paperless_api_token}"},
         timeout=15,
+        verify=settings.httpx_verify_tls,
     )
 
 

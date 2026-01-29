@@ -215,7 +215,7 @@ def generate_suggestions(
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Suggestions prompt:\n%s", prompt)
-    with httpx.Client(timeout=120) as client:
+    with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
         response = client.post(
             f"{base}/api/generate",
             json={
@@ -279,7 +279,7 @@ def generate_field_variants(
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Suggestions field prompt:\n%s", prompt)
-    with httpx.Client(timeout=120) as client:
+    with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
         response = client.post(
             f"{base}/api/generate",
             json={

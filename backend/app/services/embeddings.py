@@ -25,7 +25,7 @@ def ensure_model(settings: Settings, model: str) -> None:
     if model in _model_ready:
         return
     base = settings.ollama_base_url.rstrip("/")
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
         response = client.get(f"{base}/api/tags")
         response.raise_for_status()
         data = response.json()
@@ -47,7 +47,7 @@ def embed_text(settings: Settings, text: str) -> list[float]:
     ensure_model(settings, settings.embedding_model)
     base = settings.ollama_base_url.rstrip("/")
     logger.info("Ollama embeddings model=%s chars=%s", settings.embedding_model, len(text))
-    with httpx.Client(timeout=60) as client:
+    with httpx.Client(timeout=60, verify=settings.httpx_verify_tls) as client:
         response = client.post(
             f"{base}/api/embeddings",
             json={"model": settings.embedding_model, "prompt": text},
@@ -242,7 +242,7 @@ def ensure_qdrant_collection(
     headers: dict[str, str] = {}
     if settings.qdrant_api_key:
         headers["api-key"] = settings.qdrant_api_key
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
         resp = client.get(f"{base}/collections/{settings.qdrant_collection}", headers=headers)
         if resp.status_code == 200:
             info = resp.json()
@@ -273,7 +273,7 @@ def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
     if settings.qdrant_api_key:
         headers["api-key"] = settings.qdrant_api_key
     logger.info("Qdrant upsert points=%s", len(points))
-    with httpx.Client(timeout=60) as client:
+    with httpx.Client(timeout=60, verify=settings.httpx_verify_tls) as client:
         response = client.put(
             f"{base}/collections/{settings.qdrant_collection}/points",
             headers=headers,
@@ -295,7 +295,7 @@ def delete_points_for_doc(settings: Settings, doc_id: int) -> None:
     if settings.qdrant_api_key:
         headers["api-key"] = settings.qdrant_api_key
     payload = {"filter": {"must": [{"key": "doc_id", "match": {"value": doc_id}}]}}
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
         response = client.post(
             f"{base}/collections/{settings.qdrant_collection}/points/delete",
             headers=headers,
@@ -311,7 +311,7 @@ def search_points(settings: Settings, vector: list[float], limit: int = 5) -> di
     headers: dict[str, str] = {}
     if settings.qdrant_api_key:
         headers["api-key"] = settings.qdrant_api_key
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
         response = client.post(
             f"{base}/collections/{settings.qdrant_collection}/points/search",
             headers=headers,
