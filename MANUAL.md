@@ -33,6 +33,8 @@ Paperless Intelligence is a read‑only companion to Paperless‑ngx. It syncs m
   - baseline layer (Paperless OCR / pdfminer)
   - vision OCR layer (if available)
 - Each page includes a quality score + metrics.
+- Vision OCR pages include a PDF preview thumbnail next to the extracted text.
+- Use **Show previews** and the size slider to control thumbnails (persisted locally).
 
 ### AI suggestions
 - **Generate suggestions** runs an LLM and returns:

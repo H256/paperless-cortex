@@ -28,16 +28,7 @@
           <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
         </div>
         <div v-if="isProcessing" class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
-          <svg
-            class="h-4 w-4 animate-spin text-indigo-500"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.2" />
-            <path d="M22 12a10 10 0 0 1-10 10" />
-          </svg>
+          <Loader2 class="h-4 w-4 animate-spin text-indigo-500" />
           <div class="space-y-0.5">
             <div v-if="syncStatus.status === 'running'">
               Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) · ETA {{ etaText }}
@@ -68,10 +59,7 @@
           @click="sync"
           title="Sync documents into the local database"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-3.3-6.9" />
-            <polyline points="21 3 21 9 15 9" />
-          </svg>
+          <RefreshCw class="h-4 w-4" />
           {{ syncing ? 'Syncing...' : 'Sync (DB)' }}
         </button>
         <button
@@ -80,12 +68,7 @@
           @click="reprocessFiltered"
           title="Reprocess all documents: sync + OCR/embeddings"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 4v6h6" />
-            <path d="M20 20v-6h-6" />
-            <path d="M4 10a8 8 0 0 1 14.9-3" />
-            <path d="M20 14a8 8 0 0 1-14.9 3" />
-          </svg>
+          <RefreshCcw class="h-4 w-4" />
           Re-process filtered
         </button>
         <button
@@ -94,10 +77,7 @@
           @click="reembedFiltered"
           title="Re-embed listed documents"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 3v6m0 6v6" />
-            <path d="M3 12h6m6 0h6" />
-          </svg>
+          <Plus class="h-4 w-4" />
           Re-embed filtered
         </button>
         <button
@@ -106,12 +86,7 @@
           @click="reprocessMissing"
           title="Reprocess only documents missing embeddings and/or vision OCR (current list)"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 20h9" />
-            <path d="M12 4h9" />
-            <path d="M12 12h9" />
-            <path d="M3 12l3 3 6-6" />
-          </svg>
+          <ListChecks class="h-4 w-4" />
           Re-process missing
         </button>
         <button
@@ -120,10 +95,7 @@
           @click="cancelProcessing"
           title="Cancel processing and clear queued jobs"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M8 8l8 8M16 8l-8 8" />
-          </svg>
+          <XCircle class="h-4 w-4" />
           Cancel processing
         </button>
       </div>
@@ -179,10 +151,7 @@
 
       <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
         <button class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300" @click="load" title="Reload current list">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-3.3-6.9" />
-            <polyline points="21 3 21 9 15 9" />
-          </svg>
+          <RefreshCw class="h-4 w-4" />
           Reload
         </button>
       </div>
@@ -196,29 +165,21 @@
               <th class="px-6 py-3">
                 <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('title')">
                   Title
-                  <svg
+                  <ChevronDown
                     v-if="sortDir('title')"
                     class="h-3 w-3 text-slate-400"
                     :class="{ 'rotate-180': sortDir('title') === 'desc' }"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path d="M10 4l5 6H5l5-6z" />
-                  </svg>
+                  />
                 </button>
               </th>
               <th class="px-6 py-3">
                 <button class="inline-flex items-center gap-1" type="button" @click.stop="toggleSort('date')">
                   Date
-                  <svg
+                  <ChevronDown
                     v-if="sortDir('date')"
                     class="h-3 w-3 text-slate-400"
                     :class="{ 'rotate-180': sortDir('date') === 'desc' }"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path d="M10 4l5 6H5l5-6z" />
-                  </svg>
+                  />
                 </button>
               </th>
               <th class="px-6 py-3">Correspondent</th>
@@ -245,11 +206,7 @@
                   rel="noopener"
                   @click.stop
                 >
-                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 3h7v7" />
-                    <path d="M10 14L21 3" />
-                    <path d="M5 7v14h14v-7" />
-                  </svg>
+                  <ExternalLink class="h-3 w-3" />
                 </a>
               </td>
               <td class="px-6 py-3">
@@ -285,6 +242,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { ChevronDown, ExternalLink, ListChecks, Loader2, Plus, RefreshCcw, RefreshCw, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { api, Page } from '../api';
 
