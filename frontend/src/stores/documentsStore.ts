@@ -1,0 +1,186 @@
+import { defineStore } from 'pinia';
+import {
+  cancelEmbeddings,
+  cancelSync,
+  getCorrespondents,
+  getEmbedStatus,
+  getStats,
+  getSyncStatus,
+  getTags,
+  ingestEmbeddings,
+  ingestEmbeddingsForDocs,
+  listDocuments,
+  syncDocuments,
+  syncDocument,
+} from '../services/documents';
+import { DocumentRow, DocumentStats, SyncStatus, EmbedStatus, Tag, Correspondent } from '../services/documents';
+
+export const useDocumentsStore = defineStore('documents', {
+  state: () => ({
+    documents: [] as DocumentRow[],
+    page: 1,
+    pageSize: 20,
+    ordering: '-date',
+    totalCount: 0,
+    tags: [] as Tag[],
+    correspondents: [] as Correspondent[],
+    selectedTag: '',
+    selectedCorrespondent: '',
+    dateFrom: '',
+    dateTo: '',
+    syncing: false,
+    embedding: false,
+    lastSynced: null as string | null,
+    incremental: true,
+    pageOnly: false,
+    syncStatus: {
+      status: 'idle',
+      processed: 0,
+      total: 0,
+      started_at: null,
+      eta_seconds: null,
+    } as SyncStatus,
+    embedStatus: {
+      status: 'idle',
+      processed: 0,
+      total: 0,
+      started_at: null,
+      eta_seconds: null,
+    } as EmbedStatus,
+    stats: {
+      total: 0,
+      processed: 0,
+      unprocessed: 0,
+      embeddings: 0,
+      vision: 0,
+      suggestions: 0,
+      fully_processed: 0,
+    } as DocumentStats,
+  }),
+  actions: {
+    async load() {
+      const { page, pageSize, ordering, selectedCorrespondent, selectedTag, dateFrom, dateTo } = this;
+      const data = await listDocuments({
+        page,
+        page_size: pageSize,
+        ordering,
+        correspondent__id: selectedCorrespondent || undefined,
+        tags__id: selectedTag || undefined,
+        document_date__gte: dateFrom || undefined,
+        document_date__lte: dateTo || undefined,
+        include_derived: true,
+      });
+      this.documents = data.results ?? [];
+      this.totalCount = data.count ?? this.documents.length;
+    },
+    async fetchStats() {
+      try {
+        this.stats = await getStats();
+      } catch {
+        this.stats = {
+          total: 0,
+          processed: 0,
+          unprocessed: 0,
+          embeddings: 0,
+          vision: 0,
+          suggestions: 0,
+          fully_processed: 0,
+        };
+      }
+    },
+    async fetchSyncStatus() {
+      try {
+        this.syncStatus = await getSyncStatus();
+        this.lastSynced = this.syncStatus.last_synced_at ?? null;
+      } catch {
+        this.syncStatus = {
+          status: 'idle',
+          processed: 0,
+          total: 0,
+          started_at: null,
+          eta_seconds: null,
+        };
+      }
+    },
+    async fetchEmbedStatus() {
+      try {
+        this.embedStatus = await getEmbedStatus();
+      } catch {
+        this.embedStatus = {
+          status: 'idle',
+          processed: 0,
+          total: 0,
+          started_at: null,
+          eta_seconds: null,
+        };
+      }
+    },
+    async fetchMeta() {
+      const [tagsResp, corrResp] = await Promise.all([getTags(), getCorrespondents()]);
+      this.tags = tagsResp.results ?? [];
+      this.correspondents = corrResp.results ?? [];
+    },
+    async sync() {
+      this.syncing = true;
+      try {
+        await syncDocuments({
+          page_size: this.pageSize,
+          incremental: this.incremental,
+          page: this.page,
+          page_only: this.pageOnly,
+        });
+        await this.fetchSyncStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+      }
+    },
+    async reprocessFiltered() {
+      this.syncing = true;
+      try {
+        const ids = this.documents.map((doc) => doc.id);
+        for (const docId of ids) {
+          await syncDocument(docId, { embed: true, force_embed: true });
+        }
+        await this.fetchSyncStatus();
+        await this.fetchEmbedStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+      }
+    },
+    async reembedFiltered(force = false) {
+      this.embedding = true;
+      try {
+        const ids = this.documents.map((doc) => doc.id);
+        if (ids.length) {
+          await ingestEmbeddingsForDocs(ids, { force });
+        } else {
+          await ingestEmbeddings({ force, limit: 0 });
+        }
+        await this.fetchEmbedStatus();
+      } finally {
+        this.embedding = false;
+      }
+    },
+    async reprocessMissing() {
+      this.syncing = true;
+      try {
+        const missing = this.documents.filter((doc) => !doc.has_embeddings || !doc.has_vision_pages);
+        for (const doc of missing) {
+          await syncDocument(doc.id, { embed: true, force_embed: true });
+        }
+        await this.fetchEmbedStatus();
+      } finally {
+        this.syncing = false;
+      }
+    },
+    async reprocessDocument(docId: number, doReembed: boolean) {
+      await syncDocument(docId, { embed: doReembed, force_embed: doReembed });
+    },
+    async cancelProcessing() {
+      await cancelSync();
+      await cancelEmbeddings();
+    },
+  },
+});

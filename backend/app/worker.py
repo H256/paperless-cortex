@@ -28,6 +28,7 @@ from app.services.queue import (
     clear_cancel,
     reset_stats,
     clear_queue,
+    is_paused,
 )
 from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services.page_text_store import upsert_page_texts
@@ -280,6 +281,9 @@ def main() -> None:
     logger.info("Worker started queue=%s", QUEUE_KEY)
     while True:
         mark_worker_heartbeat(settings)
+        if is_paused(settings):
+            time.sleep(0.5)
+            continue
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; clearing queue")
             clear_queue(settings)

@@ -22,6 +22,12 @@ from app.services.text_pages import get_page_text_layers
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task, queue_stats
+from app.api_models import (
+    EmbeddingIngestResponse,
+    EmbeddingSearchResponse,
+    EmbeddingStatusResponse,
+    SyncCancelResponse,
+)
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
@@ -31,7 +37,7 @@ def settings_dep() -> Settings:
     return load_settings()
 
 
-@router.post("/ingest")
+@router.post("/ingest", response_model=EmbeddingIngestResponse)
 def ingest_embeddings(
     doc_id: int | None = Query(default=None),
     limit: int = Query(default=100),
@@ -174,7 +180,7 @@ def ingest_embeddings(
     return {"ingested": len(points), "documents_embedded": embedded}
 
 
-@router.post("/ingest-docs")
+@router.post("/ingest-docs", response_model=EmbeddingIngestResponse)
 def ingest_documents(
     doc_ids: list[int],
     force: bool = Query(default=False),
@@ -307,7 +313,7 @@ def ingest_documents(
     return {"ingested": len(points), "documents_embedded": embedded}
 
 
-@router.get("/search")
+@router.get("/search", response_model=EmbeddingSearchResponse)
 def search(
     q: str,
     top_k: int = 5,
@@ -413,7 +419,7 @@ def search(
     return {"query": q, "top_k": top_k, "matches": matches}
 
 
-@router.get("/status")
+@router.get("/status", response_model=EmbeddingStatusResponse)
 def embedding_status(db: Session = Depends(get_db)):
     state = db.get(SyncState, "embeddings")
     settings = load_settings()
@@ -467,7 +473,7 @@ def embedding_status(db: Session = Depends(get_db)):
     }
 
 
-@router.post("/cancel")
+@router.post("/cancel", response_model=SyncCancelResponse)
 def cancel_embeddings(db: Session = Depends(get_db)):
     state = db.get(SyncState, "embeddings")
     if not state:

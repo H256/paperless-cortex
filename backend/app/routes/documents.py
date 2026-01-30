@@ -26,6 +26,19 @@ from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_docs_front, enqueue_task_front, enqueue_task_sequence_front
 from app.services.vision_ocr import render_pdf_pages
+from app.api_models import (
+    ApplyFieldSuggestionResponse,
+    ApplySuggestionResponse,
+    DocumentLocalResponse,
+    DocumentStatsResponse,
+    DocumentSummary,
+    DocumentsPageResponse,
+    DocumentTextQualityResponse,
+    PageTextsResponse,
+    PaperlessDocument,
+    SuggestFieldVariantsResponse,
+    SuggestionsResponse,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 _preview_cache: dict[tuple[int, int, int], tuple[float, bytes]] = {}
@@ -36,7 +49,7 @@ def settings_dep() -> Settings:
     return load_settings()
 
 
-@router.get("/")
+@router.get("/", response_model=DocumentsPageResponse)
 def list_documents(
     page: int = 1,
     page_size: int = 20,
@@ -91,7 +104,7 @@ def list_documents(
     return payload
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=DocumentStatsResponse)
 def get_document_stats(db: Session = Depends(get_db)):
     total = db.query(Document).count()
     embeddings = (
@@ -142,12 +155,12 @@ def get_document_stats(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/{doc_id}")
+@router.get("/{doc_id}", response_model=PaperlessDocument)
 def get_document(doc_id: int, settings: Settings = Depends(settings_dep)):
     return paperless.get_document(settings, doc_id)
 
 
-@router.get("/{doc_id}/local")
+@router.get("/{doc_id}/local", response_model=DocumentLocalResponse)
 def get_local_document(doc_id: int, db: Session = Depends(get_db)):
     doc = db.get(Document, doc_id)
     if not doc:
@@ -160,14 +173,16 @@ def get_local_document(doc_id: int, db: Session = Depends(get_db)):
         "created": doc.created,
         "modified": doc.modified,
         "correspondent": doc.correspondent_id,
+        "correspondent_name": doc.correspondent.name if doc.correspondent else None,
         "document_type": doc.document_type_id,
+        "document_type_name": doc.document_type.name if doc.document_type else None,
         "tags": [tag.id for tag in doc.tags],
         "notes": [{"note": note.note} for note in doc.notes],
         "original_file_name": doc.original_file_name,
     }
 
 
-@router.get("/{doc_id}/text-quality")
+@router.get("/{doc_id}/text-quality", response_model=DocumentTextQualityResponse)
 def get_document_text_quality(
     doc_id: int,
     priority: bool = False,
@@ -196,7 +211,7 @@ def get_document_text_quality(
     }
 
 
-@router.get("/{doc_id}/suggestions")
+@router.get("/{doc_id}/suggestions", response_model=SuggestionsResponse)
 def get_document_suggestions(
     doc_id: int,
     source: str | None = None,
@@ -376,7 +391,7 @@ class ApplySuggestionToDocument(BaseModel):
     value: object
 
 
-@router.post("/{doc_id}/suggestions/field")
+@router.post("/{doc_id}/suggestions/field", response_model=SuggestFieldVariantsResponse)
 def suggest_field_variants(
     doc_id: int,
     payload: SuggestionFieldRequest,
@@ -460,7 +475,7 @@ def suggest_field_variants(
     return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "variants": variants}
 
 
-@router.get("/{doc_id}/suggestions/field/variants")
+@router.get("/{doc_id}/suggestions/field/variants", response_model=SuggestFieldVariantsResponse)
 def get_field_variants(
     doc_id: int,
     source: str,
@@ -483,7 +498,7 @@ def get_field_variants(
     return {"doc_id": doc_id, "source": source, "field": field, "variants": variants}
 
 
-@router.post("/{doc_id}/suggestions/field/apply")
+@router.post("/{doc_id}/suggestions/field/apply", response_model=ApplyFieldSuggestionResponse)
 def apply_field_suggestion(
     doc_id: int,
     payload: SuggestionFieldApply,
@@ -499,7 +514,7 @@ def apply_field_suggestion(
     return {"status": "ok", "suggestions": {payload.source: updated}}
 
 
-@router.post("/{doc_id}/apply-suggestion")
+@router.post("/{doc_id}/apply-suggestion", response_model=ApplySuggestionResponse)
 def apply_suggestion_to_document(
     doc_id: int,
     payload: ApplySuggestionToDocument,
@@ -596,7 +611,7 @@ def apply_suggestion_to_document(
     return {"status": "skipped", "updated": False, **details}
 
 
-@router.get("/{doc_id}/page-texts")
+@router.get("/{doc_id}/page-texts", response_model=PageTextsResponse)
 def get_document_page_texts(
     doc_id: int,
     priority: bool = False,

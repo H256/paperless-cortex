@@ -8,25 +8,22 @@
         <p class="text-sm text-slate-500">Document ID: {{ id }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <a
+        <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
-          target="_blank"
-          rel="noopener"
           title="View document in Paperless"
           aria-label="View document in Paperless"
-          class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:border-slate-300"
         >
           <ExternalLink class="h-5 w-5" />
-        </a>
-        <span
+        </IconButton>
+        <IconButton
           v-else
+          disabled
           title="Set VITE_PAPERLESS_BASE_URL to enable"
           aria-label="Paperless link unavailable"
-          class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 p-2 text-slate-400"
         >
           <ExternalLink class="h-5 w-5" />
-        </span>
+        </IconButton>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
           @click="load"
@@ -74,12 +71,26 @@
 
     <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-6">
-      <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Metadata</div>
-        <dl class="mt-4 grid gap-4 md:grid-cols-2">
-          <div v-for="row in rows" :key="row.label" class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ row.label }}</dt>
-            <dd class="mt-1 text-sm text-slate-900 break-words">{{ row.value }}</dd>
+        <dl class="mt-3 grid gap-3 md:grid-cols-3">
+          <div v-for="row in rows" :key="row.label" class="rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ row.label }}</dt>
+            <dd class="mt-1 text-sm text-slate-900 break-words">
+              <template v-if="row.label === 'Notes'">
+                <details class="group">
+                  <summary class="cursor-pointer text-xs font-semibold text-slate-500">Show notes</summary>
+                  <div v-if="row.value" class="mt-2 whitespace-pre-wrap text-sm text-slate-900">
+                    {{ row.value }}
+                  </div>
+                  <div v-else class="mt-2 text-xs text-slate-400">No notes</div>
+                </details>
+              </template>
+              <template v-else>
+                <span v-if="row.value !== null && row.value !== undefined && row.value !== ''">{{ row.value }}</span>
+                <span v-else class="text-xs text-slate-400">—</span>
+              </template>
+            </dd>
           </div>
         </dl>
       </section>
@@ -166,7 +177,23 @@
                 </div>
                 <div v-for="field in suggestionFields" :key="`best-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
                   <span class="text-xs text-slate-500">{{ field.label }}</span>
-                  <div class="text-sm text-slate-900">{{ fieldValue(bestPickSuggestion.data, field.key) }}</div>
+                  <div class="text-sm text-slate-900">
+                    <template v-if="field.key === 'tags'">
+                      <div v-if="normalizedTags(bestPickSuggestion.data).length" class="flex flex-wrap gap-1.5">
+                        <span
+                          v-for="tag in normalizedTags(bestPickSuggestion.data)"
+                          :key="`best-tag-${tag}`"
+                          class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600"
+                        >
+                          {{ tag }}
+                        </span>
+                      </div>
+                      <span v-else class="text-xs text-slate-400">No tags suggested</span>
+                    </template>
+                    <template v-else>
+                      {{ fieldValue(bestPickSuggestion.data, field.key) }}
+                    </template>
+                  </div>
                   <button
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
                     @click="applyToDocument('best_pick', field.key, bestPickSuggestion.data)"
@@ -218,7 +245,23 @@
                   </div>
                   <div v-for="field in suggestionFields" :key="`paperless-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
                     <span class="text-xs text-slate-500">{{ field.label }}</span>
-                    <div class="text-sm text-slate-900">{{ fieldValue(paperlessSuggestion.data, field.key) }}</div>
+                    <div class="text-sm text-slate-900">
+                      <template v-if="field.key === 'tags'">
+                        <div v-if="normalizedTags(paperlessSuggestion.data).length" class="flex flex-wrap gap-1.5">
+                          <span
+                            v-for="tag in normalizedTags(paperlessSuggestion.data)"
+                            :key="`paperless-tag-${tag}`"
+                            class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600"
+                          >
+                            {{ tag }}
+                          </span>
+                        </div>
+                        <span v-else class="text-xs text-slate-400">No tags suggested</span>
+                      </template>
+                      <template v-else>
+                        {{ fieldValue(paperlessSuggestion.data, field.key) }}
+                      </template>
+                    </div>
                     <div class="flex items-center gap-2">
                       <button
                         class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
@@ -299,7 +342,23 @@
                   </div>
                   <div v-for="field in suggestionFields" :key="`vision-${field.key}`" class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]">
                     <span class="text-xs text-slate-500">{{ field.label }}</span>
-                    <div class="text-sm text-slate-900">{{ fieldValue(visionSuggestion.data, field.key) }}</div>
+                    <div class="text-sm text-slate-900">
+                      <template v-if="field.key === 'tags'">
+                        <div v-if="normalizedTags(visionSuggestion.data).length" class="flex flex-wrap gap-1.5">
+                          <span
+                            v-for="tag in normalizedTags(visionSuggestion.data)"
+                            :key="`vision-tag-${tag}`"
+                            class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600"
+                          >
+                            {{ tag }}
+                          </span>
+                        </div>
+                        <span v-else class="text-xs text-slate-400">No tags suggested</span>
+                      </template>
+                      <template v-else>
+                        {{ fieldValue(visionSuggestion.data, field.key) }}
+                      </template>
+                    </div>
                     <div class="flex items-center gap-2">
                       <button
                         class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
@@ -457,61 +516,43 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
-import { api, Page } from '../api';
-
-interface DocumentDetail {
-  id: number;
-  title: string;
-  document_date?: string | null;
-  created?: string | null;
-  modified?: string | null;
-  correspondent?: number | null;
-  correspondent_name?: string | null;
-  document_type?: number | null;
-  document_type_name?: string | null;
-  tags?: number[];
-  notes?: { note: string }[];
-  content?: string;
-  original_file_name?: string | null;
-}
-
-interface Tag {
-  id: number;
-  name: string;
-}
-
-interface Correspondent {
-  id: number;
-  name: string;
-}
-
-interface DocumentType {
-  id: number;
-  name: string;
-}
-
-interface PageText {
-  page: number;
-  source: string;
-  text: string;
-  quality?: {
-    score: number;
-    reasons: string[];
-    metrics: Record<string, number>;
-  };
-}
+import { storeToRefs } from 'pinia';
+import IconButton from '../components/IconButton.vue';
+import { useDocumentDetailStore } from '../stores/documentDetailStore';
+import { useStatusStore } from '../stores/statusStore';
+import { PageText } from '../services/documents';
 
 const route = useRoute();
 const id = Number(route.params.id);
-const document = ref<DocumentDetail | null>(null);
-const loading = ref(false);
-const syncing = ref(false);
+
+const documentStore = useDocumentDetailStore();
+const statusStore = useStatusStore();
+const {
+  document,
+  loading,
+  tags,
+  correspondents,
+  docTypes,
+  pageTexts,
+  pageTextsLoading,
+  pageTextsError,
+  contentQuality,
+  contentQualityLoading,
+  contentQualityError,
+  suggestions,
+  suggestionsLoading,
+  suggestionsError,
+  suggestionVariants,
+  suggestionVariantLoading,
+  suggestionVariantError,
+} = storeToRefs(documentStore);
+
 const processing = ref(false);
 const doResync = ref(true);
 const doReembed = ref(true);
 const doQuality = ref(true);
-const doPages = ref(false);
-const doSuggestions = ref(false);
+const doPages = ref(true);
+const doSuggestions = ref(true);
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 const previewMaxDimStorageKey = 'paperless_preview_max_dim';
 const previewToggleStorageKey = 'paperless_preview_show';
@@ -521,24 +562,13 @@ const showPreviews = ref(storedShowPreviews !== '0');
 const previewMaxDim = ref(Number.isFinite(storedPreviewMaxDim) ? storedPreviewMaxDim : 1024);
 const expandedPages = ref<Set<string>>(new Set());
 const previewStatus = ref<Record<string, { loading: boolean; error: string }>>({});
-const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
+
+const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
 const paperlessUrl = computed(() =>
-  paperlessBaseUrl && document.value
-    ? `${paperlessBaseUrl.replace(/\/$/, '')}/documents/${document.value.id}`
+  paperlessBaseUrl.value && document.value
+    ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${document.value.id}`
     : ''
 );
-const tags = ref<Tag[]>([]);
-const correspondents = ref<Correspondent[]>([]);
-const docTypes = ref<DocumentType[]>([]);
-const pageTexts = ref<PageText[]>([]);
-const pageTextsLoading = ref(false);
-const pageTextsError = ref('');
-const contentQuality = ref<{ score: number; reasons: string[]; metrics: Record<string, number> } | null>(null);
-const contentQualityLoading = ref(false);
-const contentQualityError = ref('');
-const suggestions = ref<{ paperless_ocr?: any; vision_ocr?: any; best_pick?: any } | null>(null);
-const suggestionsLoading = ref(false);
-const suggestionsError = ref('');
 
 const normalizeSuggestion = (input: any) => {
   if (!input || (typeof input === 'object' && Object.keys(input).length === 0)) {
@@ -558,9 +588,6 @@ const suggestionFields = [
   { key: 'correspondent', label: 'Suggested correspondent' },
   { key: 'tags', label: 'Suggested tags' },
 ];
-const suggestionVariants = ref<Record<string, any[]>>({});
-const suggestionVariantLoading = ref<Record<string, boolean>>({});
-const suggestionVariantError = ref<Record<string, string>>({});
 
 const aggregatedText = computed(() => {
   if (!pageTexts.value.length) return document.value?.content || '';
@@ -569,82 +596,46 @@ const aggregatedText = computed(() => {
 
 const fieldValue = (data: any, field: string) => {
   if (!data) return '';
-  if (field === 'title') return data.title || data.suggested_title || '';
-  if (field === 'date') {
-    const raw = data.date || data.suggested_document_date || '';
-    return formatDate(raw);
-  }
-  if (field === 'correspondent') return data.correspondent || data.suggested_correspondent || '';
-  if (field === 'tags') return (data.tags || data.suggested_tags || []).join(', ');
-  return data[field] ?? '';
+  if (field === 'title') return data.title || data.suggested_title;
+  if (field === 'date') return data.date || data.suggested_document_date;
+  if (field === 'correspondent') return data.correspondent || data.suggested_correspondent;
+  if (field === 'tags') return data.tags || data.suggested_tags;
+  return data[field];
 };
 
-const pollVariants = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
-  const key = `${source}:${field}`;
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    try {
-      const { data } = await api.get<{ variants: any[] }>(
-        `/documents/${id}/suggestions/field/variants`,
-        { params: { source, field } }
-      );
-      if (Array.isArray(data.variants) && data.variants.length) {
-        suggestionVariants.value[key] = data.variants;
-        return;
+const normalizedTags = (data: any): string[] => {
+  const raw = fieldValue(data, 'tags');
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((tag) => String(tag)).filter(Boolean);
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((tag) => String(tag)).filter(Boolean);
+        }
+      } catch {
+        // fall through to splitting
       }
-    } catch (err: any) {
-      suggestionVariantError.value[key] = err?.message ?? 'Failed to fetch variants';
-      return;
     }
+    return trimmed
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
   }
+  return [String(raw)];
 };
 
 const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
-  const key = `${source}:${field}`;
-  suggestionVariantLoading.value[key] = true;
-  suggestionVariantError.value[key] = '';
-  try {
-    const { data } = await api.post<{ variants?: any; queued?: boolean }>(
-      `/documents/${id}/suggestions/field`,
-      { source, field, count: 3 },
-      { params: { priority: true } }
-    );
-    const variants = data?.variants?.parsed?.variants || data?.variants?.variants || [];
-    if (Array.isArray(variants) && variants.length) {
-      suggestionVariants.value[key] = variants;
-    } else if (data?.queued) {
-      await pollVariants(source, field);
-    }
-  } catch (err: any) {
-    suggestionVariantError.value[key] = err?.message ?? 'Failed to generate variants';
-  } finally {
-    suggestionVariantLoading.value[key] = false;
-  }
+  await documentStore.suggestField(id, source, field);
 };
 
-const applyVariant = async (
-  source: 'paperless_ocr' | 'vision_ocr',
-  field: string,
-  value: any
-) => {
+const applyVariant = async (source: 'paperless_ocr' | 'vision_ocr', field: string, value: any) => {
   const label = typeof value === 'string' ? value : JSON.stringify(value);
   const ok = window.confirm(`Overwrite ${field} with: ${label}?`);
   if (!ok) return;
-  suggestionsLoading.value = true;
-  suggestionsError.value = '';
-  try {
-    const { data } = await api.post<{ suggestions: { paperless_ocr?: any; vision_ocr?: any } }>(
-      `/documents/${id}/suggestions/field/apply`,
-      { source, field, value }
-    );
-    if (data?.suggestions) {
-      suggestions.value = { ...(suggestions.value ?? {}), ...data.suggestions };
-    }
-  } catch (err: any) {
-    suggestionsError.value = err?.message ?? 'Failed to apply suggestion';
-  } finally {
-    suggestionsLoading.value = false;
-  }
+  await documentStore.applyVariant(id, source, field, value);
 };
 
 const applyToDocument = async (source: string, field: string, data: any) => {
@@ -660,54 +651,11 @@ const applyToDocument = async (source: string, field: string, data: any) => {
   const ok = window.confirm(`Apply ${field} to document: ${label}?`);
   if (!ok) return;
   try {
-    await api.post(`/documents/${id}/apply-suggestion`, { source, field, value });
+    await documentStore.applyToDocument(id, { source, field, value });
     await load();
   } catch (err: any) {
     suggestionsError.value = err?.message ?? 'Failed to apply suggestion to document';
   }
-};
-
-const previewKey = (page: PageText) => `preview:${page.page}:${page.source}`;
-const markPreviewLoading = (page: PageText) => {
-  previewStatus.value = {
-    ...previewStatus.value,
-    [previewKey(page)]: { loading: true, error: '' },
-  };
-};
-const onPreviewLoad = (page: PageText) => {
-  previewStatus.value = {
-    ...previewStatus.value,
-    [previewKey(page)]: { loading: false, error: '' },
-  };
-};
-const onPreviewError = (page: PageText) => {
-  previewStatus.value = {
-    ...previewStatus.value,
-    [previewKey(page)]: { loading: false, error: 'Preview unavailable' },
-  };
-};
-
-const pageKey = (page: PageText) => `${page.page}:${page.source}`;
-const isExpanded = (page: PageText) => expandedPages.value.has(pageKey(page));
-const togglePage = (page: PageText) => {
-  const key = pageKey(page);
-  if (expandedPages.value.has(key)) {
-    expandedPages.value.delete(key);
-  } else {
-    expandedPages.value.add(key);
-    if (showPreviews.value && page.source === 'vision_ocr') {
-      markPreviewLoading(page);
-    }
-  }
-};
-
-const shouldShowPreview = (page: PageText) => {
-  return showPreviews.value && isExpanded(page) && page.source === 'vision_ocr';
-};
-
-const pagePreviewUrl = (page: PageText) => {
-  const url = `${apiBaseUrl}/documents/${id}/page-preview?page=${page.page}&max_dim=${previewMaxDim.value}`;
-  return url;
 };
 
 const rows = computed(() => {
@@ -756,124 +704,36 @@ const formatDateTime = (value?: string | null) => {
 };
 
 const load = async () => {
-  loading.value = true;
-  const { data } = await api.get<DocumentDetail>(`/documents/${id}/local`);
-  if (data?.status === 'missing') {
-    document.value = null;
-  } else {
-    document.value = data;
-  }
-  loading.value = false;
+  await documentStore.loadDocument(id);
 };
 
 const resync = async () => {
-  syncing.value = true;
-  try {
-    await api.post(`/sync/documents/${id}`, undefined, {
-      params: { embed: doReembed.value, force_embed: doReembed.value },
-    });
-    await load();
-  } finally {
-    syncing.value = false;
-  }
+  await documentStore.resync(id, doReembed.value);
 };
 
 const loadMeta = async () => {
-  const [tagsResp, corrResp] = await Promise.all([
-    api.get<Page<Tag>>('/tags', { params: { page: 1, page_size: 200 } }),
-    api.get<Page<Correspondent>>('/correspondents', { params: { page: 1, page_size: 200 } }),
-  ]);
-  tags.value = tagsResp.data.results ?? [];
-  correspondents.value = corrResp.data.results ?? [];
-  if (document.value?.document_type) {
-    const { data } = await api.get<DocumentType>(`/document-types/${document.value.document_type}`);
-    docTypes.value = [data];
-  }
+  await documentStore.loadMeta();
 };
 
 const loadPageTexts = async (priority = false) => {
-  pageTextsLoading.value = true;
-  pageTextsError.value = '';
-  try {
-    const { data } = await api.get<{ pages: PageText[] }>(`/documents/${id}/page-texts`, {
-      params: { priority },
-    });
-    pageTexts.value = data.pages ?? [];
-    expandedPages.value = new Set(pageTexts.value.map(pageKey));
-    previewStatus.value = {};
-    if (showPreviews.value) {
-      pageTexts.value.filter((page) => page.source === 'vision_ocr').forEach(markPreviewLoading);
-    }
-  } catch (err: any) {
-    pageTextsError.value = err?.message ?? 'Failed to load page texts';
-  } finally {
-    pageTextsLoading.value = false;
+  await documentStore.loadPageTexts(id, priority);
+  expandedPages.value = new Set(pageTexts.value.map(pageKey));
+  previewStatus.value = {};
+  if (showPreviews.value) {
+    pageTexts.value.filter((page) => page.source === 'vision_ocr').forEach(markPreviewLoading);
   }
 };
-
-const refreshPreviewLoading = () => {
-  if (!showPreviews.value) return;
-  pageTexts.value
-    .filter((page) => page.source === 'vision_ocr' && isExpanded(page))
-    .forEach(markPreviewLoading);
-};
-
-watch(showPreviews, (value) => {
-  window.localStorage.setItem(previewToggleStorageKey, value ? '1' : '0');
-  refreshPreviewLoading();
-});
-
-watch(previewMaxDim, (value) => {
-  window.localStorage.setItem(previewMaxDimStorageKey, String(value));
-  refreshPreviewLoading();
-});
 
 const loadContentQuality = async (priority = false) => {
-  contentQualityLoading.value = true;
-  contentQualityError.value = '';
-  try {
-    const { data } = await api.get<{ quality: { score: number; reasons: string[]; metrics: Record<string, number> } }>(
-      `/documents/${id}/text-quality`,
-      { params: { priority } }
-    );
-    contentQuality.value = data.quality ?? null;
-  } catch (err: any) {
-    contentQualityError.value = err?.message ?? 'Failed to load text quality';
-  } finally {
-    contentQualityLoading.value = false;
-  }
+  await documentStore.loadContentQuality(id, priority);
 };
 
 const loadSuggestions = async () => {
-  suggestionsLoading.value = true;
-  suggestionsError.value = '';
-  try {
-    const { data } = await api.get<{ suggestions: { paperless_ocr?: any; vision_ocr?: any } }>(`/documents/${id}/suggestions`);
-    suggestions.value = data.suggestions ?? null;
-  } catch (err: any) {
-    suggestionsError.value = err?.message ?? 'Failed to load suggestions';
-  } finally {
-    suggestionsLoading.value = false;
-  }
+  await documentStore.loadSuggestions(id);
 };
 
 const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
-  suggestionsLoading.value = true;
-  suggestionsError.value = '';
-  try {
-    const { data } = await api.get<{ suggestions: { paperless_ocr?: any; vision_ocr?: any } }>(
-      `/documents/${id}/suggestions`,
-      { params: { source, refresh: true, priority: true } }
-    );
-    suggestions.value = {
-      ...(suggestions.value ?? {}),
-      ...(data.suggestions ?? {}),
-    };
-  } catch (err: any) {
-    suggestionsError.value = err?.message ?? 'Failed to refresh suggestions';
-  } finally {
-    suggestionsLoading.value = false;
-  }
+  await documentStore.refreshSuggestions(id, source);
 };
 
 const runReprocess = async () => {
@@ -896,11 +756,84 @@ const runReprocess = async () => {
   }
 };
 
+const previewKey = (page: PageText) => `preview:${page.page}:${page.source}`;
+const markPreviewLoading = (page: PageText) => {
+  previewStatus.value = {
+    ...previewStatus.value,
+    [previewKey(page)]: { loading: true, error: '' },
+  };
+};
+const onPreviewLoad = (page: PageText) => {
+  previewStatus.value = {
+    ...previewStatus.value,
+    [previewKey(page)]: { loading: false, error: '' },
+  };
+};
+const onPreviewError = (page: PageText) => {
+  previewStatus.value = {
+    ...previewStatus.value,
+    [previewKey(page)]: { loading: false, error: 'Preview unavailable' },
+  };
+};
+
+const pageKey = (page: PageText) => `${page.page}:${page.source}`;
+const isExpanded = (page: PageText) => expandedPages.value.has(pageKey(page));
+const togglePage = (page: PageText) => {
+  const key = pageKey(page);
+  if (expandedPages.value.has(key)) {
+    expandedPages.value.delete(key);
+  } else {
+    expandedPages.value.add(key);
+    if (showPreviews.value && page.source === 'vision_ocr') {
+      markPreviewLoading(page);
+    }
+  }
+};
+
+const shouldShowPreview = (page: PageText) => {
+  return showPreviews.value && isExpanded(page) && page.source === 'vision_ocr';
+};
+
+const pagePreviewUrl = (page: PageText) => {
+  const url = `${apiBaseUrl}/documents/${id}/page-preview?page=${page.page}&max_dim=${previewMaxDim.value}`;
+  return url;
+};
+
 onMounted(async () => {
   await load();
   await loadMeta();
-  await loadContentQuality();
-  await loadPageTexts();
-  await loadSuggestions();
+  if (doQuality.value) {
+    await loadContentQuality();
+  }
+  if (doPages.value) {
+    await loadPageTexts();
+  }
+  if (doSuggestions.value) {
+    await loadSuggestions();
+  }
+});
+
+watch(doPages, async (value) => {
+  if (value && pageTexts.value.length === 0) {
+    await loadPageTexts();
+  }
+});
+
+watch(previewMaxDim, (value) => {
+  window.localStorage.setItem(previewMaxDimStorageKey, String(value));
+  if (showPreviews.value) {
+    pageTexts.value
+      .filter((page) => page.source === 'vision_ocr' && isExpanded(page))
+      .forEach(markPreviewLoading);
+  }
+});
+
+watch(showPreviews, (value) => {
+  window.localStorage.setItem(previewToggleStorageKey, value ? '1' : '0');
+  if (value) {
+    pageTexts.value
+      .filter((page) => page.source === 'vision_ocr' && isExpanded(page))
+      .forEach(markPreviewLoading);
+  }
 });
 </script>

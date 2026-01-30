@@ -30,6 +30,13 @@ from app.services.embeddings import (
 from app.services.text_pages import get_page_text_layers
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task_sequence
+from app.api_models import (
+    SyncDocumentsResponse,
+    SyncStatusResponse,
+    SyncCancelResponse,
+    SyncDocumentResponse,
+    SyncSimpleResponse,
+)
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -38,7 +45,7 @@ def settings_dep() -> Settings:
     return load_settings()
 
 
-@router.post("/documents")
+@router.post("/documents", response_model=SyncDocumentsResponse)
 def sync_documents(
     page_size: int = 50,
     incremental: bool = True,
@@ -149,7 +156,7 @@ def sync_documents(
     }
 
 
-@router.get("/documents")
+@router.get("/documents", response_model=SyncStatusResponse)
 def sync_status(db: Session = Depends(get_db)):
     state = db.get(SyncState, "documents")
     if not state:
@@ -175,7 +182,7 @@ def sync_status(db: Session = Depends(get_db)):
     }
 
 
-@router.post("/documents/cancel")
+@router.post("/documents/cancel", response_model=SyncCancelResponse)
 def cancel_sync(db: Session = Depends(get_db)):
     state = db.get(SyncState, "documents")
     if not state:
@@ -284,7 +291,7 @@ def _upsert_document(
         doc.tags.append(tag)
 
 
-@router.post("/documents/{doc_id}")
+@router.post("/documents/{doc_id}", response_model=SyncDocumentResponse)
 def sync_document(
     doc_id: int,
     settings: Settings = Depends(settings_dep),
@@ -332,7 +339,7 @@ def sync_document(
     return {"id": doc_id, "status": "synced", "embedded": embedded}
 
 
-@router.post("/tags")
+@router.post("/tags", response_model=SyncSimpleResponse)
 def sync_tags(
     page: int = 1,
     page_size: int = 200,
@@ -363,7 +370,7 @@ def sync_tags(
     return {"count": len(results), "upserted": upserted}
 
 
-@router.post("/correspondents")
+@router.post("/correspondents", response_model=SyncSimpleResponse)
 def sync_correspondents(
     page: int = 1,
     page_size: int = 200,
@@ -393,7 +400,7 @@ def sync_correspondents(
     return {"count": len(results), "upserted": upserted}
 
 
-@router.post("/document-types")
+@router.post("/document-types", response_model=SyncSimpleResponse)
 def sync_document_types(
     page: int = 1,
     page_size: int = 200,

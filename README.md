@@ -38,6 +38,7 @@
   - Semantic search page with source filter, quality slider, dedupe/rerank.
   - Queue management page.
   - Footer status lights for Web / Worker / Ollama.
+  - Generate API client (Orval): `ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate`
 
 ## Key endpoints (backend)
 - `POST /api/sync/documents` syncs Paperless → DB (optional embedding).
