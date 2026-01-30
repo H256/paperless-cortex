@@ -13,23 +13,25 @@
           :href="paperlessUrl"
           target="_blank"
           rel="noopener"
-          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
+          title="View document in Paperless"
+          aria-label="View document in Paperless"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:border-slate-300"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 3h7v7" />
-            <path d="M10 14L21 3" />
-            <path d="M5 7v14h14v-7" />
-          </svg>
-          Paperless
+          <ExternalLink class="h-5 w-5" />
         </a>
+        <span
+          v-else
+          title="Set VITE_PAPERLESS_BASE_URL to enable"
+          aria-label="Paperless link unavailable"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 p-2 text-slate-400"
+        >
+          <ExternalLink class="h-5 w-5" />
+        </span>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
           @click="load"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-3.3-6.9" />
-            <polyline points="21 3 21 9 15 9" />
-          </svg>
+          <RefreshCw class="h-4 w-4" />
           Reload
         </button>
       </div>
@@ -64,12 +66,7 @@
           :disabled="processing"
           @click="runReprocess"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 4v6h6" />
-            <path d="M20 20v-6h-6" />
-            <path d="M4 10a8 8 0 0 1 14.9-3" />
-            <path d="M20 14a8 8 0 0 1-14.9 3" />
-          </svg>
+          <RefreshCcw class="h-4 w-4" />
           {{ processing ? 'Processing...' : 'Re-process' }}
         </button>
       </div>
@@ -359,6 +356,24 @@
           <h3 class="text-lg font-semibold text-slate-900">Extracted page texts (debug)</h3>
           <span class="text-xs text-slate-500">Page-wise OCR</span>
         </div>
+        <div class="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" v-model="showPreviews" />
+            Show previews
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <span>Preview size</span>
+            <input
+              type="range"
+              min="512"
+              max="1600"
+              step="64"
+              v-model.number="previewMaxDim"
+              :disabled="!showPreviews"
+            />
+            <span class="tabular-nums">{{ previewMaxDim }}px</span>
+          </label>
+        </div>
         <div class="mt-4">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Aggregated text context</div>
           <textarea
@@ -373,7 +388,16 @@
         </div>
         <div v-else class="mt-4 space-y-4">
           <div v-for="page in pageTexts" :key="page.page" class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <div class="text-xs text-slate-500">Page {{ page.page }} ? Source: {{ page.source }}</div>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>Page {{ page.page }} · Source: {{ page.source }}</span>
+              <button
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
+                @click="togglePage(page)"
+              >
+                {{ isExpanded(page) ? 'Hide' : 'Show' }}
+              </button>
+            </div>
+            <div v-if="isExpanded(page)">
             <div v-if="page.quality" class="mt-2 text-xs text-slate-600">
               <div class="font-semibold text-slate-700">Quality score: {{ page.quality.score }}</div>
               <div v-if="page.quality.reasons?.length" class="mt-1">Reasons: {{ page.quality.reasons.join(', ') }}</div>
@@ -387,11 +411,40 @@
                 </div>
               </div>
             </div>
-            <textarea
-              class="mt-3 w-full min-h-[140px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
-              readonly
-              :value="page.text"
-            ></textarea>
+            <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,360px)_1fr]">
+              <div v-if="shouldShowPreview(page)" class="rounded-lg border border-slate-200 bg-white p-2">
+                <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Preview</div>
+                <div class="relative mt-2">
+                  <div
+                    v-if="previewStatus[previewKey(page)]?.loading"
+                    class="absolute inset-0 flex items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-[11px] text-slate-400"
+                  >
+                    Loading preview…
+                  </div>
+                  <div
+                    v-else-if="previewStatus[previewKey(page)]?.error"
+                    class="absolute inset-0 flex items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-[11px] text-rose-600"
+                  >
+                    {{ previewStatus[previewKey(page)]?.error }}
+                  </div>
+                  <img
+                    class="w-full rounded-md border border-slate-200"
+                    :class="previewStatus[previewKey(page)]?.error ? 'opacity-20' : ''"
+                    :src="pagePreviewUrl(page)"
+                    loading="lazy"
+                    :alt="`Page ${page.page} preview`"
+                    @load="onPreviewLoad(page)"
+                    @error="onPreviewError(page)"
+                  />
+                </div>
+              </div>
+              <textarea
+                class="w-full min-h-[140px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
+                readonly
+                :value="page.text"
+              ></textarea>
+            </div>
+            </div>
           </div>
         </div>
       </section>
@@ -401,7 +454,8 @@
 
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
 import { api, Page } from '../api';
 
@@ -458,6 +512,15 @@ const doReembed = ref(true);
 const doQuality = ref(true);
 const doPages = ref(false);
 const doSuggestions = ref(false);
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+const previewMaxDimStorageKey = 'paperless_preview_max_dim';
+const previewToggleStorageKey = 'paperless_preview_show';
+const storedPreviewMaxDim = Number(window.localStorage?.getItem(previewMaxDimStorageKey) || 1024);
+const storedShowPreviews = window.localStorage?.getItem(previewToggleStorageKey);
+const showPreviews = ref(storedShowPreviews !== '0');
+const previewMaxDim = ref(Number.isFinite(storedPreviewMaxDim) ? storedPreviewMaxDim : 1024);
+const expandedPages = ref<Set<string>>(new Set());
+const previewStatus = ref<Record<string, { loading: boolean; error: string }>>({});
 const paperlessBaseUrl = import.meta.env.VITE_PAPERLESS_BASE_URL || '';
 const paperlessUrl = computed(() =>
   paperlessBaseUrl && document.value
@@ -604,6 +667,48 @@ const applyToDocument = async (source: string, field: string, data: any) => {
   }
 };
 
+const previewKey = (page: PageText) => `preview:${page.page}:${page.source}`;
+const markPreviewLoading = (page: PageText) => {
+  previewStatus.value = {
+    ...previewStatus.value,
+    [previewKey(page)]: { loading: true, error: '' },
+  };
+};
+const onPreviewLoad = (page: PageText) => {
+  previewStatus.value = {
+    ...previewStatus.value,
+    [previewKey(page)]: { loading: false, error: '' },
+  };
+};
+const onPreviewError = (page: PageText) => {
+  previewStatus.value = {
+    ...previewStatus.value,
+    [previewKey(page)]: { loading: false, error: 'Preview unavailable' },
+  };
+};
+
+const pageKey = (page: PageText) => `${page.page}:${page.source}`;
+const isExpanded = (page: PageText) => expandedPages.value.has(pageKey(page));
+const togglePage = (page: PageText) => {
+  const key = pageKey(page);
+  if (expandedPages.value.has(key)) {
+    expandedPages.value.delete(key);
+  } else {
+    expandedPages.value.add(key);
+    if (showPreviews.value && page.source === 'vision_ocr') {
+      markPreviewLoading(page);
+    }
+  }
+};
+
+const shouldShowPreview = (page: PageText) => {
+  return showPreviews.value && isExpanded(page) && page.source === 'vision_ocr';
+};
+
+const pagePreviewUrl = (page: PageText) => {
+  const url = `${apiBaseUrl}/documents/${id}/page-preview?page=${page.page}&max_dim=${previewMaxDim.value}`;
+  return url;
+};
 
 const rows = computed(() => {
   if (!document.value) return [];
@@ -694,12 +799,34 @@ const loadPageTexts = async (priority = false) => {
       params: { priority },
     });
     pageTexts.value = data.pages ?? [];
+    expandedPages.value = new Set(pageTexts.value.map(pageKey));
+    previewStatus.value = {};
+    if (showPreviews.value) {
+      pageTexts.value.filter((page) => page.source === 'vision_ocr').forEach(markPreviewLoading);
+    }
   } catch (err: any) {
     pageTextsError.value = err?.message ?? 'Failed to load page texts';
   } finally {
     pageTextsLoading.value = false;
   }
 };
+
+const refreshPreviewLoading = () => {
+  if (!showPreviews.value) return;
+  pageTexts.value
+    .filter((page) => page.source === 'vision_ocr' && isExpanded(page))
+    .forEach(markPreviewLoading);
+};
+
+watch(showPreviews, (value) => {
+  window.localStorage.setItem(previewToggleStorageKey, value ? '1' : '0');
+  refreshPreviewLoading();
+});
+
+watch(previewMaxDim, (value) => {
+  window.localStorage.setItem(previewMaxDimStorageKey, String(value));
+  refreshPreviewLoading();
+});
 
 const loadContentQuality = async (priority = false) => {
   contentQualityLoading.value = true;
