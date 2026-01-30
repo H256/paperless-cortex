@@ -241,91 +241,57 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { ChevronDown, ExternalLink, ListChecks, Loader2, Plus, RefreshCcw, RefreshCw, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
-import { api, Page } from '../api';
-
-interface DocumentRow {
-  id: number;
-  title: string;
-  document_date?: string | null;
-  created?: string | null;
-  correspondent?: number | null;
-  correspondent_name?: string | null;
-  has_embeddings?: boolean;
-  has_suggestions?: boolean;
-  has_vision_pages?: boolean;
-}
-
-interface Tag {
-  id: number;
-  name: string;
-}
-
-interface Correspondent {
-  id: number;
-  name: string;
-}
+import { storeToRefs } from 'pinia';
+import { useDocumentsStore } from '../stores/documentsStore';
+import { useQueueStore } from '../stores/queueStore';
+import { useStatusStore } from '../stores/statusStore';
+import { DocumentRow } from '../services/documents';
 
 const router = useRouter();
-const documents = ref<DocumentRow[]>([]);
-const page = ref(1);
-const pageSize = ref(20);
-const ordering = ref('-date');
-const totalCount = ref(0);
-const tags = ref<Tag[]>([]);
-const correspondents = ref<Correspondent[]>([]);
-const selectedTag = ref('');
-const selectedCorrespondent = ref('');
-const dateFrom = ref('');
-const dateTo = ref('');
-const syncing = ref(false);
-const lastSynced = ref<string | null>(null);
-const incremental = ref(true);
-const pageOnly = ref(false);
-const embedding = ref(false);
-const syncStatus = ref({
-  status: 'idle',
-  processed: 0,
-  total: 0,
-  started_at: null as string | null,
-  eta_seconds: null as number | null,
-});
-const embedStatus = ref({
-  status: 'idle',
-  processed: 0,
-  total: 0,
-  started_at: null as string | null,
-  eta_seconds: null as number | null,
-});
-const queueStatus = ref<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>({
-  enabled: false,
-  length: null,
-});
-const stats = ref({
-  total: 0,
-  processed: 0,
-  unprocessed: 0,
-  embeddings: 0,
-  vision: 0,
-  suggestions: 0,
-  fully_processed: 0,
-});
-const paperlessBaseUrl = ref(import.meta.env.VITE_PAPERLESS_BASE_URL || '');
-const paperlessDocUrl = (id: number) => {
-  if (!paperlessBaseUrl.value) return '';
-  return `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${id}`;
-};
+const documentsStore = useDocumentsStore();
+const queueStore = useQueueStore();
+const statusStore = useStatusStore();
+
+const {
+  documents,
+  page,
+  pageSize,
+  ordering,
+  totalCount,
+  tags,
+  correspondents,
+  selectedTag,
+  selectedCorrespondent,
+  dateFrom,
+  dateTo,
+  syncing,
+  lastSynced,
+  incremental,
+  pageOnly,
+  embedding,
+  syncStatus,
+  embedStatus,
+  stats,
+} = storeToRefs(documentsStore);
+
+const { status: queueStatus } = storeToRefs(queueStore);
+
+const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
+const paperlessDocUrl = (id: number) =>
+  paperlessBaseUrl.value ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${id}` : '';
+
 let pollHandle: number | null = null;
 
 const startPolling = () => {
   if (pollHandle !== null) return;
   pollHandle = window.setInterval(async () => {
-    await fetchSyncStatus();
-    await fetchEmbedStatus();
-    await fetchQueueStatus();
-    await fetchStats();
+    await documentsStore.fetchSyncStatus();
+    await documentsStore.fetchEmbedStatus();
+    await queueStore.refreshStatus();
+    await documentsStore.fetchStats();
     if (syncStatus.value.status !== 'running' && embedStatus.value.status !== 'running') {
       if (pollHandle !== null) {
         window.clearInterval(pollHandle);
@@ -335,14 +301,10 @@ const startPolling = () => {
   }, 2000);
 };
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(totalCount.value / pageSize.value))
-);
-const isProcessing = computed(() =>
-  syncStatus.value.status === 'running' || embedStatus.value.status === 'running'
-);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
+const isProcessing = computed(() => syncStatus.value.status === 'running' || embedStatus.value.status === 'running');
 const embedLabel = computed(() => {
-  if (queueStatus.value.enabled && (queueStatus.value.length || queueStatus.value.in_progress)) {
+  if (queueStore.status.enabled && (queueStore.status.length || queueStore.status.in_progress)) {
     return 'Queue';
   }
   return 'Embed';
@@ -408,241 +370,37 @@ const embedEtaText = computed(() => {
 });
 
 const load = async () => {
-  const { data } = await api.get<Page<DocumentRow>>('/documents', {
-    params: {
-      page: page.value,
-      page_size: pageSize.value,
-      ordering: ordering.value,
-      correspondent__id: selectedCorrespondent.value || undefined,
-      tags__id: selectedTag.value || undefined,
-      document_date__gte: dateFrom.value || undefined,
-      document_date__lte: dateTo.value || undefined,
-      include_derived: true,
-    },
-  });
-  documents.value = data.results ?? [];
-  totalCount.value = data.count ?? documents.value.length;
-  await fetchStats();
+  await documentsStore.load();
+  await documentsStore.fetchStats();
 };
 
 const sync = async () => {
-  syncing.value = true;
   startPolling();
-  try {
-    await api.post('/sync/documents', undefined, {
-      params: {
-        page_size: pageSize.value,
-        incremental: incremental.value,
-        page: page.value,
-        page_only: pageOnly.value,
-      },
-    });
-    await fetchSyncStatus();
-    await load();
-  } finally {
-    syncing.value = false;
-  }
-  if (pollHandle === null) {
-    pollHandle = window.setInterval(async () => {
-      await fetchSyncStatus();
-      await fetchEmbedStatus();
-      if (syncStatus.value.status !== 'running' && embedStatus.value.status !== 'running') {
-        if (pollHandle !== null) {
-          window.clearInterval(pollHandle);
-          pollHandle = null;
-        }
-      }
-    }, 2000);
-  }
-};
-
-const reprocessAll = async () => {
-  syncing.value = true;
-  startPolling();
-  try {
-    await api.post('/sync/documents', undefined, {
-      params: {
-        page_size: pageSize.value,
-        incremental: false,
-        page_only: false,
-        embed: true,
-        force_embed: true,
-      },
-    });
-    await fetchSyncStatus();
-    await fetchEmbedStatus();
-    await load();
-  } finally {
-    syncing.value = false;
-  }
+  await documentsStore.sync();
 };
 
 const reprocessFiltered = async () => {
-  syncing.value = true;
   startPolling();
-  try {
-    const ids = documents.value.map((doc) => doc.id);
-    for (const docId of ids) {
-      await api.post(`/sync/documents/${docId}`, undefined, {
-        params: { embed: true, force_embed: true },
-      });
-    }
-    await fetchSyncStatus();
-    await fetchEmbedStatus();
-    await load();
-  } finally {
-    syncing.value = false;
-  }
-};
-
-const reembedCurrent = async () => {
-  // legacy (unused)
-
-  embedding.value = true;
-  startPolling();
-  try {
-    const force = !incremental.value;
-    if (pageOnly.value) {
-      const ids = documents.value.map((doc) => doc.id);
-      await api.post('/embeddings/ingest-docs', ids, { params: { force } });
-    } else {
-      await api.post('/embeddings/ingest', undefined, { params: { force, limit: 0 } });
-    }
-    await fetchEmbedStatus();
-  } finally {
-    embedding.value = false;
-  }
+  await documentsStore.reprocessFiltered();
 };
 
 const reembedFiltered = async () => {
-  embedding.value = true;
   startPolling();
-  try {
-    const ids = documents.value.map((doc) => doc.id);
-    await api.post('/embeddings/ingest-docs', ids, { params: { force: !incremental.value } });
-    await fetchEmbedStatus();
-  } finally {
-    embedding.value = false;
-  }
+  await documentsStore.reembedFiltered(!incremental.value);
 };
 
 const reprocessMissing = async () => {
-  syncing.value = true;
   startPolling();
-  try {
-    const missing = documents.value.filter(
-      (doc) => !doc.has_embeddings || !doc.has_vision_pages
-    );
-    for (const doc of missing) {
-      await api.post(`/sync/documents/${doc.id}`, undefined, {
-        params: {
-          embed: true,
-          force_embed: true,
-        },
-      });
-    }
-    await fetchSyncStatus();
-    await fetchEmbedStatus();
-    await load();
-  } finally {
-    syncing.value = false;
-  }
-};
-
-const fetchSyncStatus = async () => {
-  const { data } = await api.get<{
-    last_synced_at: string | null;
-    status: string;
-    processed: number;
-    total: number;
-    started_at: string | null;
-    eta_seconds?: number | null;
-  }>('/sync/documents');
-  lastSynced.value = data.last_synced_at;
-  syncStatus.value = data;
-};
-
-const fetchEmbedStatus = async () => {
-  const { data } = await api.get<{
-    status: string;
-    processed: number;
-    total: number;
-    started_at: string | null;
-    eta_seconds?: number | null;
-  }>('/embeddings/status');
-  embedStatus.value = data;
-};
-
-const fetchQueueStatus = async () => {
-  try {
-    const { data } = await api.get<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>(
-      '/queue/status'
-    );
-    queueStatus.value = data;
-  } catch {
-    queueStatus.value = { enabled: false, length: null };
-  }
-};
-
-const fetchStats = async () => {
-  try {
-    const { data } = await api.get<{
-      total: number;
-      processed: number;
-      unprocessed: number;
-      embeddings: number;
-      vision: number;
-      suggestions: number;
-      fully_processed: number;
-    }>('/documents/stats');
-    stats.value = data;
-  } catch {
-    stats.value = {
-      total: 0,
-      processed: 0,
-      unprocessed: 0,
-      embeddings: 0,
-      vision: 0,
-      suggestions: 0,
-      fully_processed: 0,
-    };
-  }
-};
-
-const fetchPaperlessBaseUrl = async () => {
-  if (paperlessBaseUrl.value) return;
-  try {
-    const { data } = await api.get<{ paperless_base_url?: string }>('/status');
-    if (data.paperless_base_url) {
-      paperlessBaseUrl.value = data.paperless_base_url;
-    }
-  } catch {
-    // ignore
-  }
-};
-const cancelSync = async () => {
-  await api.post('/sync/documents/cancel');
-  await fetchSyncStatus();
+  await documentsStore.reprocessMissing();
 };
 
 const cancelProcessing = async () => {
-  await api.post('/sync/documents/cancel');
-  await api.post('/embeddings/cancel');
-  await api.post('/queue/clear');
-  await fetchSyncStatus();
-  await fetchEmbedStatus();
-  await fetchQueueStatus();
+  await documentsStore.cancelProcessing();
+  await queueStore.clear();
+  await documentsStore.fetchSyncStatus();
+  await documentsStore.fetchEmbedStatus();
+  await documentsStore.fetchStats();
   await load();
-  await fetchStats();
-};
-
-const loadMeta = async () => {
-  const [tagsResp, corrResp] = await Promise.all([
-    api.get<Page<Tag>>('/tags', { params: { page: 1, page_size: 200 } }),
-    api.get<Page<Correspondent>>('/correspondents', { params: { page: 1, page_size: 200 } }),
-  ]);
-  tags.value = tagsResp.data.results ?? [];
-  correspondents.value = corrResp.data.results ?? [];
 };
 
 const open = (id: number) => {
@@ -677,12 +435,12 @@ const formatDateTime = (value?: string | null) => {
 };
 
 onMounted(async () => {
-  await loadMeta();
-  await fetchSyncStatus();
-  await fetchEmbedStatus();
-  await fetchQueueStatus();
-  await fetchStats();
-  await fetchPaperlessBaseUrl();
+  await documentsStore.fetchMeta();
+  await documentsStore.fetchSyncStatus();
+  await documentsStore.fetchEmbedStatus();
+  await queueStore.refreshStatus();
+  await documentsStore.fetchStats();
+  await statusStore.refresh();
   await load();
   startPolling();
 });

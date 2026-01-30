@@ -26,6 +26,8 @@ WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
 WORKER_HEARTBEAT_TTL = 30
 CANCEL_KEY = "paperless_intelligence:queue_cancel"
 CANCEL_TTL = 300
+PAUSE_KEY = "paperless_intelligence:queue_paused"
+PAUSE_TTL = 24 * 60 * 60
 
 
 def _redis_url(host: str) -> str:
@@ -258,6 +260,78 @@ def is_cancel_requested(settings: Settings) -> bool:
     if not client:
         return False
     return bool(client.get(CANCEL_KEY))
+
+
+def pause_queue(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.set(PAUSE_KEY, "1", ex=PAUSE_TTL)
+
+
+def resume_queue(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.delete(PAUSE_KEY)
+
+
+def is_paused(settings: Settings) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    return bool(client.get(PAUSE_KEY))
+
+
+def _parse_queue_entry(entry: str) -> dict | None:
+    try:
+        payload = __import__("json").loads(entry)
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
+        payload = None
+    if str(entry).isdigit():
+        return {"doc_id": int(entry), "task": "full"}
+    return None
+
+
+def reorder_queue(settings: Settings, from_index: int, to_index: int) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    items = client.lrange(QUEUE_KEY, 0, -1)
+    if not items:
+        return False
+    if from_index < 0 or from_index >= len(items):
+        return False
+    entry = items.pop(from_index)
+    if to_index < 0:
+        to_index = 0
+    if to_index > len(items):
+        to_index = len(items)
+    items.insert(to_index, entry)
+    client.delete(QUEUE_KEY)
+    if items:
+        client.rpush(QUEUE_KEY, *items)
+    return True
+
+
+def remove_queue_item(settings: Settings, index: int) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    items = client.lrange(QUEUE_KEY, 0, -1)
+    if not items or index < 0 or index >= len(items):
+        return False
+    entry = items.pop(index)
+    client.delete(QUEUE_KEY)
+    if items:
+        client.rpush(QUEUE_KEY, *items)
+    payload = _parse_queue_entry(entry)
+    if payload:
+        key = _task_key(payload)
+        client.srem(QUEUE_SET, key)
+    return True
 
 
 def mark_worker_heartbeat(settings: Settings) -> None:

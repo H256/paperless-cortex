@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 
 from app.config import Settings, load_settings
 from app.services.queue import worker_status
+from app.api_models import StatusResponse
 
 router = APIRouter(prefix="/status", tags=["status"])
 
@@ -27,7 +28,7 @@ def check_ollama(settings: Settings) -> tuple[bool, str]:
         return False, exc.__class__.__name__
 
 
-@router.get("")
+@router.get("", response_model=StatusResponse)
 def status(settings: Settings = Depends(settings_dep)):
     started = time.perf_counter()
     ollama_ok, ollama_detail = check_ollama(settings)

@@ -4,7 +4,7 @@
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div>
           <h1 class="text-lg font-semibold tracking-tight">Paperless Intelligence</h1>
-          <p class="text-xs text-slate-500">Arcane � read-only intelligence layer</p>
+          <p class="text-xs text-slate-500">Arcane · read-only intelligence layer</p>
         </div>
         <nav class="flex items-center gap-2 text-sm font-medium">
           <RouterLink to="/documents" v-slot="{ isActive }">
@@ -25,10 +25,12 @@
               Queue
             </span>
           </RouterLink>
-          <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-slate-400">
-            <MessageCircle class="h-4 w-4" />
-            Chat
-          </span>
+          <RouterLink to="/chat" v-slot="{ isActive }">
+            <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900']">
+              <MessageCircle class="h-4 w-4" />
+              Chat
+            </span>
+          </RouterLink>
         </nav>
       </div>
     </header>
@@ -38,91 +40,66 @@
     <footer class="border-t border-slate-200 bg-white">
       <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3 text-xs text-slate-500">
         <div class="flex flex-wrap items-center gap-4">
-          <div class="inline-flex items-center gap-2" :title="healthStatus.web_detail">
-            <span :class="statusDot(healthStatus.web)"></span>
-            Web
-          </div>
-          <div class="inline-flex items-center gap-2" :title="healthStatus.worker_detail">
-            <span :class="statusDot(healthStatus.worker)"></span>
-            Worker
-          </div>
-          <div class="inline-flex items-center gap-2" :title="healthStatus.ollama_detail">
-            <span :class="statusDot(healthStatus.ollama)"></span>
-            Ollama
-          </div>
+          <StatusLight label="Web" :status="statusStore.health.web" :title="statusStore.health.web_detail" />
+          <StatusLight label="Worker" :status="statusStore.health.worker" :title="statusStore.health.worker_detail" />
+          <StatusLight label="Ollama" :status="statusStore.health.ollama" :title="statusStore.health.ollama_detail" />
         </div>
         <div class="flex flex-wrap items-center gap-4">
-          <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
-          <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
-          <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
+          <div v-if="queueStore.status.enabled">Queue: {{ queueStore.status.length ?? 'n/a' }}</div>
+          <div v-if="queueStore.status.enabled">Done: {{ queueStore.status.done ?? 0 }}</div>
+          <div v-if="queueStore.status.enabled">Total: {{ queueStore.status.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
         </div>
       </div>
     </footer>
+    <div class="fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-2">
+      <div
+        v-for="err in errorStore.errors"
+        :key="err.id"
+        class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-md"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="font-semibold">Error</div>
+            <div class="mt-1">{{ err.message }}</div>
+            <div v-if="err.detail" class="mt-1 text-xs text-rose-600">{{ err.detail }}</div>
+          </div>
+          <button class="text-rose-400 hover:text-rose-600" @click="errorStore.remove(err.id)">×</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { FileText, List, MessageCircle, Search } from 'lucide-vue-next';
-import { onMounted, ref } from 'vue';
-import { api } from './api';
+import { onMounted, onUnmounted } from 'vue';
+import StatusLight from './components/StatusLight.vue';
+import { useQueueStore } from './stores/queueStore';
+import { useStatusStore } from './stores/statusStore';
+import { useErrorStore } from './stores/errorStore';
 
-const queueStatus = ref<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>({
-  enabled: false,
-  length: null,
-});
+const queueStore = useQueueStore();
+const statusStore = useStatusStore();
+const errorStore = useErrorStore();
 
-const healthStatus = ref<{ web: string; worker: string; ollama: string; web_detail: string; worker_detail: string; ollama_detail: string }>({
-  web: 'DOWN',
-  worker: 'DOWN',
-  ollama: 'DOWN',
-  web_detail: 'unknown',
-  worker_detail: 'unknown',
-  ollama_detail: 'unknown',
-});
-
-const fetchQueueStatus = async () => {
-  try {
-    const { data } = await api.get<{ enabled: boolean; length: number | null; total?: number; in_progress?: number; done?: number }>(
-      '/queue/status'
-    );
-    queueStatus.value = data;
-  } catch {
-    queueStatus.value = { enabled: false, length: null };
-  }
+const onErrorEvent = (event: Event) => {
+  const detail = (event as CustomEvent).detail || {};
+  const message = detail.message || 'Unexpected error';
+  const status = detail.status ? `(${detail.status})` : '';
+  const combined = status ? `${message} ${status}` : message;
+  errorStore.add(combined, detail.detail);
 };
-
-const fetchHealth = async () => {
-  try {
-    const { data } = await api.get<{ web?: { status?: string; detail?: string }; worker?: { status?: string; detail?: string }; ollama?: { status?: string; detail?: string } }>('/status');
-    healthStatus.value = {
-      web: data.web?.status ?? 'DOWN',
-      worker: data.worker?.status ?? 'DOWN',
-      ollama: data.ollama?.status ?? 'DOWN',
-      web_detail: data.web?.detail ?? 'ok',
-      worker_detail: data.worker?.detail ?? 'unknown',
-      ollama_detail: data.ollama?.detail ?? 'unknown',
-    };
-  } catch {
-    healthStatus.value = {
-      web: 'DOWN',
-      worker: 'DOWN',
-      ollama: 'DOWN',
-      web_detail: 'unreachable',
-      worker_detail: 'unreachable',
-      ollama_detail: 'unreachable',
-    };
-  }
-};
-
-const statusDot = (status: string) =>
-  `h-2 w-2 rounded-full ${status === 'UP' ? 'bg-emerald-500' : 'bg-rose-500'}`;
 
 onMounted(() => {
-  fetchQueueStatus();
-  fetchHealth();
-  setInterval(fetchQueueStatus, 5000);
-  setInterval(fetchHealth, 7000);
+  queueStore.refreshStatus();
+  statusStore.refresh();
+  setInterval(queueStore.refreshStatus, 5000);
+  setInterval(statusStore.refresh, 7000);
+  window.addEventListener('app-error', onErrorEvent as EventListener);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('app-error', onErrorEvent as EventListener);
 });
 </script>
-
