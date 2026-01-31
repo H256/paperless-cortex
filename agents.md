@@ -46,10 +46,12 @@ Paperless-ngx remains the source of truth. This project:
 - FastAPI backend:
   - Read-only API for documents, tags, correspondents, document types, and connections
   - Manual writeback endpoints later (per-field, per-doc)
+  - Queue management endpoints (peek/reorder/move-top/move-bottom/pause/reset)
+  - Processing utilities: dry-run missing-work summary, reset intelligence data, mark missing Paperless docs
 - Vue 3 (Vite, Composition API) frontend:
-  - Read-only views: doc list, doc details, analysis results (later), chat UI (later)
+  - Read-only views: doc list, doc details, semantic search, chat UI, queue manager
   - Manual writeback buttons per doc plus per field (later)
-  - PDF viewer with highlight overlays (later)
+  - PDF viewer with highlight overlays (PDF.js attempted; CSP-safe preview fallback active)
 
 ## Paperless integration
 ### Auth
@@ -65,6 +67,7 @@ Paperless-ngx remains the source of truth. This project:
   - for highlighting in UI
   - for second OCR pass (vision) on low-quality pages
   - for layout-dependent extraction
+  - for PDF preview rendering when CSP blocks PDF.js
 
 ### Sync strategy
 - Keep a local record of the document text hash / modified timestamp.
@@ -93,6 +96,12 @@ Improve recognition for cases where Paperless OCR is poor. Do not replace baseli
   - semantic search
   - retrieval for chat
 
+### Current state (highlights)
+- PDF text extraction uses PyMuPDF word boxes when available and stores bbox per chunk in Qdrant.
+- Vision OCR pages are stored in DB; embeddings reuse stored vision text (no double-OCR).
+- Chat/Search citations deep-link to document viewer with page + bbox.
+- PDF.js viewer exists; CSP-safe fallback uses server-side page preview image with highlight overlay.
+
 ### Citations
 Chat responses must include citations as structured references:
 - doc_id, page, and bbox if available (preferred)
@@ -111,6 +120,9 @@ UI must be able to:
 4) UI renders:
    - answer
    - clickable citations that navigate PDF and highlight areas
+
+### Current state
+- Citations carry bbox when chunked from PDF text; highlight overlay is shown in the viewer.
 
 ## Manual writeback to Paperless
 ### What is allowed
@@ -139,6 +151,12 @@ Every writeback must be stored locally:
 - POST /documents/{id}/second-ocr
 - POST /chat
 - POST /documents/{id}/writeback (explicit per-field actions)
+
+### New endpoints (implemented)
+- POST /documents/process-missing?dry_run=1 (summary of missing work + optional enqueue)
+- POST /documents/reset-intelligence (clear embeddings/page texts/suggestions)
+- GET /documents/{id}/pdf (proxy PDF bytes)
+- Queue: POST /queue/move-top, POST /queue/move-bottom
 
 ## Configuration
 Environment variables (examples):
@@ -191,6 +209,11 @@ Environment variables (examples):
 - Embedding ingestion works: chunks stored in Qdrant with doc_id payload
 - Simple query endpoint returns top matches with citations (doc_id/page)
 
+## Current UX (processing)
+- "Continue processing" runs a dry-run, shows missing-work summary, and enqueues only missing tasks.
+- "Reprocess all" clears intelligence data and rebuilds (explicit confirmation).
+- Queue UI supports reorder + move top/bottom, and bulk enqueue is batched to avoid Redis socket exhaustion.
+
 ## LLM Configuration
 
 ### Ollama Server
@@ -233,3 +256,13 @@ Vision model is used only for:
   - Retry logic for long reasoning tasks
 
 All model names must be configurable via environment variables.
+
+## TODO: Client refactor
+- Refactor the frontend: most logic currently lives inside the `views/*.vue` files.
+- Introduce composables/stores (e.g., `useDocuments`, `useQueue`, `useSuggestions`) and shared UI components.
+- Extract repeated API calls and UI helpers into dedicated modules.
+
+## TODO: Server refactor
+- Review backend services/routes for duplication and refactor to shared utilities.
+- Consolidate queue/task logic and reduce repeated OCR/embedding/suggestion pathways.
+- Ensure consistent logging and error handling across components.

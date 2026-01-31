@@ -1,5 +1,64 @@
 # Paperless Intelligence (Arcane)
 
+## Getting Started
+
+### Prerequisites
+- Python 3.13+
+- Node.js (for frontend)
+- PostgreSQL
+- Qdrant (vector database)
+- Ollama (for embeddings and vision OCR)
+- Redis (optional, for queue-based processing)
+
+### Installation
+
+1. **Backend setup (recommended: uv)**
+   ```bash
+   cd backend
+   uv sync
+   ```
+
+2. **Frontend setup**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+3. **Configure environment**
+   - Copy `.env.example` to `.env` (repo root)
+   - Update with your Paperless-ngx, PostgreSQL, Qdrant, and Ollama settings
+
+4. **Run database migrations**
+   ```bash
+   cd backend
+   uv run alembic upgrade head
+   ```
+
+### Running the Application
+
+You need to start three components:
+
+1. **Start the backend API (FastAPI app)**
+   ```bash
+   cd backend
+   uv run uvicorn app.main:app --reload --port 8000
+   ```
+
+2. **Start the worker** (optional, for queue-based processing)
+   ```bash
+   cd backend
+   uv run python -m app.worker
+   ```
+   Note: The worker requires `QUEUE_ENABLED=1` and Redis to be configured in your `.env`.
+
+3. **Start the frontend**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+The frontend will be available at `http://localhost:5173`.
+
 ## Concise flow
 1) **Sync metadata + OCR**  
    The backend pulls document metadata and the Paperless OCR text via API and stores them in Postgres.

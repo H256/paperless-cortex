@@ -9,6 +9,8 @@ import {
   pauseQueue,
   resumeQueue,
   moveQueueItem,
+  moveQueueItemTop,
+  moveQueueItemBottom,
   removeQueueItem,
 } from '../services/queue';
 
@@ -63,6 +65,14 @@ export const useQueueStore = defineStore('queue', {
     },
     async move(fromIndex: number, toIndex: number) {
       await moveQueueItem({ from_index: fromIndex, to_index: toIndex });
+      await this.loadPeek();
+    },
+    async moveTop(index: number) {
+      await moveQueueItemTop({ index });
+      await this.loadPeek();
+    },
+    async moveBottom(index: number) {
+      await moveQueueItemBottom({ index });
       await this.loadPeek();
     },
     async remove(index: number) {

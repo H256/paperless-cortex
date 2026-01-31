@@ -12,4 +12,5 @@ embed?: boolean | null;
 page?: number;
 page_only?: boolean;
 force_embed?: boolean;
+mark_missing?: boolean;
 };

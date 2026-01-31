@@ -43,51 +43,23 @@
 
     <section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="flex w-full flex-wrap items-center justify-end gap-3">
-        <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="pageOnly" />
-            Current page only
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="incremental" />
-            Incremental
-          </label>
-        </div>
         <button
-          class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+          class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
           :disabled="syncing || isProcessing"
-          @click="sync"
-          title="Sync documents into the local database"
+          @click="openPreview"
+          title="Sync new documents and process missing intelligence items"
         >
           <RefreshCw class="h-4 w-4" />
-          {{ syncing ? 'Syncing...' : 'Sync (DB)' }}
+          {{ syncing ? 'Working...' : 'Continue processing' }}
         </button>
         <button
-          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500"
           :disabled="syncing || isProcessing"
-          @click="reprocessFiltered"
-          title="Reprocess all documents: sync + OCR/embeddings"
+          @click="openReprocessModal"
+          title="Reset intelligence data and reprocess everything"
         >
           <RefreshCcw class="h-4 w-4" />
-          Re-process filtered
-        </button>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300"
-          :disabled="embedding || isProcessing"
-          @click="reembedFiltered"
-          title="Re-embed listed documents"
-        >
-          <Plus class="h-4 w-4" />
-          Re-embed filtered
-        </button>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:border-amber-300"
-          :disabled="syncing || isProcessing"
-          @click="reprocessMissing"
-          title="Reprocess only documents missing embeddings and/or vision OCR (current list)"
-        >
-          <ListChecks class="h-4 w-4" />
-          Re-process missing
+          Reprocess all
         </button>
         <button
           v-if="isProcessing"
@@ -238,11 +210,100 @@
       </div>
     </section>
   </section>
+
+    <div v-if="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900">Ready to process</h3>
+            <p class="text-xs text-slate-500">Summary of missing intelligence tasks</p>
+          </div>
+        </div>
+
+        <div v-if="documentsStore.processPreviewLoading" class="mt-4 text-sm text-slate-500">Calculating…</div>
+        <div v-else class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <div class="text-xs uppercase text-slate-400">Documents</div>
+            <div class="mt-1 text-lg font-semibold text-slate-900">{{ processPreview?.docs ?? 0 }}</div>
+            <div class="mt-1 text-xs text-slate-500">Total checked</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <div class="text-xs uppercase text-slate-400">Needs work</div>
+            <div class="mt-1 text-lg font-semibold text-slate-900">{{ processPreview?.missing_docs ?? 0 }}</div>
+            <div class="mt-1 text-xs text-slate-500">Documents to process</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Missing vision OCR: <strong class="text-slate-900">{{ processPreview?.missing_vision_ocr ?? 0 }}</strong>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Missing embeddings: <strong class="text-slate-900">{{ processPreview?.missing_embeddings ?? 0 }}</strong>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Missing vision embeddings: <strong class="text-slate-900">{{ processPreview?.missing_embeddings_vision ?? 0 }}</strong>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Missing suggestions (baseline): <strong class="text-slate-900">{{ processPreview?.missing_suggestions_paperless ?? 0 }}</strong>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Missing suggestions (vision): <strong class="text-slate-900">{{ processPreview?.missing_suggestions_vision ?? 0 }}</strong>
+          </div>
+        </div>
+
+        <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300"
+            @click="closePreview"
+          >
+            Cancel
+          </button>
+          <button
+            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+            :disabled="documentsStore.processPreviewLoading || syncing"
+            @click="startFromPreview"
+          >
+            Start processing
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-if="showReprocessModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div class="w-full max-w-xl rounded-2xl border border-rose-200 bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-rose-700">Reprocess all documents?</h3>
+            <p class="text-xs text-slate-500">
+              This wipes all intelligence data (embeddings, suggestions, OCR layers) and rebuilds from scratch.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+          This action cannot be undone. Paperless data is not modified.
+        </div>
+
+        <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300"
+            @click="closeReprocessModal"
+          >
+            Cancel
+          </button>
+          <button
+            class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500"
+            :disabled="syncing || isProcessing"
+            @click="confirmReprocessAll"
+          >
+            Yes, reprocess all
+          </button>
+        </div>
+      </div>
+    </div>
+
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
-import { ChevronDown, ExternalLink, ListChecks, Loader2, Plus, RefreshCcw, RefreshCw, XCircle } from 'lucide-vue-next';
+import { computed, onMounted, watch, ref } from 'vue';
+import { ChevronDown, ExternalLink, Loader2, RefreshCcw, RefreshCw, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
@@ -275,9 +336,13 @@ const {
   syncStatus,
   embedStatus,
   stats,
+  processPreview,
 } = storeToRefs(documentsStore);
 
 const { status: queueStatus } = storeToRefs(queueStore);
+
+const showPreviewModal = computed(() => processPreview.value !== null);
+const showReprocessModal = ref(false);
 
 const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
 const paperlessDocUrl = (id: number) =>
@@ -374,24 +439,33 @@ const load = async () => {
   await documentsStore.fetchStats();
 };
 
-const sync = async () => {
+const openPreview = async () => {
   startPolling();
-  await documentsStore.sync();
+  await documentsStore.continueProcessingPreview();
 };
 
-const reprocessFiltered = async () => {
-  startPolling();
-  await documentsStore.reprocessFiltered();
+const openReprocessModal = () => {
+  showReprocessModal.value = true;
 };
 
-const reembedFiltered = async () => {
-  startPolling();
-  await documentsStore.reembedFiltered(!incremental.value);
+const closeReprocessModal = () => {
+  showReprocessModal.value = false;
 };
 
-const reprocessMissing = async () => {
+const confirmReprocessAll = async () => {
   startPolling();
-  await documentsStore.reprocessMissing();
+  await documentsStore.reprocessAll();
+  showReprocessModal.value = false;
+};
+
+const closePreview = () => {
+  documentsStore.clearProcessPreview();
+};
+
+const startFromPreview = async () => {
+  startPolling();
+  await documentsStore.startProcessingFromPreview();
+  documentsStore.clearProcessPreview();
 };
 
 const cancelProcessing = async () => {
@@ -449,3 +523,5 @@ watch(ordering, async () => {
   await load();
 });
 </script>
+
+

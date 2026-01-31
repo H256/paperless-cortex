@@ -726,6 +726,88 @@
         }
       }
     },
+    "/documents/{doc_id}/pdf": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Pdf",
+        "operationId": "get_document_pdf_documents__doc_id__pdf_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/process-missing": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Process Missing",
+        "operationId": "process_missing_documents_process_missing_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessMissingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/reset-intelligence": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Reset Intelligence",
+        "operationId": "reset_intelligence_documents_reset_intelligence_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetIntelligenceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tags": {
       "get": {
         "tags": [
@@ -988,6 +1070,16 @@
               "type": "boolean",
               "default": false,
               "title": "Force Embed"
+            }
+          },
+          {
+            "name": "mark_missing",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Mark Missing"
             }
           }
         ],
@@ -3331,6 +3423,34 @@
         "type": "object",
         "title": "PaperlessDocument"
       },
+      "ProcessMissingResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "docs": {
+            "type": "integer",
+            "title": "Docs"
+          },
+          "enqueued": {
+            "type": "integer",
+            "title": "Enqueued"
+          },
+          "tasks": {
+            "type": "integer",
+            "title": "Tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "docs",
+          "enqueued",
+          "tasks"
+        ],
+        "title": "ProcessMissingResponse"
+      },
       "QueueCancelResponse": {
         "properties": {
           "enabled": {
@@ -3621,6 +3741,29 @@
         ],
         "title": "QueueStatusResponse"
       },
+      "ResetIntelligenceResponse": {
+        "properties": {
+          "cleared_embeddings": {
+            "type": "integer",
+            "title": "Cleared Embeddings"
+          },
+          "cleared_page_texts": {
+            "type": "integer",
+            "title": "Cleared Page Texts"
+          },
+          "cleared_suggestions": {
+            "type": "integer",
+            "title": "Cleared Suggestions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cleared_embeddings",
+          "cleared_page_texts",
+          "cleared_suggestions"
+        ],
+        "title": "ResetIntelligenceResponse"
+      },
       "StatusEntry": {
         "properties": {
           "status": {
@@ -3877,6 +4020,17 @@
               }
             ],
             "title": "Queued"
+          },
+          "marked_deleted": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marked Deleted"
           }
         },
         "type": "object",

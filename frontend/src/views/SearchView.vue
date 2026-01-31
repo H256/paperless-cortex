@@ -98,6 +98,15 @@
             </a>
           </div>
           <div class="mt-2 text-sm text-slate-700">{{ result.snippet }}</div>
+          <div class="mt-3 flex items-center gap-2 text-xs">
+            <RouterLink
+              v-if="result.doc_id"
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
+              :to="resultLink(result)"
+            >
+              Open in app
+            </RouterLink>
+          </div>
         </div>
       </div>
     </section>
@@ -107,6 +116,7 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useSearchStore } from '../stores/searchStore';
 import { useStatusStore } from '../stores/statusStore';
@@ -116,6 +126,23 @@ const statusStore = useStatusStore();
 const { filteredResults } = storeToRefs(searchStore);
 
 const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
+
+const encodeBBox = (bbox: unknown) => {
+  if (!Array.isArray(bbox) || bbox.length !== 4) return '';
+  const nums = bbox.map((value) => Number(value));
+  if (nums.some((value) => Number.isNaN(value))) return '';
+  return nums.map((value) => value.toFixed(5)).join(',');
+};
+
+const resultLink = (result: any) => {
+  if (!result?.doc_id) return '';
+  const params = new URLSearchParams();
+  if (result.page) params.set('page', String(result.page));
+  const bbox = encodeBBox(result.bbox);
+  if (bbox) params.set('bbox', bbox);
+  const qs = params.toString();
+  return qs ? `/documents/${result.doc_id}?${qs}` : `/documents/${result.doc_id}`;
+};
 
 const runSearch = async () => {
   await searchStore.runSearch();

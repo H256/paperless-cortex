@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, load_settings
 from app.db import get_db
-from app.models import Document, DocumentEmbedding, SyncState, Correspondent
+from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState, Correspondent
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
@@ -18,7 +18,7 @@ from app.services.embeddings import (
     search_points,
     upsert_points,
 )
-from app.services.text_pages import get_page_text_layers
+from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task, queue_stats
@@ -96,14 +96,27 @@ def ingest_embeddings(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages, vision_pages = get_page_text_layers(
+        baseline_pages = get_baseline_page_texts(
             settings,
             doc.content,
             fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-            force_full_vision=bool(force),
         )
-        if vision_pages:
-            upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if force:
+            _, regenerated = get_page_text_layers(
+                settings,
+                doc.content,
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+                force_full_vision=True,
+            )
+            if regenerated:
+                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
+                vision_pages = regenerated
         page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
@@ -147,6 +160,7 @@ def ingest_embeddings(
                         "page": chunk.get("page"),
                         "source": chunk.get("source"),
                         "quality_score": chunk.get("quality_score"),
+                        "bbox": chunk.get("bbox"),
                     },
                 }
             )
@@ -229,14 +243,27 @@ def ingest_documents(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages, vision_pages = get_page_text_layers(
+        baseline_pages = get_baseline_page_texts(
             settings,
             doc.content,
             fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-            force_full_vision=bool(force),
         )
-        if vision_pages:
-            upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if force:
+            _, regenerated = get_page_text_layers(
+                settings,
+                doc.content,
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+                force_full_vision=True,
+            )
+            if regenerated:
+                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
+                vision_pages = regenerated
         page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
@@ -280,6 +307,7 @@ def ingest_documents(
                         "page": chunk.get("page"),
                         "source": chunk.get("source"),
                         "quality_score": chunk.get("quality_score"),
+                        "bbox": chunk.get("bbox"),
                     },
                 }
             )

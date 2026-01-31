@@ -284,6 +284,7 @@ class SyncDocumentsResponse(BaseModel):
     embedded: int
     status: Optional[str] = None
     queued: Optional[int] = None
+    marked_deleted: Optional[int] = None
 
 
 class SyncStatusResponse(BaseModel):
@@ -309,6 +310,26 @@ class SyncDocumentResponse(BaseModel):
 class SyncSimpleResponse(BaseModel):
     count: int
     upserted: int
+
+
+class ProcessMissingResponse(BaseModel):
+    enabled: bool
+    docs: int
+    enqueued: int
+    tasks: int
+    dry_run: bool = False
+    missing_docs: Optional[int] = None
+    missing_vision_ocr: Optional[int] = None
+    missing_embeddings: Optional[int] = None
+    missing_embeddings_vision: Optional[int] = None
+    missing_suggestions_paperless: Optional[int] = None
+    missing_suggestions_vision: Optional[int] = None
+
+
+class ResetIntelligenceResponse(BaseModel):
+    cleared_embeddings: int
+    cleared_page_texts: int
+    cleared_suggestions: int
 
 
 class ChatCitation(BaseModel):

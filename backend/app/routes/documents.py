@@ -11,7 +11,15 @@ import json
 
 from pydantic import BaseModel
 
-from app.models import Document, DocumentPageText, DocumentSuggestion, DocumentEmbedding, Tag, Correspondent, DocumentNote
+from app.models import (
+    Document,
+    DocumentPageText,
+    DocumentSuggestion,
+    DocumentEmbedding,
+    Tag,
+    Correspondent,
+    DocumentNote,
+)
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
     generate_suggestions,
@@ -38,11 +46,29 @@ from app.api_models import (
     PaperlessDocument,
     SuggestFieldVariantsResponse,
     SuggestionsResponse,
+    ProcessMissingResponse,
+    ResetIntelligenceResponse,
 )
+from app.services.queue import enqueue_task_sequence
+from sqlalchemy import delete
+from datetime import datetime
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 _preview_cache: dict[tuple[int, int, int], tuple[float, bytes]] = {}
 _preview_cache_ttl = 600.0
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _should_skip_doc(doc: Document) -> bool:
+    return bool(doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"))
 
 
 def settings_dep() -> Settings:
@@ -707,3 +733,150 @@ def get_document_page_preview(
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
+
+@router.get("/{doc_id}/pdf")
+def get_document_pdf(
+    doc_id: int,
+    settings: Settings = Depends(settings_dep),
+):
+    pdf_bytes = paperless.get_document_pdf(settings, doc_id)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
+
+
+@router.post("/process-missing", response_model=ProcessMissingResponse)
+def process_missing(
+    dry_run: bool = False,
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    if not settings.queue_enabled:
+        return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
+
+    docs = db.query(Document).all()
+    embeddings = {
+        row.doc_id: row for row in db.query(DocumentEmbedding).all()
+    }
+    suggestions = {
+        (row.doc_id, row.source): row for row in db.query(DocumentSuggestion).all()
+    }
+    vision_rows = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.source == "vision_ocr")
+        .all()
+    )
+    vision_latest: dict[int, datetime] = {}
+    for row in vision_rows:
+        created = _parse_iso(row.created_at)
+        if not created:
+            continue
+        current = vision_latest.get(row.doc_id)
+        if current is None or created > current:
+            vision_latest[row.doc_id] = created
+
+    enqueued_docs = 0
+    enqueued_tasks = 0
+    missing_docs = 0
+    missing_vision = 0
+    missing_embeddings = 0
+    missing_embeddings_vision = 0
+    missing_sugg_p = 0
+    missing_sugg_v = 0
+    for doc in docs:
+        if _should_skip_doc(doc):
+            continue
+        tasks: list[dict] = []
+        doc_modified = _parse_iso(doc.modified) or _parse_iso(doc.created)
+        embedding = embeddings.get(doc.id)
+        embedded_at = _parse_iso(embedding.embedded_at) if embedding else None
+        vision_updated_at = vision_latest.get(doc.id)
+        has_vision = vision_updated_at is not None
+
+        need_vision_ocr = settings.enable_vision_ocr and not has_vision
+        need_embeddings = embedding is None
+        if doc_modified and embedded_at and doc_modified > embedded_at:
+            need_embeddings = True
+        if vision_updated_at and embedded_at and vision_updated_at > embedded_at:
+            need_embeddings = True
+        if need_vision_ocr:
+            need_embeddings = True
+
+        prefer_vision_embeddings = settings.enable_vision_ocr and (has_vision or need_vision_ocr)
+
+        sugg_p = suggestions.get((doc.id, "paperless_ocr"))
+        sugg_v = suggestions.get((doc.id, "vision_ocr"))
+        sugg_p_at = _parse_iso(sugg_p.created_at) if sugg_p else None
+        sugg_v_at = _parse_iso(sugg_v.created_at) if sugg_v else None
+
+        need_sugg_p = sugg_p is None
+        if doc_modified and sugg_p_at and doc_modified > sugg_p_at:
+            need_sugg_p = True
+        need_sugg_v = settings.enable_vision_ocr and (has_vision or need_vision_ocr) and sugg_v is None
+        if vision_updated_at and sugg_v_at and vision_updated_at > sugg_v_at:
+            need_sugg_v = True
+        if need_vision_ocr:
+            need_sugg_v = True
+
+        if need_vision_ocr:
+            tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
+        if need_embeddings:
+            if prefer_vision_embeddings:
+                tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
+            else:
+                tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
+        if need_sugg_p:
+            tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+        if need_sugg_v:
+            tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
+
+        if tasks:
+            missing_docs += 1
+            if need_vision_ocr:
+                missing_vision += 1
+            if need_embeddings:
+                missing_embeddings += 1
+                if prefer_vision_embeddings:
+                    missing_embeddings_vision += 1
+            if need_sugg_p:
+                missing_sugg_p += 1
+            if need_sugg_v:
+                missing_sugg_v += 1
+            if not dry_run:
+                enqueued_tasks += enqueue_task_sequence(settings, tasks)
+                enqueued_docs += 1
+
+    return {
+        "enabled": True,
+        "docs": len(docs),
+        "enqueued": enqueued_docs,
+        "tasks": enqueued_tasks,
+        "dry_run": dry_run,
+        "missing_docs": missing_docs,
+        "missing_vision_ocr": missing_vision,
+        "missing_embeddings": missing_embeddings,
+        "missing_embeddings_vision": missing_embeddings_vision,
+        "missing_suggestions_paperless": missing_sugg_p,
+        "missing_suggestions_vision": missing_sugg_v,
+    }
+
+
+@router.post("/reset-intelligence", response_model=ResetIntelligenceResponse)
+def reset_intelligence(
+    db: Session = Depends(get_db),
+):
+    cleared_embeddings = db.query(DocumentEmbedding).count()
+    cleared_page_texts = db.query(DocumentPageText).count()
+    cleared_suggestions = db.query(DocumentSuggestion).count()
+    db.execute(delete(DocumentEmbedding))
+    db.execute(delete(DocumentPageText))
+    db.execute(delete(DocumentSuggestion))
+    db.commit()
+    return {
+        "cleared_embeddings": cleared_embeddings,
+        "cleared_page_texts": cleared_page_texts,
+        "cleared_suggestions": cleared_suggestions,
+    }

@@ -134,6 +134,14 @@
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
               :disabled="index === 0"
+              @click="moveTop(index)"
+              title="Move to top"
+            >
+              <ArrowUpToLine class="h-4 w-4" />
+            </button>
+            <button
+              class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+              :disabled="index === 0"
               @click="moveItem(index, index - 1)"
               title="Move up"
             >
@@ -146,6 +154,14 @@
               title="Move down"
             >
               <ArrowDown class="h-4 w-4" />
+            </button>
+            <button
+              class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+              :disabled="index === queueStore.peekItems.length - 1"
+              @click="moveBottom(index)"
+              title="Move to bottom"
+            >
+              <ArrowDownToLine class="h-4 w-4" />
             </button>
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:text-rose-700"
@@ -164,7 +180,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
 import { useQueueStore } from '../stores/queueStore';
-import { ArrowDown, ArrowUp, ListChecks, Pause, Play, RefreshCcw, Trash2, X } from 'lucide-vue-next';
+import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, ListChecks, Pause, Play, RefreshCcw, Trash2, X } from 'lucide-vue-next';
 
 const queueStore = useQueueStore();
 
@@ -221,6 +237,14 @@ const resumeQueue = async () => {
 
 const moveItem = async (fromIndex: number, toIndex: number) => {
   await queueStore.move(fromIndex, toIndex);
+};
+
+const moveTop = async (index: number) => {
+  await queueStore.moveTop(index);
+};
+
+const moveBottom = async (index: number) => {
+  await queueStore.moveBottom(index);
 };
 
 const removeItem = async (index: number) => {

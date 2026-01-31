@@ -99,19 +99,49 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
 def enqueue_task_sequence_front(settings: Settings, tasks: list[dict]) -> int:
     if not tasks:
         return 0
-    added = 0
     # lpush in reverse so the first task runs first
-    for task in reversed(tasks):
-        added += enqueue_task_front(settings, task)
-    return added
+    return _enqueue_tasks_bulk(settings, list(reversed(tasks)), front=True)
 
 
 def enqueue_task_sequence(settings: Settings, tasks: list[dict]) -> int:
     if not tasks:
         return 0
+    return _enqueue_tasks_bulk(settings, tasks, front=False)
+
+
+def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool) -> int:
+    client = _get_client(settings)
+    if not client:
+        return 0
+    if is_cancel_requested(settings):
+        return 0
+    if not tasks:
+        return 0
+    batch_size = 500
     added = 0
-    for task in tasks:
-        added += enqueue_task(settings, task)
+    for i in range(0, len(tasks), batch_size):
+        batch = tasks[i : i + batch_size]
+        keys = [_task_key(task) for task in batch]
+        payloads = [__import__("json").dumps(task) for task in batch]
+        pipe = client.pipeline()
+        for key in keys:
+            pipe.sadd(QUEUE_SET, key)
+        results = pipe.execute()
+        to_add = [payloads[idx] for idx, res in enumerate(results) if res]
+        if not to_add:
+            continue
+        pipe = client.pipeline()
+        for payload in to_add:
+            if front:
+                pipe.lrem(QUEUE_KEY, 0, payload)
+                pipe.lpush(QUEUE_KEY, payload)
+            else:
+                pipe.rpush(QUEUE_KEY, payload)
+            pipe.incr(STATS_TOTAL)
+        pipe.execute()
+        added += len(to_add)
+    if added:
+        logger.info("Enqueued tasks=%s front=%s", added, front)
     return added
 
 
@@ -314,6 +344,20 @@ def reorder_queue(settings: Settings, from_index: int, to_index: int) -> bool:
     if items:
         client.rpush(QUEUE_KEY, *items)
     return True
+
+
+def move_queue_item_to_top(settings: Settings, index: int) -> bool:
+    return reorder_queue(settings, index, 0)
+
+
+def move_queue_item_to_bottom(settings: Settings, index: int) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    items = client.lrange(QUEUE_KEY, 0, -1)
+    if not items or index < 0 or index >= len(items):
+        return False
+    return reorder_queue(settings, index, len(items) - 1)
 
 
 def remove_queue_item(settings: Settings, index: int) -> bool:

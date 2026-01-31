@@ -95,6 +95,14 @@
         </dl>
       </section>
 
+      <PdfViewer
+        :pdf-url="pdfUrl"
+        :preview-base-url="previewBaseUrl"
+        v-model:page="pdfPage"
+        :highlights="pdfHighlights"
+        @update:page="onPdfPageChange"
+      />
+
       <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-slate-900">Text layer</h3>
@@ -515,14 +523,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import IconButton from '../components/IconButton.vue';
+import PdfViewer from '../components/PdfViewer.vue';
 import { useDocumentDetailStore } from '../stores/documentDetailStore';
 import { useStatusStore } from '../stores/statusStore';
 import { PageText } from '../services/documents';
 
 const route = useRoute();
+const router = useRouter();
 const id = Number(route.params.id);
 
 const documentStore = useDocumentDetailStore();
@@ -554,6 +564,19 @@ const doQuality = ref(true);
 const doPages = ref(true);
 const doSuggestions = ref(true);
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`);
+const previewBaseUrl = computed(() => `${apiBaseUrl}/documents/${id}/page-preview`);
+const pdfPage = ref(1);
+const pdfHighlights = ref<number[][]>([]);
+
+const parseBBox = (value: unknown): number[] | null => {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string') return null;
+  const parts = raw.split(',').map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return null;
+  return parts as number[];
+};
 const previewMaxDimStorageKey = 'paperless_preview_max_dim';
 const previewToggleStorageKey = 'paperless_preview_show';
 const storedPreviewMaxDim = Number(window.localStorage?.getItem(previewMaxDimStorageKey) || 1024);
@@ -686,6 +709,31 @@ const rows = computed(() => {
   ];
 });
 
+const syncPdfFromQuery = () => {
+  const pageValue = Number(route.query.page);
+  if (Number.isFinite(pageValue) && pageValue > 0) {
+    pdfPage.value = pageValue;
+  }
+  const bbox = parseBBox(route.query.bbox);
+  pdfHighlights.value = bbox ? [bbox] : [];
+};
+
+const onPdfPageChange = (value: number) => {
+  pdfPage.value = value;
+  const nextQuery: Record<string, string> = {};
+  Object.entries(route.query).forEach(([key, val]) => {
+    if (val === undefined || val === null) return;
+    const entry = Array.isArray(val) ? val[0] : val;
+    if (typeof entry === 'string') {
+      nextQuery[key] = entry;
+    }
+  });
+  nextQuery.page = String(value);
+  delete nextQuery.bbox;
+  router.replace({ query: nextQuery });
+  pdfHighlights.value = [];
+};
+
 const formatDate = (value?: string | null) => {
   if (!value) return '';
   const parsed = new Date(value);
@@ -800,6 +848,7 @@ const pagePreviewUrl = (page: PageText) => {
 };
 
 onMounted(async () => {
+  syncPdfFromQuery();
   await load();
   await loadMeta();
   if (doQuality.value) {
@@ -812,6 +861,13 @@ onMounted(async () => {
     await loadSuggestions();
   }
 });
+
+watch(
+  () => route.query,
+  () => {
+    syncPdfFromQuery();
+  },
+);
 
 watch(doPages, async (value) => {
   if (value && pageTexts.value.length === 0) {

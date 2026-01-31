@@ -108,7 +108,7 @@
             <div v-for="citation in message.citations" :key="citation.id" class="relative group">
               <component
                 :is="citation.doc_id ? RouterLink : 'span'"
-                :to="citation.doc_id ? `/documents/${citation.doc_id}` : undefined"
+                :to="citation.doc_id ? citationLink(citation) : undefined"
                 class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:border-slate-300 hover:text-indigo-600"
                 :aria-label="`Source ${citation.id}`"
               >
@@ -118,17 +118,10 @@
                 </span>
               </component>
               <div
-                class="pointer-events-auto absolute bottom-full right-0 z-10 mb-2 w-72 translate-y-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 opacity-0 shadow-lg transition group-hover:translate-y-0 group-hover:opacity-100"
+                class="pointer-events-none absolute bottom-full right-0 z-10 mb-2 w-72 translate-y-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 opacity-0 shadow-lg transition group-hover:translate-y-0 group-hover:opacity-100"
               >
                 <div class="flex items-center justify-between">
                   <span class="font-semibold">Source {{ citation.id }}</span>
-                  <RouterLink
-                    v-if="citation.doc_id"
-                    class="text-indigo-600 hover:text-indigo-500"
-                    :to="`/documents/${citation.doc_id}`"
-                  >
-                    Open
-                  </RouterLink>
                 </div>
                 <div class="mt-2 text-[11px] text-slate-500">
                   Doc {{ citation.doc_id ?? 'n/a' }} · Page {{ citation.page ?? 'n/a' }} · {{ citation.source || 'unknown' }}
@@ -169,11 +162,28 @@ const stop = () => {
   chatStore.stop();
 };
 
+const encodeBBox = (bbox: unknown) => {
+  if (!Array.isArray(bbox) || bbox.length !== 4) return '';
+  const nums = bbox.map((value) => Number(value));
+  if (nums.some((value) => Number.isNaN(value))) return '';
+  return nums.map((value) => value.toFixed(5)).join(',');
+};
+
+const citationLink = (citation: any) => {
+  if (!citation?.doc_id) return '';
+  const params = new URLSearchParams();
+  if (citation.page) params.set('page', String(citation.page));
+  const bbox = encodeBBox(citation.bbox);
+  if (bbox) params.set('bbox', bbox);
+  const qs = params.toString();
+  return qs ? `/documents/${citation.doc_id}?${qs}` : `/documents/${citation.doc_id}`;
+};
+
 const renderMarkdown = (message: ChatMessage) => {
   const map = new Map<number, { tooltip: string; href: string }>();
   (message.citations || []).forEach((cite) => {
     const tooltip = `Doc ${cite.doc_id ?? 'n/a'} · Page ${cite.page ?? 'n/a'} · ${cite.source || 'unknown'}`;
-    const href = cite.doc_id ? `/documents/${cite.doc_id}` : '#';
+    const href = cite.doc_id ? citationLink(cite) : '#';
     map.set(cite.id, { tooltip, href });
   });
   const withCitations = message.answer.replace(/\\[(\\d+)\\]/g, (match, rawId) => {

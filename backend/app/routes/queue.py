@@ -14,6 +14,8 @@ from app.services.queue import (
     resume_queue,
     is_paused,
     reorder_queue,
+    move_queue_item_to_top,
+    move_queue_item_to_bottom,
     remove_queue_item,
 )
 from app.api_models import (
@@ -44,6 +46,10 @@ class QueueMoveRequest(BaseModel):
 
 
 class QueueRemoveRequest(BaseModel):
+    index: int
+
+
+class QueueMoveEdgeRequest(BaseModel):
     index: int
 
 
@@ -116,6 +122,22 @@ def move(payload: QueueMoveRequest, settings: Settings = Depends(settings_dep)):
     if not settings.queue_enabled:
         return {"enabled": False, "moved": False}
     moved = reorder_queue(settings, payload.from_index, payload.to_index)
+    return {"enabled": True, "moved": moved}
+
+
+@router.post("/move-top", response_model=QueueMoveResponse)
+def move_top(payload: QueueMoveEdgeRequest, settings: Settings = Depends(settings_dep)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "moved": False}
+    moved = move_queue_item_to_top(settings, payload.index)
+    return {"enabled": True, "moved": moved}
+
+
+@router.post("/move-bottom", response_model=QueueMoveResponse)
+def move_bottom(payload: QueueMoveEdgeRequest, settings: Settings = Depends(settings_dep)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "moved": False}
+    moved = move_queue_item_to_bottom(settings, payload.index)
     return {"enabled": True, "moved": moved}
 
 
