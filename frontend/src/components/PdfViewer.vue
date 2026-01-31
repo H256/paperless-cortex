@@ -1,20 +1,20 @@
 <template>
-  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h3 class="text-lg font-semibold text-slate-900">PDF Viewer</h3>
-        <p class="text-xs text-slate-500">Page {{ displayPage }} of {{ pageCount || '...' }}</p>
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">PDF Viewer</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Page {{ displayPage }} of {{ pageCount || '...' }}</p>
       </div>
-      <div class="flex items-center gap-2 text-xs text-slate-600">
+      <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
         <button
-          class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-50"
+          class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
           :disabled="!pageCount || displayPage <= 1"
           @click="changePage(displayPage - 1)"
         >
           Prev
         </button>
         <input
-          class="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+          class="h-8 w-16 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           type="number"
           min="1"
           :max="pageCount || undefined"
@@ -22,14 +22,14 @@
           @change="applyPageInput"
         />
         <button
-          class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-50"
+          class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
           :disabled="!pageCount || displayPage >= pageCount"
           @click="changePage(displayPage + 1)"
         >
           Next
         </button>
         <button
-          class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300"
+          class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500"
           @click="fitToWidth"
         >
           Fit
@@ -37,11 +37,11 @@
       </div>
     </div>
 
-    <div ref="containerRef" class="relative mt-4 w-full overflow-auto rounded-lg border border-slate-200 bg-slate-50">
+    <div ref="containerRef" class="relative mt-4 w-full overflow-auto rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
       <div v-if="usePreviewFallback && previewBaseUrl" class="relative">
         <img
           ref="previewImgRef"
-          class="block w-full rounded-lg border border-slate-200 bg-white"
+          class="block w-full rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           :src="`${previewBaseUrl}?page=${displayPage}&max_dim=1400`"
           :alt="`Preview page ${displayPage}`"
           @load="onPreviewLoad"
@@ -63,11 +63,11 @@
             }"
           ></div>
         </div>
-        <div v-if="error" class="absolute inset-x-0 bottom-2 text-center text-[11px] text-rose-600">
-          {{ error }} · Showing preview
+        <div v-if="error" class="absolute inset-x-0 bottom-2 text-center text-[11px] text-rose-600 dark:text-rose-300">
+          {{ error }} - Showing preview
         </div>
       </div>
-      <div v-else-if="error" class="flex items-center justify-center p-6 text-sm text-rose-600">
+      <div v-else-if="error" class="flex items-center justify-center p-6 text-sm text-rose-600 dark:text-rose-300">
         {{ error }}
       </div>
       <div v-else class="relative">
@@ -90,8 +90,8 @@
           ></div>
         </div>
       </div>
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center text-xs text-slate-500">
-        Loading PDF…
+      <div v-if="loading" class="absolute inset-0 flex items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+        Loading PDF...
       </div>
     </div>
   </section>

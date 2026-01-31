@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from datetime import datetime, timezone
 from hashlib import sha256
+import re
 import logging
 from sqlalchemy.orm import Session
 
@@ -363,8 +364,12 @@ def search(
         include_doc,
     )
     vector = embed_text(settings, q)
-    raw = search_points(settings, vector, limit=top_k)
+    oversample = max(top_k * 6, top_k)
+    raw = search_points(settings, vector, limit=oversample)
     hits = raw.get("result", []) or []
+    query_text = (q or "").strip().lower()
+    query_tokens = [token for token in re.findall(r"[a-z0-9]+", query_text) if len(token) >= 2]
+    query_token_set = set(query_tokens)
     results = []
     for hit in hits:
         payload = hit.get("payload") or {}
@@ -377,6 +382,15 @@ def search(
             quality_score = 100
         if min_quality is not None and quality_score < min_quality:
             continue
+        text_lower = text.lower()
+        token_matches = 0
+        for token in query_token_set:
+            if token in text_lower:
+                token_matches += 1
+        token_match_ratio = (token_matches / max(1, len(query_token_set))) if query_token_set else 0.0
+        phrase_bonus = 0.5 if query_text and query_text in text_lower else 0.0
+        base_score = float(hit.get("score") or 0) * (float(quality_score or 100) / 100.0)
+        combined_score = base_score + (token_match_ratio * 0.35) + phrase_bonus
         results.append(
             {
                 "doc_id": payload.get("doc_id"),
@@ -386,6 +400,7 @@ def search(
                 "source": payload.get("source"),
                 "quality_score": quality_score,
                 "bbox": payload.get("bbox"),
+                "combined_score": combined_score,
             }
         )
     if not dedupe:
@@ -399,12 +414,8 @@ def search(
                 deduped[key] = item
                 continue
             if rerank:
-                current_score = float(current.get("score") or 0) * (
-                    float(current.get("quality_score") or 100) / 100.0
-                )
-                next_score = float(item.get("score") or 0) * (
-                    float(item.get("quality_score") or 100) / 100.0
-                )
+                current_score = float(current.get("combined_score") or 0)
+                next_score = float(item.get("combined_score") or 0)
                 if next_score > current_score:
                     deduped[key] = item
             else:
@@ -413,8 +424,7 @@ def search(
         matches = list(deduped.values())
     if rerank:
         matches.sort(
-            key=lambda item: float(item.get("score") or 0)
-            * (float(item.get("quality_score") or 100) / 100.0),
+            key=lambda item: float(item.get("combined_score") or 0),
             reverse=True,
         )
     else:

@@ -255,6 +255,7 @@ class EmbeddingMatch(BaseModel):
     page: Optional[int] = None
     snippet: Optional[str] = None
     score: Optional[float] = None
+    combined_score: Optional[float] = None
     source: Optional[str] = None
     quality_score: Optional[float] = None
     bbox: Optional[Any] = None
