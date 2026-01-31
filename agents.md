@@ -88,7 +88,7 @@ Improve recognition for cases where Paperless OCR is poor. Do not replace baseli
    - Use vision OCR as fallback during analysis/search where it improves confidence
 
 ## Embeddings + search
-- Chunk text into ~500–1000 token blocks.
+- Chunk text into ~500--1000 token blocks.
 - Store in Qdrant with payload:
   - doc_id, chunk_id, page (if known), bbox (if known), text snippet, source layer
 - Use embeddings for:
@@ -135,7 +135,7 @@ Per document, via explicit user action:
 
 ### Summary note formatting
 All AI summaries stored in Paperless notes must be bracketed for easy detection:
-- AI_SUMMARY v1 –
+- AI_SUMMARY v1 --
 ...summary text...
 - /AI_SUMMARY -
 
@@ -153,7 +153,7 @@ Every writeback must be stored locally:
 - POST /documents/{id}/writeback (explicit per-field actions)
 
 ### New endpoints (implemented)
-- POST /documents/process-missing?dry_run=1 (summary of missing work + optional enqueue)
+- POST /documents/process-missing->dry_run=1 (summary of missing work + optional enqueue)
 - POST /documents/reset-intelligence (clear embeddings/page texts/suggestions)
 - GET /documents/{id}/pdf (proxy PDF bytes)
 - Queue: POST /queue/move-top, POST /queue/move-bottom
@@ -251,7 +251,7 @@ Vision model is used only for:
 
 ### Performance Notes
 - gpt-oss:120b is large and may require:
-  - Increased request timeout (e.g., 120–300 seconds)
+  - Increased request timeout (e.g., 120--300 seconds)
   - Streaming support in the API layer
   - Retry logic for long reasoning tasks
 
@@ -266,3 +266,11 @@ All model names must be configurable via environment variables.
 - Review backend services/routes for duplication and refactor to shared utilities.
 - Consolidate queue/task logic and reduce repeated OCR/embedding/suggestion pathways.
 - Ensure consistent logging and error handling across components.
+
+
+## Session log
+
+### 2026-01-31
+- Search reranking: oversample + lexical/phrase boost, combined_score surfaced, top_k enforced.
+- UI/UX: dark theme toggle, processing panel (dry-run + reprocess), queue controls, search result actions.
+- Viewer/citations: PDF preview flow and highlight support in place; continue refining details page UX tomorrow.

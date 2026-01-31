@@ -429,6 +429,8 @@ def search(
         )
     else:
         matches.sort(key=lambda item: float(item.get("score") or 0), reverse=True)
+    if top_k > 0:
+        matches = matches[:top_k]
     if include_doc and matches:
         doc_ids = {item.get("doc_id") for item in matches if item.get("doc_id") is not None}
         if doc_ids:
