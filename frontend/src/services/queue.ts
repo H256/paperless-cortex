@@ -1,4 +1,5 @@
 import { unwrap } from '../api/orval';
+import { request } from './http';
 import {
   getQueueStatusQueueStatusGet,
   peekQueuePeekGet,
@@ -40,3 +41,9 @@ export const moveQueueItem = (payload: QueueMoveRequest) => unwrap<QueueMoveResp
 
 export const removeQueueItem = (payload: QueueRemoveRequest) =>
   unwrap<QueueRemoveResponse>(removeQueueRemovePost(payload));
+
+export const moveQueueItemTop = (payload: { index: number }) =>
+  request<QueueMoveResponse>('/queue/move-top', { method: 'POST', body: payload });
+
+export const moveQueueItemBottom = (payload: { index: number }) =>
+  request<QueueMoveResponse>('/queue/move-bottom', { method: 'POST', body: payload });

@@ -13,6 +13,7 @@ from app.models import (
     Document,
     DocumentEmbedding,
     DocumentNote,
+    DocumentPageText,
     DocumentType,
     SyncState,
     Tag,
@@ -27,7 +28,7 @@ from app.services.embeddings import (
     make_point_id,
     upsert_points,
 )
-from app.services.text_pages import get_page_text_layers
+from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task_sequence
 from app.api_models import (
@@ -53,6 +54,7 @@ def sync_documents(
     page: int = 1,
     page_only: bool = False,
     force_embed: bool = False,
+    mark_missing: bool = False,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
@@ -75,6 +77,7 @@ def sync_documents(
     db.commit()
 
     upserted = 0
+    seen_ids: set[int] = set()
     cache = {"correspondents": set(), "document_types": set(), "tags": set()}
     page = max(1, page)
     total = 0
@@ -107,6 +110,8 @@ def sync_documents(
         for raw in results:
             data = DocumentIn.model_validate(raw)
             _upsert_document(db, settings, data, cache)
+            if mark_missing and not incremental:
+                seen_ids.add(data.id)
             upserted += 1
             state.processed = upserted
         db.commit()
@@ -122,13 +127,28 @@ def sync_documents(
     state.last_synced_at = datetime.now(timezone.utc).isoformat()
     state.status = "idle"
     db.commit()
+    marked_deleted = 0
+    if mark_missing and not incremental:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        missing_docs = (
+            db.query(Document)
+            .filter(~Document.id.in_(list(seen_ids)))
+            .all()
+        )
+        for doc in missing_docs:
+            if doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"):
+                continue
+            doc.deleted_at = f"DELETED in Paperless (copy kept) @ {timestamp}"
+            marked_deleted += 1
+        if marked_deleted:
+            db.commit()
     embedded = 0
     if embed and embed_queue:
         if settings.queue_enabled:
             for doc in embed_queue:
                 tasks = []
                 if settings.enable_vision_ocr:
-                    tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
+                    tasks.append({"doc_id": doc.id, "task": "vision_ocr", "force": bool(force_embed)})
                     tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
                     tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
                     tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
@@ -153,6 +173,7 @@ def sync_documents(
         "upserted": upserted,
         "incremental": incremental,
         "embedded": embedded,
+        "marked_deleted": marked_deleted if mark_missing and not incremental else None,
     }
 
 
@@ -315,7 +336,7 @@ def sync_document(
             if settings.queue_enabled:
                 tasks = []
                 if settings.enable_vision_ocr:
-                    tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
+                    tasks.append({"doc_id": doc.id, "task": "vision_ocr", "force": bool(force_embed)})
                     tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
                     tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
                     tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
@@ -457,14 +478,27 @@ def _embed_documents(
     logger.info("Embedding run docs=%s", len(documents))
     for doc in documents:
         content_value = doc.content or ""
-        baseline_pages, vision_pages = get_page_text_layers(
+        baseline_pages = get_baseline_page_texts(
             settings,
             doc.content,
             fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-            force_full_vision=bool(force_embed),
         )
-        if vision_pages:
-            upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if force_embed:
+            _, regenerated = get_page_text_layers(
+                settings,
+                doc.content,
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+                force_full_vision=True,
+            )
+            if regenerated:
+                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
+                vision_pages = regenerated
         page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
@@ -504,6 +538,7 @@ def _embed_documents(
                         "page": chunk.get("page"),
                         "source": chunk.get("source"),
                         "quality_score": chunk.get("quality_score"),
+                        "bbox": chunk.get("bbox"),
                     },
                 }
             )

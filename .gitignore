@@ -1,1 +1,6 @@
 frontend/dist/
+frontend/node_modules/
+__pycache__/
+*.pyc
+.idea/
+.env

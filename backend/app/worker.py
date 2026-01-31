@@ -71,6 +71,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
                     "page": chunk.get("page"),
                     "source": chunk.get("source"),
                     "quality_score": chunk.get("quality_score"),
+                    "bbox": chunk.get("bbox"),
                 },
             }
         )
@@ -139,13 +140,22 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         upsert_suggestion(db, doc_id, "vision_ocr", __import__("json").dumps(vision_suggestions, ensure_ascii=False))
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
 
-def _process_vision_ocr_only(settings, db: Session, doc_id: int) -> None:
+def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort vision OCR doc=%s", doc_id)
         return
     doc = db.get(Document, doc_id)
     if not doc:
         return
+    if not force:
+        existing = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+            .first()
+        )
+        if existing:
+            logger.info("Vision OCR skipped (cached) doc=%s", doc_id)
+            return
     _, vision_pages = get_page_text_layers(
         settings,
         doc.content,
@@ -324,7 +334,8 @@ def main() -> None:
                 if task_type == "sync":
                     _process_sync_only(settings, db, doc_id)
                 elif task_type == "vision_ocr":
-                    _process_vision_ocr_only(settings, db, doc_id)
+                    force = bool(task.get("force")) if isinstance(task, dict) else False
+                    _process_vision_ocr_only(settings, db, doc_id, force=force)
                 elif task_type == "embeddings_paperless":
                     _process_embeddings_paperless(settings, db, doc_id)
                 elif task_type == "embeddings_vision":

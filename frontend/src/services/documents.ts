@@ -1,4 +1,5 @@
 import { unwrap } from '../api/orval';
+import { request } from './http';
 import {
   listDocumentsDocumentsGet,
   getDocumentStatsDocumentsStatsGet,
@@ -71,6 +72,8 @@ export type EmbedStatus = EmbeddingStatusResponse;
 export type DocumentStats = DocumentStatsResponse;
 export type PageText = PageTextOut;
 export type SuggestionPayload = SuggestionsResponseSuggestions;
+export type ProcessMissingResponse = { enabled: boolean; docs: number; enqueued: number; tasks: number };
+export type ResetIntelligenceResponse = { cleared_embeddings: number; cleared_page_texts: number; cleared_suggestions: number };
 
 export const listDocuments = (params: ListDocumentsDocumentsGetParams) =>
   unwrap<DocumentsPageResponse>(listDocumentsDocumentsGet(params));
@@ -148,3 +151,9 @@ export const ingestEmbeddings = (params: IngestEmbeddingsEmbeddingsIngestPostPar
 
 export const ingestEmbeddingsForDocs = (ids: number[], params: IngestDocumentsEmbeddingsIngestDocsPostParams) =>
   unwrap<EmbeddingIngestResponse>(ingestDocumentsEmbeddingsIngestDocsPost(ids, params));
+
+export const processMissing = (params?: { dry_run?: boolean }) =>
+  request<ProcessMissingResponse>('/documents/process-missing', { method: 'POST', params });
+
+export const resetIntelligence = () =>
+  request<ResetIntelligenceResponse>('/documents/reset-intelligence', { method: 'POST' });

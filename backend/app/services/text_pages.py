@@ -8,7 +8,7 @@ from typing import Callable
 
 from app.config import Settings
 from app.services import vision_ocr
-from app.services.page_types import PageText
+from app.services.page_types import PageText, WordBox
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,54 @@ def split_text_pages(text: str | None) -> list[PageText]:
 
 def extract_pdf_text_pages(pdf_bytes: bytes) -> list[PageText]:
     try:
+        import fitz  # PyMuPDF
+    except Exception:
+        fitz = None
+
+    if fitz is not None:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        pages: list[PageText] = []
+        logger.info("PDF text extraction (pymupdf) pages=%s", len(doc))
+        for page_idx in range(len(doc)):
+            page = doc.load_page(page_idx)
+            rect = page.rect
+            width = float(rect.width) or 1.0
+            height = float(rect.height) or 1.0
+            words = page.get_text("words") or []
+            words_sorted = sorted(words, key=lambda w: (round(w[1], 1), w[0]))
+            word_boxes = []
+            for word in words_sorted:
+                text = str(word[4]).strip()
+                if not text:
+                    continue
+                x0, y0, x1, y1 = float(word[0]), float(word[1]), float(word[2]), float(word[3])
+                word_boxes.append(
+                    WordBox(
+                        text=text,
+                        bbox=(
+                            x0 / width,
+                            y0 / height,
+                            x1 / width,
+                            y1 / height,
+                        ),
+                    )
+                )
+            if word_boxes:
+                page_text = " ".join(word.text for word in word_boxes).strip()
+                pages.append(
+                    PageText(
+                        page=page_idx + 1,
+                        text=page_text,
+                        source="pdf_text",
+                        words=word_boxes,
+                    )
+                )
+            else:
+                text = page.get_text("text") or ""
+                pages.append(PageText(page=page_idx + 1, text=text.strip(), source="pdf_text"))
+        return pages
+
+    try:
         from pdfminer.high_level import extract_text
         from pdfminer.pdfpage import PDFPage
     except Exception as exc:  # pragma: no cover - optional dependency
@@ -35,7 +83,7 @@ def extract_pdf_text_pages(pdf_bytes: bytes) -> list[PageText]:
     pages: list[PageText] = []
     buffer = BytesIO(pdf_bytes)
     page_count = sum(1 for _ in PDFPage.get_pages(buffer))
-    logger.info("PDF text extraction pages=%s", page_count)
+    logger.info("PDF text extraction (pdfminer) pages=%s", page_count)
     for page_idx in range(page_count):
         buffer.seek(0)
         text = extract_text(buffer, page_numbers=[page_idx]) or ""

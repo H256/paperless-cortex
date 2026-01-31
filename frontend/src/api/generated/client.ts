@@ -34,6 +34,7 @@ import type {
   PageTextsResponse,
   PaperlessDocument,
   PeekQueuePeekGetParams,
+  ProcessMissingResponse,
   QueueCancelResponse,
   QueueEnqueue,
   QueueEnqueueResponse,
@@ -45,6 +46,7 @@ import type {
   QueueRemoveResponse,
   QueueResetResponse,
   QueueStatusResponse,
+  ResetIntelligenceResponse,
   SearchEmbeddingsSearchGetParams,
   StatusResponse,
   SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,
@@ -709,6 +711,139 @@ export const getDocumentPagePreviewDocumentsDocIdPagePreviewGet = async (docId: 
   
   const data: getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse
+}
+
+
+
+/**
+ * @summary Get Document Pdf
+ */
+export type getDocumentPdfDocumentsDocIdPdfGetResponse200 = {
+  data: unknown
+  status: 200
+}
+
+export type getDocumentPdfDocumentsDocIdPdfGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentPdfDocumentsDocIdPdfGetResponseSuccess = (getDocumentPdfDocumentsDocIdPdfGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentPdfDocumentsDocIdPdfGetResponseError = (getDocumentPdfDocumentsDocIdPdfGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentPdfDocumentsDocIdPdfGetResponse = (getDocumentPdfDocumentsDocIdPdfGetResponseSuccess | getDocumentPdfDocumentsDocIdPdfGetResponseError)
+
+export const getGetDocumentPdfDocumentsDocIdPdfGetUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/documents/${docId}/pdf`
+}
+
+export const getDocumentPdfDocumentsDocIdPdfGet = async (docId: number, options?: RequestInit): Promise<getDocumentPdfDocumentsDocIdPdfGetResponse> => {
+  
+  const res = await fetch(getGetDocumentPdfDocumentsDocIdPdfGetUrl(docId),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentPdfDocumentsDocIdPdfGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPdfDocumentsDocIdPdfGetResponse
+}
+
+
+
+/**
+ * @summary Process Missing
+ */
+export type processMissingDocumentsProcessMissingPostResponse200 = {
+  data: ProcessMissingResponse
+  status: 200
+}
+    
+export type processMissingDocumentsProcessMissingPostResponseSuccess = (processMissingDocumentsProcessMissingPostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type processMissingDocumentsProcessMissingPostResponse = (processMissingDocumentsProcessMissingPostResponseSuccess)
+
+export const getProcessMissingDocumentsProcessMissingPostUrl = () => {
+
+
+  
+
+  return `/api/documents/process-missing`
+}
+
+export const processMissingDocumentsProcessMissingPost = async ( options?: RequestInit): Promise<processMissingDocumentsProcessMissingPostResponse> => {
+  
+  const res = await fetch(getProcessMissingDocumentsProcessMissingPostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: processMissingDocumentsProcessMissingPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as processMissingDocumentsProcessMissingPostResponse
+}
+
+
+
+/**
+ * @summary Reset Intelligence
+ */
+export type resetIntelligenceDocumentsResetIntelligencePostResponse200 = {
+  data: ResetIntelligenceResponse
+  status: 200
+}
+    
+export type resetIntelligenceDocumentsResetIntelligencePostResponseSuccess = (resetIntelligenceDocumentsResetIntelligencePostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type resetIntelligenceDocumentsResetIntelligencePostResponse = (resetIntelligenceDocumentsResetIntelligencePostResponseSuccess)
+
+export const getResetIntelligenceDocumentsResetIntelligencePostUrl = () => {
+
+
+  
+
+  return `/api/documents/reset-intelligence`
+}
+
+export const resetIntelligenceDocumentsResetIntelligencePost = async ( options?: RequestInit): Promise<resetIntelligenceDocumentsResetIntelligencePostResponse> => {
+  
+  const res = await fetch(getResetIntelligenceDocumentsResetIntelligencePostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as resetIntelligenceDocumentsResetIntelligencePostResponse
 }
 
 

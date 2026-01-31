@@ -3,12 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from datetime import datetime, timezone
 from hashlib import sha256
+import re
 import logging
 from sqlalchemy.orm import Session
 
 from app.config import Settings, load_settings
 from app.db import get_db
-from app.models import Document, DocumentEmbedding, SyncState, Correspondent
+from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState, Correspondent
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
@@ -18,7 +19,7 @@ from app.services.embeddings import (
     search_points,
     upsert_points,
 )
-from app.services.text_pages import get_page_text_layers
+from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task, queue_stats
@@ -96,14 +97,27 @@ def ingest_embeddings(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages, vision_pages = get_page_text_layers(
+        baseline_pages = get_baseline_page_texts(
             settings,
             doc.content,
             fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-            force_full_vision=bool(force),
         )
-        if vision_pages:
-            upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if force:
+            _, regenerated = get_page_text_layers(
+                settings,
+                doc.content,
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+                force_full_vision=True,
+            )
+            if regenerated:
+                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
+                vision_pages = regenerated
         page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
@@ -147,6 +161,7 @@ def ingest_embeddings(
                         "page": chunk.get("page"),
                         "source": chunk.get("source"),
                         "quality_score": chunk.get("quality_score"),
+                        "bbox": chunk.get("bbox"),
                     },
                 }
             )
@@ -229,14 +244,27 @@ def ingest_documents(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages, vision_pages = get_page_text_layers(
+        baseline_pages = get_baseline_page_texts(
             settings,
             doc.content,
             fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-            force_full_vision=bool(force),
         )
-        if vision_pages:
-            upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+        if force:
+            _, regenerated = get_page_text_layers(
+                settings,
+                doc.content,
+                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+                force_full_vision=True,
+            )
+            if regenerated:
+                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
+                vision_pages = regenerated
         page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
@@ -280,6 +308,7 @@ def ingest_documents(
                         "page": chunk.get("page"),
                         "source": chunk.get("source"),
                         "quality_score": chunk.get("quality_score"),
+                        "bbox": chunk.get("bbox"),
                     },
                 }
             )
@@ -335,8 +364,12 @@ def search(
         include_doc,
     )
     vector = embed_text(settings, q)
-    raw = search_points(settings, vector, limit=top_k)
+    oversample = max(top_k * 6, top_k)
+    raw = search_points(settings, vector, limit=oversample)
     hits = raw.get("result", []) or []
+    query_text = (q or "").strip().lower()
+    query_tokens = [token for token in re.findall(r"[a-z0-9]+", query_text) if len(token) >= 2]
+    query_token_set = set(query_tokens)
     results = []
     for hit in hits:
         payload = hit.get("payload") or {}
@@ -349,6 +382,15 @@ def search(
             quality_score = 100
         if min_quality is not None and quality_score < min_quality:
             continue
+        text_lower = text.lower()
+        token_matches = 0
+        for token in query_token_set:
+            if token in text_lower:
+                token_matches += 1
+        token_match_ratio = (token_matches / max(1, len(query_token_set))) if query_token_set else 0.0
+        phrase_bonus = 0.5 if query_text and query_text in text_lower else 0.0
+        base_score = float(hit.get("score") or 0) * (float(quality_score or 100) / 100.0)
+        combined_score = base_score + (token_match_ratio * 0.35) + phrase_bonus
         results.append(
             {
                 "doc_id": payload.get("doc_id"),
@@ -358,6 +400,7 @@ def search(
                 "source": payload.get("source"),
                 "quality_score": quality_score,
                 "bbox": payload.get("bbox"),
+                "combined_score": combined_score,
             }
         )
     if not dedupe:
@@ -371,12 +414,8 @@ def search(
                 deduped[key] = item
                 continue
             if rerank:
-                current_score = float(current.get("score") or 0) * (
-                    float(current.get("quality_score") or 100) / 100.0
-                )
-                next_score = float(item.get("score") or 0) * (
-                    float(item.get("quality_score") or 100) / 100.0
-                )
+                current_score = float(current.get("combined_score") or 0)
+                next_score = float(item.get("combined_score") or 0)
                 if next_score > current_score:
                     deduped[key] = item
             else:
@@ -385,12 +424,13 @@ def search(
         matches = list(deduped.values())
     if rerank:
         matches.sort(
-            key=lambda item: float(item.get("score") or 0)
-            * (float(item.get("quality_score") or 100) / 100.0),
+            key=lambda item: float(item.get("combined_score") or 0),
             reverse=True,
         )
     else:
         matches.sort(key=lambda item: float(item.get("score") or 0), reverse=True)
+    if top_k > 0:
+        matches = matches[:top_k]
     if include_doc and matches:
         doc_ids = {item.get("doc_id") for item in matches if item.get("doc_id") is not None}
         if doc_ids:

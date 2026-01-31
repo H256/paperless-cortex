@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 from app.config import Settings
-from app.services.page_types import PageText
+from app.services.page_types import PageText, WordBox
 from app.services.text_pages import score_text_quality
 
 logger = logging.getLogger(__name__)
@@ -198,6 +198,56 @@ def chunk_text(settings: Settings, text: str) -> list[str]:
     return chunks
 
 
+def _chunk_word_boxes(
+    settings: Settings,
+    words: list[WordBox],
+) -> list[dict[str, object]]:
+    if not words:
+        return []
+    chunks: list[list[WordBox]] = []
+    current: list[WordBox] = []
+    current_len = 0
+
+    def flush() -> None:
+        nonlocal current, current_len
+        if current:
+            chunks.append(current)
+            current = []
+            current_len = 0
+
+    for word in words:
+        add_len = len(word.text) + (1 if current else 0)
+        if current and current_len + add_len > settings.chunk_max_chars:
+            flush()
+            if settings.chunk_overlap > 0 and chunks:
+                tail: list[WordBox] = []
+                tail_len = 0
+                for prev_word in reversed(chunks[-1]):
+                    tail_len += len(prev_word.text) + (1 if tail else 0)
+                    tail.insert(0, prev_word)
+                    if tail_len >= settings.chunk_overlap:
+                        break
+                current = tail
+                current_len = sum(len(w.text) for w in current) + max(0, len(current) - 1)
+        current.append(word)
+        current_len += add_len
+    flush()
+
+    results: list[dict[str, object]] = []
+    for group in chunks:
+        if not group:
+            continue
+        text = " ".join(w.text for w in group).strip()
+        if not text:
+            continue
+        x0 = min(w.bbox[0] for w in group)
+        y0 = min(w.bbox[1] for w in group)
+        x1 = max(w.bbox[2] for w in group)
+        y1 = max(w.bbox[3] for w in group)
+        results.append({"text": text, "bbox": [x0, y0, x1, y1]})
+    return results
+
+
 def chunk_document_with_pages(
     settings: Settings,
     content: str,
@@ -209,15 +259,28 @@ def chunk_document_with_pages(
             quality = score_text_quality(page.text, settings)
             if not page.text:
                 continue
-            for chunk in chunk_text(settings, page.text):
-                chunks.append(
-                    {
-                        "text": chunk,
-                        "page": page.page,
-                        "source": page.source,
-                        "quality_score": quality.score,
-                    }
-                )
+            words = getattr(page, "words", None)
+            if words:
+                for chunk in _chunk_word_boxes(settings, words):
+                    chunks.append(
+                        {
+                            "text": chunk["text"],
+                            "page": page.page,
+                            "source": page.source,
+                            "quality_score": quality.score,
+                            "bbox": chunk.get("bbox"),
+                        }
+                    )
+            else:
+                for chunk in chunk_text(settings, page.text):
+                    chunks.append(
+                        {
+                            "text": chunk,
+                            "page": page.page,
+                            "source": page.source,
+                            "quality_score": quality.score,
+                        }
+                    )
         return chunks
     quality = score_text_quality(content, settings)
     return [

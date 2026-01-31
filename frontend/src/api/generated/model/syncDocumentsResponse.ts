@@ -12,4 +12,5 @@ export interface SyncDocumentsResponse {
   embedded: number;
   status?: string | null;
   queued?: number | null;
+  marked_deleted?: number | null;
 }

@@ -10,6 +10,8 @@ import {
   ingestEmbeddings,
   ingestEmbeddingsForDocs,
   listDocuments,
+  processMissing,
+  resetIntelligence,
   syncDocuments,
   syncDocument,
 } from '../services/documents';
@@ -56,6 +58,16 @@ export const useDocumentsStore = defineStore('documents', {
       suggestions: 0,
       fully_processed: 0,
     } as DocumentStats,
+    processPreview: null as null | {
+      missing_docs?: number;
+      missing_vision_ocr?: number;
+      missing_embeddings?: number;
+      missing_embeddings_vision?: number;
+      missing_suggestions_paperless?: number;
+      missing_suggestions_vision?: number;
+      docs?: number;
+    },
+    processPreviewLoading: false,
   }),
   actions: {
     async load() {
@@ -138,10 +150,80 @@ export const useDocumentsStore = defineStore('documents', {
     async reprocessFiltered() {
       this.syncing = true;
       try {
-        const ids = this.documents.map((doc) => doc.id);
-        for (const docId of ids) {
-          await syncDocument(docId, { embed: true, force_embed: true });
-        }
+        await syncDocuments({
+          page_size: this.pageSize,
+          incremental: false,
+          page: 1,
+          page_only: false,
+          embed: true,
+          force_embed: true,
+        });
+        await this.fetchSyncStatus();
+        await this.fetchEmbedStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+      }
+    },
+    async continueProcessingPreview() {
+      this.syncing = true;
+      this.processPreviewLoading = true;
+      try {
+        await syncDocuments({
+          page_size: 200,
+          incremental: false,
+          page: 1,
+          page_only: false,
+          embed: false,
+          force_embed: false,
+          mark_missing: true,
+        } as any);
+        const preview = await processMissing({ dry_run: true });
+        this.processPreview = {
+          docs: preview.docs,
+          missing_docs: preview.missing_docs,
+          missing_vision_ocr: preview.missing_vision_ocr,
+          missing_embeddings: preview.missing_embeddings,
+          missing_embeddings_vision: preview.missing_embeddings_vision,
+          missing_suggestions_paperless: preview.missing_suggestions_paperless,
+          missing_suggestions_vision: preview.missing_suggestions_vision,
+        };
+        await this.fetchSyncStatus();
+        await this.fetchEmbedStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+        this.processPreviewLoading = false;
+      }
+    },
+    async startProcessingFromPreview() {
+      this.syncing = true;
+      try {
+        await processMissing();
+        await this.fetchSyncStatus();
+        await this.fetchEmbedStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+      }
+    },
+    clearProcessPreview() {
+      this.processPreview = null;
+    },
+    async reprocessAll() {
+      this.syncing = true;
+      try {
+        await syncDocuments({
+          page_size: 200,
+          incremental: false,
+          page: 1,
+          page_only: false,
+          embed: false,
+          force_embed: false,
+          mark_missing: true,
+        } as any);
+        await resetIntelligence();
+        await processMissing();
         await this.fetchSyncStatus();
         await this.fetchEmbedStatus();
         await this.load();
