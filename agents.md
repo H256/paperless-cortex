@@ -284,3 +284,4 @@ All model names must be configurable via environment variables.
 - Chore: Added verification checklist for the 2026-02-02 changes.
 - Chore: Alembic heads merged after adding AI model metadata migration.
 - Fix: Continue-processing modal now shows enqueue progress with disabled buttons and a loader while queueing starts.
+- Fix: Reprocess-all modal now shows sync progress with a loader and disables actions while running.

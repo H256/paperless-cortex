@@ -345,19 +345,31 @@
           This action cannot be undone. Paperless data is not modified.
         </div>
 
+        <div v-if="syncStatus.status === 'running'" class="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200">
+          <div class="flex items-center gap-2">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA {{ etaText }}
+          </div>
+        </div>
+
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
             class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click="closeReprocessModal"
+            :disabled="reprocessRunning"
           >
             Cancel
           </button>
           <button
             class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500"
-            :disabled="syncing || isProcessing"
+            :disabled="syncing || isProcessing || reprocessRunning"
             @click="confirmReprocessAll"
           >
-            Yes, reprocess all
+            <span v-if="reprocessRunning" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Starting...
+            </span>
+            <span v-else>Yes, reprocess all</span>
           </button>
         </div>
       </div>
@@ -410,6 +422,7 @@ const { status: queueStatus } = storeToRefs(queueStore);
 const showPreviewModal = computed(() => processPreview.value !== null);
 const showReprocessModal = ref(false);
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all');
+const reprocessRunning = ref(false);
 const modelFilter = ref('');
 const processOptions = reactive({
   includeVisionOcr: true,
@@ -568,8 +581,13 @@ const closeReprocessModal = () => {
 
 const confirmReprocessAll = async () => {
   startPolling();
-  await documentsStore.reprocessAll();
-  showReprocessModal.value = false;
+  reprocessRunning.value = true;
+  try {
+    await documentsStore.reprocessAll();
+    showReprocessModal.value = false;
+  } finally {
+    reprocessRunning.value = false;
+  }
 };
 
 const closePreview = () => {
