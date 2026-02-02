@@ -104,6 +104,15 @@ def list_documents(
     doc_ids = [doc.get("id") for doc in results if doc.get("id") is not None]
     if not doc_ids:
         return payload
+    analysis_by_doc = {
+        row.id: {
+            "analysis_model": row.analysis_model,
+            "analysis_processed_at": row.analysis_processed_at,
+        }
+        for row in db.query(Document.id, Document.analysis_model, Document.analysis_processed_at)
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    }
     embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
     suggestion_rows = (
         db.query(DocumentSuggestion)
@@ -124,6 +133,7 @@ def list_documents(
         if doc_id is None:
             continue
         doc["has_embeddings"] = doc_id in embed_ids
+        doc.update(analysis_by_doc.get(doc_id, {}))
         sources = suggestions_by_doc.get(doc_id, set())
         doc["has_suggestions"] = bool(sources)
         doc["has_vision_pages"] = doc_id in vision_pages
@@ -264,7 +274,13 @@ def get_document_suggestions(
             correspondents=correspondents,
         )
         baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-        upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+        upsert_suggestion(
+            db,
+            doc_id,
+            "paperless_ocr",
+            json.dumps(baseline_suggestions, ensure_ascii=False),
+            model_name=settings.ollama_model,
+        )
         audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
         return baseline_suggestions
 
@@ -309,7 +325,13 @@ def get_document_suggestions(
             correspondents=correspondents,
         )
         vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-        upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
+        upsert_suggestion(
+            db,
+            doc_id,
+            "vision_ocr",
+            json.dumps(vision_suggestions, ensure_ascii=False),
+            model_name=settings.ollama_model,
+        )
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
         return vision_suggestions
 

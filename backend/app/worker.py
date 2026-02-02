@@ -136,13 +136,25 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     baseline_text = doc.content or ""
     baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
     baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(db, doc_id, "paperless_ocr", __import__("json").dumps(baseline_suggestions, ensure_ascii=False))
+    upsert_suggestion(
+        db,
+        doc_id,
+        "paperless_ocr",
+        __import__("json").dumps(baseline_suggestions, ensure_ascii=False),
+        model_name=settings.ollama_model,
+    )
     audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
     if vision_pages:
         vision_text = "\n\n".join(page.text or "" for page in vision_pages)
         vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
         vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-        upsert_suggestion(db, doc_id, "vision_ocr", __import__("json").dumps(vision_suggestions, ensure_ascii=False))
+        upsert_suggestion(
+            db,
+            doc_id,
+            "vision_ocr",
+            __import__("json").dumps(vision_suggestions, ensure_ascii=False),
+            model_name=settings.ollama_model,
+        )
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
 
 def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
@@ -220,7 +232,13 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     baseline_text = doc.content or ""
     baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
     baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+    upsert_suggestion(
+        db,
+        doc_id,
+        "paperless_ocr",
+        json.dumps(baseline_suggestions, ensure_ascii=False),
+        model_name=settings.ollama_model,
+    )
     audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
     db.commit()
 
@@ -243,7 +261,13 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         if vision_text:
             vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
             vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-            upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
+            upsert_suggestion(
+                db,
+                doc_id,
+                "vision_ocr",
+                json.dumps(vision_suggestions, ensure_ascii=False),
+                model_name=settings.ollama_model,
+            )
             audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
     db.commit()
 
@@ -281,7 +305,16 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
         current_value=current,
     )
     variant_source = ("pvar" if source == "paperless_ocr" else "vvar") + f":{field}"
-    upsert_suggestion(db, doc_id, variant_source, json.dumps({"variants": variants.get("variants") if isinstance(variants, dict) else variants}, ensure_ascii=False))
+    upsert_suggestion(
+        db,
+        doc_id,
+        variant_source,
+        json.dumps(
+            {"variants": variants.get("variants") if isinstance(variants, dict) else variants},
+            ensure_ascii=False,
+        ),
+        model_name=settings.ollama_model,
+    )
     audit_suggestion_run(db, doc_id, source, f"field_variants:{field}")
     db.commit()
 

@@ -279,3 +279,4 @@ All model names must be configurable via environment variables.
 - Fix: Continue processing uses insert-only sync to avoid overwriting document edits, reprocess prioritizes queued tasks, and worker lock enforces a single queue worker.
 - Fix: Suggestions apply refreshes derived tabs, queue view supports Doc ID filtering with correct reordering indices, and documents list adds analysis filter plus persistent cancel button when queue has work.
 - Feature: Continue-processing modal now allows selecting which tasks to enqueue (vision OCR, embeddings with mode, and suggestions) and the preview updates accordingly.
+- Feature: Store AI model + processed timestamps for documents, suggestions, and vision OCR pages; surface analysis model on document list with a filter input.

@@ -75,7 +75,7 @@
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Filters</div>
-      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-7">
+      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-8">
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
           <select v-model="ordering" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -118,6 +118,15 @@
             <option value="analyzed">Analyzed</option>
             <option value="not_analyzed">Not analyzed</option>
           </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Model</label>
+          <input
+            v-model="modelFilter"
+            type="text"
+            placeholder="e.g. gpt-oss"
+            class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
         </div>
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Page size</label>
@@ -386,6 +395,7 @@ const { status: queueStatus } = storeToRefs(queueStore);
 const showPreviewModal = computed(() => processPreview.value !== null);
 const showReprocessModal = ref(false);
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all');
+const modelFilter = ref('');
 const processOptions = reactive({
   includeVisionOcr: true,
   includeEmbeddings: true,
@@ -555,9 +565,14 @@ const hasDerived = (doc: DocumentRow) => {
 };
 
 const visibleDocuments = computed(() => {
-  if (analysisFilter.value === 'all') return documents.value;
-  const shouldBeAnalyzed = analysisFilter.value === 'analyzed';
-  return documents.value.filter((doc) => hasDerived(doc) === shouldBeAnalyzed);
+  let filtered = documents.value;
+  if (analysisFilter.value !== 'all') {
+    const shouldBeAnalyzed = analysisFilter.value === 'analyzed';
+    filtered = filtered.filter((doc) => hasDerived(doc) === shouldBeAnalyzed);
+  }
+  const needle = modelFilter.value.trim().toLowerCase();
+  if (!needle) return filtered;
+  return filtered.filter((doc) => String(doc.analysis_model || '').toLowerCase().includes(needle));
 });
 
 const formatDate = (value?: string | null) => {
