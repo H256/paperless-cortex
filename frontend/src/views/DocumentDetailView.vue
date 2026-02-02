@@ -705,8 +705,20 @@ const applyToDocument = async (source: string, field: string, data: any) => {
   const ok = window.confirm(`Apply ${field} to document: ${label}?`);
   if (!ok) return;
   try {
+    const reloadSuggestions = Boolean(suggestions.value);
+    const reloadPages = pageTexts.value.length > 0;
+    const reloadQuality = Boolean(contentQuality.value);
     await documentStore.applyToDocument(id, { source, field, value });
     await load();
+    if (reloadSuggestions) {
+      await loadSuggestions();
+    }
+    if (reloadPages) {
+      await loadPageTexts();
+    }
+    if (reloadQuality) {
+      await loadContentQuality();
+    }
   } catch (err: any) {
     suggestionsError.value = err?.message ?? 'Failed to apply suggestion to document';
   }

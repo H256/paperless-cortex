@@ -62,7 +62,7 @@
           Reprocess all
         </button>
         <button
-          v-if="isProcessing"
+          v-if="showCancel"
           class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
           @click="cancelProcessing"
           title="Cancel processing and clear queued jobs"
@@ -75,7 +75,7 @@
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Filters</div>
-      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-7">
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
           <select v-model="ordering" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -110,6 +110,14 @@
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">To</label>
           <input type="date" v-model="dateTo" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Analysis</label>
+          <select v-model="analysisFilter" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+            <option value="all">All</option>
+            <option value="analyzed">Analyzed</option>
+            <option value="not_analyzed">Not analyzed</option>
+          </select>
         </div>
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Page size</label>
@@ -161,7 +169,7 @@
           </thead>
           <tbody>
             <tr
-              v-for="doc in documents"
+              v-for="doc in visibleDocuments"
               :key="doc.id"
               class="border-b border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
               @click="open(doc.id)"
@@ -343,6 +351,7 @@ const { status: queueStatus } = storeToRefs(queueStore);
 
 const showPreviewModal = computed(() => processPreview.value !== null);
 const showReprocessModal = ref(false);
+const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all');
 
 const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
 const paperlessDocUrl = (id: number) =>
@@ -368,6 +377,11 @@ const startPolling = () => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
 const isProcessing = computed(() => syncStatus.value.status === 'running' || embedStatus.value.status === 'running');
+const hasQueuedWork = computed(() => {
+  if (!queueStatus.value.enabled) return false;
+  return (queueStatus.value.length ?? 0) > 0 || (queueStatus.value.in_progress ?? 0) > 0;
+});
+const showCancel = computed(() => isProcessing.value || hasQueuedWork.value);
 const embedLabel = computed(() => {
   if (queueStore.status.enabled && (queueStore.status.length || queueStore.status.in_progress)) {
     return 'Queue';
@@ -491,6 +505,12 @@ const hasDerived = (doc: DocumentRow) => {
   return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages);
 };
 
+const visibleDocuments = computed(() => {
+  if (analysisFilter.value === 'all') return documents.value;
+  const shouldBeAnalyzed = analysisFilter.value === 'analyzed';
+  return documents.value.filter((doc) => hasDerived(doc) === shouldBeAnalyzed);
+});
+
 const formatDate = (value?: string | null) => {
   if (!value) return '';
   const parsed = new Date(value);
@@ -523,5 +543,3 @@ watch(ordering, async () => {
   await load();
 });
 </script>
-
-
