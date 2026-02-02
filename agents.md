@@ -304,3 +304,4 @@ All model names must be configurable via environment variables.
 - Feature: Added Local override badge in document list.
 - Fix: Chunk Qdrant upserts to stay under 32MB payload limit.
 - Fix: Refresh worker lock in a background thread to avoid lock loss during long tasks.
+- Note: Worker lock loss was observed during long jobs; TTL bumped to 5 minutes and lock refresh runs in a background thread. If it still exits, check Redis connectivity or multiple worker instances.
