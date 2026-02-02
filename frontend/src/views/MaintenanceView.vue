@@ -36,13 +36,13 @@
         <div>
           <h3 class="text-lg font-semibold text-rose-700 dark:text-rose-300">Clear all intelligence data</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            Removes embeddings, suggestions, and vision OCR data without reprocessing.
+            Removes all documents and intelligence data without reprocessing.
           </p>
         </div>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
           :disabled="clearAllLoading"
-          @click="confirmClearAll"
+          @click="openClearAllModal"
         >
           <span v-if="clearAllLoading" class="inline-flex items-center gap-2">
             <Loader2 class="h-4 w-4 animate-spin" />
@@ -55,9 +55,9 @@
         This action cannot be undone. Paperless data is not modified.
       </div>
       <div v-if="clearAllResult" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-        Cleared {{ clearAllResult.cleared_embeddings }} embeddings, {{ clearAllResult.cleared_suggestions }} suggestions,
-        {{ clearAllResult.cleared_page_texts }} vision OCR rows. Qdrant deleted: {{ clearAllResult.qdrant_deleted }},
-        errors: {{ clearAllResult.qdrant_errors }}.
+        Removed {{ clearAllResult.cleared_documents }} documents, {{ clearAllResult.cleared_embeddings }} embeddings,
+        {{ clearAllResult.cleared_suggestions }} suggestions, {{ clearAllResult.cleared_page_texts }} vision OCR rows.
+        Qdrant deleted: {{ clearAllResult.qdrant_deleted }}, errors: {{ clearAllResult.qdrant_errors }}.
       </div>
     </section>
 
@@ -291,6 +291,48 @@
       </div>
     </div>
   </div>
+  <div v-if="showClearAllModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div class="w-full max-w-xl rounded-2xl border border-rose-300 bg-white p-6 shadow-xl dark:border-rose-900/60 dark:bg-slate-900">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-semibold text-rose-700">Delete all documents & intelligence data?</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            This removes every document plus embeddings, suggestions, and vision OCR data.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+        <strong>Warning:</strong> This cannot be undone. Paperless is not modified, but all local documents are deleted.
+      </div>
+
+      <label class="mt-4 flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-200">
+        <input type="checkbox" v-model="clearAllArmed" class="h-4 w-4 rounded border-rose-300 text-rose-600" />
+        I understand this will permanently delete all local documents and intelligence data.
+      </label>
+
+      <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+        <button
+          class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+          @click="closeClearAllModal"
+          :disabled="clearAllLoading"
+        >
+          Cancel
+        </button>
+        <button
+          class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500"
+          :disabled="!clearAllArmed || clearAllLoading"
+          @click="confirmClearAll"
+        >
+          <span v-if="clearAllLoading" class="inline-flex items-center gap-2">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Deleting...
+          </span>
+          <span v-else>Yes, delete everything</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -311,6 +353,8 @@ const { runtime } = storeToRefs(statusStore);
 const showReprocessModal = ref(false);
 const reprocessRunning = ref(false);
 const copiedKey = ref<string | null>(null);
+const showClearAllModal = ref(false);
+const clearAllArmed = ref(false);
 
 const isProcessing = computed(() => syncStatus.value.status === 'running' || embedStatus.value.status === 'running');
 
@@ -345,6 +389,7 @@ const suggestionsResult = ref<{ deleted: number } | null>(null);
 const embeddingsResult = ref<{ deleted: number; qdrant_deleted: number; qdrant_errors: number } | null>(null);
 const clearAllLoading = ref(false);
 const clearAllResult = ref<{
+  cleared_documents: number;
   cleared_embeddings: number;
   cleared_page_texts: number;
   cleared_suggestions: number;
@@ -431,20 +476,29 @@ const copyValue = async (value: string, key: string) => {
   }
 };
 
+const openClearAllModal = () => {
+  clearAllArmed.value = false;
+  showClearAllModal.value = true;
+};
+
+const closeClearAllModal = () => {
+  showClearAllModal.value = false;
+};
+
 const confirmClearAll = async () => {
-  const ok = window.confirm('Clear all intelligence data (embeddings, suggestions, vision OCR) for every document? This cannot be undone.');
-  if (!ok) return;
   clearAllLoading.value = true;
   clearAllResult.value = null;
   try {
     const result = await documentsStore.clearAllIntelligence();
     clearAllResult.value = {
+      cleared_documents: result.cleared_documents ?? 0,
       cleared_embeddings: result.cleared_embeddings ?? 0,
       cleared_page_texts: result.cleared_page_texts ?? 0,
       cleared_suggestions: result.cleared_suggestions ?? 0,
       qdrant_deleted: result.qdrant_deleted ?? 0,
       qdrant_errors: result.qdrant_errors ?? 0,
     };
+    showClearAllModal.value = false;
   } finally {
     clearAllLoading.value = false;
   }

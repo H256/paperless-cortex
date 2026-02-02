@@ -342,6 +342,7 @@ class ResetIntelligenceResponse(BaseModel):
 
 
 class ClearIntelligenceResponse(BaseModel):
+    cleared_documents: int
     cleared_embeddings: int
     cleared_page_texts: int
     cleared_suggestions: int

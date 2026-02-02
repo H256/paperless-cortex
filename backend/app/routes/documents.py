@@ -19,6 +19,8 @@ from app.models import (
     Tag,
     Correspondent,
     DocumentNote,
+    SuggestionAudit,
+    document_tags,
 )
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
@@ -925,6 +927,7 @@ def clear_intelligence(
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
+    doc_count = db.query(Document).count()
     doc_ids = [row.doc_id for row in db.query(DocumentEmbedding.doc_id).all()]
     cleared_embeddings = len(doc_ids)
     cleared_page_texts = db.query(DocumentPageText).count()
@@ -932,6 +935,10 @@ def clear_intelligence(
     db.execute(delete(DocumentEmbedding))
     db.execute(delete(DocumentPageText))
     db.execute(delete(DocumentSuggestion))
+    db.execute(delete(SuggestionAudit))
+    db.execute(delete(DocumentNote))
+    db.execute(delete(document_tags))
+    db.execute(delete(Document))
     db.commit()
     qdrant_deleted = 0
     qdrant_errors = 0
@@ -942,6 +949,7 @@ def clear_intelligence(
         except Exception:
             qdrant_errors += 1
     return {
+        "cleared_documents": doc_count,
         "cleared_embeddings": cleared_embeddings,
         "cleared_page_texts": cleared_page_texts,
         "cleared_suggestions": cleared_suggestions,

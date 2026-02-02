@@ -83,6 +83,7 @@ export type ProcessMissingParams = {
 };
 export type ResetIntelligenceResponse = { cleared_embeddings: number; cleared_page_texts: number; cleared_suggestions: number };
 export type ClearIntelligenceResponse = {
+  cleared_documents: number;
   cleared_embeddings: number;
   cleared_page_texts: number;
   cleared_suggestions: number;
