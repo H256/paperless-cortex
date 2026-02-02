@@ -56,15 +56,6 @@
           {{ syncing ? 'Working...' : 'Continue processing' }}
         </button>
         <button
-          class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500"
-          :disabled="syncing || isProcessing"
-          @click="openReprocessModal"
-          title="Reset intelligence data and reprocess everything"
-        >
-          <RefreshCcw class="h-4 w-4" />
-          Reprocess all
-        </button>
-        <button
           v-if="showCancel"
           class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
           @click="cancelProcessing"
@@ -340,56 +331,11 @@
         </div>
       </div>
     </div>
-    <div v-if="showReprocessModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-      <div class="w-full max-w-xl rounded-2xl border border-rose-200 bg-white p-6 shadow-xl dark:border-rose-900/50 dark:bg-slate-900">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-lg font-semibold text-rose-700">Reprocess all documents?</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">
-              This wipes all intelligence data (embeddings, suggestions, OCR layers) and rebuilds from scratch.
-            </p>
-          </div>
-        </div>
-
-        <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-          This action cannot be undone. Paperless data is not modified.
-        </div>
-
-        <div v-if="syncStatus.status === 'running'" class="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200">
-          <div class="flex items-center gap-2">
-            <Loader2 class="h-4 w-4 animate-spin" />
-            Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA {{ etaText }}
-          </div>
-        </div>
-
-        <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-            @click="closeReprocessModal"
-            :disabled="reprocessRunning"
-          >
-            Cancel
-          </button>
-          <button
-            class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500"
-            :disabled="syncing || isProcessing || reprocessRunning"
-            @click="confirmReprocessAll"
-          >
-            <span v-if="reprocessRunning" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Starting...
-            </span>
-            <span v-else>Yes, reprocess all</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, watch, ref, reactive } from 'vue';
-import { ChevronDown, ExternalLink, Loader2, RefreshCcw, RefreshCw, XCircle } from 'lucide-vue-next';
+import { ChevronDown, ExternalLink, Loader2, RefreshCw, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
@@ -430,9 +376,7 @@ const {
 const { status: queueStatus } = storeToRefs(queueStore);
 
 const showPreviewModal = computed(() => processPreview.value !== null);
-const showReprocessModal = ref(false);
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all');
-const reprocessRunning = ref(false);
 const modelFilter = ref('');
 const processOptions = reactive({
   includeVisionOcr: true,
@@ -581,24 +525,6 @@ const openPreview = async () => {
   await documentsStore.continueProcessingPreview(processParams());
 };
 
-const openReprocessModal = () => {
-  showReprocessModal.value = true;
-};
-
-const closeReprocessModal = () => {
-  showReprocessModal.value = false;
-};
-
-const confirmReprocessAll = async () => {
-  startPolling();
-  reprocessRunning.value = true;
-  try {
-    await documentsStore.reprocessAll();
-    showReprocessModal.value = false;
-  } finally {
-    reprocessRunning.value = false;
-  }
-};
 
 const closePreview = () => {
   documentsStore.clearProcessPreview();

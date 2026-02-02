@@ -34,6 +34,7 @@ from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_docs_front, enqueue_task_front, enqueue_task_sequence_front
 from app.services.vision_ocr import render_pdf_pages
+from app.services.embeddings import delete_points_for_doc
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
@@ -48,6 +49,9 @@ from app.api_models import (
     SuggestionsResponse,
     ProcessMissingResponse,
     ResetIntelligenceResponse,
+    DeleteEmbeddingsResponse,
+    DeleteSuggestionsResponse,
+    DeleteVisionOcrResponse,
 )
 from app.services.queue import enqueue_task_sequence
 from sqlalchemy import delete
@@ -912,4 +916,52 @@ def reset_intelligence(
         "cleared_embeddings": cleared_embeddings,
         "cleared_page_texts": cleared_page_texts,
         "cleared_suggestions": cleared_suggestions,
+    }
+
+
+@router.post("/delete-vision-ocr", response_model=DeleteVisionOcrResponse)
+def delete_vision_ocr(
+    db: Session = Depends(get_db),
+):
+    deleted = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.source == "vision_ocr")
+        .count()
+    )
+    db.execute(delete(DocumentPageText).where(DocumentPageText.source == "vision_ocr"))
+    db.commit()
+    return {"deleted": deleted}
+
+
+@router.post("/delete-suggestions", response_model=DeleteSuggestionsResponse)
+def delete_suggestions(
+    db: Session = Depends(get_db),
+):
+    deleted = db.query(DocumentSuggestion).count()
+    db.execute(delete(DocumentSuggestion))
+    db.commit()
+    return {"deleted": deleted}
+
+
+@router.post("/delete-embeddings", response_model=DeleteEmbeddingsResponse)
+def delete_embeddings(
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    doc_ids = [row.doc_id for row in db.query(DocumentEmbedding.doc_id).all()]
+    deleted = len(doc_ids)
+    db.execute(delete(DocumentEmbedding))
+    db.commit()
+    qdrant_deleted = 0
+    qdrant_errors = 0
+    for doc_id in doc_ids:
+        try:
+            delete_points_for_doc(settings, doc_id)
+            qdrant_deleted += 1
+        except Exception:
+            qdrant_errors += 1
+    return {
+        "deleted": deleted,
+        "qdrant_deleted": qdrant_deleted,
+        "qdrant_errors": qdrant_errors,
     }

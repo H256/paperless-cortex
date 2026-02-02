@@ -335,6 +335,20 @@ class ResetIntelligenceResponse(BaseModel):
     cleared_suggestions: int
 
 
+class DeleteEmbeddingsResponse(BaseModel):
+    deleted: int
+    qdrant_deleted: int
+    qdrant_errors: int
+
+
+class DeleteSuggestionsResponse(BaseModel):
+    deleted: int
+
+
+class DeleteVisionOcrResponse(BaseModel):
+    deleted: int
+
+
 class ChatCitation(BaseModel):
     id: int
     doc_id: Optional[int] = None
