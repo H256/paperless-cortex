@@ -101,7 +101,8 @@
         </div>
       </div>
     </footer>
-    <div class="fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-2">
+    <ToastHost />
+    <div class="fixed right-4 top-4 z-40 flex w-full max-w-sm flex-col gap-2">
       <div
         v-for="err in errorStore.errors"
         :key="err.id"
@@ -124,6 +125,7 @@
 import { FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import StatusLight from './components/StatusLight.vue';
+import ToastHost from './components/ToastHost.vue';
 import { useQueueStore } from './stores/queueStore';
 import { useStatusStore } from './stores/statusStore';
 import { useErrorStore } from './stores/errorStore';

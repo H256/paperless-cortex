@@ -269,9 +269,11 @@ import { RefreshCcw, Loader2 } from 'lucide-vue-next';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
 import { useStatusStore } from '../stores/statusStore';
+import { useToastStore } from '../stores/toastStore';
 
 const documentsStore = useDocumentsStore();
 const statusStore = useStatusStore();
+const toastStore = useToastStore();
 
 const { syncing, syncStatus, embedStatus } = storeToRefs(documentsStore);
 const { runtime } = storeToRefs(statusStore);
@@ -382,6 +384,7 @@ const copyValue = async (value: string, key: string) => {
   try {
     await navigator.clipboard.writeText(value);
     copiedKey.value = key;
+    toastStore.push('Copied to clipboard', 'success', 'Copied');
     window.setTimeout(() => {
       if (copiedKey.value === key) copiedKey.value = null;
     }, 1200);
