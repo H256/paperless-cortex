@@ -773,6 +773,68 @@
         ],
         "summary": "Process Missing",
         "operationId": "process_missing_documents_process_missing_post",
+        "parameters": [
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dry Run"
+            }
+          },
+          {
+            "name": "include_vision_ocr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Vision Ocr"
+            }
+          },
+          {
+            "name": "include_embeddings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings"
+            }
+          },
+          {
+            "name": "include_suggestions_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Paperless"
+            }
+          },
+          {
+            "name": "include_suggestions_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Vision"
+            }
+          },
+          {
+            "name": "embeddings_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "auto",
+              "title": "Embeddings Mode"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -780,6 +842,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProcessMissingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -801,6 +873,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ResetIntelligenceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/clear-intelligence": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Clear Intelligence",
+        "operationId": "clear_intelligence_documents_clear_intelligence_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearIntelligenceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/delete-vision-ocr": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Vision Ocr",
+        "operationId": "delete_vision_ocr_documents_delete_vision_ocr_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteVisionOcrResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/delete-suggestions": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Suggestions",
+        "operationId": "delete_suggestions_documents_delete_suggestions_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSuggestionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/delete-embeddings": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Embeddings",
+        "operationId": "delete_embeddings_documents_delete_embeddings_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteEmbeddingsResponse"
                 }
               }
             }
@@ -1081,6 +1237,16 @@
               "default": false,
               "title": "Mark Missing"
             }
+          },
+          {
+            "name": "insert_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Insert Only"
+            }
           }
         ],
         "responses": {
@@ -1188,6 +1354,16 @@
               "type": "boolean",
               "default": false,
               "title": "Force Embed"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Priority"
             }
           }
         ],
@@ -1907,6 +2083,88 @@
         }
       }
     },
+    "/queue/move-top": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Move Top",
+        "operationId": "move_top_queue_move_top_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueMoveEdgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueMoveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/move-bottom": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Move Bottom",
+        "operationId": "move_bottom_queue_move_bottom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueMoveEdgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueMoveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/queue/remove": {
       "post": {
         "tags": [
@@ -2324,6 +2582,44 @@
         ],
         "title": "ChatResponse"
       },
+      "ClearIntelligenceResponse": {
+        "properties": {
+          "cleared_documents": {
+            "type": "integer",
+            "title": "Cleared Documents"
+          },
+          "cleared_embeddings": {
+            "type": "integer",
+            "title": "Cleared Embeddings"
+          },
+          "cleared_page_texts": {
+            "type": "integer",
+            "title": "Cleared Page Texts"
+          },
+          "cleared_suggestions": {
+            "type": "integer",
+            "title": "Cleared Suggestions"
+          },
+          "qdrant_deleted": {
+            "type": "integer",
+            "title": "Qdrant Deleted"
+          },
+          "qdrant_errors": {
+            "type": "integer",
+            "title": "Qdrant Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cleared_documents",
+          "cleared_embeddings",
+          "cleared_page_texts",
+          "cleared_suggestions",
+          "qdrant_deleted",
+          "qdrant_errors"
+        ],
+        "title": "ClearIntelligenceResponse"
+      },
       "CorrespondentResponse": {
         "properties": {
           "id": {
@@ -2430,6 +2726,55 @@
         },
         "type": "object",
         "title": "CorrespondentsPageResponse"
+      },
+      "DeleteEmbeddingsResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          },
+          "qdrant_deleted": {
+            "type": "integer",
+            "title": "Qdrant Deleted"
+          },
+          "qdrant_errors": {
+            "type": "integer",
+            "title": "Qdrant Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted",
+          "qdrant_deleted",
+          "qdrant_errors"
+        ],
+        "title": "DeleteEmbeddingsResponse"
+      },
+      "DeleteSuggestionsResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "DeleteSuggestionsResponse"
+      },
+      "DeleteVisionOcrResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "DeleteVisionOcrResponse"
       },
       "DocumentLocalResponse": {
         "properties": {
@@ -3012,6 +3357,17 @@
             ],
             "title": "Score"
           },
+          "combined_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combined Score"
+          },
           "source": {
             "anyOf": [
               {
@@ -3440,6 +3796,77 @@
           "tasks": {
             "type": "integer",
             "title": "Tasks"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          },
+          "missing_docs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Docs"
+          },
+          "missing_vision_ocr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Vision Ocr"
+          },
+          "missing_embeddings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Embeddings"
+          },
+          "missing_embeddings_vision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Embeddings Vision"
+          },
+          "missing_suggestions_paperless": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Suggestions Paperless"
+          },
+          "missing_suggestions_vision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Suggestions Vision"
           }
         },
         "type": "object",
@@ -3514,6 +3941,19 @@
           "enabled"
         ],
         "title": "QueueEnqueueResponse"
+      },
+      "QueueMoveEdgeRequest": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index"
+        ],
+        "title": "QueueMoveEdgeRequest"
       },
       "QueueMoveRequest": {
         "properties": {
@@ -3733,6 +4173,28 @@
               }
             ],
             "title": "Paused"
+          },
+          "last_run_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run Seconds"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
           }
         },
         "type": "object",
@@ -3809,6 +4271,72 @@
               }
             ],
             "title": "Paperless Base Url"
+          },
+          "ollama_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ollama Base Url"
+          },
+          "qdrant_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qdrant Url"
+          },
+          "redis_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redis Host"
+          },
+          "ollama_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ollama Model"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "vision_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vision Model"
           },
           "latency_ms": {
             "anyOf": [

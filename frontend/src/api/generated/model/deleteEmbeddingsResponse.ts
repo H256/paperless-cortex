@@ -5,8 +5,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SyncDocumentSyncDocumentsDocIdPostParams = {
-embed?: boolean | null;
-force_embed?: boolean;
-priority?: boolean;
-};
+export interface DeleteEmbeddingsResponse {
+  deleted: number;
+  qdrant_deleted: number;
+  qdrant_errors: number;
+}

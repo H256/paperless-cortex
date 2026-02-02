@@ -5,8 +5,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ResetIntelligenceResponse {
+export interface ClearIntelligenceResponse {
+  cleared_documents: number;
   cleared_embeddings: number;
   cleared_page_texts: number;
   cleared_suggestions: number;
+  qdrant_deleted: number;
+  qdrant_errors: number;
 }

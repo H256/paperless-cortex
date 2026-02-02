@@ -1,5 +1,4 @@
 import { unwrap } from '../api/orval';
-import { request } from './http';
 import {
   listDocumentsDocumentsGet,
   getDocumentStatsDocumentsStatsGet,
@@ -22,6 +21,12 @@ import {
   ingestEmbeddingsEmbeddingsIngestPost,
   ingestDocumentsEmbeddingsIngestDocsPost,
   cancelEmbeddingsEmbeddingsCancelPost,
+  processMissingDocumentsProcessMissingPost,
+  resetIntelligenceDocumentsResetIntelligencePost,
+  clearIntelligenceDocumentsClearIntelligencePost,
+  deleteVisionOcrDocumentsDeleteVisionOcrPost,
+  deleteSuggestionsDocumentsDeleteSuggestionsPost,
+  deleteEmbeddingsDocumentsDeleteEmbeddingsPost,
 } from '../api/generated/client';
 import type {
   ApplyFieldSuggestionResponse,
@@ -52,6 +57,13 @@ import type {
   SuggestionFieldRequest,
   SuggestionsResponse,
   SuggestionsResponseSuggestions,
+  ProcessMissingResponse,
+  ProcessMissingDocumentsProcessMissingPostParams,
+  ResetIntelligenceResponse,
+  ClearIntelligenceResponse,
+  DeleteVisionOcrResponse,
+  DeleteSuggestionsResponse,
+  DeleteEmbeddingsResponse,
   SyncCancelResponse,
   SyncDocumentResponse,
   SyncDocumentsResponse,
@@ -72,27 +84,7 @@ export type EmbedStatus = EmbeddingStatusResponse;
 export type DocumentStats = DocumentStatsResponse;
 export type PageText = PageTextOut;
 export type SuggestionPayload = SuggestionsResponseSuggestions;
-export type ProcessMissingResponse = { enabled: boolean; docs: number; enqueued: number; tasks: number };
-export type ProcessMissingParams = {
-  dry_run?: boolean;
-  include_vision_ocr?: boolean;
-  include_embeddings?: boolean;
-  include_suggestions_paperless?: boolean;
-  include_suggestions_vision?: boolean;
-  embeddings_mode?: 'auto' | 'paperless' | 'vision';
-};
-export type ResetIntelligenceResponse = { cleared_embeddings: number; cleared_page_texts: number; cleared_suggestions: number };
-export type ClearIntelligenceResponse = {
-  cleared_documents: number;
-  cleared_embeddings: number;
-  cleared_page_texts: number;
-  cleared_suggestions: number;
-  qdrant_deleted: number;
-  qdrant_errors: number;
-};
-export type DeleteEmbeddingsResponse = { deleted: number; qdrant_deleted: number; qdrant_errors: number };
-export type DeleteSuggestionsResponse = { deleted: number };
-export type DeleteVisionOcrResponse = { deleted: number };
+export type ProcessMissingParams = ProcessMissingDocumentsProcessMissingPostParams;
 
 export const listDocuments = (params: ListDocumentsDocumentsGetParams) =>
   unwrap<DocumentsPageResponse>(listDocumentsDocumentsGet(params));
@@ -172,19 +164,19 @@ export const ingestEmbeddingsForDocs = (ids: number[], params: IngestDocumentsEm
   unwrap<EmbeddingIngestResponse>(ingestDocumentsEmbeddingsIngestDocsPost(ids, params));
 
 export const processMissing = (params?: ProcessMissingParams) =>
-  request<ProcessMissingResponse>('/documents/process-missing', { method: 'POST', params });
+  unwrap<ProcessMissingResponse>(processMissingDocumentsProcessMissingPost(params));
 
 export const resetIntelligence = () =>
-  request<ResetIntelligenceResponse>('/documents/reset-intelligence', { method: 'POST' });
+  unwrap<ResetIntelligenceResponse>(resetIntelligenceDocumentsResetIntelligencePost());
 
 export const clearIntelligence = () =>
-  request<ClearIntelligenceResponse>('/documents/clear-intelligence', { method: 'POST' });
+  unwrap<ClearIntelligenceResponse>(clearIntelligenceDocumentsClearIntelligencePost());
 
 export const deleteVisionOcr = () =>
-  request<DeleteVisionOcrResponse>('/documents/delete-vision-ocr', { method: 'POST' });
+  unwrap<DeleteVisionOcrResponse>(deleteVisionOcrDocumentsDeleteVisionOcrPost());
 
 export const deleteSuggestions = () =>
-  request<DeleteSuggestionsResponse>('/documents/delete-suggestions', { method: 'POST' });
+  unwrap<DeleteSuggestionsResponse>(deleteSuggestionsDocumentsDeleteSuggestionsPost());
 
 export const deleteEmbeddings = () =>
-  request<DeleteEmbeddingsResponse>('/documents/delete-embeddings', { method: 'POST' });
+  unwrap<DeleteEmbeddingsResponse>(deleteEmbeddingsDocumentsDeleteEmbeddingsPost());
