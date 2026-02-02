@@ -177,7 +177,8 @@ export const useDocumentsStore = defineStore('documents', {
           embed: false,
           force_embed: false,
           mark_missing: true,
-        } as any);
+          insert_only: true,
+        });
         const preview = await processMissing({ dry_run: true });
         this.processPreview = {
           docs: preview.docs,

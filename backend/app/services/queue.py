@@ -24,6 +24,8 @@ STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
 WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
 WORKER_HEARTBEAT_TTL = 30
+WORKER_LOCK_KEY = "paperless_intelligence:worker_lock"
+WORKER_LOCK_TTL = 60
 CANCEL_KEY = "paperless_intelligence:queue_cancel"
 CANCEL_TTL = 300
 PAUSE_KEY = "paperless_intelligence:queue_paused"
@@ -96,20 +98,20 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
     return 1
 
 
-def enqueue_task_sequence_front(settings: Settings, tasks: list[dict]) -> int:
+def enqueue_task_sequence_front(settings: Settings, tasks: list[dict], force: bool = False) -> int:
     if not tasks:
         return 0
     # lpush in reverse so the first task runs first
-    return _enqueue_tasks_bulk(settings, list(reversed(tasks)), front=True)
+    return _enqueue_tasks_bulk(settings, list(reversed(tasks)), front=True, force=force)
 
 
 def enqueue_task_sequence(settings: Settings, tasks: list[dict]) -> int:
     if not tasks:
         return 0
-    return _enqueue_tasks_bulk(settings, tasks, front=False)
+    return _enqueue_tasks_bulk(settings, tasks, front=False, force=False)
 
 
-def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool) -> int:
+def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool, force: bool) -> int:
     client = _get_client(settings)
     if not client:
         return 0
@@ -123,6 +125,19 @@ def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool) -> i
         batch = tasks[i : i + batch_size]
         keys = [_task_key(task) for task in batch]
         payloads = [__import__("json").dumps(task) for task in batch]
+        if front and force:
+            pipe = client.pipeline()
+            for key, payload in zip(keys, payloads):
+                pipe.sadd(QUEUE_SET, key)
+                pipe.lrem(QUEUE_KEY, 0, payload)
+                pipe.lpush(QUEUE_KEY, payload)
+            results = pipe.execute()
+            added_batch = sum(1 for idx in range(0, len(results), 3) if results[idx])
+            if added_batch:
+                client.incrby(STATS_TOTAL, added_batch)
+            added += added_batch
+            continue
+
         pipe = client.pipeline()
         for key in keys:
             pipe.sadd(QUEUE_SET, key)
@@ -384,6 +399,42 @@ def mark_worker_heartbeat(settings: Settings) -> None:
         return
     now = int(time.time())
     client.set(WORKER_HEARTBEAT_KEY, now, ex=WORKER_HEARTBEAT_TTL)
+
+
+def acquire_worker_lock(settings: Settings, token: str) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    try:
+        return bool(client.set(WORKER_LOCK_KEY, token, nx=True, ex=WORKER_LOCK_TTL))
+    except Exception:
+        return False
+
+
+def refresh_worker_lock(settings: Settings, token: str) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    try:
+        current = client.get(WORKER_LOCK_KEY)
+        if current != token:
+            return False
+        client.set(WORKER_LOCK_KEY, token, ex=WORKER_LOCK_TTL)
+        return True
+    except Exception:
+        return False
+
+
+def release_worker_lock(settings: Settings, token: str) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    try:
+        current = client.get(WORKER_LOCK_KEY)
+        if current == token:
+            client.delete(WORKER_LOCK_KEY)
+    except Exception:
+        return
 
 
 def worker_status(settings: Settings) -> tuple[bool, str]:

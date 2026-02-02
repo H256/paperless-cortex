@@ -66,7 +66,7 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
     async resync(id: number, doReembed: boolean) {
       this.syncing = true;
       try {
-        await syncDocument(id, { embed: doReembed, force_embed: doReembed });
+        await syncDocument(id, { embed: doReembed, force_embed: doReembed, priority: true });
         await this.loadDocument(id);
       } finally {
         this.syncing = false;

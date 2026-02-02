@@ -274,3 +274,6 @@ All model names must be configurable via environment variables.
 - Search reranking: oversample + lexical/phrase boost, combined_score surfaced, top_k enforced.
 - UI/UX: dark theme toggle, processing panel (dry-run + reprocess), queue controls, search result actions.
 - Viewer/citations: PDF preview flow and highlight support in place; continue refining details page UX tomorrow.
+
+### 2026-02-02
+- Fix: Continue processing uses insert-only sync to avoid overwriting document edits, reprocess prioritizes queued tasks, and worker lock enforces a single queue worker.

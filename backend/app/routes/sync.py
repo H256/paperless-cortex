@@ -30,7 +30,7 @@ from app.services.embeddings import (
 )
 from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services.page_text_store import upsert_page_texts
-from app.services.queue import enqueue_task_sequence
+from app.services.queue import enqueue_task_sequence, enqueue_task_sequence_front
 from app.api_models import (
     SyncDocumentsResponse,
     SyncStatusResponse,
@@ -55,6 +55,7 @@ def sync_documents(
     page_only: bool = False,
     force_embed: bool = False,
     mark_missing: bool = False,
+    insert_only: bool = False,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
@@ -77,6 +78,7 @@ def sync_documents(
     db.commit()
 
     upserted = 0
+    processed = 0
     seen_ids: set[int] = set()
     cache = {"correspondents": set(), "document_types": set(), "tags": set()}
     page = max(1, page)
@@ -96,6 +98,7 @@ def sync_documents(
         results = payload.get("results", [])
         if not results:
             break
+        inserted_ids: list[int] = []
         db.refresh(state)
         if state.cancel_requested:
             state.status = "cancelled"
@@ -109,15 +112,24 @@ def sync_documents(
             }
         for raw in results:
             data = DocumentIn.model_validate(raw)
-            _upsert_document(db, settings, data, cache)
             if mark_missing and not incremental:
                 seen_ids.add(data.id)
+            if insert_only:
+                existing = db.get(Document, data.id)
+                if existing:
+                    processed += 1
+                    state.processed = processed
+                    continue
+            _upsert_document(db, settings, data, cache)
+            inserted_ids.append(data.id)
             upserted += 1
-            state.processed = upserted
+            processed += 1
+            state.processed = processed
         db.commit()
         if embed:
-            ids = [DocumentIn.model_validate(raw).id for raw in results]
-            embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
+            ids = inserted_ids if insert_only else [DocumentIn.model_validate(raw).id for raw in results]
+            if ids:
+                embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
         if not payload.get("next"):
             break
         if page_only:
@@ -319,6 +331,7 @@ def sync_document(
     db: Session = Depends(get_db),
     embed: bool | None = None,
     force_embed: bool = False,
+    priority: bool = False,
 ):
     logger = __import__("logging").getLogger(__name__)
     if embed is None:
@@ -343,7 +356,10 @@ def sync_document(
                 else:
                     tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
                     tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-                enqueue_task_sequence(settings, tasks)
+                if priority:
+                    enqueue_task_sequence_front(settings, tasks, force=True)
+                else:
+                    enqueue_task_sequence(settings, tasks)
                 embed_state = db.get(SyncState, "embeddings")
                 if not embed_state:
                     embed_state = SyncState(key="embeddings")
