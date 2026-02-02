@@ -283,3 +283,4 @@ All model names must be configurable via environment variables.
 - Fix: Queue stats now record last-run duration and UI shows queue-based ETA with a "Last run" timestamp.
 - Chore: Added verification checklist for the 2026-02-02 changes.
 - Chore: Alembic heads merged after adding AI model metadata migration.
+- Fix: Continue-processing modal now shows enqueue progress with disabled buttons and a loader while queueing starts.

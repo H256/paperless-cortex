@@ -303,19 +303,29 @@
           </div>
         </div>
 
+        <div v-if="processStartResult" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          Enqueued {{ processStartResult.enqueued ?? 0 }} documents ({{ processStartResult.tasks ?? 0 }} tasks). Queue length: {{ queueStatus.length ?? 0 }},
+          in progress: {{ queueStatus.in_progress ?? 0 }}.
+        </div>
+
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
             class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click="closePreview"
+            :disabled="processStartLoading"
           >
             Cancel
           </button>
           <button
             class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            :disabled="documentsStore.processPreviewLoading || syncing"
+            :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing"
             @click="startFromPreview"
           >
-            Start processing
+            <span v-if="processStartLoading" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Enqueuing...
+            </span>
+            <span v-else>Start processing</span>
           </button>
         </div>
       </div>
@@ -391,6 +401,8 @@ const {
   embedStatus,
   stats,
   processPreview,
+  processStartLoading,
+  processStartResult,
 } = storeToRefs(documentsStore);
 
 const { status: queueStatus } = storeToRefs(queueStore);
@@ -567,7 +579,7 @@ const closePreview = () => {
 const startFromPreview = async () => {
   startPolling();
   await documentsStore.startProcessingFromPreview(processParams());
-  documentsStore.clearProcessPreview();
+  await queueStore.refreshStatus();
 };
 
 const cancelProcessing = async () => {

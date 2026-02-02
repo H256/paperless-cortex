@@ -68,6 +68,8 @@ export const useDocumentsStore = defineStore('documents', {
       docs?: number;
     },
     processPreviewLoading: false,
+    processStartLoading: false,
+    processStartResult: null as null | { enqueued?: number; tasks?: number },
   }),
   actions: {
     async load() {
@@ -207,17 +209,22 @@ export const useDocumentsStore = defineStore('documents', {
     },
     async startProcessingFromPreview(options?: ProcessMissingParams) {
       this.syncing = true;
+      this.processStartLoading = true;
+      this.processStartResult = null;
       try {
-        await processMissing(options);
+        const result = await processMissing(options);
+        this.processStartResult = { enqueued: result.enqueued, tasks: result.tasks };
         await this.fetchSyncStatus();
         await this.fetchEmbedStatus();
         await this.load();
       } finally {
         this.syncing = false;
+        this.processStartLoading = false;
       }
     },
     clearProcessPreview() {
       this.processPreview = null;
+      this.processStartResult = null;
     },
     async reprocessAll() {
       this.syncing = true;
