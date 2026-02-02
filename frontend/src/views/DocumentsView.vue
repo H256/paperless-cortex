@@ -240,6 +240,12 @@
           </div>
         </div>
 
+        <div v-if="syncStatus.status === 'running'" class="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200">
+          <div class="flex items-center gap-2">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA {{ etaText }}
+          </div>
+        </div>
         <div v-if="documentsStore.processPreviewLoading" class="mt-4 text-sm text-slate-500 dark:text-slate-400">Calculating...</div>
         <div v-else class="mt-4 grid gap-3 sm:grid-cols-2">
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
