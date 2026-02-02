@@ -302,3 +302,4 @@ All model names must be configurable via environment variables.
 - Fix: Increased worker lock TTL to 5 minutes for long-running vision OCR tasks.
 - Fix: Document list now shows local edits (title/date/tags/correspondent) when local overrides exist.
 - Feature: Added Local override badge in document list.
+- Fix: Chunk Qdrant upserts to stay under 32MB payload limit.
