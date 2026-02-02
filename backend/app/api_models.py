@@ -96,6 +96,7 @@ class PaperlessDocument(BaseModel):
 
 class DocumentSummary(PaperlessDocument):
     correspondent_name: Optional[str] = None
+    local_cached: Optional[bool] = None
     has_embeddings: Optional[bool] = None
     has_suggestions: Optional[bool] = None
     has_vision_pages: Optional[bool] = None

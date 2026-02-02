@@ -296,3 +296,4 @@ All model names must be configurable via environment variables.
 - Chore: Regenerated OpenAPI client and routed all frontend API calls through it.
 - Fix: Clear-all action now falls back to direct API call if store method is missing.
 - Chore: Renamed clear-all section to "Wipe local data" and clarified Paperless remains unchanged.
+- Feature: Added local cache status in document list (Paperless only vs Paperless + Local).

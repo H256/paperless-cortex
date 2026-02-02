@@ -120,6 +120,12 @@ def list_documents(
         .filter(Document.id.in_(doc_ids))
         .all()
     }
+    local_ids = {
+        row.id
+        for row in db.query(Document.id)
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    }
     embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
     suggestion_rows = (
         db.query(DocumentSuggestion)
@@ -139,6 +145,7 @@ def list_documents(
         doc_id = doc.get("id")
         if doc_id is None:
             continue
+        doc["local_cached"] = doc_id in local_ids
         doc["has_embeddings"] = doc_id in embed_ids
         doc.update(analysis_by_doc.get(doc_id, {}))
         sources = suggestions_by_doc.get(doc_id, set())

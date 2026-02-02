@@ -3099,6 +3099,17 @@
             ],
             "title": "Correspondent Name"
           },
+          "local_cached": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Cached"
+          },
           "has_embeddings": {
             "anyOf": [
               {
