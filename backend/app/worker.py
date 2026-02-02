@@ -26,6 +26,7 @@ from app.services.queue import (
     mark_done,
     QUEUE_SET,
     mark_worker_heartbeat,
+    record_last_run,
     acquire_worker_lock,
     refresh_worker_lock,
     release_worker_lock,
@@ -373,6 +374,7 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             mark_in_progress(settings)
+            run_started = time.time()
             try:
                 with SessionLocal() as db:
                     if task_type == "sync":
@@ -396,6 +398,7 @@ def main() -> None:
                 logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
             finally:
                 mark_done(settings)
+                record_last_run(settings, time.time() - run_started)
                 if client:
                     if isinstance(task, dict):
                         source = task.get("source")

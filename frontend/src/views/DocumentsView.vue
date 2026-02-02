@@ -33,8 +33,11 @@
             <div v-if="syncStatus.status === 'running'">
               Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA {{ etaText }}
             </div>
-            <div v-if="embedStatus.status === 'running'">
-              {{ embedLabel }} {{ embedStatus.processed }} / {{ embedStatus.total }} ({{ embedPercent }}%) - ETA {{ embedEtaText }}
+            <div v-if="embedStatus.status === 'running' || hasQueuedWork">
+              {{ embedLabel }} {{ processingProcessed }} / {{ processingTotal }} ({{ processingPercent }}%) - ETA {{ processingEtaText }}
+            </div>
+            <div v-if="hasQueuedWork && lastRunText !== '--'" class="text-xs text-slate-500 dark:text-slate-400">
+              Last run: {{ lastRunText }}
             </div>
           </div>
         </div>
@@ -484,11 +487,40 @@ const etaText = computed(() => {
   const seconds = etaSec % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
-const embedPercent = computed(() => {
-  if (!embedStatus.value.total) return 0;
-  return Math.min(100, Math.round((embedStatus.value.processed / embedStatus.value.total) * 100));
+const formatDuration = (totalSeconds: number) => {
+  const safe = Math.max(0, Math.round(totalSeconds));
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const seconds = safe % 60;
+  return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const queueOutstanding = computed(() => (queueStatus.value.length ?? 0) + (queueStatus.value.in_progress ?? 0));
+const queueProcessed = computed(() => queueStatus.value.done ?? 0);
+const queueTotal = computed(() => Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value));
+const queuePercent = computed(() => {
+  if (!queueTotal.value) return 0;
+  return Math.min(100, Math.round((queueProcessed.value / queueTotal.value) * 100));
 });
-const embedEtaText = computed(() => {
+const queueEtaText = computed(() => {
+  const lastRun = queueStatus.value.last_run_seconds ?? null;
+  if (!lastRun || !queueOutstanding.value) return '--';
+  return formatDuration(lastRun * queueOutstanding.value);
+});
+const lastRunText = computed(() => {
+  const lastRun = queueStatus.value.last_run_seconds ?? null;
+  if (!lastRun) return '--';
+  return formatDuration(lastRun);
+});
+
+const processingProcessed = computed(() => (hasQueuedWork.value ? queueProcessed.value : embedStatus.value.processed));
+const processingTotal = computed(() => (hasQueuedWork.value ? queueTotal.value : embedStatus.value.total));
+const processingPercent = computed(() => {
+  if (!processingTotal.value) return 0;
+  return Math.min(100, Math.round((processingProcessed.value / processingTotal.value) * 100));
+});
+const processingEtaText = computed(() => {
+  if (hasQueuedWork.value) return queueEtaText.value;
   if (embedStatus.value.eta_seconds !== null && embedStatus.value.eta_seconds !== undefined) {
     const minutes = Math.floor(embedStatus.value.eta_seconds / 60);
     const seconds = embedStatus.value.eta_seconds % 60;
@@ -501,10 +533,7 @@ const embedEtaText = computed(() => {
   const rate = embedStatus.value.processed / Math.max(1, elapsedMs / 1000);
   if (!embedStatus.value.total || rate <= 0) return '--';
   const remaining = embedStatus.value.total - embedStatus.value.processed;
-  const etaSec = Math.max(0, Math.round(remaining / rate));
-  const minutes = Math.floor(etaSec / 60);
-  const seconds = etaSec % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return formatDuration(remaining / rate);
 });
 
 const load = async () => {

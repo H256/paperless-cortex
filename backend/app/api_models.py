@@ -24,6 +24,8 @@ class QueueStatusResponse(BaseModel):
     in_progress: Optional[int] = None
     done: Optional[int] = None
     paused: Optional[bool] = None
+    last_run_seconds: Optional[float] = None
+    last_run_at: Optional[int] = None
 
 
 class QueueEnqueueResponse(BaseModel):

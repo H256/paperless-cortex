@@ -22,6 +22,8 @@ TASK_TYPES = [
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
+LAST_RUN_SECONDS_KEY = "paperless_intelligence:queue_last_run_seconds"
+LAST_RUN_AT_KEY = "paperless_intelligence:queue_last_run_at"
 WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
 WORKER_HEARTBEAT_TTL = 30
 WORKER_LOCK_KEY = "paperless_intelligence:worker_lock"
@@ -219,11 +221,21 @@ def queue_stats(settings: Settings) -> dict[str, int] | None:
     in_progress = int(client.get(STATS_IN_PROGRESS) or 0)
     done = int(client.get(STATS_DONE) or 0)
     length = int(client.llen(QUEUE_KEY))
+    last_run_seconds_raw = client.get(LAST_RUN_SECONDS_KEY)
+    last_run_at = client.get(LAST_RUN_AT_KEY)
+    last_run_seconds = None
+    if last_run_seconds_raw is not None:
+        try:
+            last_run_seconds = float(last_run_seconds_raw)
+        except Exception:
+            last_run_seconds = None
     return {
         "length": length,
         "total": total,
         "in_progress": in_progress,
         "done": done,
+        "last_run_seconds": last_run_seconds,
+        "last_run_at": last_run_at,
     }
 
 
@@ -278,6 +290,17 @@ def mark_done(settings: Settings) -> None:
         return
     client.decr(STATS_IN_PROGRESS)
     client.incr(STATS_DONE)
+
+
+def record_last_run(settings: Settings, duration_seconds: float) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    try:
+        client.set(LAST_RUN_SECONDS_KEY, max(0.0, float(duration_seconds)))
+        client.set(LAST_RUN_AT_KEY, int(time.time()))
+    except Exception:
+        return
 
 
 def request_cancel(settings: Settings) -> None:

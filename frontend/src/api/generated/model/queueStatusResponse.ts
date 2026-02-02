@@ -12,4 +12,6 @@ export interface QueueStatusResponse {
   in_progress?: number | null;
   done?: number | null;
   paused?: boolean | null;
+  last_run_seconds?: number | null;
+  last_run_at?: number | null;
 }
