@@ -340,6 +340,7 @@ import { computed, onMounted, ref } from 'vue';
 import { RefreshCcw, Loader2 } from 'lucide-vue-next';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
+import { clearIntelligence } from '../services/documents';
 import { useStatusStore } from '../stores/statusStore';
 import { useToastStore } from '../stores/toastStore';
 
@@ -489,7 +490,8 @@ const confirmClearAll = async () => {
   clearAllLoading.value = true;
   clearAllResult.value = null;
   try {
-    const result = await documentsStore.clearAllIntelligence();
+    const clearAll = documentsStore.clearAllIntelligence ?? clearIntelligence;
+    const result = await clearAll();
     clearAllResult.value = {
       cleared_documents: result.cleared_documents ?? 0,
       cleared_embeddings: result.cleared_embeddings ?? 0,

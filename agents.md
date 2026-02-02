@@ -293,3 +293,4 @@ All model names must be configurable via environment variables.
 - Feature: Added reusable Toast component with copy-to-clipboard feedback.
 - Feature: Added "Clear all intelligence data" block to Operations page (no reprocessing).
 - Fix: Clear-all now deletes all local documents and uses a modal confirmation with an explicit checkbox.
+- Fix: Clear-all action now falls back to direct API call if store method is missing.
