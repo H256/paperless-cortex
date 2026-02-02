@@ -281,3 +281,4 @@ All model names must be configurable via environment variables.
 - Feature: Continue-processing modal now allows selecting which tasks to enqueue (vision OCR, embeddings with mode, and suggestions) and the preview updates accordingly.
 - Feature: Store AI model + processed timestamps for documents, suggestions, and vision OCR pages; surface analysis model on document list with a filter input.
 - Fix: Queue stats now record last-run duration and UI shows queue-based ETA with a "Last run" timestamp.
+- Chore: Added verification checklist for the 2026-02-02 changes.
