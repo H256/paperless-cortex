@@ -257,6 +257,40 @@
           </div>
         </div>
 
+        <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Processing options</div>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
+              <input type="checkbox" v-model="processOptions.includeVisionOcr" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+              Vision OCR
+            </label>
+            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
+              <input type="checkbox" v-model="processOptions.includeEmbeddings" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+              Embeddings
+            </label>
+            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
+              <input type="checkbox" v-model="processOptions.includeSuggestionsPaperless" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+              Suggestions (baseline)
+            </label>
+            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
+              <input type="checkbox" v-model="processOptions.includeSuggestionsVision" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+              Suggestions (vision)
+            </label>
+            <label class="flex flex-col text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+              Embeddings mode
+              <select
+                v-model="processOptions.embeddingsMode"
+                :disabled="!processOptions.includeEmbeddings"
+                class="mt-1 h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="auto">Auto (use vision when available)</option>
+                <option value="paperless">Paperless only</option>
+                <option value="vision">Vision only</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
             class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
@@ -310,7 +344,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref } from 'vue';
+import { computed, onMounted, watch, ref, reactive } from 'vue';
 import { ChevronDown, ExternalLink, Loader2, RefreshCcw, RefreshCw, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
@@ -352,6 +386,21 @@ const { status: queueStatus } = storeToRefs(queueStore);
 const showPreviewModal = computed(() => processPreview.value !== null);
 const showReprocessModal = ref(false);
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all');
+const processOptions = reactive({
+  includeVisionOcr: true,
+  includeEmbeddings: true,
+  includeSuggestionsPaperless: true,
+  includeSuggestionsVision: true,
+  embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
+});
+
+const processParams = () => ({
+  include_vision_ocr: processOptions.includeVisionOcr,
+  include_embeddings: processOptions.includeEmbeddings,
+  include_suggestions_paperless: processOptions.includeSuggestionsPaperless,
+  include_suggestions_vision: processOptions.includeSuggestionsVision,
+  embeddings_mode: processOptions.embeddingsMode,
+});
 
 const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
 const paperlessDocUrl = (id: number) =>
@@ -455,7 +504,7 @@ const load = async () => {
 
 const openPreview = async () => {
   startPolling();
-  await documentsStore.continueProcessingPreview();
+  await documentsStore.continueProcessingPreview(processParams());
 };
 
 const openReprocessModal = () => {
@@ -478,7 +527,7 @@ const closePreview = () => {
 
 const startFromPreview = async () => {
   startPolling();
-  await documentsStore.startProcessingFromPreview();
+  await documentsStore.startProcessingFromPreview(processParams());
   documentsStore.clearProcessPreview();
 };
 
@@ -538,6 +587,15 @@ onMounted(async () => {
   await load();
   startPolling();
 });
+
+watch(
+  () => ({ ...processOptions }),
+  async () => {
+    if (!showPreviewModal.value) return;
+    await documentsStore.refreshProcessPreview(processParams());
+  },
+  { deep: true }
+);
 
 watch(ordering, async () => {
   await load();

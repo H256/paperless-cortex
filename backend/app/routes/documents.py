@@ -751,11 +751,18 @@ def get_document_pdf(
 @router.post("/process-missing", response_model=ProcessMissingResponse)
 def process_missing(
     dry_run: bool = False,
+    include_vision_ocr: bool = True,
+    include_embeddings: bool = True,
+    include_suggestions_paperless: bool = True,
+    include_suggestions_vision: bool = True,
+    embeddings_mode: str = "auto",
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
     if not settings.queue_enabled:
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
+    if embeddings_mode not in ("auto", "paperless", "vision"):
+        raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
 
     docs = db.query(Document).all()
     embeddings = {
@@ -821,30 +828,34 @@ def process_missing(
         if need_vision_ocr:
             need_sugg_v = True
 
-        if need_vision_ocr:
+        selected = False
+        if include_vision_ocr and need_vision_ocr:
             tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
-        if need_embeddings:
-            if prefer_vision_embeddings:
-                tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
+            missing_vision += 1
+            selected = True
+        if include_embeddings and need_embeddings:
+            if embeddings_mode == "paperless":
+                task_type = "embeddings_paperless"
+            elif embeddings_mode == "vision":
+                task_type = "embeddings_vision"
             else:
-                tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-        if need_sugg_p:
+                task_type = "embeddings_vision" if prefer_vision_embeddings else "embeddings_paperless"
+            tasks.append({"doc_id": doc.id, "task": task_type})
+            missing_embeddings += 1
+            if task_type == "embeddings_vision":
+                missing_embeddings_vision += 1
+            selected = True
+        if include_suggestions_paperless and need_sugg_p:
             tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-        if need_sugg_v:
+            missing_sugg_p += 1
+            selected = True
+        if include_suggestions_vision and need_sugg_v:
             tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
+            missing_sugg_v += 1
+            selected = True
 
-        if tasks:
+        if selected:
             missing_docs += 1
-            if need_vision_ocr:
-                missing_vision += 1
-            if need_embeddings:
-                missing_embeddings += 1
-                if prefer_vision_embeddings:
-                    missing_embeddings_vision += 1
-            if need_sugg_p:
-                missing_sugg_p += 1
-            if need_sugg_v:
-                missing_sugg_v += 1
             if not dry_run:
                 enqueued_tasks += enqueue_task_sequence(settings, tasks)
                 enqueued_docs += 1

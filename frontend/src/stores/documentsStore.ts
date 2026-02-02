@@ -15,7 +15,7 @@ import {
   syncDocuments,
   syncDocument,
 } from '../services/documents';
-import { DocumentRow, DocumentStats, SyncStatus, EmbedStatus, Tag, Correspondent } from '../services/documents';
+import { DocumentRow, DocumentStats, SyncStatus, EmbedStatus, Tag, Correspondent, ProcessMissingParams } from '../services/documents';
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
@@ -165,7 +165,7 @@ export const useDocumentsStore = defineStore('documents', {
         this.syncing = false;
       }
     },
-    async continueProcessingPreview() {
+    async continueProcessingPreview(options?: ProcessMissingParams) {
       this.syncing = true;
       this.processPreviewLoading = true;
       try {
@@ -179,7 +179,19 @@ export const useDocumentsStore = defineStore('documents', {
           mark_missing: true,
           insert_only: true,
         });
-        const preview = await processMissing({ dry_run: true });
+        await this.refreshProcessPreview(options);
+        await this.fetchSyncStatus();
+        await this.fetchEmbedStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+        this.processPreviewLoading = false;
+      }
+    },
+    async refreshProcessPreview(options?: ProcessMissingParams) {
+      this.processPreviewLoading = true;
+      try {
+        const preview = await processMissing({ dry_run: true, ...options });
         this.processPreview = {
           docs: preview.docs,
           missing_docs: preview.missing_docs,
@@ -189,18 +201,14 @@ export const useDocumentsStore = defineStore('documents', {
           missing_suggestions_paperless: preview.missing_suggestions_paperless,
           missing_suggestions_vision: preview.missing_suggestions_vision,
         };
-        await this.fetchSyncStatus();
-        await this.fetchEmbedStatus();
-        await this.load();
       } finally {
-        this.syncing = false;
         this.processPreviewLoading = false;
       }
     },
-    async startProcessingFromPreview() {
+    async startProcessingFromPreview(options?: ProcessMissingParams) {
       this.syncing = true;
       try {
-        await processMissing();
+        await processMissing(options);
         await this.fetchSyncStatus();
         await this.fetchEmbedStatus();
         await this.load();

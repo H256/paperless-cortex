@@ -73,6 +73,14 @@ export type DocumentStats = DocumentStatsResponse;
 export type PageText = PageTextOut;
 export type SuggestionPayload = SuggestionsResponseSuggestions;
 export type ProcessMissingResponse = { enabled: boolean; docs: number; enqueued: number; tasks: number };
+export type ProcessMissingParams = {
+  dry_run?: boolean;
+  include_vision_ocr?: boolean;
+  include_embeddings?: boolean;
+  include_suggestions_paperless?: boolean;
+  include_suggestions_vision?: boolean;
+  embeddings_mode?: 'auto' | 'paperless' | 'vision';
+};
 export type ResetIntelligenceResponse = { cleared_embeddings: number; cleared_page_texts: number; cleared_suggestions: number };
 
 export const listDocuments = (params: ListDocumentsDocumentsGetParams) =>
@@ -152,7 +160,7 @@ export const ingestEmbeddings = (params: IngestEmbeddingsEmbeddingsIngestPostPar
 export const ingestEmbeddingsForDocs = (ids: number[], params: IngestDocumentsEmbeddingsIngestDocsPostParams) =>
   unwrap<EmbeddingIngestResponse>(ingestDocumentsEmbeddingsIngestDocsPost(ids, params));
 
-export const processMissing = (params?: { dry_run?: boolean }) =>
+export const processMissing = (params?: ProcessMissingParams) =>
   request<ProcessMissingResponse>('/documents/process-missing', { method: 'POST', params });
 
 export const resetIntelligence = () =>
