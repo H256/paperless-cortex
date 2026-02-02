@@ -34,7 +34,7 @@
     <section class="mt-6 rounded-xl border border-rose-200 bg-white p-6 shadow-sm dark:border-rose-900/50 dark:bg-slate-900">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 class="text-lg font-semibold text-rose-700 dark:text-rose-300">Clear all intelligence data</h3>
+          <h3 class="text-lg font-semibold text-rose-700 dark:text-rose-300">Wipe local data</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
             Removes all documents and intelligence data without reprocessing.
           </p>
@@ -48,11 +48,11 @@
             <Loader2 class="h-4 w-4 animate-spin" />
             Clearing...
           </span>
-          <span v-else>Clear all</span>
+          <span v-else>Wipe data</span>
         </button>
       </div>
       <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-        This action cannot be undone. Paperless data is not modified.
+        This action cannot be undone. Paperless data is not modified, so documents will still appear from Paperless until you stop syncing.
       </div>
       <div v-if="clearAllResult" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
         Removed {{ clearAllResult.cleared_documents }} documents, {{ clearAllResult.cleared_embeddings }} embeddings,
@@ -295,15 +295,15 @@
     <div class="w-full max-w-xl rounded-2xl border border-rose-300 bg-white p-6 shadow-xl dark:border-rose-900/60 dark:bg-slate-900">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-lg font-semibold text-rose-700">Delete all documents & intelligence data?</h3>
+          <h3 class="text-lg font-semibold text-rose-700">Wipe all local documents & intelligence data?</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            This removes every document plus embeddings, suggestions, and vision OCR data.
+            This removes every local document plus embeddings, suggestions, and vision OCR data.
           </p>
         </div>
       </div>
 
       <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-        <strong>Warning:</strong> This cannot be undone. Paperless is not modified, but all local documents are deleted.
+        <strong>Warning:</strong> This cannot be undone. Paperless is not modified, so documents can reappear via sync.
       </div>
 
       <label class="mt-4 flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-200">
@@ -328,7 +328,7 @@
             <Loader2 class="h-4 w-4 animate-spin" />
             Deleting...
           </span>
-          <span v-else>Yes, delete everything</span>
+          <span v-else>Yes, wipe everything</span>
         </button>
       </div>
     </div>
