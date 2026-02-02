@@ -2,9 +2,9 @@
   <section>
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Maintenance & Resets</h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Operations</h2>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Safe-guarded operations that remove derived data and reset processing pipelines.
+          Operational controls for resets, cleanup, and runtime inspection.
         </p>
       </div>
     </div>
@@ -101,6 +101,57 @@
         </div>
       </div>
     </section>
+
+    <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Runtime Configuration</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Read-only view of server URLs and models currently in use.
+          </p>
+        </div>
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">URLs</div>
+          <dl class="mt-3 space-y-2">
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Paperless</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.paperless_base_url || '—' }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Ollama</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.ollama_base_url || '—' }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Qdrant</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.qdrant_url || '—' }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Redis</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.redis_host || '—' }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Models</div>
+          <dl class="mt-3 space-y-2">
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Ollama</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.ollama_model || '—' }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Embeddings</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.embedding_model || '—' }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Vision OCR</dt>
+              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.vision_model || '—' }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
   </section>
 
   <div v-if="showReprocessModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -150,16 +201,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { RefreshCcw, Loader2 } from 'lucide-vue-next';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
-import { useQueueStore } from '../stores/queueStore';
+import { useStatusStore } from '../stores/statusStore';
 
 const documentsStore = useDocumentsStore();
-const queueStore = useQueueStore();
+const statusStore = useStatusStore();
 
 const { syncing, syncStatus, embedStatus } = storeToRefs(documentsStore);
+const { runtime } = storeToRefs(statusStore);
 
 const showReprocessModal = ref(false);
 const reprocessRunning = ref(false);
@@ -257,4 +309,8 @@ const confirmEmbeddings = async () => {
     embeddingsLoading.value = false;
   }
 };
+
+onMounted(async () => {
+  await statusStore.refresh();
+});
 </script>

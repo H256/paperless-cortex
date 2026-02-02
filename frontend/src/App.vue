@@ -32,10 +32,10 @@
                 Chat
               </span>
             </RouterLink>
-            <RouterLink to="/maintenance" v-slot="{ isActive }">
+            <RouterLink to="/operations" v-slot="{ isActive }">
               <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
-                <ShieldAlert class="h-4 w-4" />
-                Maintenance
+                <Wrench class="h-4 w-4" />
+                Operations
               </span>
             </RouterLink>
           </nav>
@@ -121,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { FileText, Laptop, List, MessageCircle, Moon, Search, Sun, ShieldAlert } from 'lucide-vue-next';
+import { FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import StatusLight from './components/StatusLight.vue';
 import { useQueueStore } from './stores/queueStore';

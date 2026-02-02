@@ -19,7 +19,7 @@ const router = createRouter({
     { path: '/search', component: SearchView },
     { path: '/queue', component: QueueView },
     { path: '/chat', component: ChatView },
-    { path: '/maintenance', component: MaintenanceView },
+    { path: '/operations', component: MaintenanceView },
   ],
 });
 

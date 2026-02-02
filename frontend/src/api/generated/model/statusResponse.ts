@@ -11,5 +11,11 @@ export interface StatusResponse {
   worker: StatusEntry;
   ollama: StatusEntry;
   paperless_base_url?: string | null;
+  ollama_base_url?: string | null;
+  qdrant_url?: string | null;
+  redis_host?: string | null;
+  ollama_model?: string | null;
+  embedding_model?: string | null;
+  vision_model?: string | null;
   latency_ms?: number | null;
 }

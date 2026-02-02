@@ -288,3 +288,4 @@ All model names must be configurable via environment variables.
 - Fix: Continue-processing modal now shows sync progress while fetching updates.
 - Fix: Continue-processing modal opens immediately, shows sync progress, and disables start until sync completes.
 - Feature: Added Maintenance page with Reprocess All and destructive cleanup actions for vision OCR, suggestions, and embeddings.
+- Feature: Renamed Maintenance page to Operations and added runtime URLs/models section.
