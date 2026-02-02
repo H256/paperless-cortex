@@ -247,6 +247,9 @@
                   Refresh
                 </button>
               </div>
+              <div v-if="suggestionMetaLine('paperless_ocr')" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {{ suggestionMetaLine('paperless_ocr') }}
+              </div>
               <div v-if="!paperlessSuggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400"><em>No data.</em></div>
               <div v-else class="mt-3 space-y-3">
                 <div v-if="paperlessSuggestion.raw">
@@ -343,6 +346,9 @@
                 >
                   Refresh
                 </button>
+              </div>
+              <div v-if="suggestionMetaLine('vision_ocr')" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {{ suggestionMetaLine('vision_ocr') }}
               </div>
               <div v-if="!visionSuggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400"><em>No data.</em></div>
               <div v-else class="mt-3 space-y-3">
@@ -636,12 +642,21 @@ const normalizeSuggestion = (input: any) => {
 const paperlessSuggestion = computed(() => normalizeSuggestion(suggestions.value?.paperless_ocr));
 const visionSuggestion = computed(() => normalizeSuggestion(suggestions.value?.vision_ocr));
 const bestPickSuggestion = computed(() => normalizeSuggestion(suggestions.value?.best_pick));
+const suggestionsMeta = computed(() => (suggestions.value as any)?.suggestions_meta || {});
 const suggestionFields = [
   { key: 'title', label: 'Suggested title' },
   { key: 'date', label: 'Suggested date' },
   { key: 'correspondent', label: 'Suggested correspondent' },
   { key: 'tags', label: 'Suggested tags' },
 ];
+
+const suggestionMetaLine = (source: string) => {
+  const meta = suggestionsMeta.value?.[source];
+  if (!meta) return '';
+  const model = meta.model || 'unknown';
+  const processed = meta.processed_at ? formatDateTime(meta.processed_at) : 'unknown';
+  return `Model: ${model} · Updated: ${processed}`;
+};
 
 const aggregatedText = computed(() => {
   if (!pageTexts.value.length) return document.value?.content || '';

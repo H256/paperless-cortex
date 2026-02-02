@@ -203,6 +203,7 @@ class SuggestionPayload(BaseModel):
 class SuggestionsResponse(BaseModel):
     doc_id: int
     suggestions: dict[str, Any] = {}
+    suggestions_meta: Optional[dict[str, Any]] = None
     queued: Optional[bool] = None
 
 

@@ -373,7 +373,21 @@ def get_document_suggestions(
                 suggestions_by_source[row.source] = normalize_suggestions_payload(parsed, tags)
             except Exception:
                 suggestions_by_source[row.source] = {"raw": row.payload}
-        return {"doc_id": doc_id, "queued": True, "suggestions": suggestions_by_source}
+        meta_rows = (
+            db.query(DocumentSuggestion)
+            .filter(DocumentSuggestion.doc_id == doc_id)
+            .all()
+        )
+        suggestions_meta = {
+            row.source: {"model": row.model_name, "processed_at": row.processed_at}
+            for row in meta_rows
+        }
+        return {
+            "doc_id": doc_id,
+            "queued": True,
+            "suggestions": suggestions_by_source,
+            "suggestions_meta": suggestions_meta,
+        }
 
     if refresh:
         if source in (None, "paperless_ocr"):
@@ -421,13 +435,26 @@ def get_document_suggestions(
             except Exception:
                 suggestions_by_source[row.source] = {"raw": row.payload}
 
+    meta_rows = (
+        db.query(DocumentSuggestion)
+        .filter(DocumentSuggestion.doc_id == doc_id)
+        .all()
+    )
+    suggestions_meta = {
+        row.source: {"model": row.model_name, "processed_at": row.processed_at}
+        for row in meta_rows
+    }
     best = merge_suggestions(
         suggestions_by_source.get("paperless_ocr"),
         suggestions_by_source.get("vision_ocr"),
     )
     if best:
         suggestions_by_source["best_pick"] = best
-    return {"doc_id": doc_id, "suggestions": suggestions_by_source}
+    return {
+        "doc_id": doc_id,
+        "suggestions": suggestions_by_source,
+        "suggestions_meta": suggestions_meta,
+    }
 
 
 class SuggestionFieldRequest(BaseModel):

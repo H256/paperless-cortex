@@ -73,6 +73,7 @@ export * from './suggestionFieldApply';
 export * from './suggestionFieldRequest';
 export * from './suggestionsResponse';
 export * from './suggestionsResponseSuggestions';
+export * from './suggestionsResponseSuggestionsMeta';
 export * from './syncCancelResponse';
 export * from './syncCorrespondentsSyncCorrespondentsPostParams';
 export * from './syncDocumentResponse';

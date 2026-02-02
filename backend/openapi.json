@@ -4466,6 +4466,18 @@
             "title": "Suggestions",
             "default": {}
           },
+          "suggestions_meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestions Meta"
+          },
           "queued": {
             "anyOf": [
               {
