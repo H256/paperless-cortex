@@ -120,12 +120,12 @@ def list_documents(
         .filter(Document.id.in_(doc_ids))
         .all()
     }
-    local_ids = {
-        row.id
-        for row in db.query(Document.id)
+    local_docs = (
+        db.query(Document)
         .filter(Document.id.in_(doc_ids))
         .all()
-    }
+    )
+    local_by_id = {doc.id: doc for doc in local_docs}
     embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
     suggestion_rows = (
         db.query(DocumentSuggestion)
@@ -145,7 +145,27 @@ def list_documents(
         doc_id = doc.get("id")
         if doc_id is None:
             continue
-        doc["local_cached"] = doc_id in local_ids
+        local_doc = local_by_id.get(doc_id)
+        doc["local_cached"] = local_doc is not None
+        local_overrides = False
+        if local_doc:
+            local_tags = [tag.id for tag in local_doc.tags]
+            paperless_tags = doc.get("tags") or []
+            if set(local_tags) != set(paperless_tags):
+                local_overrides = True
+            if local_doc.title and local_doc.title != doc.get("title"):
+                local_overrides = True
+            if local_doc.document_date and local_doc.document_date != doc.get("document_date"):
+                local_overrides = True
+            if local_doc.correspondent_id and local_doc.correspondent_id != doc.get("correspondent"):
+                local_overrides = True
+            if local_overrides:
+                doc["title"] = local_doc.title
+                doc["document_date"] = local_doc.document_date
+                doc["correspondent"] = local_doc.correspondent_id
+                doc["correspondent_name"] = local_doc.correspondent.name if local_doc.correspondent else None
+                doc["tags"] = local_tags
+        doc["local_overrides"] = local_overrides
         doc["has_embeddings"] = doc_id in embed_ids
         doc.update(analysis_by_doc.get(doc_id, {}))
         sources = suggestions_by_doc.get(doc_id, set())

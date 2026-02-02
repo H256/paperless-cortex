@@ -17,6 +17,7 @@ export interface DocumentSummary {
   tags?: number[];
   correspondent_name?: string | null;
   local_cached?: boolean | null;
+  local_overrides?: boolean | null;
   has_embeddings?: boolean | null;
   has_suggestions?: boolean | null;
   has_vision_pages?: boolean | null;

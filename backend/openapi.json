@@ -3110,6 +3110,17 @@
             ],
             "title": "Local Cached"
           },
+          "local_overrides": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Overrides"
+          },
           "has_embeddings": {
             "anyOf": [
               {
