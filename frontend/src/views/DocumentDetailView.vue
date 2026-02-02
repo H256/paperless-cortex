@@ -558,6 +558,8 @@ import { storeToRefs } from 'pinia';
 import IconButton from '../components/IconButton.vue';
 import PdfViewer from '../components/PdfViewer.vue';
 import { useDocumentDetailStore } from '../stores/documentDetailStore';
+import { useQueueStore } from '../stores/queueStore';
+import { useToastStore } from '../stores/toastStore';
 import { useStatusStore } from '../stores/statusStore';
 import { PageText } from '../services/documents';
 
@@ -566,6 +568,8 @@ const router = useRouter();
 const id = Number(route.params.id);
 
 const documentStore = useDocumentDetailStore();
+const queueStore = useQueueStore();
+const toastStore = useToastStore();
 const statusStore = useStatusStore();
 const {
   document,
@@ -847,6 +851,10 @@ const runReprocess = async () => {
   try {
     if (doResync.value) {
       await resync();
+      await queueStore.refreshStatus();
+      if (queueStore.status.enabled) {
+        toastStore.push(`Document ${id} queued for processing.`, 'info', 'Queued');
+      }
     }
     if (doQuality.value) {
       await loadContentQuality(true);

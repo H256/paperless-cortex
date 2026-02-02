@@ -298,3 +298,4 @@ All model names must be configurable via environment variables.
 - Chore: Renamed clear-all section to "Wipe local data" and clarified Paperless remains unchanged.
 - Feature: Added local cache status in document list (Paperless only vs Paperless + Local).
 - Feature: Display suggestion model + last processed time in document detail view.
+- Feature: Toast notification when a document is queued from detail re-process.
