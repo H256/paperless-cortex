@@ -117,19 +117,55 @@
           <dl class="mt-3 space-y-2">
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Paperless</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.paperless_base_url || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.paperless_base_url || '—' }}</span>
+                <button
+                  v-if="runtime.paperless_base_url"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.paperless_base_url, 'paperless')"
+                >
+                  {{ copiedKey === 'paperless' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Ollama</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.ollama_base_url || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.ollama_base_url || '—' }}</span>
+                <button
+                  v-if="runtime.ollama_base_url"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.ollama_base_url, 'ollama')"
+                >
+                  {{ copiedKey === 'ollama' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Qdrant</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.qdrant_url || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.qdrant_url || '—' }}</span>
+                <button
+                  v-if="runtime.qdrant_url"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.qdrant_url, 'qdrant')"
+                >
+                  {{ copiedKey === 'qdrant' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Redis</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.redis_host || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.redis_host || '—' }}</span>
+                <button
+                  v-if="runtime.redis_host"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.redis_host, 'redis')"
+                >
+                  {{ copiedKey === 'redis' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
           </dl>
         </div>
@@ -138,15 +174,42 @@
           <dl class="mt-3 space-y-2">
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Ollama</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.ollama_model || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.ollama_model || '—' }}</span>
+                <button
+                  v-if="runtime.ollama_model"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.ollama_model, 'ollama_model')"
+                >
+                  {{ copiedKey === 'ollama_model' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Embeddings</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.embedding_model || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.embedding_model || '—' }}</span>
+                <button
+                  v-if="runtime.embedding_model"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.embedding_model, 'embedding_model')"
+                >
+                  {{ copiedKey === 'embedding_model' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Vision OCR</dt>
-              <dd class="truncate text-right text-slate-900 dark:text-slate-100">{{ runtime.vision_model || '—' }}</dd>
+              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
+                <span class="max-w-[220px] truncate">{{ runtime.vision_model || '—' }}</span>
+                <button
+                  v-if="runtime.vision_model"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  @click="copyValue(runtime.vision_model, 'vision_model')"
+                >
+                  {{ copiedKey === 'vision_model' ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
           </dl>
         </div>
@@ -215,6 +278,7 @@ const { runtime } = storeToRefs(statusStore);
 
 const showReprocessModal = ref(false);
 const reprocessRunning = ref(false);
+const copiedKey = ref<string | null>(null);
 
 const isProcessing = computed(() => syncStatus.value.status === 'running' || embedStatus.value.status === 'running');
 
@@ -313,4 +377,16 @@ const confirmEmbeddings = async () => {
 onMounted(async () => {
   await statusStore.refresh();
 });
+
+const copyValue = async (value: string, key: string) => {
+  try {
+    await navigator.clipboard.writeText(value);
+    copiedKey.value = key;
+    window.setTimeout(() => {
+      if (copiedKey.value === key) copiedKey.value = null;
+    }, 1200);
+  } catch {
+    copiedKey.value = null;
+  }
+};
 </script>
