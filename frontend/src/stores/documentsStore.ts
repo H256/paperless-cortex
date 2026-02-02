@@ -170,6 +170,7 @@ export const useDocumentsStore = defineStore('documents', {
     async continueProcessingPreview(options?: ProcessMissingParams) {
       this.syncing = true;
       this.processPreviewLoading = true;
+      this.processPreview = {};
       try {
         await syncDocuments({
           page_size: 200,

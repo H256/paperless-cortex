@@ -324,13 +324,14 @@
           </button>
           <button
             class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing"
+            :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || syncStatus.status === 'running'"
             @click="startFromPreview"
           >
             <span v-if="processStartLoading" class="inline-flex items-center gap-2">
               <Loader2 class="h-4 w-4 animate-spin" />
               Enqueuing...
             </span>
+            <span v-else-if="syncStatus.status === 'running'">Syncing…</span>
             <span v-else>Start processing</span>
           </button>
         </div>

@@ -286,3 +286,4 @@ All model names must be configurable via environment variables.
 - Fix: Continue-processing modal now shows enqueue progress with disabled buttons and a loader while queueing starts.
 - Fix: Reprocess-all modal now shows sync progress with a loader and disables actions while running.
 - Fix: Continue-processing modal now shows sync progress while fetching updates.
+- Fix: Continue-processing modal opens immediately, shows sync progress, and disables start until sync completes.
