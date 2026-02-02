@@ -12,6 +12,15 @@ export const useStatusStore = defineStore('status', {
       ollama_detail: 'unknown',
     },
     paperlessBaseUrl: import.meta.env.VITE_PAPERLESS_BASE_URL || '',
+    runtime: {
+      paperless_base_url: '',
+      ollama_base_url: '',
+      qdrant_url: '',
+      redis_host: '',
+      ollama_model: '',
+      embedding_model: '',
+      vision_model: '',
+    },
   }),
   actions: {
     async refresh() {
@@ -26,6 +35,15 @@ export const useStatusStore = defineStore('status', {
           ollama_detail: data.ollama?.detail ?? 'unknown',
         };
         this.paperlessBaseUrl = data.paperless_base_url || this.paperlessBaseUrl;
+        this.runtime = {
+          paperless_base_url: data.paperless_base_url || '',
+          ollama_base_url: data.ollama_base_url || '',
+          qdrant_url: data.qdrant_url || '',
+          redis_host: data.redis_host || '',
+          ollama_model: data.ollama_model || '',
+          embedding_model: data.embedding_model || '',
+          vision_model: data.vision_model || '',
+        };
       } catch {
         this.health = {
           web: 'DOWN',

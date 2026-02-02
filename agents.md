@@ -274,3 +274,34 @@ All model names must be configurable via environment variables.
 - Search reranking: oversample + lexical/phrase boost, combined_score surfaced, top_k enforced.
 - UI/UX: dark theme toggle, processing panel (dry-run + reprocess), queue controls, search result actions.
 - Viewer/citations: PDF preview flow and highlight support in place; continue refining details page UX tomorrow.
+
+### 2026-02-02
+- Fix: Continue processing uses insert-only sync to avoid overwriting document edits, reprocess prioritizes queued tasks, and worker lock enforces a single queue worker.
+- Fix: Suggestions apply refreshes derived tabs, queue view supports Doc ID filtering with correct reordering indices, and documents list adds analysis filter plus persistent cancel button when queue has work.
+- Feature: Continue-processing modal now allows selecting which tasks to enqueue (vision OCR, embeddings with mode, and suggestions) and the preview updates accordingly.
+- Feature: Store AI model + processed timestamps for documents, suggestions, and vision OCR pages; surface analysis model on document list with a filter input.
+- Fix: Queue stats now record last-run duration and UI shows queue-based ETA with a "Last run" timestamp.
+- Chore: Added verification checklist for the 2026-02-02 changes.
+- Chore: Alembic heads merged after adding AI model metadata migration.
+- Fix: Continue-processing modal now shows enqueue progress with disabled buttons and a loader while queueing starts.
+- Fix: Reprocess-all modal now shows sync progress with a loader and disables actions while running.
+- Fix: Continue-processing modal now shows sync progress while fetching updates.
+- Fix: Continue-processing modal opens immediately, shows sync progress, and disables start until sync completes.
+- Feature: Added Maintenance page with Reprocess All and destructive cleanup actions for vision OCR, suggestions, and embeddings.
+- Feature: Renamed Maintenance page to Operations and added runtime URLs/models section.
+- Feature: Added copy buttons for runtime URLs and models on Operations page.
+- Feature: Added reusable Toast component with copy-to-clipboard feedback.
+- Feature: Added "Clear all intelligence data" block to Operations page (no reprocessing).
+- Fix: Clear-all now deletes all local documents and uses a modal confirmation with an explicit checkbox.
+- Chore: Regenerated OpenAPI client and routed all frontend API calls through it.
+- Fix: Clear-all action now falls back to direct API call if store method is missing.
+- Chore: Renamed clear-all section to "Wipe local data" and clarified Paperless remains unchanged.
+- Feature: Added local cache status in document list (Paperless only vs Paperless + Local).
+- Feature: Display suggestion model + last processed time in document detail view.
+- Feature: Toast notification when a document is queued from detail re-process.
+- Fix: Increased worker lock TTL to 5 minutes for long-running vision OCR tasks.
+- Fix: Document list now shows local edits (title/date/tags/correspondent) when local overrides exist.
+- Feature: Added Local override badge in document list.
+- Fix: Chunk Qdrant upserts to stay under 32MB payload limit.
+- Fix: Refresh worker lock in a background thread to avoid lock loss during long tasks.
+- Note: Worker lock loss was observed during long jobs; TTL bumped to 5 minutes and lock refresh runs in a background thread. If it still exits, check Redis connectivity or multiple worker instances.

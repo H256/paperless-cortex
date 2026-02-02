@@ -41,5 +41,11 @@ def status(settings: Settings = Depends(settings_dep)):
         "worker": {"status": "UP" if worker_ok else "DOWN", "detail": worker_detail},
         "ollama": {"status": "UP" if ollama_ok else "DOWN", "detail": ollama_detail},
         "paperless_base_url": paperless_base,
+        "ollama_base_url": settings.ollama_base_url,
+        "qdrant_url": settings.qdrant_url,
+        "redis_host": settings.redis_host,
+        "ollama_model": settings.ollama_model,
+        "embedding_model": settings.embedding_model,
+        "vision_model": settings.vision_model,
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }

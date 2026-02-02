@@ -40,6 +40,8 @@ class Document(Base):
     user_can_change: Mapped[bool | None] = mapped_column(Boolean)
     is_shared_by_requester: Mapped[bool | None] = mapped_column(Boolean)
     deleted_at: Mapped[str | None] = mapped_column(String(64))
+    analysis_model: Mapped[str | None] = mapped_column(String(128))
+    analysis_processed_at: Mapped[str | None] = mapped_column(String(64))
 
     notes: Mapped[list["DocumentNote"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
@@ -102,6 +104,8 @@ class DocumentPageText(Base):
     text: Mapped[str | None] = mapped_column(Text)
     quality_score: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[str | None] = mapped_column(String(64))
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    processed_at: Mapped[str | None] = mapped_column(String(64))
 
     document: Mapped[Document] = relationship()
 
@@ -113,6 +117,8 @@ class DocumentSuggestion(Base):
     source: Mapped[str] = mapped_column(String(32), primary_key=True)
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(String(64))
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    processed_at: Mapped[str | None] = mapped_column(String(64))
 
     document: Mapped[Document] = relationship()
 

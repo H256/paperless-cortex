@@ -66,7 +66,7 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
     async resync(id: number, doReembed: boolean) {
       this.syncing = true;
       try {
-        await syncDocument(id, { embed: doReembed, force_embed: doReembed });
+        await syncDocument(id, { embed: doReembed, force_embed: doReembed, priority: true });
         await this.loadDocument(id);
       } finally {
         this.syncing = false;
@@ -110,7 +110,7 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       this.suggestionsError = '';
       try {
         const data = await getSuggestions(id);
-        this.suggestions = data.suggestions ?? null;
+        this.suggestions = data.suggestions ? { ...data.suggestions, suggestions_meta: (data as any).suggestions_meta } : null;
       } catch (err: any) {
         this.suggestionsError = err?.message ?? 'Failed to load suggestions';
       } finally {
@@ -122,7 +122,7 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       this.suggestionsError = '';
       try {
         const data = await getSuggestions(id, { source, refresh: true, priority: true });
-        this.suggestions = data.suggestions ?? null;
+        this.suggestions = data.suggestions ? { ...data.suggestions, suggestions_meta: (data as any).suggestions_meta } : null;
       } catch (err: any) {
         this.suggestionsError = err?.message ?? 'Failed to refresh suggestions';
       } finally {

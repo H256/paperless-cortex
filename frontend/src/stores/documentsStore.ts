@@ -10,12 +10,16 @@ import {
   ingestEmbeddings,
   ingestEmbeddingsForDocs,
   listDocuments,
+  deleteEmbeddings,
+  deleteSuggestions,
+  deleteVisionOcr,
+  clearIntelligence,
   processMissing,
   resetIntelligence,
   syncDocuments,
   syncDocument,
 } from '../services/documents';
-import { DocumentRow, DocumentStats, SyncStatus, EmbedStatus, Tag, Correspondent } from '../services/documents';
+import { DocumentRow, DocumentStats, SyncStatus, EmbedStatus, Tag, Correspondent, ProcessMissingParams } from '../services/documents';
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
@@ -68,6 +72,8 @@ export const useDocumentsStore = defineStore('documents', {
       docs?: number;
     },
     processPreviewLoading: false,
+    processStartLoading: false,
+    processStartResult: null as null | { enqueued?: number; tasks?: number },
   }),
   actions: {
     async load() {
@@ -165,9 +171,10 @@ export const useDocumentsStore = defineStore('documents', {
         this.syncing = false;
       }
     },
-    async continueProcessingPreview() {
+    async continueProcessingPreview(options?: ProcessMissingParams) {
       this.syncing = true;
       this.processPreviewLoading = true;
+      this.processPreview = {};
       try {
         await syncDocuments({
           page_size: 200,
@@ -177,8 +184,21 @@ export const useDocumentsStore = defineStore('documents', {
           embed: false,
           force_embed: false,
           mark_missing: true,
-        } as any);
-        const preview = await processMissing({ dry_run: true });
+          insert_only: true,
+        });
+        await this.refreshProcessPreview(options);
+        await this.fetchSyncStatus();
+        await this.fetchEmbedStatus();
+        await this.load();
+      } finally {
+        this.syncing = false;
+        this.processPreviewLoading = false;
+      }
+    },
+    async refreshProcessPreview(options?: ProcessMissingParams) {
+      this.processPreviewLoading = true;
+      try {
+        const preview = await processMissing({ dry_run: true, ...options });
         this.processPreview = {
           docs: preview.docs,
           missing_docs: preview.missing_docs,
@@ -188,27 +208,28 @@ export const useDocumentsStore = defineStore('documents', {
           missing_suggestions_paperless: preview.missing_suggestions_paperless,
           missing_suggestions_vision: preview.missing_suggestions_vision,
         };
-        await this.fetchSyncStatus();
-        await this.fetchEmbedStatus();
-        await this.load();
       } finally {
-        this.syncing = false;
         this.processPreviewLoading = false;
       }
     },
-    async startProcessingFromPreview() {
+    async startProcessingFromPreview(options?: ProcessMissingParams) {
       this.syncing = true;
+      this.processStartLoading = true;
+      this.processStartResult = null;
       try {
-        await processMissing();
+        const result = await processMissing(options);
+        this.processStartResult = { enqueued: result.enqueued, tasks: result.tasks };
         await this.fetchSyncStatus();
         await this.fetchEmbedStatus();
         await this.load();
       } finally {
         this.syncing = false;
+        this.processStartLoading = false;
       }
     },
     clearProcessPreview() {
       this.processPreview = null;
+      this.processStartResult = null;
     },
     async reprocessAll() {
       this.syncing = true;
@@ -230,6 +251,18 @@ export const useDocumentsStore = defineStore('documents', {
       } finally {
         this.syncing = false;
       }
+    },
+    async removeVisionOcr() {
+      return deleteVisionOcr();
+    },
+    async removeSuggestions() {
+      return deleteSuggestions();
+    },
+    async removeEmbeddings() {
+      return deleteEmbeddings();
+    },
+    async clearAllIntelligence() {
+      return clearIntelligence();
     },
     async reembedFiltered(force = false) {
       this.embedding = true;

@@ -1,5 +1,4 @@
 import { unwrap } from '../api/orval';
-import { request } from './http';
 import {
   listDocumentsDocumentsGet,
   getDocumentStatsDocumentsStatsGet,
@@ -22,6 +21,12 @@ import {
   ingestEmbeddingsEmbeddingsIngestPost,
   ingestDocumentsEmbeddingsIngestDocsPost,
   cancelEmbeddingsEmbeddingsCancelPost,
+  processMissingDocumentsProcessMissingPost,
+  resetIntelligenceDocumentsResetIntelligencePost,
+  clearIntelligenceDocumentsClearIntelligencePost,
+  deleteVisionOcrDocumentsDeleteVisionOcrPost,
+  deleteSuggestionsDocumentsDeleteSuggestionsPost,
+  deleteEmbeddingsDocumentsDeleteEmbeddingsPost,
 } from '../api/generated/client';
 import type {
   ApplyFieldSuggestionResponse,
@@ -52,6 +57,13 @@ import type {
   SuggestionFieldRequest,
   SuggestionsResponse,
   SuggestionsResponseSuggestions,
+  ProcessMissingResponse,
+  ProcessMissingDocumentsProcessMissingPostParams,
+  ResetIntelligenceResponse,
+  ClearIntelligenceResponse,
+  DeleteVisionOcrResponse,
+  DeleteSuggestionsResponse,
+  DeleteEmbeddingsResponse,
   SyncCancelResponse,
   SyncDocumentResponse,
   SyncDocumentsResponse,
@@ -72,8 +84,7 @@ export type EmbedStatus = EmbeddingStatusResponse;
 export type DocumentStats = DocumentStatsResponse;
 export type PageText = PageTextOut;
 export type SuggestionPayload = SuggestionsResponseSuggestions;
-export type ProcessMissingResponse = { enabled: boolean; docs: number; enqueued: number; tasks: number };
-export type ResetIntelligenceResponse = { cleared_embeddings: number; cleared_page_texts: number; cleared_suggestions: number };
+export type ProcessMissingParams = ProcessMissingDocumentsProcessMissingPostParams;
 
 export const listDocuments = (params: ListDocumentsDocumentsGetParams) =>
   unwrap<DocumentsPageResponse>(listDocumentsDocumentsGet(params));
@@ -152,8 +163,20 @@ export const ingestEmbeddings = (params: IngestEmbeddingsEmbeddingsIngestPostPar
 export const ingestEmbeddingsForDocs = (ids: number[], params: IngestDocumentsEmbeddingsIngestDocsPostParams) =>
   unwrap<EmbeddingIngestResponse>(ingestDocumentsEmbeddingsIngestDocsPost(ids, params));
 
-export const processMissing = (params?: { dry_run?: boolean }) =>
-  request<ProcessMissingResponse>('/documents/process-missing', { method: 'POST', params });
+export const processMissing = (params?: ProcessMissingParams) =>
+  unwrap<ProcessMissingResponse>(processMissingDocumentsProcessMissingPost(params));
 
 export const resetIntelligence = () =>
-  request<ResetIntelligenceResponse>('/documents/reset-intelligence', { method: 'POST' });
+  unwrap<ResetIntelligenceResponse>(resetIntelligenceDocumentsResetIntelligencePost());
+
+export const clearIntelligence = () =>
+  unwrap<ClearIntelligenceResponse>(clearIntelligenceDocumentsClearIntelligencePost());
+
+export const deleteVisionOcr = () =>
+  unwrap<DeleteVisionOcrResponse>(deleteVisionOcrDocumentsDeleteVisionOcrPost());
+
+export const deleteSuggestions = () =>
+  unwrap<DeleteSuggestionsResponse>(deleteSuggestionsDocumentsDeleteSuggestionsPost());
+
+export const deleteEmbeddings = () =>
+  unwrap<DeleteEmbeddingsResponse>(deleteEmbeddingsDocumentsDeleteEmbeddingsPost());

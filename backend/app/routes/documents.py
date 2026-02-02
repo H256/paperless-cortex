@@ -19,6 +19,8 @@ from app.models import (
     Tag,
     Correspondent,
     DocumentNote,
+    SuggestionAudit,
+    document_tags,
 )
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
@@ -34,6 +36,7 @@ from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_docs_front, enqueue_task_front, enqueue_task_sequence_front
 from app.services.vision_ocr import render_pdf_pages
+from app.services.embeddings import delete_points_for_doc
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
@@ -48,6 +51,10 @@ from app.api_models import (
     SuggestionsResponse,
     ProcessMissingResponse,
     ResetIntelligenceResponse,
+    ClearIntelligenceResponse,
+    DeleteEmbeddingsResponse,
+    DeleteSuggestionsResponse,
+    DeleteVisionOcrResponse,
 )
 from app.services.queue import enqueue_task_sequence
 from sqlalchemy import delete
@@ -104,6 +111,21 @@ def list_documents(
     doc_ids = [doc.get("id") for doc in results if doc.get("id") is not None]
     if not doc_ids:
         return payload
+    analysis_by_doc = {
+        row.id: {
+            "analysis_model": row.analysis_model,
+            "analysis_processed_at": row.analysis_processed_at,
+        }
+        for row in db.query(Document.id, Document.analysis_model, Document.analysis_processed_at)
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    }
+    local_docs = (
+        db.query(Document)
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    )
+    local_by_id = {doc.id: doc for doc in local_docs}
     embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
     suggestion_rows = (
         db.query(DocumentSuggestion)
@@ -123,7 +145,29 @@ def list_documents(
         doc_id = doc.get("id")
         if doc_id is None:
             continue
+        local_doc = local_by_id.get(doc_id)
+        doc["local_cached"] = local_doc is not None
+        local_overrides = False
+        if local_doc:
+            local_tags = [tag.id for tag in local_doc.tags]
+            paperless_tags = doc.get("tags") or []
+            if set(local_tags) != set(paperless_tags):
+                local_overrides = True
+            if local_doc.title and local_doc.title != doc.get("title"):
+                local_overrides = True
+            if local_doc.document_date and local_doc.document_date != doc.get("document_date"):
+                local_overrides = True
+            if local_doc.correspondent_id and local_doc.correspondent_id != doc.get("correspondent"):
+                local_overrides = True
+            if local_overrides:
+                doc["title"] = local_doc.title
+                doc["document_date"] = local_doc.document_date
+                doc["correspondent"] = local_doc.correspondent_id
+                doc["correspondent_name"] = local_doc.correspondent.name if local_doc.correspondent else None
+                doc["tags"] = local_tags
+        doc["local_overrides"] = local_overrides
         doc["has_embeddings"] = doc_id in embed_ids
+        doc.update(analysis_by_doc.get(doc_id, {}))
         sources = suggestions_by_doc.get(doc_id, set())
         doc["has_suggestions"] = bool(sources)
         doc["has_vision_pages"] = doc_id in vision_pages
@@ -264,7 +308,13 @@ def get_document_suggestions(
             correspondents=correspondents,
         )
         baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-        upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+        upsert_suggestion(
+            db,
+            doc_id,
+            "paperless_ocr",
+            json.dumps(baseline_suggestions, ensure_ascii=False),
+            model_name=settings.ollama_model,
+        )
         audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
         return baseline_suggestions
 
@@ -309,7 +359,13 @@ def get_document_suggestions(
             correspondents=correspondents,
         )
         vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-        upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
+        upsert_suggestion(
+            db,
+            doc_id,
+            "vision_ocr",
+            json.dumps(vision_suggestions, ensure_ascii=False),
+            model_name=settings.ollama_model,
+        )
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
         return vision_suggestions
 
@@ -337,7 +393,21 @@ def get_document_suggestions(
                 suggestions_by_source[row.source] = normalize_suggestions_payload(parsed, tags)
             except Exception:
                 suggestions_by_source[row.source] = {"raw": row.payload}
-        return {"doc_id": doc_id, "queued": True, "suggestions": suggestions_by_source}
+        meta_rows = (
+            db.query(DocumentSuggestion)
+            .filter(DocumentSuggestion.doc_id == doc_id)
+            .all()
+        )
+        suggestions_meta = {
+            row.source: {"model": row.model_name, "processed_at": row.processed_at}
+            for row in meta_rows
+        }
+        return {
+            "doc_id": doc_id,
+            "queued": True,
+            "suggestions": suggestions_by_source,
+            "suggestions_meta": suggestions_meta,
+        }
 
     if refresh:
         if source in (None, "paperless_ocr"):
@@ -385,13 +455,26 @@ def get_document_suggestions(
             except Exception:
                 suggestions_by_source[row.source] = {"raw": row.payload}
 
+    meta_rows = (
+        db.query(DocumentSuggestion)
+        .filter(DocumentSuggestion.doc_id == doc_id)
+        .all()
+    )
+    suggestions_meta = {
+        row.source: {"model": row.model_name, "processed_at": row.processed_at}
+        for row in meta_rows
+    }
     best = merge_suggestions(
         suggestions_by_source.get("paperless_ocr"),
         suggestions_by_source.get("vision_ocr"),
     )
     if best:
         suggestions_by_source["best_pick"] = best
-    return {"doc_id": doc_id, "suggestions": suggestions_by_source}
+    return {
+        "doc_id": doc_id,
+        "suggestions": suggestions_by_source,
+        "suggestions_meta": suggestions_meta,
+    }
 
 
 class SuggestionFieldRequest(BaseModel):
@@ -751,11 +834,18 @@ def get_document_pdf(
 @router.post("/process-missing", response_model=ProcessMissingResponse)
 def process_missing(
     dry_run: bool = False,
+    include_vision_ocr: bool = True,
+    include_embeddings: bool = True,
+    include_suggestions_paperless: bool = True,
+    include_suggestions_vision: bool = True,
+    embeddings_mode: str = "auto",
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
     if not settings.queue_enabled:
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
+    if embeddings_mode not in ("auto", "paperless", "vision"):
+        raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
 
     docs = db.query(Document).all()
     embeddings = {
@@ -821,30 +911,34 @@ def process_missing(
         if need_vision_ocr:
             need_sugg_v = True
 
-        if need_vision_ocr:
+        selected = False
+        if include_vision_ocr and need_vision_ocr:
             tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
-        if need_embeddings:
-            if prefer_vision_embeddings:
-                tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
+            missing_vision += 1
+            selected = True
+        if include_embeddings and need_embeddings:
+            if embeddings_mode == "paperless":
+                task_type = "embeddings_paperless"
+            elif embeddings_mode == "vision":
+                task_type = "embeddings_vision"
             else:
-                tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-        if need_sugg_p:
+                task_type = "embeddings_vision" if prefer_vision_embeddings else "embeddings_paperless"
+            tasks.append({"doc_id": doc.id, "task": task_type})
+            missing_embeddings += 1
+            if task_type == "embeddings_vision":
+                missing_embeddings_vision += 1
+            selected = True
+        if include_suggestions_paperless and need_sugg_p:
             tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-        if need_sugg_v:
+            missing_sugg_p += 1
+            selected = True
+        if include_suggestions_vision and need_sugg_v:
             tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
+            missing_sugg_v += 1
+            selected = True
 
-        if tasks:
+        if selected:
             missing_docs += 1
-            if need_vision_ocr:
-                missing_vision += 1
-            if need_embeddings:
-                missing_embeddings += 1
-                if prefer_vision_embeddings:
-                    missing_embeddings_vision += 1
-            if need_sugg_p:
-                missing_sugg_p += 1
-            if need_sugg_v:
-                missing_sugg_v += 1
             if not dry_run:
                 enqueued_tasks += enqueue_task_sequence(settings, tasks)
                 enqueued_docs += 1
@@ -879,4 +973,88 @@ def reset_intelligence(
         "cleared_embeddings": cleared_embeddings,
         "cleared_page_texts": cleared_page_texts,
         "cleared_suggestions": cleared_suggestions,
+    }
+
+
+@router.post("/clear-intelligence", response_model=ClearIntelligenceResponse)
+def clear_intelligence(
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    doc_count = db.query(Document).count()
+    doc_ids = [row.doc_id for row in db.query(DocumentEmbedding.doc_id).all()]
+    cleared_embeddings = len(doc_ids)
+    cleared_page_texts = db.query(DocumentPageText).count()
+    cleared_suggestions = db.query(DocumentSuggestion).count()
+    db.execute(delete(DocumentEmbedding))
+    db.execute(delete(DocumentPageText))
+    db.execute(delete(DocumentSuggestion))
+    db.execute(delete(SuggestionAudit))
+    db.execute(delete(DocumentNote))
+    db.execute(delete(document_tags))
+    db.execute(delete(Document))
+    db.commit()
+    qdrant_deleted = 0
+    qdrant_errors = 0
+    for doc_id in doc_ids:
+        try:
+            delete_points_for_doc(settings, doc_id)
+            qdrant_deleted += 1
+        except Exception:
+            qdrant_errors += 1
+    return {
+        "cleared_documents": doc_count,
+        "cleared_embeddings": cleared_embeddings,
+        "cleared_page_texts": cleared_page_texts,
+        "cleared_suggestions": cleared_suggestions,
+        "qdrant_deleted": qdrant_deleted,
+        "qdrant_errors": qdrant_errors,
+    }
+
+
+@router.post("/delete-vision-ocr", response_model=DeleteVisionOcrResponse)
+def delete_vision_ocr(
+    db: Session = Depends(get_db),
+):
+    deleted = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.source == "vision_ocr")
+        .count()
+    )
+    db.execute(delete(DocumentPageText).where(DocumentPageText.source == "vision_ocr"))
+    db.commit()
+    return {"deleted": deleted}
+
+
+@router.post("/delete-suggestions", response_model=DeleteSuggestionsResponse)
+def delete_suggestions(
+    db: Session = Depends(get_db),
+):
+    deleted = db.query(DocumentSuggestion).count()
+    db.execute(delete(DocumentSuggestion))
+    db.commit()
+    return {"deleted": deleted}
+
+
+@router.post("/delete-embeddings", response_model=DeleteEmbeddingsResponse)
+def delete_embeddings(
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    doc_ids = [row.doc_id for row in db.query(DocumentEmbedding.doc_id).all()]
+    deleted = len(doc_ids)
+    db.execute(delete(DocumentEmbedding))
+    db.commit()
+    qdrant_deleted = 0
+    qdrant_errors = 0
+    for doc_id in doc_ids:
+        try:
+            delete_points_for_doc(settings, doc_id)
+            qdrant_deleted += 1
+        except Exception:
+            qdrant_errors += 1
+    return {
+        "deleted": deleted,
+        "qdrant_deleted": qdrant_deleted,
+        "qdrant_errors": qdrant_errors,
     }

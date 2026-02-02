@@ -328,6 +328,26 @@ def ensure_qdrant_collection(
         create.raise_for_status()
 
 
+def _chunk_points_by_size(points: list[dict[str, Any]], max_bytes: int) -> list[list[dict[str, Any]]]:
+    if not points:
+        return []
+    batches: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    current_size = 0
+    for point in points:
+        point_json = __import__("json").dumps(point, ensure_ascii=False)
+        point_size = len(point_json.encode("utf-8"))
+        if current and current_size + point_size > max_bytes:
+            batches.append(current)
+            current = []
+            current_size = 0
+        current.append(point)
+        current_size += point_size
+    if current:
+        batches.append(current)
+    return batches
+
+
 def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
     if not settings.qdrant_url or not settings.qdrant_collection:
         raise RuntimeError("QDRANT_URL/QDRANT_COLLECTION not set")
@@ -337,16 +357,19 @@ def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
         headers["api-key"] = settings.qdrant_api_key
     logger.info("Qdrant upsert points=%s", len(points))
     with httpx.Client(timeout=60, verify=settings.httpx_verify_tls) as client:
-        response = client.put(
-            f"{base}/collections/{settings.qdrant_collection}/points",
-            headers=headers,
-            json={"points": points},
-        )
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            detail = response.text[:500]
-            raise RuntimeError(f"Qdrant upsert failed: {detail}") from exc
+        # Qdrant payload limit is 32MB; keep chunks below ~30MB to be safe.
+        batches = _chunk_points_by_size(points, max_bytes=30 * 1024 * 1024)
+        for batch in batches:
+            response = client.put(
+                f"{base}/collections/{settings.qdrant_collection}/points",
+                headers=headers,
+                json={"points": batch},
+            )
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                detail = response.text[:500]
+                raise RuntimeError(f"Qdrant upsert failed: {detail}") from exc
     logger.info("Qdrant upsert ok")
 
 

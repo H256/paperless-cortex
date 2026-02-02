@@ -90,6 +90,15 @@
         </div>
         <div class="flex flex-wrap items-end gap-3">
           <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Doc ID
+            <input
+              type="text"
+              v-model="docIdFilter"
+              placeholder="Filter"
+              class="mt-1 h-9 w-32 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
             Limit
             <input
               type="number"
@@ -116,56 +125,59 @@
       <div v-else-if="queueStore.peekItems.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
         {{ queueStore.peekLoading ? 'Loading queue...' : 'No items in the queue.' }}
       </div>
+      <div v-else-if="filteredItems.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        No items match the Doc ID filter.
+      </div>
       <div v-else class="mt-4 space-y-3">
         <div
-          v-for="(item, index) in queueStore.peekItems"
-          :key="index"
+          v-for="entry in filteredItems"
+          :key="entry.index"
           class="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800"
         >
           <div class="flex min-w-[220px] flex-1 flex-col gap-1">
             <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {{ itemTitle(item) }}
+              {{ itemTitle(entry.item) }}
             </div>
             <small class="text-xs text-slate-500 dark:text-slate-400">
-              {{ itemDescription(item) }}
+              {{ itemDescription(entry.item) }}
             </small>
           </div>
           <div class="flex items-center gap-2">
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-              :disabled="index === 0"
-              @click="moveTop(index)"
+              :disabled="entry.index === 0"
+              @click="moveTop(entry.index)"
               title="Move to top"
             >
               <ArrowUpToLine class="h-4 w-4" />
             </button>
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-              :disabled="index === 0"
-              @click="moveItem(index, index - 1)"
+              :disabled="entry.index === 0"
+              @click="moveItem(entry.index, entry.index - 1)"
               title="Move up"
             >
               <ArrowUp class="h-4 w-4" />
             </button>
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-              :disabled="index === queueStore.peekItems.length - 1"
-              @click="moveItem(index, index + 1)"
+              :disabled="entry.index === queueStore.peekItems.length - 1"
+              @click="moveItem(entry.index, entry.index + 1)"
               title="Move down"
             >
               <ArrowDown class="h-4 w-4" />
             </button>
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-              :disabled="index === queueStore.peekItems.length - 1"
-              @click="moveBottom(index)"
+              :disabled="entry.index === queueStore.peekItems.length - 1"
+              @click="moveBottom(entry.index)"
               title="Move to bottom"
             >
               <ArrowDownToLine class="h-4 w-4" />
             </button>
             <button
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-              @click="removeItem(index)"
+              @click="removeItem(entry.index)"
               title="Remove"
             >
               <X class="h-4 w-4" />
@@ -178,11 +190,19 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useQueueStore } from '../stores/queueStore';
 import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, ListChecks, Pause, Play, RefreshCcw, Trash2, X } from 'lucide-vue-next';
 
 const queueStore = useQueueStore();
+const docIdFilter = ref('');
+
+const filteredItems = computed(() => {
+  const needle = docIdFilter.value.trim();
+  const items = queueStore.peekItems.map((item, index) => ({ item, index }));
+  if (!needle) return items;
+  return items.filter(({ item }) => item.doc_id && String(item.doc_id).includes(needle));
+});
 
 const TASK_MAP: Record<string, { label: string; description: string }> = {
   sync: { label: 'Sync document', description: 'Fetch latest metadata from Paperless.' },

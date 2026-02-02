@@ -14,6 +14,12 @@ class StatusResponse(BaseModel):
     worker: StatusEntry
     ollama: StatusEntry
     paperless_base_url: Optional[str] = None
+    ollama_base_url: Optional[str] = None
+    qdrant_url: Optional[str] = None
+    redis_host: Optional[str] = None
+    ollama_model: Optional[str] = None
+    embedding_model: Optional[str] = None
+    vision_model: Optional[str] = None
     latency_ms: Optional[int] = None
 
 
@@ -24,6 +30,8 @@ class QueueStatusResponse(BaseModel):
     in_progress: Optional[int] = None
     done: Optional[int] = None
     paused: Optional[bool] = None
+    last_run_seconds: Optional[float] = None
+    last_run_at: Optional[int] = None
 
 
 class QueueEnqueueResponse(BaseModel):
@@ -88,6 +96,8 @@ class PaperlessDocument(BaseModel):
 
 class DocumentSummary(PaperlessDocument):
     correspondent_name: Optional[str] = None
+    local_cached: Optional[bool] = None
+    local_overrides: Optional[bool] = None
     has_embeddings: Optional[bool] = None
     has_suggestions: Optional[bool] = None
     has_vision_pages: Optional[bool] = None
@@ -194,6 +204,7 @@ class SuggestionPayload(BaseModel):
 class SuggestionsResponse(BaseModel):
     doc_id: int
     suggestions: dict[str, Any] = {}
+    suggestions_meta: Optional[dict[str, Any]] = None
     queued: Optional[bool] = None
 
 
@@ -331,6 +342,29 @@ class ResetIntelligenceResponse(BaseModel):
     cleared_embeddings: int
     cleared_page_texts: int
     cleared_suggestions: int
+
+
+class ClearIntelligenceResponse(BaseModel):
+    cleared_documents: int
+    cleared_embeddings: int
+    cleared_page_texts: int
+    cleared_suggestions: int
+    qdrant_deleted: int
+    qdrant_errors: int
+
+
+class DeleteEmbeddingsResponse(BaseModel):
+    deleted: int
+    qdrant_deleted: int
+    qdrant_errors: int
+
+
+class DeleteSuggestionsResponse(BaseModel):
+    deleted: int
+
+
+class DeleteVisionOcrResponse(BaseModel):
+    deleted: int
 
 
 class ChatCitation(BaseModel):

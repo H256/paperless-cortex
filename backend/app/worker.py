@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
+import socket
+import threading
 import time
 
 from sqlalchemy.orm import Session
@@ -24,6 +27,10 @@ from app.services.queue import (
     mark_done,
     QUEUE_SET,
     mark_worker_heartbeat,
+    record_last_run,
+    acquire_worker_lock,
+    refresh_worker_lock,
+    release_worker_lock,
     is_cancel_requested,
     clear_cancel,
     reset_stats,
@@ -131,13 +138,25 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     baseline_text = doc.content or ""
     baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
     baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(db, doc_id, "paperless_ocr", __import__("json").dumps(baseline_suggestions, ensure_ascii=False))
+    upsert_suggestion(
+        db,
+        doc_id,
+        "paperless_ocr",
+        __import__("json").dumps(baseline_suggestions, ensure_ascii=False),
+        model_name=settings.ollama_model,
+    )
     audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
     if vision_pages:
         vision_text = "\n\n".join(page.text or "" for page in vision_pages)
         vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
         vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-        upsert_suggestion(db, doc_id, "vision_ocr", __import__("json").dumps(vision_suggestions, ensure_ascii=False))
+        upsert_suggestion(
+            db,
+            doc_id,
+            "vision_ocr",
+            __import__("json").dumps(vision_suggestions, ensure_ascii=False),
+            model_name=settings.ollama_model,
+        )
         audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
 
 def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
@@ -215,7 +234,13 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     baseline_text = doc.content or ""
     baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
     baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(db, doc_id, "paperless_ocr", json.dumps(baseline_suggestions, ensure_ascii=False))
+    upsert_suggestion(
+        db,
+        doc_id,
+        "paperless_ocr",
+        json.dumps(baseline_suggestions, ensure_ascii=False),
+        model_name=settings.ollama_model,
+    )
     audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
     db.commit()
 
@@ -238,7 +263,13 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         if vision_text:
             vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
             vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-            upsert_suggestion(db, doc_id, "vision_ocr", json.dumps(vision_suggestions, ensure_ascii=False))
+            upsert_suggestion(
+                db,
+                doc_id,
+                "vision_ocr",
+                json.dumps(vision_suggestions, ensure_ascii=False),
+                model_name=settings.ollama_model,
+            )
             audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
     db.commit()
 
@@ -276,7 +307,16 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
         current_value=current,
     )
     variant_source = ("pvar" if source == "paperless_ocr" else "vvar") + f":{field}"
-    upsert_suggestion(db, doc_id, variant_source, json.dumps({"variants": variants.get("variants") if isinstance(variants, dict) else variants}, ensure_ascii=False))
+    upsert_suggestion(
+        db,
+        doc_id,
+        variant_source,
+        json.dumps(
+            {"variants": variants.get("variants") if isinstance(variants, dict) else variants},
+            ensure_ascii=False,
+        ),
+        model_name=settings.ollama_model,
+    )
     audit_suggestion_run(db, doc_id, source, f"field_variants:{field}")
     db.commit()
 
@@ -288,82 +328,106 @@ def main() -> None:
     client = _get_client(settings)
     if not client:
         raise SystemExit("Redis not configured")
+    worker_token = f"{socket.gethostname()}:{os.getpid()}:{int(time.time())}"
+    if not acquire_worker_lock(settings, worker_token):
+        raise SystemExit("Another worker is already running")
     logger.info("Worker started queue=%s", QUEUE_KEY)
-    while True:
-        mark_worker_heartbeat(settings)
-        if is_paused(settings):
-            time.sleep(0.5)
-            continue
-        if is_cancel_requested(settings):
-            logger.info("Worker cancel requested; clearing queue")
-            clear_queue(settings)
-            reset_stats(settings)
-            clear_cancel(settings)
-            time.sleep(0.5)
-            continue
-        item = client.blpop(QUEUE_KEY, timeout=5)
-        if not item:
-            time.sleep(0.5)
-            continue
-        _, doc_id_str = item
-        task = None
-        try:
-            task = json.loads(doc_id_str)
-        except Exception:
-            task = None
-        if isinstance(task, dict) and "doc_id" in task:
-            doc_id = int(task.get("doc_id"))
-            task_type = str(task.get("task") or "full")
-        else:
-            try:
-                doc_id = int(doc_id_str)
-            except Exception:
-                logger.warning("Invalid doc_id in queue: %s", doc_id_str)
+    stop_event = threading.Event()
+    lock_lost = threading.Event()
+
+    def _lock_refresher() -> None:
+        while not stop_event.is_set():
+            if not refresh_worker_lock(settings, worker_token):
+                logger.error("Worker lock refresh failed; exiting soon")
+                lock_lost.set()
+                return
+            stop_event.wait(30)
+
+    refresher = threading.Thread(target=_lock_refresher, name="worker-lock-refresher", daemon=True)
+    refresher.start()
+    try:
+        while True:
+            if lock_lost.is_set():
+                raise SystemExit("Worker lock lost; exiting")
+            mark_worker_heartbeat(settings)
+            if is_paused(settings):
+                time.sleep(0.5)
                 continue
-            task_type = "full"
-        if is_cancel_requested(settings):
-            logger.info("Worker cancel requested; skipping doc=%s", doc_id)
-            clear_queue(settings)
-            reset_stats(settings)
-            clear_cancel(settings)
-            time.sleep(0.5)
-            continue
-        mark_in_progress(settings)
-        try:
-            with SessionLocal() as db:
-                if task_type == "sync":
-                    _process_sync_only(settings, db, doc_id)
-                elif task_type == "vision_ocr":
-                    force = bool(task.get("force")) if isinstance(task, dict) else False
-                    _process_vision_ocr_only(settings, db, doc_id, force=force)
-                elif task_type == "embeddings_paperless":
-                    _process_embeddings_paperless(settings, db, doc_id)
-                elif task_type == "embeddings_vision":
-                    _process_embeddings_vision(settings, db, doc_id)
-                elif task_type == "suggestions_paperless":
-                    _process_suggestions_paperless(settings, db, doc_id)
-                elif task_type == "suggestions_vision":
-                    _process_suggestions_vision(settings, db, doc_id)
-                elif task_type == "suggest_field":
-                    _process_suggest_field(settings, db, task if isinstance(task, dict) else {})
-                else:
-                    _process_doc(settings, db, doc_id)
-        except Exception as exc:
-            logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
-        finally:
-            mark_done(settings)
-            if client:
-                if isinstance(task, dict):
-                    source = task.get("source")
-                    field = task.get("field")
-                    suffix = ""
-                    if source:
-                        suffix += f":{source}"
-                    if field:
-                        suffix += f":{field}"
-                    client.srem(QUEUE_SET, f"{doc_id}:{task_type}{suffix}")
-                else:
-                    client.srem(QUEUE_SET, str(doc_id))
+            if is_cancel_requested(settings):
+                logger.info("Worker cancel requested; clearing queue")
+                clear_queue(settings)
+                reset_stats(settings)
+                clear_cancel(settings)
+                time.sleep(0.5)
+                continue
+            item = client.blpop(QUEUE_KEY, timeout=5)
+            if not item:
+                time.sleep(0.5)
+                continue
+            _, doc_id_str = item
+            task = None
+            try:
+                task = json.loads(doc_id_str)
+            except Exception:
+                task = None
+            if isinstance(task, dict) and "doc_id" in task:
+                doc_id = int(task.get("doc_id"))
+                task_type = str(task.get("task") or "full")
+            else:
+                try:
+                    doc_id = int(doc_id_str)
+                except Exception:
+                    logger.warning("Invalid doc_id in queue: %s", doc_id_str)
+                    continue
+                task_type = "full"
+            if is_cancel_requested(settings):
+                logger.info("Worker cancel requested; skipping doc=%s", doc_id)
+                clear_queue(settings)
+                reset_stats(settings)
+                clear_cancel(settings)
+                time.sleep(0.5)
+                continue
+            mark_in_progress(settings)
+            run_started = time.time()
+            try:
+                with SessionLocal() as db:
+                    if task_type == "sync":
+                        _process_sync_only(settings, db, doc_id)
+                    elif task_type == "vision_ocr":
+                        force = bool(task.get("force")) if isinstance(task, dict) else False
+                        _process_vision_ocr_only(settings, db, doc_id, force=force)
+                    elif task_type == "embeddings_paperless":
+                        _process_embeddings_paperless(settings, db, doc_id)
+                    elif task_type == "embeddings_vision":
+                        _process_embeddings_vision(settings, db, doc_id)
+                    elif task_type == "suggestions_paperless":
+                        _process_suggestions_paperless(settings, db, doc_id)
+                    elif task_type == "suggestions_vision":
+                        _process_suggestions_vision(settings, db, doc_id)
+                    elif task_type == "suggest_field":
+                        _process_suggest_field(settings, db, task if isinstance(task, dict) else {})
+                    else:
+                        _process_doc(settings, db, doc_id)
+            except Exception as exc:
+                logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
+            finally:
+                mark_done(settings)
+                record_last_run(settings, time.time() - run_started)
+                if client:
+                    if isinstance(task, dict):
+                        source = task.get("source")
+                        field = task.get("field")
+                        suffix = ""
+                        if source:
+                            suffix += f":{source}"
+                        if field:
+                            suffix += f":{field}"
+                        client.srem(QUEUE_SET, f"{doc_id}:{task_type}{suffix}")
+                    else:
+                        client.srem(QUEUE_SET, str(doc_id))
+    finally:
+        stop_event.set()
+        release_worker_lock(settings, worker_token)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 import logging
 
-from app.models import DocumentSuggestion, SuggestionAudit
+from app.models import Document, DocumentSuggestion, SuggestionAudit
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,8 @@ def upsert_suggestion(
     doc_id: int,
     source: str,
     payload: str,
+    model_name: str | None = None,
+    processed_at: str | None = None,
 ) -> None:
     db.execute(
         delete(DocumentSuggestion).where(
@@ -22,15 +24,22 @@ def upsert_suggestion(
             DocumentSuggestion.source == source,
         )
     )
-    created_at = datetime.now(timezone.utc).isoformat()
+    processed_at = processed_at or datetime.now(timezone.utc).isoformat()
+    created_at = processed_at
     db.add(
         DocumentSuggestion(
             doc_id=doc_id,
             source=source,
             payload=payload,
             created_at=created_at,
+            model_name=model_name,
+            processed_at=processed_at,
         )
     )
+    doc = db.get(Document, doc_id)
+    if doc:
+        doc.analysis_model = model_name
+        doc.analysis_processed_at = processed_at
     db.commit()
     logger.info("Stored suggestions doc=%s source=%s", doc_id, source)
 

@@ -7,6 +7,7 @@ import DocumentDetailView from './views/DocumentDetailView.vue';
 import QueueView from './views/QueueView.vue';
 import SearchView from './views/SearchView.vue';
 import ChatView from './views/ChatView.vue';
+import MaintenanceView from './views/MaintenanceView.vue';
 import './index.css';
 
 const router = createRouter({
@@ -18,6 +19,7 @@ const router = createRouter({
     { path: '/search', component: SearchView },
     { path: '/queue', component: QueueView },
     { path: '/chat', component: ChatView },
+    { path: '/operations', component: MaintenanceView },
   ],
 });
 

@@ -31,7 +31,8 @@ def upsert_page_texts(
             DocumentPageText.source.in_(sources),
         )
     )
-    created_at = datetime.now(timezone.utc).isoformat()
+    processed_at = datetime.now(timezone.utc).isoformat()
+    created_at = processed_at
     for page in pages:
         if source_filter and page.source != source_filter:
             continue
@@ -44,6 +45,8 @@ def upsert_page_texts(
                 text=page.text,
                 quality_score=quality.score,
                 created_at=created_at,
+                model_name=settings.vision_model,
+                processed_at=processed_at,
             )
         )
     db.commit()

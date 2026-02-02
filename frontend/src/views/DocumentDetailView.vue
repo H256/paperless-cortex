@@ -247,6 +247,9 @@
                   Refresh
                 </button>
               </div>
+              <div v-if="suggestionMetaLine('paperless_ocr')" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {{ suggestionMetaLine('paperless_ocr') }}
+              </div>
               <div v-if="!paperlessSuggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400"><em>No data.</em></div>
               <div v-else class="mt-3 space-y-3">
                 <div v-if="paperlessSuggestion.raw">
@@ -343,6 +346,9 @@
                 >
                   Refresh
                 </button>
+              </div>
+              <div v-if="suggestionMetaLine('vision_ocr')" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {{ suggestionMetaLine('vision_ocr') }}
               </div>
               <div v-if="!visionSuggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400"><em>No data.</em></div>
               <div v-else class="mt-3 space-y-3">
@@ -552,6 +558,8 @@ import { storeToRefs } from 'pinia';
 import IconButton from '../components/IconButton.vue';
 import PdfViewer from '../components/PdfViewer.vue';
 import { useDocumentDetailStore } from '../stores/documentDetailStore';
+import { useQueueStore } from '../stores/queueStore';
+import { useToastStore } from '../stores/toastStore';
 import { useStatusStore } from '../stores/statusStore';
 import { PageText } from '../services/documents';
 
@@ -560,6 +568,8 @@ const router = useRouter();
 const id = Number(route.params.id);
 
 const documentStore = useDocumentDetailStore();
+const queueStore = useQueueStore();
+const toastStore = useToastStore();
 const statusStore = useStatusStore();
 const {
   document,
@@ -636,12 +646,21 @@ const normalizeSuggestion = (input: any) => {
 const paperlessSuggestion = computed(() => normalizeSuggestion(suggestions.value?.paperless_ocr));
 const visionSuggestion = computed(() => normalizeSuggestion(suggestions.value?.vision_ocr));
 const bestPickSuggestion = computed(() => normalizeSuggestion(suggestions.value?.best_pick));
+const suggestionsMeta = computed(() => (suggestions.value as any)?.suggestions_meta || {});
 const suggestionFields = [
   { key: 'title', label: 'Suggested title' },
   { key: 'date', label: 'Suggested date' },
   { key: 'correspondent', label: 'Suggested correspondent' },
   { key: 'tags', label: 'Suggested tags' },
 ];
+
+const suggestionMetaLine = (source: string) => {
+  const meta = suggestionsMeta.value?.[source];
+  if (!meta) return '';
+  const model = meta.model || 'unknown';
+  const processed = meta.processed_at ? formatDateTime(meta.processed_at) : 'unknown';
+  return `Model: ${model} · Updated: ${processed}`;
+};
 
 const aggregatedText = computed(() => {
   if (!pageTexts.value.length) return document.value?.content || '';
@@ -705,8 +724,20 @@ const applyToDocument = async (source: string, field: string, data: any) => {
   const ok = window.confirm(`Apply ${field} to document: ${label}?`);
   if (!ok) return;
   try {
+    const reloadSuggestions = Boolean(suggestions.value);
+    const reloadPages = pageTexts.value.length > 0;
+    const reloadQuality = Boolean(contentQuality.value);
     await documentStore.applyToDocument(id, { source, field, value });
     await load();
+    if (reloadSuggestions) {
+      await loadSuggestions();
+    }
+    if (reloadPages) {
+      await loadPageTexts();
+    }
+    if (reloadQuality) {
+      await loadContentQuality();
+    }
   } catch (err: any) {
     suggestionsError.value = err?.message ?? 'Failed to apply suggestion to document';
   }
@@ -820,6 +851,10 @@ const runReprocess = async () => {
   try {
     if (doResync.value) {
       await resync();
+      await queueStore.refreshStatus();
+      if (queueStore.status.enabled) {
+        toastStore.push(`Document ${id} queued for processing.`, 'info', 'Queued');
+      }
     }
     if (doQuality.value) {
       await loadContentQuality(true);
