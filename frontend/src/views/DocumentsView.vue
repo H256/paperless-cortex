@@ -245,6 +245,9 @@
             <Loader2 class="h-4 w-4 animate-spin" />
             Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA {{ etaText }}
           </div>
+          <div class="mt-1 text-[11px] text-indigo-600/80 dark:text-indigo-200/70">
+            Sync läuft… Start ist verfügbar, sobald der Sync abgeschlossen ist.
+          </div>
         </div>
         <div v-if="documentsStore.processPreviewLoading" class="mt-4 text-sm text-slate-500 dark:text-slate-400">Calculating...</div>
         <div v-else class="mt-4 grid gap-3 sm:grid-cols-2">
