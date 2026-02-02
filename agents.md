@@ -301,3 +301,4 @@ All model names must be configurable via environment variables.
 - Feature: Toast notification when a document is queued from detail re-process.
 - Fix: Increased worker lock TTL to 5 minutes for long-running vision OCR tasks.
 - Fix: Document list now shows local edits (title/date/tags/correspondent) when local overrides exist.
+- Feature: Added Local override badge in document list.

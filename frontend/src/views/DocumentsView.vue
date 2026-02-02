@@ -194,6 +194,12 @@
                 >
                   Paperless only
                 </span>
+                <span
+                  v-if="doc.local_overrides"
+                  class="ml-2 inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                >
+                  Local override
+                </span>
               </td>
               <td class="px-6 py-3 text-slate-600">
                 <a
