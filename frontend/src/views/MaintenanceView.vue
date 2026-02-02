@@ -31,6 +31,36 @@
       </div>
     </section>
 
+    <section class="mt-6 rounded-xl border border-rose-200 bg-white p-6 shadow-sm dark:border-rose-900/50 dark:bg-slate-900">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-rose-700 dark:text-rose-300">Clear all intelligence data</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Removes embeddings, suggestions, and vision OCR data without reprocessing.
+          </p>
+        </div>
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+          :disabled="clearAllLoading"
+          @click="confirmClearAll"
+        >
+          <span v-if="clearAllLoading" class="inline-flex items-center gap-2">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Clearing...
+          </span>
+          <span v-else>Clear all</span>
+        </button>
+      </div>
+      <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+        This action cannot be undone. Paperless data is not modified.
+      </div>
+      <div v-if="clearAllResult" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+        Cleared {{ clearAllResult.cleared_embeddings }} embeddings, {{ clearAllResult.cleared_suggestions }} suggestions,
+        {{ clearAllResult.cleared_page_texts }} vision OCR rows. Qdrant deleted: {{ clearAllResult.qdrant_deleted }},
+        errors: {{ clearAllResult.qdrant_errors }}.
+      </div>
+    </section>
+
     <section class="mt-6 grid gap-4 lg:grid-cols-3">
       <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Vision OCR</h3>
@@ -313,6 +343,14 @@ const embeddingsLoading = ref(false);
 const visionResult = ref<{ deleted: number } | null>(null);
 const suggestionsResult = ref<{ deleted: number } | null>(null);
 const embeddingsResult = ref<{ deleted: number; qdrant_deleted: number; qdrant_errors: number } | null>(null);
+const clearAllLoading = ref(false);
+const clearAllResult = ref<{
+  cleared_embeddings: number;
+  cleared_page_texts: number;
+  cleared_suggestions: number;
+  qdrant_deleted: number;
+  qdrant_errors: number;
+} | null>(null);
 
 const openReprocessModal = () => {
   showReprocessModal.value = true;
@@ -390,6 +428,25 @@ const copyValue = async (value: string, key: string) => {
     }, 1200);
   } catch {
     copiedKey.value = null;
+  }
+};
+
+const confirmClearAll = async () => {
+  const ok = window.confirm('Clear all intelligence data (embeddings, suggestions, vision OCR) for every document? This cannot be undone.');
+  if (!ok) return;
+  clearAllLoading.value = true;
+  clearAllResult.value = null;
+  try {
+    const result = await documentsStore.clearAllIntelligence();
+    clearAllResult.value = {
+      cleared_embeddings: result.cleared_embeddings ?? 0,
+      cleared_page_texts: result.cleared_page_texts ?? 0,
+      cleared_suggestions: result.cleared_suggestions ?? 0,
+      qdrant_deleted: result.qdrant_deleted ?? 0,
+      qdrant_errors: result.qdrant_errors ?? 0,
+    };
+  } finally {
+    clearAllLoading.value = false;
   }
 };
 </script>

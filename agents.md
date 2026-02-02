@@ -291,3 +291,4 @@ All model names must be configurable via environment variables.
 - Feature: Renamed Maintenance page to Operations and added runtime URLs/models section.
 - Feature: Added copy buttons for runtime URLs and models on Operations page.
 - Feature: Added reusable Toast component with copy-to-clipboard feedback.
+- Feature: Added \"Clear all intelligence data\" block to Operations page (no reprocessing).

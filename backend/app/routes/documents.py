@@ -49,6 +49,7 @@ from app.api_models import (
     SuggestionsResponse,
     ProcessMissingResponse,
     ResetIntelligenceResponse,
+    ClearIntelligenceResponse,
     DeleteEmbeddingsResponse,
     DeleteSuggestionsResponse,
     DeleteVisionOcrResponse,
@@ -916,6 +917,36 @@ def reset_intelligence(
         "cleared_embeddings": cleared_embeddings,
         "cleared_page_texts": cleared_page_texts,
         "cleared_suggestions": cleared_suggestions,
+    }
+
+
+@router.post("/clear-intelligence", response_model=ClearIntelligenceResponse)
+def clear_intelligence(
+    settings: Settings = Depends(settings_dep),
+    db: Session = Depends(get_db),
+):
+    doc_ids = [row.doc_id for row in db.query(DocumentEmbedding.doc_id).all()]
+    cleared_embeddings = len(doc_ids)
+    cleared_page_texts = db.query(DocumentPageText).count()
+    cleared_suggestions = db.query(DocumentSuggestion).count()
+    db.execute(delete(DocumentEmbedding))
+    db.execute(delete(DocumentPageText))
+    db.execute(delete(DocumentSuggestion))
+    db.commit()
+    qdrant_deleted = 0
+    qdrant_errors = 0
+    for doc_id in doc_ids:
+        try:
+            delete_points_for_doc(settings, doc_id)
+            qdrant_deleted += 1
+        except Exception:
+            qdrant_errors += 1
+    return {
+        "cleared_embeddings": cleared_embeddings,
+        "cleared_page_texts": cleared_page_texts,
+        "cleared_suggestions": cleared_suggestions,
+        "qdrant_deleted": qdrant_deleted,
+        "qdrant_errors": qdrant_errors,
     }
 
 

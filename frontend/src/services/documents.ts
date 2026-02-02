@@ -82,6 +82,13 @@ export type ProcessMissingParams = {
   embeddings_mode?: 'auto' | 'paperless' | 'vision';
 };
 export type ResetIntelligenceResponse = { cleared_embeddings: number; cleared_page_texts: number; cleared_suggestions: number };
+export type ClearIntelligenceResponse = {
+  cleared_embeddings: number;
+  cleared_page_texts: number;
+  cleared_suggestions: number;
+  qdrant_deleted: number;
+  qdrant_errors: number;
+};
 export type DeleteEmbeddingsResponse = { deleted: number; qdrant_deleted: number; qdrant_errors: number };
 export type DeleteSuggestionsResponse = { deleted: number };
 export type DeleteVisionOcrResponse = { deleted: number };
@@ -168,6 +175,9 @@ export const processMissing = (params?: ProcessMissingParams) =>
 
 export const resetIntelligence = () =>
   request<ResetIntelligenceResponse>('/documents/reset-intelligence', { method: 'POST' });
+
+export const clearIntelligence = () =>
+  request<ClearIntelligenceResponse>('/documents/clear-intelligence', { method: 'POST' });
 
 export const deleteVisionOcr = () =>
   request<DeleteVisionOcrResponse>('/documents/delete-vision-ocr', { method: 'POST' });

@@ -13,6 +13,7 @@ import {
   deleteEmbeddings,
   deleteSuggestions,
   deleteVisionOcr,
+  clearIntelligence,
   processMissing,
   resetIntelligence,
   syncDocuments,
@@ -259,6 +260,9 @@ export const useDocumentsStore = defineStore('documents', {
     },
     async removeEmbeddings() {
       return deleteEmbeddings();
+    },
+    async clearAllIntelligence() {
+      return clearIntelligence();
     },
     async reembedFiltered(force = false) {
       this.embedding = true;

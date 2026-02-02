@@ -341,6 +341,14 @@ class ResetIntelligenceResponse(BaseModel):
     cleared_suggestions: int
 
 
+class ClearIntelligenceResponse(BaseModel):
+    cleared_embeddings: int
+    cleared_page_texts: int
+    cleared_suggestions: int
+    qdrant_deleted: int
+    qdrant_errors: int
+
+
 class DeleteEmbeddingsResponse(BaseModel):
     deleted: int
     qdrant_deleted: int
