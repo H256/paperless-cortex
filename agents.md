@@ -303,3 +303,4 @@ All model names must be configurable via environment variables.
 - Fix: Document list now shows local edits (title/date/tags/correspondent) when local overrides exist.
 - Feature: Added Local override badge in document list.
 - Fix: Chunk Qdrant upserts to stay under 32MB payload limit.
+- Fix: Refresh worker lock in a background thread to avoid lock loss during long tasks.

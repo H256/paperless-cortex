@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import threading
 import time
 
 from sqlalchemy.orm import Session
@@ -331,9 +332,22 @@ def main() -> None:
     if not acquire_worker_lock(settings, worker_token):
         raise SystemExit("Another worker is already running")
     logger.info("Worker started queue=%s", QUEUE_KEY)
+    stop_event = threading.Event()
+    lock_lost = threading.Event()
+
+    def _lock_refresher() -> None:
+        while not stop_event.is_set():
+            if not refresh_worker_lock(settings, worker_token):
+                logger.error("Worker lock refresh failed; exiting soon")
+                lock_lost.set()
+                return
+            stop_event.wait(30)
+
+    refresher = threading.Thread(target=_lock_refresher, name="worker-lock-refresher", daemon=True)
+    refresher.start()
     try:
         while True:
-            if not refresh_worker_lock(settings, worker_token):
+            if lock_lost.is_set():
                 raise SystemExit("Worker lock lost; exiting")
             mark_worker_heartbeat(settings)
             if is_paused(settings):
@@ -412,6 +426,7 @@ def main() -> None:
                     else:
                         client.srem(QUEUE_SET, str(doc_id))
     finally:
+        stop_event.set()
         release_worker_lock(settings, worker_token)
 
 
