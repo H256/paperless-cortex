@@ -235,11 +235,6 @@ const statusStore = useStatusStore()
 const errorStore = useErrorStore()
 
 const themeStorageKey = 'paperless_theme'
-const themeOptions = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-]
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
 const theme = ref(storedTheme)
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
