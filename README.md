@@ -79,6 +79,7 @@ docker compose -f docker-compose.worker.yml up --build
 
 Notes:
 - Update `.env` with Paperless + token settings.
+- `.env.worker.example` provides a minimal worker-focused template.
 - Full stack uses local service URLs for DB/Redis/Qdrant/Ollama; adjust as needed.
 
 ## Concise flow

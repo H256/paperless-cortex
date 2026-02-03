@@ -466,3 +466,4 @@ All model names must be configurable via environment variables.
 - Branding: Updated app name to “Paperless-NGX Cortex” with slogan “Your documents, understood.”
 - DevOps: Added Dockerfile and compose variants for app-only and full stack deployment.
 - DevOps: Added worker-only compose variant.
+- DevOps: Added worker entrypoint guard for QUEUE_ENABLED and worker env template.

@@ -4,7 +4,7 @@ services:
   worker:
     build: .
     container_name: paperless-ngx-cortex-worker
-    command: ["python", "-m", "app.worker"]
+    command: ["/app/docker/worker_entrypoint.sh"]
     env_file:
       - .env
     restart: unless-stopped
