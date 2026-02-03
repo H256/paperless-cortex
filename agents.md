@@ -308,3 +308,4 @@ All model names must be configurable via environment variables.
 - Fix: Continue-processing now only queues missing embeddings/suggestions (no timestamp-based reprocessing).
 - Fix: Continue-processing modal closes after enqueue and shows only a Close button once queued.
 - Feature: Continue-processing enqueue summary now appears as a toast after closing the modal.
+- Fix: Missing vision embeddings count now reflects auto/vision embedding modes.

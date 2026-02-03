@@ -921,7 +921,7 @@ def process_missing(
                 task_type = "embeddings_vision" if prefer_vision_embeddings else "embeddings_paperless"
             tasks.append({"doc_id": doc.id, "task": task_type})
             missing_embeddings += 1
-            if task_type == "embeddings_vision":
+            if embeddings_mode in ("vision", "auto"):
                 missing_embeddings_vision += 1
             selected = True
         if include_suggestions_paperless and need_sugg_p:
