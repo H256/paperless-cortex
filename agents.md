@@ -265,6 +265,18 @@ All model names must be configurable via environment variables.
 - Phase 2 (optional): Evidence-Locator mit Vision-OCR-Text + BBox-Highlighting.
 - Phase 2a (MVP, on-the-fly): Für zitierte Seiten Layout-OCR on-demand ausführen, Snippet matchen, BBox aggregieren, sonst fallback auf Doc-ID + Seite.
 
+### Phase 2a Umsetzungsskizze (on-the-fly BBox)
+- Backend: neuer Chat-Postprozess-Schritt `resolve_evidence` (nach LLM-Antwort).
+- Eingabe: Liste von Zitaten {doc_id, page, snippet} + optional `max_pages=3`.
+- Pro Seite:
+  - PDF-Page rendern (bestehende Render-Funktion).
+  - Vision-OCR mit Layout-Output (Wörter + BBox) on-demand ausführen.
+  - Fuzzy-Match Snippet → Word-Sequence.
+  - BBox aggregieren (min/max der Wort-BBoxes).
+- Ausgabe: Zitate mit `bbox` ergänzen, Fallback: doc_id+page, wenn kein Match.
+- UI: vorhandenes Highlight-Overlay nutzen; bei fehlender BBox nur Seite öffnen.
+- Konfig: Timeout + max pages pro Antwort begrenzen.
+
 ## Roadmap (short)
 - Client refactor: extract logic from `views/*.vue` into composables/stores and shared components.
 - Server refactor: consolidate queue/task logic and standardize error handling.
