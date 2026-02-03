@@ -125,12 +125,12 @@
       </div>
     </div>
   </div>
-  <footer class="border-t border-slate-200 bg-white/70 py-6 dark:border-slate-800 dark:bg-slate-900/70">
+  <footer class="border-t border-slate-200 bg-white/70 py-3 dark:border-slate-800 dark:bg-slate-900/70">
     <div class="mx-auto flex max-w-7xl items-center justify-center px-6">
       <img
         src="/cortex_image_transparent.png"
         alt="Paperless-NGX Cortex"
-        class="h-8 w-32 object-contain opacity-80"
+        class="h-10 w-40 object-contain opacity-85"
       />
     </div>
   </footer>
