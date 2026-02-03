@@ -338,6 +338,69 @@ All model names must be configurable via environment variables.
 - Frage beantworten → Zitate enthalten bbox bei mind. 1 Seite.
 - Fehlende bbox bricht nicht den Chat-Flow.
 
+#### Ausführliche Spezifikation (vollständig)
+##### EvidenceRequest Payload
+- `citations`: array
+  - `doc_id`: int
+  - `page`: int (1-based)
+  - `snippet`: string (short excerpt from LLM output)
+  - `source_id`: optional (index from retrieval)
+- `max_pages`: int (default 3, hard max 5)
+- `timeout_seconds`: int (default 45)
+- `min_match_ratio`: float (default 0.8)
+
+##### EvidenceMatch Payload
+- `doc_id`, `page`, `snippet`
+- `bbox`: optional `[x0,y0,x1,y1]` in page coordinates (same as existing viewer)
+- `confidence`: float (0–1)
+- `status`: `"ok" | "no_match" | "error"`
+- `error`: optional string
+
+##### OCR Layout Output (on-the-fly)
+- Prompt response JSON:
+  - `page`: int
+  - `words`: [{ `text`: string, `bbox`: [x0,y0,x1,y1] }]
+- Normalization rules:
+  - Lowercase, collapse whitespace, strip punctuation from both snippet and word tokens.
+  - Keep digits and currency symbols.
+
+##### Matching Algorithm (deterministic)
+1) Tokenize snippet into words.
+2) Tokenize OCR words (already per word).
+3) Sliding window across OCR words of length `len(snippet_tokens) ± 2`.
+4) Compute fuzzy ratio (e.g., RapidFuzz ratio) on joined strings.
+5) Choose max ratio; accept if >= `min_match_ratio`.
+6) If no match: fallback to partial token overlap (>=60%).
+7) Aggregate bbox of matched word range.
+
+##### Caching
+- In-memory LRU:
+  - Key: `(doc_id, page, ocr_model)`
+  - Value: layout words + bboxes
+  - TTL: 5–10 minutes
+- Cache size: 50 pages (configurable).
+
+##### Failure / Fallback Behavior
+- If OCR fails → return `status=error` (do not break chat).
+- If match fails → `status=no_match` (return page-only citation).
+- If page render fails → `status=error`.
+
+##### Security / Limits
+- Cap `citations` processed to `max_pages`.
+- Enforce timeout per page render + OCR call.
+- Reject empty snippets or pages <=0.
+
+##### Frontend Integration Details
+- Viewer already consumes `{doc_id, page, bbox}`.
+- When `status=no_match`, show badge “Seite geöffnet (kein exakter Treffer)”.
+- When `status=error`, show badge “Fundstelle nicht ermittelbar”.
+
+##### Implementation Notes
+- Add `resolve_evidence` call in chat service only when:
+  - citations exist AND
+  - at least 1 snippet length >= 20 chars.
+- Store original snippet in response for debugging.
+
 ## Roadmap (short)
 - Client refactor: extract logic from `views/*.vue` into composables/stores and shared components.
 - Server refactor: consolidate queue/task logic and standardize error handling.
