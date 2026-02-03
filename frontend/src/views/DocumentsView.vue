@@ -140,8 +140,8 @@
       </div>
     </section>
 
-    <section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div class="overflow-hidden">
+    <section class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div>
         <table class="w-full border-collapse text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
             <tr>
