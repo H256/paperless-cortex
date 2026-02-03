@@ -6,7 +6,7 @@
  */
 
 export interface SuggestionFieldRequest {
-  source: string;
-  field: string;
-  count?: number;
+  source: string
+  field: string
+  count?: number
 }

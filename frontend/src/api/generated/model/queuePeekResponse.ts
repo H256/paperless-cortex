@@ -4,9 +4,9 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { QueuePeekItem } from './queuePeekItem';
+import type { QueuePeekItem } from './queuePeekItem'
 
 export interface QueuePeekResponse {
-  enabled: boolean;
-  items?: QueuePeekItem[];
+  enabled: boolean
+  items?: QueuePeekItem[]
 }

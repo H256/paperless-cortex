@@ -6,8 +6,8 @@
  */
 
 export interface MonthlyProcessingBucket {
-  label: string;
-  total: number;
-  processed: number;
-  unprocessed: number;
+  label: string
+  total: number
+  processed: number
+  unprocessed: number
 }

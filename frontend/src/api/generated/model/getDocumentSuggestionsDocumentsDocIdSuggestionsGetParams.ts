@@ -6,7 +6,7 @@
  */
 
 export type GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams = {
-source?: string | null;
-refresh?: boolean;
-priority?: boolean;
-};
+  source?: string | null
+  refresh?: boolean
+  priority?: boolean
+}

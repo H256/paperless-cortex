@@ -4,10 +4,10 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { ChatCitation } from './chatCitation';
+import type { ChatCitation } from './chatCitation'
 
 export interface ChatResponse {
-  question: string;
-  answer: string;
-  citations?: ChatCitation[];
+  question: string
+  answer: string
+  citations?: ChatCitation[]
 }

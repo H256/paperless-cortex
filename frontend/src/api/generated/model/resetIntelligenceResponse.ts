@@ -6,7 +6,7 @@
  */
 
 export interface ResetIntelligenceResponse {
-  cleared_embeddings: number;
-  cleared_page_texts: number;
-  cleared_suggestions: number;
+  cleared_embeddings: number
+  cleared_page_texts: number
+  cleared_suggestions: number
 }

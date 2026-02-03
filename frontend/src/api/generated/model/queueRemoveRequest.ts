@@ -6,5 +6,5 @@
  */
 
 export interface QueueRemoveRequest {
-  index: number;
+  index: number
 }

@@ -6,11 +6,11 @@
  */
 
 export interface EmbeddingStatusResponse {
-  status: string;
-  processed: number;
-  total: number;
-  started_at?: string | null;
-  last_synced_at?: string | null;
-  cancel_requested?: boolean | null;
-  eta_seconds?: number | null;
+  status: string
+  processed: number
+  total: number
+  started_at?: string | null
+  last_synced_at?: string | null
+  cancel_requested?: boolean | null
+  eta_seconds?: number | null
 }

@@ -6,5 +6,5 @@
  */
 
 export type IngestDocumentsEmbeddingsIngestDocsPostParams = {
-force?: boolean;
-};
+  force?: boolean
+}

@@ -6,11 +6,11 @@
  */
 
 export interface SyncDocumentsResponse {
-  count: number;
-  upserted: number;
-  incremental: boolean;
-  embedded: number;
-  status?: string | null;
-  queued?: number | null;
-  marked_deleted?: number | null;
+  count: number
+  upserted: number
+  incremental: boolean
+  embedded: number
+  status?: string | null
+  queued?: number | null
+  marked_deleted?: number | null
 }

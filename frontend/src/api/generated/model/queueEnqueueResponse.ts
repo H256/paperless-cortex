@@ -6,6 +6,6 @@
  */
 
 export interface QueueEnqueueResponse {
-  enabled: boolean;
-  enqueued?: number | null;
+  enabled: boolean
+  enqueued?: number | null
 }

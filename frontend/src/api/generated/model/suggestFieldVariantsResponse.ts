@@ -6,9 +6,9 @@
  */
 
 export interface SuggestFieldVariantsResponse {
-  doc_id: number;
-  source: string;
-  field: string;
-  variants?: unknown[];
-  queued?: boolean | null;
+  doc_id: number
+  source: string
+  field: string
+  variants?: unknown[]
+  queued?: boolean | null
 }

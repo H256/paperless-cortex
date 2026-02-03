@@ -4,12 +4,12 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { SuggestionsResponseSuggestions } from './suggestionsResponseSuggestions';
-import type { SuggestionsResponseSuggestionsMeta } from './suggestionsResponseSuggestionsMeta';
+import type { SuggestionsResponseSuggestions } from './suggestionsResponseSuggestions'
+import type { SuggestionsResponseSuggestionsMeta } from './suggestionsResponseSuggestionsMeta'
 
 export interface SuggestionsResponse {
-  doc_id: number;
-  suggestions?: SuggestionsResponseSuggestions;
-  suggestions_meta?: SuggestionsResponseSuggestionsMeta;
-  queued?: boolean | null;
+  doc_id: number
+  suggestions?: SuggestionsResponseSuggestions
+  suggestions_meta?: SuggestionsResponseSuggestionsMeta
+  queued?: boolean | null
 }

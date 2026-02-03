@@ -5,4 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type TextQualityMetricsMetrics = {[key: string]: number};
+export type TextQualityMetricsMetrics = { [key: string]: number }

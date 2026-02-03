@@ -6,6 +6,6 @@
  */
 
 export interface QueueMoveResponse {
-  enabled: boolean;
-  moved: boolean;
+  enabled: boolean
+  moved: boolean
 }

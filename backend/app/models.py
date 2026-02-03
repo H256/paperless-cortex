@@ -39,7 +39,7 @@ class Document(Base):
     owner_id: Mapped[int | None] = mapped_column(Integer)
     user_can_change: Mapped[bool | None] = mapped_column(Boolean)
     is_shared_by_requester: Mapped[bool | None] = mapped_column(Boolean)
-    deleted_at: Mapped[str | None] = mapped_column(String(64))
+    deleted_at: Mapped[str | None] = mapped_column(String(128))
     analysis_model: Mapped[str | None] = mapped_column(String(128))
     analysis_processed_at: Mapped[str | None] = mapped_column(String(64))
 

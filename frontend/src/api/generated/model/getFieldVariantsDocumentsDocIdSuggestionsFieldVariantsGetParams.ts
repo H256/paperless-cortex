@@ -6,6 +6,6 @@
  */
 
 export type GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams = {
-source: string;
-field: string;
-};
+  source: string
+  field: string
+}

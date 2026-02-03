@@ -6,7 +6,7 @@
  */
 
 export interface DashboardCount {
-  id?: number | null;
-  name: string;
-  count: number;
+  id?: number | null
+  name: string
+  count: number
 }

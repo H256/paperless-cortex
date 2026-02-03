@@ -4,9 +4,9 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { ApplyFieldSuggestionResponseSuggestions } from './applyFieldSuggestionResponseSuggestions';
+import type { ApplyFieldSuggestionResponseSuggestions } from './applyFieldSuggestionResponseSuggestions'
 
 export interface ApplyFieldSuggestionResponse {
-  status: string;
-  suggestions?: ApplyFieldSuggestionResponseSuggestions;
+  status: string
+  suggestions?: ApplyFieldSuggestionResponseSuggestions
 }

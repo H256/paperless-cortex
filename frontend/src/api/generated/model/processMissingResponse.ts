@@ -6,15 +6,15 @@
  */
 
 export interface ProcessMissingResponse {
-  enabled: boolean;
-  docs: number;
-  enqueued: number;
-  tasks: number;
-  dry_run?: boolean;
-  missing_docs?: number | null;
-  missing_vision_ocr?: number | null;
-  missing_embeddings?: number | null;
-  missing_embeddings_vision?: number | null;
-  missing_suggestions_paperless?: number | null;
-  missing_suggestions_vision?: number | null;
+  enabled: boolean
+  docs: number
+  enqueued: number
+  tasks: number
+  dry_run?: boolean
+  missing_docs?: number | null
+  missing_vision_ocr?: number | null
+  missing_embeddings?: number | null
+  missing_embeddings_vision?: number | null
+  missing_suggestions_paperless?: number | null
+  missing_suggestions_vision?: number | null
 }

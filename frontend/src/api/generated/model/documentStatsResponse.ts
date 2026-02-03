@@ -6,11 +6,11 @@
  */
 
 export interface DocumentStatsResponse {
-  total: number;
-  processed: number;
-  unprocessed: number;
-  embeddings: number;
-  vision: number;
-  suggestions: number;
-  fully_processed: number;
+  total: number
+  processed: number
+  unprocessed: number
+  embeddings: number
+  vision: number
+  suggestions: number
+  fully_processed: number
 }

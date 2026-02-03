@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia';
-import { searchEmbeddings, SearchResult } from '../services/search';
+import { defineStore } from 'pinia'
+import { searchEmbeddings, type SearchResult } from '../services/search'
 
 export const useSearchStore = defineStore('search', {
   state: () => ({
@@ -16,22 +16,22 @@ export const useSearchStore = defineStore('search', {
   }),
   getters: {
     effectiveSource(state) {
-      if (state.onlyVision) return 'vision_ocr';
-      return state.source || '';
+      if (state.onlyVision) return 'vision_ocr'
+      return state.source || ''
     },
     filteredResults(state): SearchResult[] {
-      const source = state.onlyVision ? 'vision_ocr' : state.source || '';
-      if (!source) return state.results;
-      return state.results.filter((result) => result.source === source);
+      const source = state.onlyVision ? 'vision_ocr' : state.source || ''
+      if (!source) return state.results
+      return state.results.filter((result) => result.source === source)
     },
   },
   actions: {
     async runSearch() {
-      if (!this.query) return;
-      this.loading = true;
-      this.error = '';
+      if (!this.query) return
+      this.loading = true
+      this.error = ''
       try {
-        const source = this.onlyVision ? 'vision_ocr' : this.source || undefined;
+        const source = this.onlyVision ? 'vision_ocr' : this.source || undefined
         const data = await searchEmbeddings({
           q: this.query,
           top_k: this.topK,
@@ -39,13 +39,13 @@ export const useSearchStore = defineStore('search', {
           dedupe: this.dedupe,
           rerank: this.rerank,
           min_quality: this.minQuality || undefined,
-        });
-        this.results = data.matches ?? [];
+        })
+        this.results = data.matches ?? []
       } catch (err: any) {
-        this.error = err?.message ?? 'Search failed';
+        this.error = err?.message ?? 'Search failed'
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
   },
-});
+})

@@ -6,5 +6,5 @@
  */
 
 export interface DeleteSuggestionsResponse {
-  deleted: number;
+  deleted: number
 }

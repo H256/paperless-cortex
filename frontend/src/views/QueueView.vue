@@ -2,8 +2,12 @@
   <section>
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Queue Manager</h2>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Control processing order and check what is coming next.</p>
+        <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          Queue Manager
+        </h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Control processing order and check what is coming next.
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button
@@ -11,7 +15,10 @@
           :disabled="queueStore.loading || queueStore.peekLoading"
           @click="refresh"
         >
-          <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': queueStore.loading || queueStore.peekLoading }" />
+          <RefreshCcw
+            class="h-4 w-4"
+            :class="{ 'animate-spin': queueStore.loading || queueStore.peekLoading }"
+          />
           {{ queueStore.loading || queueStore.peekLoading ? 'Refreshing...' : 'Refresh' }}
         </button>
         <button
@@ -51,8 +58,14 @@
     </div>
 
     <section class="mt-6 grid gap-4 md:grid-cols-5">
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Status</div>
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div
+          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        >
+          Status
+        </div>
         <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
           {{ queueStore.status.enabled ? 'Enabled' : 'Disabled' }}
         </div>
@@ -60,33 +73,69 @@
           {{ queueStore.status.paused ? 'Paused' : 'Running' }}
         </div>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Length</div>
-        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ queueStore.status.length ?? 'n/a' }}</div>
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div
+          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        >
+          Length
+        </div>
+        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {{ queueStore.status.length ?? 'n/a' }}
+        </div>
         <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Items waiting</div>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Total</div>
-        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ queueStore.status.total ?? 0 }}</div>
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div
+          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        >
+          Total
+        </div>
+        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {{ queueStore.status.total ?? 0 }}
+        </div>
         <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Enqueued today</div>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">In progress</div>
-        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ queueStore.status.in_progress ?? 0 }}</div>
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div
+          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        >
+          In progress
+        </div>
+        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {{ queueStore.status.in_progress ?? 0 }}
+        </div>
         <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Processing now</div>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Done</div>
-        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ queueStore.status.done ?? 0 }}</div>
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div
+          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        >
+          Done
+        </div>
+        <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {{ queueStore.status.done ?? 0 }}
+        </div>
         <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Completed</div>
       </div>
     </section>
 
-    <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section
+      class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Upcoming items</h3>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Drag order with the arrows or remove individual tasks.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Drag order with the arrows or remove individual tasks.
+          </p>
         </div>
         <div class="flex flex-wrap items-end gap-3">
           <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
@@ -119,13 +168,22 @@
         </div>
       </div>
 
-      <div v-if="queueStore.error" class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+      <div
+        v-if="queueStore.error"
+        class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+      >
         {{ queueStore.error }}
       </div>
-      <div v-else-if="queueStore.peekItems.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+      <div
+        v-else-if="queueStore.peekItems.length === 0"
+        class="mt-4 text-sm text-slate-500 dark:text-slate-400"
+      >
         {{ queueStore.peekLoading ? 'Loading queue...' : 'No items in the queue.' }}
       </div>
-      <div v-else-if="filteredItems.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+      <div
+        v-else-if="filteredItems.length === 0"
+        class="mt-4 text-sm text-slate-500 dark:text-slate-400"
+      >
         No items match the Doc ID filter.
       </div>
       <div v-else class="mt-4 space-y-3">
@@ -190,94 +248,120 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useQueueStore } from '../stores/queueStore';
-import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, ListChecks, Pause, Play, RefreshCcw, Trash2, X } from 'lucide-vue-next';
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useQueueStore } from '../stores/queueStore'
+import {
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowUp,
+  ArrowUpToLine,
+  ListChecks,
+  Pause,
+  Play,
+  RefreshCcw,
+  Trash2,
+  X,
+} from 'lucide-vue-next'
 
-const queueStore = useQueueStore();
-const docIdFilter = ref('');
+const queueStore = useQueueStore()
+const docIdFilter = ref('')
 
 const filteredItems = computed(() => {
-  const needle = docIdFilter.value.trim();
-  const items = queueStore.peekItems.map((item, index) => ({ item, index }));
-  if (!needle) return items;
-  return items.filter(({ item }) => item.doc_id && String(item.doc_id).includes(needle));
-});
+  const needle = docIdFilter.value.trim()
+  const items = queueStore.peekItems.map((item, index) => ({ item, index }))
+  if (!needle) return items
+  return items.filter(({ item }) => item.doc_id && String(item.doc_id).includes(needle))
+})
 
 const TASK_MAP: Record<string, { label: string; description: string }> = {
   sync: { label: 'Sync document', description: 'Fetch latest metadata from Paperless.' },
   vision_ocr: { label: 'Vision OCR', description: 'Run OCR on the document pages.' },
-  embeddings_paperless: { label: 'Baseline embeddings', description: 'Embed text from Paperless OCR.' },
-  embeddings_vision: { label: 'Vision embeddings', description: 'Embed text from Vision OCR pages.' },
-  suggestions_paperless: { label: 'AI suggestions (baseline)', description: 'Generate metadata suggestions from OCR.' },
-  suggestions_vision: { label: 'AI suggestions (vision)', description: 'Generate metadata suggestions from vision OCR.' },
-  suggest_field: { label: 'Field variants', description: 'Suggest alternative values for a field.' },
+  embeddings_paperless: {
+    label: 'Baseline embeddings',
+    description: 'Embed text from Paperless OCR.',
+  },
+  embeddings_vision: {
+    label: 'Vision embeddings',
+    description: 'Embed text from Vision OCR pages.',
+  },
+  suggestions_paperless: {
+    label: 'AI suggestions (baseline)',
+    description: 'Generate metadata suggestions from OCR.',
+  },
+  suggestions_vision: {
+    label: 'AI suggestions (vision)',
+    description: 'Generate metadata suggestions from vision OCR.',
+  },
+  suggest_field: {
+    label: 'Field variants',
+    description: 'Suggest alternative values for a field.',
+  },
   full: { label: 'Full pipeline', description: 'Sync, OCR, embeddings, and suggestions.' },
-};
+}
 
 const itemTitle = (item: { doc_id?: number; task?: string; raw?: string }) => {
   if (item.doc_id) {
-    const key = item.task || 'full';
-    const label = TASK_MAP[key]?.label || key;
-    return `Doc ${item.doc_id} - ${label}`;
+    const key = item.task || 'full'
+    const label = TASK_MAP[key]?.label || key
+    return `Doc ${item.doc_id} - ${label}`
   }
-  return item.raw || 'Unknown item';
-};
+  return item.raw || 'Unknown item'
+}
 
 const itemDescription = (item: { doc_id?: number; task?: string; raw?: string }) => {
-  const key = item.task || 'full';
-  if (item.doc_id && TASK_MAP[key]) return TASK_MAP[key].description;
-  return item.raw ? 'Custom queue payload' : 'Unknown queue item';
-};
+  const key = item.task || 'full'
+  if (item.doc_id && TASK_MAP[key]) return TASK_MAP[key].description
+  return item.raw ? 'Custom queue payload' : 'Unknown queue item'
+}
 
 const refresh = async () => {
-  await queueStore.refreshStatus();
-  await queueStore.loadPeek();
-};
+  await queueStore.refreshStatus()
+  await queueStore.loadPeek()
+}
 
 const loadPeek = async () => {
-  await queueStore.loadPeek();
-};
+  await queueStore.loadPeek()
+}
 
 const clearQueue = async () => {
-  await queueStore.clear();
-};
+  await queueStore.clear()
+}
 
 const resetStats = async () => {
-  await queueStore.resetStats();
-};
+  await queueStore.resetStats()
+}
 
 const pauseQueue = async () => {
-  await queueStore.pause();
-};
+  await queueStore.pause()
+}
 
 const resumeQueue = async () => {
-  await queueStore.resume();
-};
+  await queueStore.resume()
+}
 
 const moveItem = async (fromIndex: number, toIndex: number) => {
-  await queueStore.move(fromIndex, toIndex);
-};
+  await queueStore.move(fromIndex, toIndex)
+}
 
 const moveTop = async (index: number) => {
-  await queueStore.moveTop(index);
-};
+  await queueStore.moveTop(index)
+}
 
 const moveBottom = async (index: number) => {
-  await queueStore.moveBottom(index);
-};
+  await queueStore.moveBottom(index)
+}
 
 const removeItem = async (index: number) => {
-  await queueStore.remove(index);
-};
+  await queueStore.remove(index)
+}
 
 onMounted(async () => {
-  await refresh();
-  poller = window.setInterval(refresh, 30000);
-});
+  await refresh()
+  poller = window.setInterval(refresh, 30000)
+})
 
-let poller: number | null = null;
+let poller: number | null = null
 onUnmounted(() => {
-  if (poller) window.clearInterval(poller);
-});
+  if (poller) window.clearInterval(poller)
+})
 </script>

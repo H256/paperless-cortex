@@ -6,6 +6,6 @@
  */
 
 export interface StatusEntry {
-  status: string;
-  detail?: string | null;
+  status: string
+  detail?: string | null
 }

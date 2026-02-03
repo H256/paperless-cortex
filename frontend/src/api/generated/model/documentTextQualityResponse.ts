@@ -4,9 +4,9 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { TextQualityMetrics } from './textQualityMetrics';
+import type { TextQualityMetrics } from './textQualityMetrics'
 
 export interface DocumentTextQualityResponse {
-  doc_id: number;
-  quality: TextQualityMetrics;
+  doc_id: number
+  quality: TextQualityMetrics
 }

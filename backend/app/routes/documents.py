@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import and_, exists, func
 from sqlalchemy.orm import Session
-from time import time
 
 from app.config import Settings, load_settings
 from app.db import get_db
@@ -36,7 +35,6 @@ from app.services.suggestion_store import upsert_suggestion, audit_suggestion_ru
 from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_docs_front, enqueue_task_front, enqueue_task_sequence_front
-from app.services.vision_ocr import render_pdf_pages
 from app.services.embeddings import delete_points_for_doc
 from app.api_models import (
     ApplyFieldSuggestionResponse,
@@ -63,8 +61,6 @@ from sqlalchemy import delete
 from datetime import datetime
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-_preview_cache: dict[tuple[int, int, int], tuple[float, bytes]] = {}
-_preview_cache_ttl = 600.0
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -936,44 +932,6 @@ def get_document_page_texts(
         "doc_id": doc_id,
         "pages": pages,
     }
-
-
-@router.get("/{doc_id}/page-preview")
-def get_document_page_preview(
-    doc_id: int,
-    page: int,
-    max_dim: int | None = None,
-    settings: Settings = Depends(settings_dep),
-):
-    if page < 1:
-        raise HTTPException(status_code=400, detail="page must be >= 1")
-    if max_dim is None:
-        max_dim = settings.vision_ocr_max_dim or 1024
-    max_dim = max(256, min(int(max_dim), 2048))
-    cache_key = (doc_id, page, max_dim)
-    cached = _preview_cache.get(cache_key)
-    now = time()
-    if cached and now - cached[0] < _preview_cache_ttl:
-        return Response(
-            content=cached[1],
-            media_type="image/png",
-            headers={"Cache-Control": "public, max-age=3600"},
-        )
-    try:
-        pdf_bytes = paperless.get_document_pdf(settings, doc_id)
-        rendered = render_pdf_pages(pdf_bytes, [page], max_dim=max_dim)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    if not rendered:
-        raise HTTPException(status_code=404, detail="page not found")
-    _preview_cache[cache_key] = (now, rendered[0].image_bytes)
-    return Response(
-        content=rendered[0].image_bytes,
-        media_type="image/png",
-        headers={"Cache-Control": "public, max-age=3600"},
-    )
 
 
 @router.get("/{doc_id}/pdf")

@@ -6,5 +6,5 @@
  */
 
 export interface DeleteVisionOcrResponse {
-  deleted: number;
+  deleted: number
 }

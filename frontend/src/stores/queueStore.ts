@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia';
+import { defineStore } from 'pinia'
 import {
-  QueuePeekItem,
-  QueueStatus,
+  type QueuePeekItem,
+  type QueueStatus,
   clearQueue,
   fetchQueuePeek,
   fetchQueueStatus,
@@ -12,7 +12,7 @@ import {
   moveQueueItemTop,
   moveQueueItemBottom,
   removeQueueItem,
-} from '../services/queue';
+} from '../services/queue'
 
 export const useQueueStore = defineStore('queue', {
   state: () => ({
@@ -26,59 +26,59 @@ export const useQueueStore = defineStore('queue', {
   actions: {
     async refreshStatus() {
       try {
-        this.loading = true;
-        this.status = await fetchQueueStatus();
+        this.loading = true
+        this.status = await fetchQueueStatus()
       } catch {
-        this.status = { enabled: false, length: null };
+        this.status = { enabled: false, length: null }
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
     async loadPeek() {
-      this.error = '';
+      this.error = ''
       try {
-        this.peekLoading = true;
-        const data = await fetchQueuePeek(this.peekLimit);
-        this.peekItems = data.items ?? [];
+        this.peekLoading = true
+        const data = await fetchQueuePeek(this.peekLimit)
+        this.peekItems = data.items ?? []
       } catch (err: any) {
-        this.error = err?.message ?? 'Failed to load queue items';
+        this.error = err?.message ?? 'Failed to load queue items'
       } finally {
-        this.peekLoading = false;
+        this.peekLoading = false
       }
     },
     async clear() {
-      await clearQueue();
-      await this.refreshStatus();
-      await this.loadPeek();
+      await clearQueue()
+      await this.refreshStatus()
+      await this.loadPeek()
     },
     async resetStats() {
-      await resetQueueStats();
-      await this.refreshStatus();
+      await resetQueueStats()
+      await this.refreshStatus()
     },
     async pause() {
-      await pauseQueue();
-      await this.refreshStatus();
+      await pauseQueue()
+      await this.refreshStatus()
     },
     async resume() {
-      await resumeQueue();
-      await this.refreshStatus();
+      await resumeQueue()
+      await this.refreshStatus()
     },
     async move(fromIndex: number, toIndex: number) {
-      await moveQueueItem({ from_index: fromIndex, to_index: toIndex });
-      await this.loadPeek();
+      await moveQueueItem({ from_index: fromIndex, to_index: toIndex })
+      await this.loadPeek()
     },
     async moveTop(index: number) {
-      await moveQueueItemTop({ index });
-      await this.loadPeek();
+      await moveQueueItemTop({ index })
+      await this.loadPeek()
     },
     async moveBottom(index: number) {
-      await moveQueueItemBottom({ index });
-      await this.loadPeek();
+      await moveQueueItemBottom({ index })
+      await this.loadPeek()
     },
     async remove(index: number) {
-      await removeQueueItem({ index });
-      await this.loadPeek();
-      await this.refreshStatus();
+      await removeQueueItem({ index })
+      await this.loadPeek()
+      await this.refreshStatus()
     },
   },
-});
+})

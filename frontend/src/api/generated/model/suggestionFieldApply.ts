@@ -6,7 +6,7 @@
  */
 
 export interface SuggestionFieldApply {
-  source: string;
-  field: string;
-  value: unknown;
+  source: string
+  field: string
+  value: unknown
 }

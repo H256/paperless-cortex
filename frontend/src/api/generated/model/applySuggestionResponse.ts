@@ -6,7 +6,7 @@
  */
 
 export interface ApplySuggestionResponse {
-  status: string;
-  updated?: boolean | null;
-  unmatched?: unknown | null;
+  status: string
+  updated?: boolean | null
+  unmatched?: unknown | null
 }

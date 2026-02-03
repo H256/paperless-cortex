@@ -6,10 +6,10 @@
  */
 
 export interface ClearIntelligenceResponse {
-  cleared_documents: number;
-  cleared_embeddings: number;
-  cleared_page_texts: number;
-  cleared_suggestions: number;
-  qdrant_deleted: number;
-  qdrant_errors: number;
+  cleared_documents: number
+  cleared_embeddings: number
+  cleared_page_texts: number
+  cleared_suggestions: number
+  qdrant_deleted: number
+  qdrant_errors: number
 }

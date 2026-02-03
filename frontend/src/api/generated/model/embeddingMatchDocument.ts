@@ -6,10 +6,10 @@
  */
 
 export interface EmbeddingMatchDocument {
-  id: number;
-  title?: string | null;
-  document_date?: string | null;
-  created?: string | null;
-  correspondent_id?: number | null;
-  correspondent_name?: string | null;
+  id: number
+  title?: string | null
+  document_date?: string | null
+  created?: string | null
+  correspondent_id?: number | null
+  correspondent_name?: string | null
 }

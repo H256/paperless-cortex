@@ -6,11 +6,11 @@
  */
 
 export type SearchEmbeddingsSearchGetParams = {
-q: string;
-top_k?: number;
-dedupe?: boolean;
-rerank?: boolean;
-source?: string | null;
-min_quality?: number | null;
-include_doc?: boolean;
-};
+  q: string
+  top_k?: number
+  dedupe?: boolean
+  rerank?: boolean
+  source?: string | null
+  min_quality?: number | null
+  include_doc?: boolean
+}

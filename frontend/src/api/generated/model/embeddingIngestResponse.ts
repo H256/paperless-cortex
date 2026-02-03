@@ -6,8 +6,8 @@
  */
 
 export interface EmbeddingIngestResponse {
-  ingested?: number | null;
-  documents_embedded?: number | null;
-  queued?: number | null;
-  status?: string | null;
+  ingested?: number | null
+  documents_embedded?: number | null
+  queued?: number | null
+  status?: string | null
 }

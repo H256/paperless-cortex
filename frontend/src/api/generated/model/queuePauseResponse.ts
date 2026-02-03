@@ -6,6 +6,6 @@
  */
 
 export interface QueuePauseResponse {
-  enabled: boolean;
-  paused: boolean;
+  enabled: boolean
+  paused: boolean
 }

@@ -6,5 +6,5 @@
  */
 
 export type GetDocumentTextQualityDocumentsDocIdTextQualityGetParams = {
-priority?: boolean;
-};
+  priority?: boolean
+}

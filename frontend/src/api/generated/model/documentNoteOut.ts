@@ -6,5 +6,5 @@
  */
 
 export interface DocumentNoteOut {
-  note?: string | null;
+  note?: string | null
 }

@@ -4,11 +4,11 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { PageTextQuality } from './pageTextQuality';
+import type { PageTextQuality } from './pageTextQuality'
 
 export interface PageTextOut {
-  page: number;
-  source: string;
-  text?: string | null;
-  quality?: PageTextQuality | null;
+  page: number
+  source: string
+  text?: string | null
+  quality?: PageTextQuality | null
 }

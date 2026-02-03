@@ -4,12 +4,12 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { ChatHistoryItem } from './chatHistoryItem';
+import type { ChatHistoryItem } from './chatHistoryItem'
 
 export interface ChatRequest {
-  question: string;
-  top_k?: number;
-  source?: string | null;
-  min_quality?: number | null;
-  history?: ChatHistoryItem[] | null;
+  question: string
+  top_k?: number
+  source?: string | null
+  min_quality?: number | null
+  history?: ChatHistoryItem[] | null
 }

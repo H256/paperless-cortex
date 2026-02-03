@@ -1,31 +1,31 @@
-import { defineStore } from 'pinia';
-import { sendChat, ChatResponse, streamChat } from '../services/chat';
+import { defineStore } from 'pinia'
+import { sendChat, type ChatResponse, streamChat } from '../services/chat'
 
-const storageKey = 'paperless_chat_history';
+const storageKey = 'paperless_chat_history'
 const loadMessages = (): ChatMessage[] => {
   try {
-    const raw = window.localStorage?.getItem(storageKey);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const raw = window.localStorage?.getItem(storageKey)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
   } catch {
-    return [];
+    return []
   }
-};
+}
 const saveMessages = (messages: ChatMessage[]) => {
   try {
-    window.localStorage?.setItem(storageKey, JSON.stringify(messages.slice(0, 30)));
+    window.localStorage?.setItem(storageKey, JSON.stringify(messages.slice(0, 30)))
   } catch {
     // ignore
   }
-};
+}
 
 export interface ChatMessage {
-  id: string;
-  question: string;
-  answer: string;
-  citations: ChatResponse['citations'];
-  createdAt: number;
+  id: string
+  question: string
+  answer: string
+  citations: ChatResponse['citations']
+  createdAt: number
 }
 
 export const useChatStore = defineStore('chat', {
@@ -44,24 +44,24 @@ export const useChatStore = defineStore('chat', {
   actions: {
     stop() {
       if (this.activeAbort) {
-        this.activeAbort.abort();
-        this.activeAbort = null;
-        this.loading = false;
+        this.activeAbort.abort()
+        this.activeAbort = null
+        this.loading = false
       }
     },
     async ask() {
-      if (!this.question) return;
+      if (!this.question) return
       if (this.loading) {
-        this.stop();
+        this.stop()
       }
-      this.loading = true;
-      this.error = '';
+      this.loading = true
+      this.error = ''
       try {
         const history = this.messages
           .slice(0, 4)
           .map((msg) => ({ question: msg.question, answer: msg.answer }))
-          .reverse();
-        const source = this.onlyVision ? 'vision_ocr' : this.source || undefined;
+          .reverse()
+        const source = this.onlyVision ? 'vision_ocr' : this.source || undefined
         if (this.streaming) {
           const message: ChatMessage = {
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -69,13 +69,13 @@ export const useChatStore = defineStore('chat', {
             answer: '',
             citations: [],
             createdAt: Date.now(),
-          };
-          this.messages.unshift(message);
-          saveMessages(this.messages);
-          const controller = new AbortController();
-          this.activeAbort = controller;
-          const questionText = this.question;
-          this.question = '';
+          }
+          this.messages.unshift(message)
+          saveMessages(this.messages)
+          const controller = new AbortController()
+          this.activeAbort = controller
+          const questionText = this.question
+          this.question = ''
           await streamChat(
             {
               question: questionText,
@@ -85,18 +85,18 @@ export const useChatStore = defineStore('chat', {
               history,
             },
             (token) => {
-              message.answer += token;
+              message.answer += token
             },
             (done) => {
-              message.answer = done.answer || message.answer;
-              message.citations = done.citations ?? [];
-              saveMessages(this.messages);
+              message.answer = done.answer || message.answer
+              message.citations = done.citations ?? []
+              saveMessages(this.messages)
             },
             (err) => {
-              this.error = err;
+              this.error = err
             },
-            controller.signal
-          );
+            controller.signal,
+          )
         } else {
           const data = await sendChat({
             question: this.question,
@@ -104,25 +104,25 @@ export const useChatStore = defineStore('chat', {
             source,
             min_quality: this.minQuality || undefined,
             history,
-          });
+          })
           this.messages.unshift({
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
             question: data.question,
             answer: data.answer,
             citations: data.citations ?? [],
             createdAt: Date.now(),
-          });
-          saveMessages(this.messages);
-          this.question = '';
+          })
+          saveMessages(this.messages)
+          this.question = ''
         }
       } catch (err: any) {
         if (err?.name !== 'AbortError') {
-          this.error = err?.message ?? 'Chat failed';
+          this.error = err?.message ?? 'Chat failed'
         }
       } finally {
-        this.loading = false;
-        this.activeAbort = null;
+        this.loading = false
+        this.activeAbort = null
       }
     },
   },
-});
+})

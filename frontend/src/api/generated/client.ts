@@ -71,8 +71,8 @@ import type {
   SyncSimpleResponse,
   SyncStatusResponse,
   SyncTagsSyncTagsPostParams,
-  TagsPageResponse
-} from './model';
+  TagsPageResponse,
+} from './model'
 
 /**
  * @summary List Documents
@@ -86,49 +86,46 @@ export type listDocumentsDocumentsGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type listDocumentsDocumentsGetResponseSuccess = (listDocumentsDocumentsGetResponse200) & {
-  headers: Headers;
-};
-export type listDocumentsDocumentsGetResponseError = (listDocumentsDocumentsGetResponse422) & {
-  headers: Headers;
-};
 
-export type listDocumentsDocumentsGetResponse = (listDocumentsDocumentsGetResponseSuccess | listDocumentsDocumentsGetResponseError)
+export type listDocumentsDocumentsGetResponseSuccess = listDocumentsDocumentsGetResponse200 & {
+  headers: Headers
+}
+export type listDocumentsDocumentsGetResponseError = listDocumentsDocumentsGetResponse422 & {
+  headers: Headers
+}
 
-export const getListDocumentsDocumentsGetUrl = (params?: ListDocumentsDocumentsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type listDocumentsDocumentsGetResponse =
+  | listDocumentsDocumentsGetResponseSuccess
+  | listDocumentsDocumentsGetResponseError
+
+export const getListDocumentsDocumentsGetUrl = (params?: ListDocumentsDocumentsGetParams) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
   return stringifiedParams.length > 0 ? `/api/documents/?${stringifiedParams}` : `/api/documents/`
 }
 
-export const listDocumentsDocumentsGet = async (params?: ListDocumentsDocumentsGetParams, options?: RequestInit): Promise<listDocumentsDocumentsGetResponse> => {
-  
-  const res = await fetch(getListDocumentsDocumentsGetUrl(params),
-  {      
+export const listDocumentsDocumentsGet = async (
+  params?: ListDocumentsDocumentsGetParams,
+  options?: RequestInit,
+): Promise<listDocumentsDocumentsGetResponse> => {
+  const res = await fetch(getListDocumentsDocumentsGetUrl(params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: listDocumentsDocumentsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listDocumentsDocumentsGetResponse
 }
-
-
 
 /**
  * @summary Get Document Stats
@@ -137,40 +134,36 @@ export type getDocumentStatsDocumentsStatsGetResponse200 = {
   data: DocumentStatsResponse
   status: 200
 }
-    
-export type getDocumentStatsDocumentsStatsGetResponseSuccess = (getDocumentStatsDocumentsStatsGetResponse200) & {
-  headers: Headers;
-};
-;
 
-export type getDocumentStatsDocumentsStatsGetResponse = (getDocumentStatsDocumentsStatsGetResponseSuccess)
+export type getDocumentStatsDocumentsStatsGetResponseSuccess =
+  getDocumentStatsDocumentsStatsGetResponse200 & {
+    headers: Headers
+  }
+
+export type getDocumentStatsDocumentsStatsGetResponse =
+  getDocumentStatsDocumentsStatsGetResponseSuccess
 
 export const getGetDocumentStatsDocumentsStatsGetUrl = () => {
-
-
-  
-
   return `/api/documents/stats`
 }
 
-export const getDocumentStatsDocumentsStatsGet = async ( options?: RequestInit): Promise<getDocumentStatsDocumentsStatsGetResponse> => {
-  
-  const res = await fetch(getGetDocumentStatsDocumentsStatsGetUrl(),
-  {      
+export const getDocumentStatsDocumentsStatsGet = async (
+  options?: RequestInit,
+): Promise<getDocumentStatsDocumentsStatsGetResponse> => {
+  const res = await fetch(getGetDocumentStatsDocumentsStatsGetUrl(), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: getDocumentStatsDocumentsStatsGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentStatsDocumentsStatsGetResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentStatsDocumentsStatsGetResponse
 }
-
-
 
 /**
  * @summary Get Dashboard
@@ -179,40 +172,36 @@ export type getDashboardDocumentsDashboardGetResponse200 = {
   data: DocumentDashboardResponse
   status: 200
 }
-    
-export type getDashboardDocumentsDashboardGetResponseSuccess = (getDashboardDocumentsDashboardGetResponse200) & {
-  headers: Headers;
-};
-;
 
-export type getDashboardDocumentsDashboardGetResponse = (getDashboardDocumentsDashboardGetResponseSuccess)
+export type getDashboardDocumentsDashboardGetResponseSuccess =
+  getDashboardDocumentsDashboardGetResponse200 & {
+    headers: Headers
+  }
+
+export type getDashboardDocumentsDashboardGetResponse =
+  getDashboardDocumentsDashboardGetResponseSuccess
 
 export const getGetDashboardDocumentsDashboardGetUrl = () => {
-
-
-  
-
   return `/api/documents/dashboard`
 }
 
-export const getDashboardDocumentsDashboardGet = async ( options?: RequestInit): Promise<getDashboardDocumentsDashboardGetResponse> => {
-  
-  const res = await fetch(getGetDashboardDocumentsDashboardGetUrl(),
-  {      
+export const getDashboardDocumentsDashboardGet = async (
+  options?: RequestInit,
+): Promise<getDashboardDocumentsDashboardGetResponse> => {
+  const res = await fetch(getGetDashboardDocumentsDashboardGetUrl(), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: getDashboardDocumentsDashboardGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDashboardDocumentsDashboardGetResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDashboardDocumentsDashboardGetResponse
 }
-
-
 
 /**
  * @summary Get Document
@@ -226,42 +215,37 @@ export type getDocumentDocumentsDocIdGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentDocumentsDocIdGetResponseSuccess = (getDocumentDocumentsDocIdGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentDocumentsDocIdGetResponseError = (getDocumentDocumentsDocIdGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentDocumentsDocIdGetResponse = (getDocumentDocumentsDocIdGetResponseSuccess | getDocumentDocumentsDocIdGetResponseError)
+export type getDocumentDocumentsDocIdGetResponseSuccess =
+  getDocumentDocumentsDocIdGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentDocumentsDocIdGetResponseError = getDocumentDocumentsDocIdGetResponse422 & {
+  headers: Headers
+}
 
-export const getGetDocumentDocumentsDocIdGetUrl = (docId: number,) => {
+export type getDocumentDocumentsDocIdGetResponse =
+  | getDocumentDocumentsDocIdGetResponseSuccess
+  | getDocumentDocumentsDocIdGetResponseError
 
-
-  
-
+export const getGetDocumentDocumentsDocIdGetUrl = (docId: number) => {
   return `/api/documents/${docId}`
 }
 
-export const getDocumentDocumentsDocIdGet = async (docId: number, options?: RequestInit): Promise<getDocumentDocumentsDocIdGetResponse> => {
-  
-  const res = await fetch(getGetDocumentDocumentsDocIdGetUrl(docId),
-  {      
+export const getDocumentDocumentsDocIdGet = async (
+  docId: number,
+  options?: RequestInit,
+): Promise<getDocumentDocumentsDocIdGetResponse> => {
+  const res = await fetch(getGetDocumentDocumentsDocIdGetUrl(docId), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: getDocumentDocumentsDocIdGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentDocumentsDocIdGetResponse
 }
-
-
 
 /**
  * @summary Get Local Document
@@ -275,42 +259,42 @@ export type getLocalDocumentDocumentsDocIdLocalGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getLocalDocumentDocumentsDocIdLocalGetResponseSuccess = (getLocalDocumentDocumentsDocIdLocalGetResponse200) & {
-  headers: Headers;
-};
-export type getLocalDocumentDocumentsDocIdLocalGetResponseError = (getLocalDocumentDocumentsDocIdLocalGetResponse422) & {
-  headers: Headers;
-};
 
-export type getLocalDocumentDocumentsDocIdLocalGetResponse = (getLocalDocumentDocumentsDocIdLocalGetResponseSuccess | getLocalDocumentDocumentsDocIdLocalGetResponseError)
+export type getLocalDocumentDocumentsDocIdLocalGetResponseSuccess =
+  getLocalDocumentDocumentsDocIdLocalGetResponse200 & {
+    headers: Headers
+  }
+export type getLocalDocumentDocumentsDocIdLocalGetResponseError =
+  getLocalDocumentDocumentsDocIdLocalGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetLocalDocumentDocumentsDocIdLocalGetUrl = (docId: number,) => {
+export type getLocalDocumentDocumentsDocIdLocalGetResponse =
+  | getLocalDocumentDocumentsDocIdLocalGetResponseSuccess
+  | getLocalDocumentDocumentsDocIdLocalGetResponseError
 
-
-  
-
+export const getGetLocalDocumentDocumentsDocIdLocalGetUrl = (docId: number) => {
   return `/api/documents/${docId}/local`
 }
 
-export const getLocalDocumentDocumentsDocIdLocalGet = async (docId: number, options?: RequestInit): Promise<getLocalDocumentDocumentsDocIdLocalGetResponse> => {
-  
-  const res = await fetch(getGetLocalDocumentDocumentsDocIdLocalGetUrl(docId),
-  {      
+export const getLocalDocumentDocumentsDocIdLocalGet = async (
+  docId: number,
+  options?: RequestInit,
+): Promise<getLocalDocumentDocumentsDocIdLocalGetResponse> => {
+  const res = await fetch(getGetLocalDocumentDocumentsDocIdLocalGetUrl(docId), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: getLocalDocumentDocumentsDocIdLocalGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getLocalDocumentDocumentsDocIdLocalGetResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getLocalDocumentDocumentsDocIdLocalGetResponse
 }
-
-
 
 /**
  * @summary Get Document Text Quality
@@ -324,51 +308,60 @@ export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponseSuccess = (getDocumentTextQualityDocumentsDocIdTextQualityGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponseError = (getDocumentTextQualityDocumentsDocIdTextQualityGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponse = (getDocumentTextQualityDocumentsDocIdTextQualityGetResponseSuccess | getDocumentTextQualityDocumentsDocIdTextQualityGetResponseError)
+export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponseSuccess =
+  getDocumentTextQualityDocumentsDocIdTextQualityGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponseError =
+  getDocumentTextQualityDocumentsDocIdTextQualityGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetDocumentTextQualityDocumentsDocIdTextQualityGetUrl = (docId: number,
-    params?: GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type getDocumentTextQualityDocumentsDocIdTextQualityGetResponse =
+  | getDocumentTextQualityDocumentsDocIdTextQualityGetResponseSuccess
+  | getDocumentTextQualityDocumentsDocIdTextQualityGetResponseError
+
+export const getGetDocumentTextQualityDocumentsDocIdTextQualityGetUrl = (
+  docId: number,
+  params?: GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/text-quality?${stringifiedParams}` : `/api/documents/${docId}/text-quality`
+  return stringifiedParams.length > 0
+    ? `/api/documents/${docId}/text-quality?${stringifiedParams}`
+    : `/api/documents/${docId}/text-quality`
 }
 
-export const getDocumentTextQualityDocumentsDocIdTextQualityGet = async (docId: number,
-    params?: GetDocumentTextQualityDocumentsDocIdTextQualityGetParams, options?: RequestInit): Promise<getDocumentTextQualityDocumentsDocIdTextQualityGetResponse> => {
-  
-  const res = await fetch(getGetDocumentTextQualityDocumentsDocIdTextQualityGetUrl(docId,params),
-  {      
+export const getDocumentTextQualityDocumentsDocIdTextQualityGet = async (
+  docId: number,
+  params?: GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
+  options?: RequestInit,
+): Promise<getDocumentTextQualityDocumentsDocIdTextQualityGetResponse> => {
+  const res = await fetch(getGetDocumentTextQualityDocumentsDocIdTextQualityGetUrl(docId, params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentTextQualityDocumentsDocIdTextQualityGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentTextQualityDocumentsDocIdTextQualityGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentTextQualityDocumentsDocIdTextQualityGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentTextQualityDocumentsDocIdTextQualityGetResponse
 }
-
-
 
 /**
  * @summary Get Document Suggestions
@@ -382,51 +375,60 @@ export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseSuccess = (getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseError = (getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse = (getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseSuccess | getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseError)
+export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseSuccess =
+  getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseError =
+  getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetDocumentSuggestionsDocumentsDocIdSuggestionsGetUrl = (docId: number,
-    params?: GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse =
+  | getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseSuccess
+  | getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponseError
+
+export const getGetDocumentSuggestionsDocumentsDocIdSuggestionsGetUrl = (
+  docId: number,
+  params?: GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/suggestions?${stringifiedParams}` : `/api/documents/${docId}/suggestions`
+  return stringifiedParams.length > 0
+    ? `/api/documents/${docId}/suggestions?${stringifiedParams}`
+    : `/api/documents/${docId}/suggestions`
 }
 
-export const getDocumentSuggestionsDocumentsDocIdSuggestionsGet = async (docId: number,
-    params?: GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams, options?: RequestInit): Promise<getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse> => {
-  
-  const res = await fetch(getGetDocumentSuggestionsDocumentsDocIdSuggestionsGetUrl(docId,params),
-  {      
+export const getDocumentSuggestionsDocumentsDocIdSuggestionsGet = async (
+  docId: number,
+  params?: GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
+  options?: RequestInit,
+): Promise<getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse> => {
+  const res = await fetch(getGetDocumentSuggestionsDocumentsDocIdSuggestionsGetUrl(docId, params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse
 }
-
-
 
 /**
  * @summary Suggest Field Variants
@@ -440,53 +442,66 @@ export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse422 = 
   data: HTTPValidationError
   status: 422
 }
-    
-export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseSuccess = (suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse200) & {
-  headers: Headers;
-};
-export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseError = (suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse422) & {
-  headers: Headers;
-};
 
-export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse = (suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseSuccess | suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseError)
+export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseSuccess =
+  suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse200 & {
+    headers: Headers
+  }
+export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseError =
+  suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse422 & {
+    headers: Headers
+  }
 
-export const getSuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostUrl = (docId: number,
-    params?: SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse =
+  | suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseSuccess
+  | suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponseError
+
+export const getSuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostUrl = (
+  docId: number,
+  params?: SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/suggestions/field?${stringifiedParams}` : `/api/documents/${docId}/suggestions/field`
+  return stringifiedParams.length > 0
+    ? `/api/documents/${docId}/suggestions/field?${stringifiedParams}`
+    : `/api/documents/${docId}/suggestions/field`
 }
 
-export const suggestFieldVariantsDocumentsDocIdSuggestionsFieldPost = async (docId: number,
-    suggestionFieldRequest: SuggestionFieldRequest,
-    params?: SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams, options?: RequestInit): Promise<suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse> => {
-  
-  const res = await fetch(getSuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostUrl(docId,params),
-  {      
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      suggestionFieldRequest,)
-  }
-)
+export const suggestFieldVariantsDocumentsDocIdSuggestionsFieldPost = async (
+  docId: number,
+  suggestionFieldRequest: SuggestionFieldRequest,
+  params?: SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,
+  options?: RequestInit,
+): Promise<suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse> => {
+  const res = await fetch(
+    getSuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostUrl(docId, params),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(suggestionFieldRequest),
+    },
+  )
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse
 }
-
-
 
 /**
  * @summary Get Field Variants
@@ -500,51 +515,63 @@ export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse422
   data: HTTPValidationError
   status: 422
 }
-    
-export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseSuccess = (getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse200) & {
-  headers: Headers;
-};
-export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseError = (getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse422) & {
-  headers: Headers;
-};
 
-export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse = (getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseSuccess | getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseError)
+export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseSuccess =
+  getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse200 & {
+    headers: Headers
+  }
+export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseError =
+  getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetUrl = (docId: number,
-    params: GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse =
+  | getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseSuccess
+  | getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponseError
+
+export const getGetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetUrl = (
+  docId: number,
+  params: GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/suggestions/field/variants?${stringifiedParams}` : `/api/documents/${docId}/suggestions/field/variants`
+  return stringifiedParams.length > 0
+    ? `/api/documents/${docId}/suggestions/field/variants?${stringifiedParams}`
+    : `/api/documents/${docId}/suggestions/field/variants`
 }
 
-export const getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGet = async (docId: number,
-    params: GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams, options?: RequestInit): Promise<getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse> => {
-  
-  const res = await fetch(getGetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetUrl(docId,params),
-  {      
-    ...options,
-    method: 'GET'
-    
-    
-  }
-)
+export const getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGet = async (
+  docId: number,
+  params: GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
+  options?: RequestInit,
+): Promise<getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse> => {
+  const res = await fetch(
+    getGetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetUrl(docId, params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse
 }
-
-
 
 /**
  * @summary Apply Field Suggestion
@@ -558,44 +585,52 @@ export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse4
   data: HTTPValidationError
   status: 422
 }
-    
-export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseSuccess = (applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse200) & {
-  headers: Headers;
-};
-export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseError = (applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse422) & {
-  headers: Headers;
-};
 
-export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse = (applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseSuccess | applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseError)
+export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseSuccess =
+  applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse200 & {
+    headers: Headers
+  }
+export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseError =
+  applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse422 & {
+    headers: Headers
+  }
 
-export const getApplyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostUrl = (docId: number,) => {
+export type applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse =
+  | applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseSuccess
+  | applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponseError
 
-
-  
-
+export const getApplyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostUrl = (
+  docId: number,
+) => {
   return `/api/documents/${docId}/suggestions/field/apply`
 }
 
-export const applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPost = async (docId: number,
-    suggestionFieldApply: SuggestionFieldApply, options?: RequestInit): Promise<applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse> => {
-  
-  const res = await fetch(getApplyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostUrl(docId),
-  {      
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      suggestionFieldApply,)
-  }
-)
+export const applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPost = async (
+  docId: number,
+  suggestionFieldApply: SuggestionFieldApply,
+  options?: RequestInit,
+): Promise<applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse> => {
+  const res = await fetch(
+    getApplyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostUrl(docId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(suggestionFieldApply),
+    },
+  )
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse
 }
-
-
 
 /**
  * @summary Apply Suggestion To Document
@@ -609,44 +644,47 @@ export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse42
   data: HTTPValidationError
   status: 422
 }
-    
-export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseSuccess = (applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse200) & {
-  headers: Headers;
-};
-export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseError = (applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse422) & {
-  headers: Headers;
-};
 
-export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse = (applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseSuccess | applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseError)
+export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseSuccess =
+  applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse200 & {
+    headers: Headers
+  }
+export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseError =
+  applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse422 & {
+    headers: Headers
+  }
 
-export const getApplySuggestionToDocumentDocumentsDocIdApplySuggestionPostUrl = (docId: number,) => {
+export type applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse =
+  | applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseSuccess
+  | applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponseError
 
-
-  
-
+export const getApplySuggestionToDocumentDocumentsDocIdApplySuggestionPostUrl = (docId: number) => {
   return `/api/documents/${docId}/apply-suggestion`
 }
 
-export const applySuggestionToDocumentDocumentsDocIdApplySuggestionPost = async (docId: number,
-    applySuggestionToDocument: ApplySuggestionToDocument, options?: RequestInit): Promise<applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse> => {
-  
-  const res = await fetch(getApplySuggestionToDocumentDocumentsDocIdApplySuggestionPostUrl(docId),
-  {      
+export const applySuggestionToDocumentDocumentsDocIdApplySuggestionPost = async (
+  docId: number,
+  applySuggestionToDocument: ApplySuggestionToDocument,
+  options?: RequestInit,
+): Promise<applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse> => {
+  const res = await fetch(getApplySuggestionToDocumentDocumentsDocIdApplySuggestionPostUrl(docId), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      applySuggestionToDocument,)
-  }
-)
+    body: JSON.stringify(applySuggestionToDocument),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse
 }
-
-
 
 /**
  * @summary Get Document Page Texts
@@ -660,51 +698,60 @@ export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess | getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError)
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess =
+  getDocumentPageTextsDocumentsDocIdPageTextsGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError =
+  getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl = (docId: number,
-    params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse =
+  | getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess
+  | getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError
+
+export const getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl = (
+  docId: number,
+  params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/page-texts?${stringifiedParams}` : `/api/documents/${docId}/page-texts`
+  return stringifiedParams.length > 0
+    ? `/api/documents/${docId}/page-texts?${stringifiedParams}`
+    : `/api/documents/${docId}/page-texts`
 }
 
-export const getDocumentPageTextsDocumentsDocIdPageTextsGet = async (docId: number,
-    params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams, options?: RequestInit): Promise<getDocumentPageTextsDocumentsDocIdPageTextsGetResponse> => {
-  
-  const res = await fetch(getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl(docId,params),
-  {      
+export const getDocumentPageTextsDocumentsDocIdPageTextsGet = async (
+  docId: number,
+  params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
+  options?: RequestInit,
+): Promise<getDocumentPageTextsDocumentsDocIdPageTextsGetResponse> => {
+  const res = await fetch(getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl(docId, params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentPageTextsDocumentsDocIdPageTextsGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentPageTextsDocumentsDocIdPageTextsGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentPageTextsDocumentsDocIdPageTextsGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentPageTextsDocumentsDocIdPageTextsGetResponse
 }
-
-
 
 /**
  * @summary Get Document Page Preview
@@ -718,51 +765,60 @@ export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseSuccess = (getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseError = (getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse = (getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseSuccess | getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseError)
+export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseSuccess =
+  getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseError =
+  getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetDocumentPagePreviewDocumentsDocIdPagePreviewGetUrl = (docId: number,
-    params: GetDocumentPagePreviewDocumentsDocIdPagePreviewGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse =
+  | getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseSuccess
+  | getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponseError
+
+export const getGetDocumentPagePreviewDocumentsDocIdPagePreviewGetUrl = (
+  docId: number,
+  params: GetDocumentPagePreviewDocumentsDocIdPagePreviewGetParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/page-preview?${stringifiedParams}` : `/api/documents/${docId}/page-preview`
+  return stringifiedParams.length > 0
+    ? `/api/documents/${docId}/page-preview?${stringifiedParams}`
+    : `/api/documents/${docId}/page-preview`
 }
 
-export const getDocumentPagePreviewDocumentsDocIdPagePreviewGet = async (docId: number,
-    params: GetDocumentPagePreviewDocumentsDocIdPagePreviewGetParams, options?: RequestInit): Promise<getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse> => {
-  
-  const res = await fetch(getGetDocumentPagePreviewDocumentsDocIdPagePreviewGetUrl(docId,params),
-  {      
+export const getDocumentPagePreviewDocumentsDocIdPagePreviewGet = async (
+  docId: number,
+  params: GetDocumentPagePreviewDocumentsDocIdPagePreviewGetParams,
+  options?: RequestInit,
+): Promise<getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse> => {
+  const res = await fetch(getGetDocumentPagePreviewDocumentsDocIdPagePreviewGetUrl(docId, params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentPagePreviewDocumentsDocIdPagePreviewGetResponse
 }
-
-
 
 /**
  * @summary Get Document Pdf
@@ -776,42 +832,42 @@ export type getDocumentPdfDocumentsDocIdPdfGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentPdfDocumentsDocIdPdfGetResponseSuccess = (getDocumentPdfDocumentsDocIdPdfGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentPdfDocumentsDocIdPdfGetResponseError = (getDocumentPdfDocumentsDocIdPdfGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentPdfDocumentsDocIdPdfGetResponse = (getDocumentPdfDocumentsDocIdPdfGetResponseSuccess | getDocumentPdfDocumentsDocIdPdfGetResponseError)
+export type getDocumentPdfDocumentsDocIdPdfGetResponseSuccess =
+  getDocumentPdfDocumentsDocIdPdfGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentPdfDocumentsDocIdPdfGetResponseError =
+  getDocumentPdfDocumentsDocIdPdfGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetDocumentPdfDocumentsDocIdPdfGetUrl = (docId: number,) => {
+export type getDocumentPdfDocumentsDocIdPdfGetResponse =
+  | getDocumentPdfDocumentsDocIdPdfGetResponseSuccess
+  | getDocumentPdfDocumentsDocIdPdfGetResponseError
 
-
-  
-
+export const getGetDocumentPdfDocumentsDocIdPdfGetUrl = (docId: number) => {
   return `/api/documents/${docId}/pdf`
 }
 
-export const getDocumentPdfDocumentsDocIdPdfGet = async (docId: number, options?: RequestInit): Promise<getDocumentPdfDocumentsDocIdPdfGetResponse> => {
-  
-  const res = await fetch(getGetDocumentPdfDocumentsDocIdPdfGetUrl(docId),
-  {      
+export const getDocumentPdfDocumentsDocIdPdfGet = async (
+  docId: number,
+  options?: RequestInit,
+): Promise<getDocumentPdfDocumentsDocIdPdfGetResponse> => {
+  const res = await fetch(getGetDocumentPdfDocumentsDocIdPdfGetUrl(docId), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: getDocumentPdfDocumentsDocIdPdfGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentPdfDocumentsDocIdPdfGetResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentPdfDocumentsDocIdPdfGetResponse
 }
-
-
 
 /**
  * @summary Process Missing
@@ -825,49 +881,58 @@ export type processMissingDocumentsProcessMissingPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type processMissingDocumentsProcessMissingPostResponseSuccess = (processMissingDocumentsProcessMissingPostResponse200) & {
-  headers: Headers;
-};
-export type processMissingDocumentsProcessMissingPostResponseError = (processMissingDocumentsProcessMissingPostResponse422) & {
-  headers: Headers;
-};
 
-export type processMissingDocumentsProcessMissingPostResponse = (processMissingDocumentsProcessMissingPostResponseSuccess | processMissingDocumentsProcessMissingPostResponseError)
+export type processMissingDocumentsProcessMissingPostResponseSuccess =
+  processMissingDocumentsProcessMissingPostResponse200 & {
+    headers: Headers
+  }
+export type processMissingDocumentsProcessMissingPostResponseError =
+  processMissingDocumentsProcessMissingPostResponse422 & {
+    headers: Headers
+  }
 
-export const getProcessMissingDocumentsProcessMissingPostUrl = (params?: ProcessMissingDocumentsProcessMissingPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type processMissingDocumentsProcessMissingPostResponse =
+  | processMissingDocumentsProcessMissingPostResponseSuccess
+  | processMissingDocumentsProcessMissingPostResponseError
+
+export const getProcessMissingDocumentsProcessMissingPostUrl = (
+  params?: ProcessMissingDocumentsProcessMissingPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/documents/process-missing?${stringifiedParams}` : `/api/documents/process-missing`
+  return stringifiedParams.length > 0
+    ? `/api/documents/process-missing?${stringifiedParams}`
+    : `/api/documents/process-missing`
 }
 
-export const processMissingDocumentsProcessMissingPost = async (params?: ProcessMissingDocumentsProcessMissingPostParams, options?: RequestInit): Promise<processMissingDocumentsProcessMissingPostResponse> => {
-  
-  const res = await fetch(getProcessMissingDocumentsProcessMissingPostUrl(params),
-  {      
+export const processMissingDocumentsProcessMissingPost = async (
+  params?: ProcessMissingDocumentsProcessMissingPostParams,
+  options?: RequestInit,
+): Promise<processMissingDocumentsProcessMissingPostResponse> => {
+  const res = await fetch(getProcessMissingDocumentsProcessMissingPostUrl(params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: processMissingDocumentsProcessMissingPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as processMissingDocumentsProcessMissingPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: processMissingDocumentsProcessMissingPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as processMissingDocumentsProcessMissingPostResponse
 }
-
-
 
 /**
  * @summary Reset Intelligence
@@ -876,40 +941,38 @@ export type resetIntelligenceDocumentsResetIntelligencePostResponse200 = {
   data: ResetIntelligenceResponse
   status: 200
 }
-    
-export type resetIntelligenceDocumentsResetIntelligencePostResponseSuccess = (resetIntelligenceDocumentsResetIntelligencePostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type resetIntelligenceDocumentsResetIntelligencePostResponse = (resetIntelligenceDocumentsResetIntelligencePostResponseSuccess)
+export type resetIntelligenceDocumentsResetIntelligencePostResponseSuccess =
+  resetIntelligenceDocumentsResetIntelligencePostResponse200 & {
+    headers: Headers
+  }
+
+export type resetIntelligenceDocumentsResetIntelligencePostResponse =
+  resetIntelligenceDocumentsResetIntelligencePostResponseSuccess
 
 export const getResetIntelligenceDocumentsResetIntelligencePostUrl = () => {
-
-
-  
-
   return `/api/documents/reset-intelligence`
 }
 
-export const resetIntelligenceDocumentsResetIntelligencePost = async ( options?: RequestInit): Promise<resetIntelligenceDocumentsResetIntelligencePostResponse> => {
-  
-  const res = await fetch(getResetIntelligenceDocumentsResetIntelligencePostUrl(),
-  {      
+export const resetIntelligenceDocumentsResetIntelligencePost = async (
+  options?: RequestInit,
+): Promise<resetIntelligenceDocumentsResetIntelligencePostResponse> => {
+  const res = await fetch(getResetIntelligenceDocumentsResetIntelligencePostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as resetIntelligenceDocumentsResetIntelligencePostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as resetIntelligenceDocumentsResetIntelligencePostResponse
 }
-
-
 
 /**
  * @summary Clear Intelligence
@@ -918,40 +981,38 @@ export type clearIntelligenceDocumentsClearIntelligencePostResponse200 = {
   data: ClearIntelligenceResponse
   status: 200
 }
-    
-export type clearIntelligenceDocumentsClearIntelligencePostResponseSuccess = (clearIntelligenceDocumentsClearIntelligencePostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type clearIntelligenceDocumentsClearIntelligencePostResponse = (clearIntelligenceDocumentsClearIntelligencePostResponseSuccess)
+export type clearIntelligenceDocumentsClearIntelligencePostResponseSuccess =
+  clearIntelligenceDocumentsClearIntelligencePostResponse200 & {
+    headers: Headers
+  }
+
+export type clearIntelligenceDocumentsClearIntelligencePostResponse =
+  clearIntelligenceDocumentsClearIntelligencePostResponseSuccess
 
 export const getClearIntelligenceDocumentsClearIntelligencePostUrl = () => {
-
-
-  
-
   return `/api/documents/clear-intelligence`
 }
 
-export const clearIntelligenceDocumentsClearIntelligencePost = async ( options?: RequestInit): Promise<clearIntelligenceDocumentsClearIntelligencePostResponse> => {
-  
-  const res = await fetch(getClearIntelligenceDocumentsClearIntelligencePostUrl(),
-  {      
+export const clearIntelligenceDocumentsClearIntelligencePost = async (
+  options?: RequestInit,
+): Promise<clearIntelligenceDocumentsClearIntelligencePostResponse> => {
+  const res = await fetch(getClearIntelligenceDocumentsClearIntelligencePostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: clearIntelligenceDocumentsClearIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as clearIntelligenceDocumentsClearIntelligencePostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: clearIntelligenceDocumentsClearIntelligencePostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as clearIntelligenceDocumentsClearIntelligencePostResponse
 }
-
-
 
 /**
  * @summary Delete Vision Ocr
@@ -960,40 +1021,38 @@ export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200 = {
   data: DeleteVisionOcrResponse
   status: 200
 }
-    
-export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess)
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess =
+  deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200 & {
+    headers: Headers
+  }
+
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse =
+  deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess
 
 export const getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl = () => {
-
-
-  
-
   return `/api/documents/delete-vision-ocr`
 }
 
-export const deleteVisionOcrDocumentsDeleteVisionOcrPost = async ( options?: RequestInit): Promise<deleteVisionOcrDocumentsDeleteVisionOcrPostResponse> => {
-  
-  const res = await fetch(getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl(),
-  {      
+export const deleteVisionOcrDocumentsDeleteVisionOcrPost = async (
+  options?: RequestInit,
+): Promise<deleteVisionOcrDocumentsDeleteVisionOcrPostResponse> => {
+  const res = await fetch(getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: deleteVisionOcrDocumentsDeleteVisionOcrPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteVisionOcrDocumentsDeleteVisionOcrPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: deleteVisionOcrDocumentsDeleteVisionOcrPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as deleteVisionOcrDocumentsDeleteVisionOcrPostResponse
 }
-
-
 
 /**
  * @summary Delete Suggestions
@@ -1002,40 +1061,38 @@ export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200 = {
   data: DeleteSuggestionsResponse
   status: 200
 }
-    
-export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess)
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess =
+  deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200 & {
+    headers: Headers
+  }
+
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse =
+  deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess
 
 export const getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl = () => {
-
-
-  
-
   return `/api/documents/delete-suggestions`
 }
 
-export const deleteSuggestionsDocumentsDeleteSuggestionsPost = async ( options?: RequestInit): Promise<deleteSuggestionsDocumentsDeleteSuggestionsPostResponse> => {
-  
-  const res = await fetch(getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl(),
-  {      
+export const deleteSuggestionsDocumentsDeleteSuggestionsPost = async (
+  options?: RequestInit,
+): Promise<deleteSuggestionsDocumentsDeleteSuggestionsPostResponse> => {
+  const res = await fetch(getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: deleteSuggestionsDocumentsDeleteSuggestionsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteSuggestionsDocumentsDeleteSuggestionsPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: deleteSuggestionsDocumentsDeleteSuggestionsPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as deleteSuggestionsDocumentsDeleteSuggestionsPostResponse
 }
-
-
 
 /**
  * @summary Delete Embeddings
@@ -1044,40 +1101,38 @@ export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200 = {
   data: DeleteEmbeddingsResponse
   status: 200
 }
-    
-export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess)
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess =
+  deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200 & {
+    headers: Headers
+  }
+
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse =
+  deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess
 
 export const getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl = () => {
-
-
-  
-
   return `/api/documents/delete-embeddings`
 }
 
-export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async ( options?: RequestInit): Promise<deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse> => {
-  
-  const res = await fetch(getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl(),
-  {      
+export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async (
+  options?: RequestInit,
+): Promise<deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse> => {
+  const res = await fetch(getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
 }
-
-
 
 /**
  * @summary List Tags
@@ -1091,49 +1146,44 @@ export type listTagsTagsGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type listTagsTagsGetResponseSuccess = (listTagsTagsGetResponse200) & {
-  headers: Headers;
-};
-export type listTagsTagsGetResponseError = (listTagsTagsGetResponse422) & {
-  headers: Headers;
-};
 
-export type listTagsTagsGetResponse = (listTagsTagsGetResponseSuccess | listTagsTagsGetResponseError)
+export type listTagsTagsGetResponseSuccess = listTagsTagsGetResponse200 & {
+  headers: Headers
+}
+export type listTagsTagsGetResponseError = listTagsTagsGetResponse422 & {
+  headers: Headers
+}
 
-export const getListTagsTagsGetUrl = (params?: ListTagsTagsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type listTagsTagsGetResponse = listTagsTagsGetResponseSuccess | listTagsTagsGetResponseError
+
+export const getListTagsTagsGetUrl = (params?: ListTagsTagsGetParams) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
   return stringifiedParams.length > 0 ? `/api/tags?${stringifiedParams}` : `/api/tags`
 }
 
-export const listTagsTagsGet = async (params?: ListTagsTagsGetParams, options?: RequestInit): Promise<listTagsTagsGetResponse> => {
-  
-  const res = await fetch(getListTagsTagsGetUrl(params),
-  {      
+export const listTagsTagsGet = async (
+  params?: ListTagsTagsGetParams,
+  options?: RequestInit,
+): Promise<listTagsTagsGetResponse> => {
+  const res = await fetch(getListTagsTagsGetUrl(params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: listTagsTagsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listTagsTagsGetResponse
 }
-
-
 
 /**
  * @summary List Correspondents
@@ -1147,49 +1197,56 @@ export type listCorrespondentsCorrespondentsGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type listCorrespondentsCorrespondentsGetResponseSuccess = (listCorrespondentsCorrespondentsGetResponse200) & {
-  headers: Headers;
-};
-export type listCorrespondentsCorrespondentsGetResponseError = (listCorrespondentsCorrespondentsGetResponse422) & {
-  headers: Headers;
-};
 
-export type listCorrespondentsCorrespondentsGetResponse = (listCorrespondentsCorrespondentsGetResponseSuccess | listCorrespondentsCorrespondentsGetResponseError)
+export type listCorrespondentsCorrespondentsGetResponseSuccess =
+  listCorrespondentsCorrespondentsGetResponse200 & {
+    headers: Headers
+  }
+export type listCorrespondentsCorrespondentsGetResponseError =
+  listCorrespondentsCorrespondentsGetResponse422 & {
+    headers: Headers
+  }
 
-export const getListCorrespondentsCorrespondentsGetUrl = (params?: ListCorrespondentsCorrespondentsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type listCorrespondentsCorrespondentsGetResponse =
+  | listCorrespondentsCorrespondentsGetResponseSuccess
+  | listCorrespondentsCorrespondentsGetResponseError
+
+export const getListCorrespondentsCorrespondentsGetUrl = (
+  params?: ListCorrespondentsCorrespondentsGetParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/correspondents?${stringifiedParams}` : `/api/correspondents`
+  return stringifiedParams.length > 0
+    ? `/api/correspondents?${stringifiedParams}`
+    : `/api/correspondents`
 }
 
-export const listCorrespondentsCorrespondentsGet = async (params?: ListCorrespondentsCorrespondentsGetParams, options?: RequestInit): Promise<listCorrespondentsCorrespondentsGetResponse> => {
-  
-  const res = await fetch(getListCorrespondentsCorrespondentsGetUrl(params),
-  {      
+export const listCorrespondentsCorrespondentsGet = async (
+  params?: ListCorrespondentsCorrespondentsGetParams,
+  options?: RequestInit,
+): Promise<listCorrespondentsCorrespondentsGetResponse> => {
+  const res = await fetch(getListCorrespondentsCorrespondentsGetUrl(params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: listCorrespondentsCorrespondentsGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listCorrespondentsCorrespondentsGetResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listCorrespondentsCorrespondentsGetResponse
 }
-
-
 
 /**
  * @summary Get Document Type
@@ -1203,42 +1260,44 @@ export type getDocumentTypeDocumentTypesDocTypeIdGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getDocumentTypeDocumentTypesDocTypeIdGetResponseSuccess = (getDocumentTypeDocumentTypesDocTypeIdGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentTypeDocumentTypesDocTypeIdGetResponseError = (getDocumentTypeDocumentTypesDocTypeIdGetResponse422) & {
-  headers: Headers;
-};
 
-export type getDocumentTypeDocumentTypesDocTypeIdGetResponse = (getDocumentTypeDocumentTypesDocTypeIdGetResponseSuccess | getDocumentTypeDocumentTypesDocTypeIdGetResponseError)
+export type getDocumentTypeDocumentTypesDocTypeIdGetResponseSuccess =
+  getDocumentTypeDocumentTypesDocTypeIdGetResponse200 & {
+    headers: Headers
+  }
+export type getDocumentTypeDocumentTypesDocTypeIdGetResponseError =
+  getDocumentTypeDocumentTypesDocTypeIdGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetDocumentTypeDocumentTypesDocTypeIdGetUrl = (docTypeId: number,) => {
+export type getDocumentTypeDocumentTypesDocTypeIdGetResponse =
+  | getDocumentTypeDocumentTypesDocTypeIdGetResponseSuccess
+  | getDocumentTypeDocumentTypesDocTypeIdGetResponseError
 
-
-  
-
+export const getGetDocumentTypeDocumentTypesDocTypeIdGetUrl = (docTypeId: number) => {
   return `/api/document-types/${docTypeId}`
 }
 
-export const getDocumentTypeDocumentTypesDocTypeIdGet = async (docTypeId: number, options?: RequestInit): Promise<getDocumentTypeDocumentTypesDocTypeIdGetResponse> => {
-  
-  const res = await fetch(getGetDocumentTypeDocumentTypesDocTypeIdGetUrl(docTypeId),
-  {      
+export const getDocumentTypeDocumentTypesDocTypeIdGet = async (
+  docTypeId: number,
+  options?: RequestInit,
+): Promise<getDocumentTypeDocumentTypesDocTypeIdGetResponse> => {
+  const res = await fetch(getGetDocumentTypeDocumentTypesDocTypeIdGetUrl(docTypeId), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentTypeDocumentTypesDocTypeIdGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentTypeDocumentTypesDocTypeIdGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentTypeDocumentTypesDocTypeIdGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentTypeDocumentTypesDocTypeIdGetResponse
 }
-
-
 
 /**
  * @summary Get Correspondent
@@ -1252,42 +1311,44 @@ export type getCorrespondentCorrespondentsCorrespondentIdGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type getCorrespondentCorrespondentsCorrespondentIdGetResponseSuccess = (getCorrespondentCorrespondentsCorrespondentIdGetResponse200) & {
-  headers: Headers;
-};
-export type getCorrespondentCorrespondentsCorrespondentIdGetResponseError = (getCorrespondentCorrespondentsCorrespondentIdGetResponse422) & {
-  headers: Headers;
-};
 
-export type getCorrespondentCorrespondentsCorrespondentIdGetResponse = (getCorrespondentCorrespondentsCorrespondentIdGetResponseSuccess | getCorrespondentCorrespondentsCorrespondentIdGetResponseError)
+export type getCorrespondentCorrespondentsCorrespondentIdGetResponseSuccess =
+  getCorrespondentCorrespondentsCorrespondentIdGetResponse200 & {
+    headers: Headers
+  }
+export type getCorrespondentCorrespondentsCorrespondentIdGetResponseError =
+  getCorrespondentCorrespondentsCorrespondentIdGetResponse422 & {
+    headers: Headers
+  }
 
-export const getGetCorrespondentCorrespondentsCorrespondentIdGetUrl = (correspondentId: number,) => {
+export type getCorrespondentCorrespondentsCorrespondentIdGetResponse =
+  | getCorrespondentCorrespondentsCorrespondentIdGetResponseSuccess
+  | getCorrespondentCorrespondentsCorrespondentIdGetResponseError
 
-
-  
-
+export const getGetCorrespondentCorrespondentsCorrespondentIdGetUrl = (correspondentId: number) => {
   return `/api/correspondents/${correspondentId}`
 }
 
-export const getCorrespondentCorrespondentsCorrespondentIdGet = async (correspondentId: number, options?: RequestInit): Promise<getCorrespondentCorrespondentsCorrespondentIdGetResponse> => {
-  
-  const res = await fetch(getGetCorrespondentCorrespondentsCorrespondentIdGetUrl(correspondentId),
-  {      
+export const getCorrespondentCorrespondentsCorrespondentIdGet = async (
+  correspondentId: number,
+  options?: RequestInit,
+): Promise<getCorrespondentCorrespondentsCorrespondentIdGetResponse> => {
+  const res = await fetch(getGetCorrespondentCorrespondentsCorrespondentIdGetUrl(correspondentId), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getCorrespondentCorrespondentsCorrespondentIdGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getCorrespondentCorrespondentsCorrespondentIdGetResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getCorrespondentCorrespondentsCorrespondentIdGetResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getCorrespondentCorrespondentsCorrespondentIdGetResponse
 }
-
-
 
 /**
  * @summary Sync Documents
@@ -1301,49 +1362,56 @@ export type syncDocumentsSyncDocumentsPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type syncDocumentsSyncDocumentsPostResponseSuccess = (syncDocumentsSyncDocumentsPostResponse200) & {
-  headers: Headers;
-};
-export type syncDocumentsSyncDocumentsPostResponseError = (syncDocumentsSyncDocumentsPostResponse422) & {
-  headers: Headers;
-};
 
-export type syncDocumentsSyncDocumentsPostResponse = (syncDocumentsSyncDocumentsPostResponseSuccess | syncDocumentsSyncDocumentsPostResponseError)
+export type syncDocumentsSyncDocumentsPostResponseSuccess =
+  syncDocumentsSyncDocumentsPostResponse200 & {
+    headers: Headers
+  }
+export type syncDocumentsSyncDocumentsPostResponseError =
+  syncDocumentsSyncDocumentsPostResponse422 & {
+    headers: Headers
+  }
 
-export const getSyncDocumentsSyncDocumentsPostUrl = (params?: SyncDocumentsSyncDocumentsPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type syncDocumentsSyncDocumentsPostResponse =
+  | syncDocumentsSyncDocumentsPostResponseSuccess
+  | syncDocumentsSyncDocumentsPostResponseError
+
+export const getSyncDocumentsSyncDocumentsPostUrl = (
+  params?: SyncDocumentsSyncDocumentsPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/sync/documents?${stringifiedParams}` : `/api/sync/documents`
+  return stringifiedParams.length > 0
+    ? `/api/sync/documents?${stringifiedParams}`
+    : `/api/sync/documents`
 }
 
-export const syncDocumentsSyncDocumentsPost = async (params?: SyncDocumentsSyncDocumentsPostParams, options?: RequestInit): Promise<syncDocumentsSyncDocumentsPostResponse> => {
-  
-  const res = await fetch(getSyncDocumentsSyncDocumentsPostUrl(params),
-  {      
+export const syncDocumentsSyncDocumentsPost = async (
+  params?: SyncDocumentsSyncDocumentsPostParams,
+  options?: RequestInit,
+): Promise<syncDocumentsSyncDocumentsPostResponse> => {
+  const res = await fetch(getSyncDocumentsSyncDocumentsPostUrl(params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: syncDocumentsSyncDocumentsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as syncDocumentsSyncDocumentsPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as syncDocumentsSyncDocumentsPostResponse
 }
-
-
 
 /**
  * @summary Sync Status
@@ -1352,40 +1420,30 @@ export type syncStatusSyncDocumentsGetResponse200 = {
   data: SyncStatusResponse
   status: 200
 }
-    
-export type syncStatusSyncDocumentsGetResponseSuccess = (syncStatusSyncDocumentsGetResponse200) & {
-  headers: Headers;
-};
-;
 
-export type syncStatusSyncDocumentsGetResponse = (syncStatusSyncDocumentsGetResponseSuccess)
+export type syncStatusSyncDocumentsGetResponseSuccess = syncStatusSyncDocumentsGetResponse200 & {
+  headers: Headers
+}
+
+export type syncStatusSyncDocumentsGetResponse = syncStatusSyncDocumentsGetResponseSuccess
 
 export const getSyncStatusSyncDocumentsGetUrl = () => {
-
-
-  
-
   return `/api/sync/documents`
 }
 
-export const syncStatusSyncDocumentsGet = async ( options?: RequestInit): Promise<syncStatusSyncDocumentsGetResponse> => {
-  
-  const res = await fetch(getSyncStatusSyncDocumentsGetUrl(),
-  {      
+export const syncStatusSyncDocumentsGet = async (
+  options?: RequestInit,
+): Promise<syncStatusSyncDocumentsGetResponse> => {
+  const res = await fetch(getSyncStatusSyncDocumentsGetUrl(), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: syncStatusSyncDocumentsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncStatusSyncDocumentsGetResponse
 }
-
-
 
 /**
  * @summary Cancel Sync
@@ -1394,40 +1452,36 @@ export type cancelSyncSyncDocumentsCancelPostResponse200 = {
   data: SyncCancelResponse
   status: 200
 }
-    
-export type cancelSyncSyncDocumentsCancelPostResponseSuccess = (cancelSyncSyncDocumentsCancelPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type cancelSyncSyncDocumentsCancelPostResponse = (cancelSyncSyncDocumentsCancelPostResponseSuccess)
+export type cancelSyncSyncDocumentsCancelPostResponseSuccess =
+  cancelSyncSyncDocumentsCancelPostResponse200 & {
+    headers: Headers
+  }
+
+export type cancelSyncSyncDocumentsCancelPostResponse =
+  cancelSyncSyncDocumentsCancelPostResponseSuccess
 
 export const getCancelSyncSyncDocumentsCancelPostUrl = () => {
-
-
-  
-
   return `/api/sync/documents/cancel`
 }
 
-export const cancelSyncSyncDocumentsCancelPost = async ( options?: RequestInit): Promise<cancelSyncSyncDocumentsCancelPostResponse> => {
-  
-  const res = await fetch(getCancelSyncSyncDocumentsCancelPostUrl(),
-  {      
+export const cancelSyncSyncDocumentsCancelPost = async (
+  options?: RequestInit,
+): Promise<cancelSyncSyncDocumentsCancelPostResponse> => {
+  const res = await fetch(getCancelSyncSyncDocumentsCancelPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: cancelSyncSyncDocumentsCancelPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as cancelSyncSyncDocumentsCancelPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cancelSyncSyncDocumentsCancelPostResponse
 }
-
-
 
 /**
  * @summary Sync Document
@@ -1441,51 +1495,58 @@ export type syncDocumentSyncDocumentsDocIdPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type syncDocumentSyncDocumentsDocIdPostResponseSuccess = (syncDocumentSyncDocumentsDocIdPostResponse200) & {
-  headers: Headers;
-};
-export type syncDocumentSyncDocumentsDocIdPostResponseError = (syncDocumentSyncDocumentsDocIdPostResponse422) & {
-  headers: Headers;
-};
 
-export type syncDocumentSyncDocumentsDocIdPostResponse = (syncDocumentSyncDocumentsDocIdPostResponseSuccess | syncDocumentSyncDocumentsDocIdPostResponseError)
+export type syncDocumentSyncDocumentsDocIdPostResponseSuccess =
+  syncDocumentSyncDocumentsDocIdPostResponse200 & {
+    headers: Headers
+  }
+export type syncDocumentSyncDocumentsDocIdPostResponseError =
+  syncDocumentSyncDocumentsDocIdPostResponse422 & {
+    headers: Headers
+  }
 
-export const getSyncDocumentSyncDocumentsDocIdPostUrl = (docId: number,
-    params?: SyncDocumentSyncDocumentsDocIdPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type syncDocumentSyncDocumentsDocIdPostResponse =
+  | syncDocumentSyncDocumentsDocIdPostResponseSuccess
+  | syncDocumentSyncDocumentsDocIdPostResponseError
+
+export const getSyncDocumentSyncDocumentsDocIdPostUrl = (
+  docId: number,
+  params?: SyncDocumentSyncDocumentsDocIdPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/sync/documents/${docId}?${stringifiedParams}` : `/api/sync/documents/${docId}`
+  return stringifiedParams.length > 0
+    ? `/api/sync/documents/${docId}?${stringifiedParams}`
+    : `/api/sync/documents/${docId}`
 }
 
-export const syncDocumentSyncDocumentsDocIdPost = async (docId: number,
-    params?: SyncDocumentSyncDocumentsDocIdPostParams, options?: RequestInit): Promise<syncDocumentSyncDocumentsDocIdPostResponse> => {
-  
-  const res = await fetch(getSyncDocumentSyncDocumentsDocIdPostUrl(docId,params),
-  {      
+export const syncDocumentSyncDocumentsDocIdPost = async (
+  docId: number,
+  params?: SyncDocumentSyncDocumentsDocIdPostParams,
+  options?: RequestInit,
+): Promise<syncDocumentSyncDocumentsDocIdPostResponse> => {
+  const res = await fetch(getSyncDocumentSyncDocumentsDocIdPostUrl(docId, params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: syncDocumentSyncDocumentsDocIdPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as syncDocumentSyncDocumentsDocIdPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as syncDocumentSyncDocumentsDocIdPostResponse
 }
-
-
 
 /**
  * @summary Sync Tags
@@ -1499,49 +1560,46 @@ export type syncTagsSyncTagsPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type syncTagsSyncTagsPostResponseSuccess = (syncTagsSyncTagsPostResponse200) & {
-  headers: Headers;
-};
-export type syncTagsSyncTagsPostResponseError = (syncTagsSyncTagsPostResponse422) & {
-  headers: Headers;
-};
 
-export type syncTagsSyncTagsPostResponse = (syncTagsSyncTagsPostResponseSuccess | syncTagsSyncTagsPostResponseError)
+export type syncTagsSyncTagsPostResponseSuccess = syncTagsSyncTagsPostResponse200 & {
+  headers: Headers
+}
+export type syncTagsSyncTagsPostResponseError = syncTagsSyncTagsPostResponse422 & {
+  headers: Headers
+}
 
-export const getSyncTagsSyncTagsPostUrl = (params?: SyncTagsSyncTagsPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type syncTagsSyncTagsPostResponse =
+  | syncTagsSyncTagsPostResponseSuccess
+  | syncTagsSyncTagsPostResponseError
+
+export const getSyncTagsSyncTagsPostUrl = (params?: SyncTagsSyncTagsPostParams) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
   return stringifiedParams.length > 0 ? `/api/sync/tags?${stringifiedParams}` : `/api/sync/tags`
 }
 
-export const syncTagsSyncTagsPost = async (params?: SyncTagsSyncTagsPostParams, options?: RequestInit): Promise<syncTagsSyncTagsPostResponse> => {
-  
-  const res = await fetch(getSyncTagsSyncTagsPostUrl(params),
-  {      
+export const syncTagsSyncTagsPost = async (
+  params?: SyncTagsSyncTagsPostParams,
+  options?: RequestInit,
+): Promise<syncTagsSyncTagsPostResponse> => {
+  const res = await fetch(getSyncTagsSyncTagsPostUrl(params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: syncTagsSyncTagsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncTagsSyncTagsPostResponse
 }
-
-
 
 /**
  * @summary Sync Correspondents
@@ -1555,49 +1613,58 @@ export type syncCorrespondentsSyncCorrespondentsPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type syncCorrespondentsSyncCorrespondentsPostResponseSuccess = (syncCorrespondentsSyncCorrespondentsPostResponse200) & {
-  headers: Headers;
-};
-export type syncCorrespondentsSyncCorrespondentsPostResponseError = (syncCorrespondentsSyncCorrespondentsPostResponse422) & {
-  headers: Headers;
-};
 
-export type syncCorrespondentsSyncCorrespondentsPostResponse = (syncCorrespondentsSyncCorrespondentsPostResponseSuccess | syncCorrespondentsSyncCorrespondentsPostResponseError)
+export type syncCorrespondentsSyncCorrespondentsPostResponseSuccess =
+  syncCorrespondentsSyncCorrespondentsPostResponse200 & {
+    headers: Headers
+  }
+export type syncCorrespondentsSyncCorrespondentsPostResponseError =
+  syncCorrespondentsSyncCorrespondentsPostResponse422 & {
+    headers: Headers
+  }
 
-export const getSyncCorrespondentsSyncCorrespondentsPostUrl = (params?: SyncCorrespondentsSyncCorrespondentsPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type syncCorrespondentsSyncCorrespondentsPostResponse =
+  | syncCorrespondentsSyncCorrespondentsPostResponseSuccess
+  | syncCorrespondentsSyncCorrespondentsPostResponseError
+
+export const getSyncCorrespondentsSyncCorrespondentsPostUrl = (
+  params?: SyncCorrespondentsSyncCorrespondentsPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/sync/correspondents?${stringifiedParams}` : `/api/sync/correspondents`
+  return stringifiedParams.length > 0
+    ? `/api/sync/correspondents?${stringifiedParams}`
+    : `/api/sync/correspondents`
 }
 
-export const syncCorrespondentsSyncCorrespondentsPost = async (params?: SyncCorrespondentsSyncCorrespondentsPostParams, options?: RequestInit): Promise<syncCorrespondentsSyncCorrespondentsPostResponse> => {
-  
-  const res = await fetch(getSyncCorrespondentsSyncCorrespondentsPostUrl(params),
-  {      
+export const syncCorrespondentsSyncCorrespondentsPost = async (
+  params?: SyncCorrespondentsSyncCorrespondentsPostParams,
+  options?: RequestInit,
+): Promise<syncCorrespondentsSyncCorrespondentsPostResponse> => {
+  const res = await fetch(getSyncCorrespondentsSyncCorrespondentsPostUrl(params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: syncCorrespondentsSyncCorrespondentsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as syncCorrespondentsSyncCorrespondentsPostResponse
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: syncCorrespondentsSyncCorrespondentsPostResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as syncCorrespondentsSyncCorrespondentsPostResponse
 }
-
-
 
 /**
  * @summary Sync Document Types
@@ -1611,49 +1678,56 @@ export type syncDocumentTypesSyncDocumentTypesPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type syncDocumentTypesSyncDocumentTypesPostResponseSuccess = (syncDocumentTypesSyncDocumentTypesPostResponse200) & {
-  headers: Headers;
-};
-export type syncDocumentTypesSyncDocumentTypesPostResponseError = (syncDocumentTypesSyncDocumentTypesPostResponse422) & {
-  headers: Headers;
-};
 
-export type syncDocumentTypesSyncDocumentTypesPostResponse = (syncDocumentTypesSyncDocumentTypesPostResponseSuccess | syncDocumentTypesSyncDocumentTypesPostResponseError)
+export type syncDocumentTypesSyncDocumentTypesPostResponseSuccess =
+  syncDocumentTypesSyncDocumentTypesPostResponse200 & {
+    headers: Headers
+  }
+export type syncDocumentTypesSyncDocumentTypesPostResponseError =
+  syncDocumentTypesSyncDocumentTypesPostResponse422 & {
+    headers: Headers
+  }
 
-export const getSyncDocumentTypesSyncDocumentTypesPostUrl = (params?: SyncDocumentTypesSyncDocumentTypesPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type syncDocumentTypesSyncDocumentTypesPostResponse =
+  | syncDocumentTypesSyncDocumentTypesPostResponseSuccess
+  | syncDocumentTypesSyncDocumentTypesPostResponseError
+
+export const getSyncDocumentTypesSyncDocumentTypesPostUrl = (
+  params?: SyncDocumentTypesSyncDocumentTypesPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/sync/document-types?${stringifiedParams}` : `/api/sync/document-types`
+  return stringifiedParams.length > 0
+    ? `/api/sync/document-types?${stringifiedParams}`
+    : `/api/sync/document-types`
 }
 
-export const syncDocumentTypesSyncDocumentTypesPost = async (params?: SyncDocumentTypesSyncDocumentTypesPostParams, options?: RequestInit): Promise<syncDocumentTypesSyncDocumentTypesPostResponse> => {
-  
-  const res = await fetch(getSyncDocumentTypesSyncDocumentTypesPostUrl(params),
-  {      
+export const syncDocumentTypesSyncDocumentTypesPost = async (
+  params?: SyncDocumentTypesSyncDocumentTypesPostParams,
+  options?: RequestInit,
+): Promise<syncDocumentTypesSyncDocumentTypesPostResponse> => {
+  const res = await fetch(getSyncDocumentTypesSyncDocumentTypesPostUrl(params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: syncDocumentTypesSyncDocumentTypesPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as syncDocumentTypesSyncDocumentTypesPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as syncDocumentTypesSyncDocumentTypesPostResponse
 }
-
-
 
 /**
  * @summary Ingest Embeddings
@@ -1667,49 +1741,56 @@ export type ingestEmbeddingsEmbeddingsIngestPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type ingestEmbeddingsEmbeddingsIngestPostResponseSuccess = (ingestEmbeddingsEmbeddingsIngestPostResponse200) & {
-  headers: Headers;
-};
-export type ingestEmbeddingsEmbeddingsIngestPostResponseError = (ingestEmbeddingsEmbeddingsIngestPostResponse422) & {
-  headers: Headers;
-};
 
-export type ingestEmbeddingsEmbeddingsIngestPostResponse = (ingestEmbeddingsEmbeddingsIngestPostResponseSuccess | ingestEmbeddingsEmbeddingsIngestPostResponseError)
+export type ingestEmbeddingsEmbeddingsIngestPostResponseSuccess =
+  ingestEmbeddingsEmbeddingsIngestPostResponse200 & {
+    headers: Headers
+  }
+export type ingestEmbeddingsEmbeddingsIngestPostResponseError =
+  ingestEmbeddingsEmbeddingsIngestPostResponse422 & {
+    headers: Headers
+  }
 
-export const getIngestEmbeddingsEmbeddingsIngestPostUrl = (params?: IngestEmbeddingsEmbeddingsIngestPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type ingestEmbeddingsEmbeddingsIngestPostResponse =
+  | ingestEmbeddingsEmbeddingsIngestPostResponseSuccess
+  | ingestEmbeddingsEmbeddingsIngestPostResponseError
+
+export const getIngestEmbeddingsEmbeddingsIngestPostUrl = (
+  params?: IngestEmbeddingsEmbeddingsIngestPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/embeddings/ingest?${stringifiedParams}` : `/api/embeddings/ingest`
+  return stringifiedParams.length > 0
+    ? `/api/embeddings/ingest?${stringifiedParams}`
+    : `/api/embeddings/ingest`
 }
 
-export const ingestEmbeddingsEmbeddingsIngestPost = async (params?: IngestEmbeddingsEmbeddingsIngestPostParams, options?: RequestInit): Promise<ingestEmbeddingsEmbeddingsIngestPostResponse> => {
-  
-  const res = await fetch(getIngestEmbeddingsEmbeddingsIngestPostUrl(params),
-  {      
+export const ingestEmbeddingsEmbeddingsIngestPost = async (
+  params?: IngestEmbeddingsEmbeddingsIngestPostParams,
+  options?: RequestInit,
+): Promise<ingestEmbeddingsEmbeddingsIngestPostResponse> => {
+  const res = await fetch(getIngestEmbeddingsEmbeddingsIngestPostUrl(params), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: ingestEmbeddingsEmbeddingsIngestPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as ingestEmbeddingsEmbeddingsIngestPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as ingestEmbeddingsEmbeddingsIngestPostResponse
 }
-
-
 
 /**
  * @summary Ingest Documents
@@ -1723,51 +1804,59 @@ export type ingestDocumentsEmbeddingsIngestDocsPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type ingestDocumentsEmbeddingsIngestDocsPostResponseSuccess = (ingestDocumentsEmbeddingsIngestDocsPostResponse200) & {
-  headers: Headers;
-};
-export type ingestDocumentsEmbeddingsIngestDocsPostResponseError = (ingestDocumentsEmbeddingsIngestDocsPostResponse422) & {
-  headers: Headers;
-};
 
-export type ingestDocumentsEmbeddingsIngestDocsPostResponse = (ingestDocumentsEmbeddingsIngestDocsPostResponseSuccess | ingestDocumentsEmbeddingsIngestDocsPostResponseError)
+export type ingestDocumentsEmbeddingsIngestDocsPostResponseSuccess =
+  ingestDocumentsEmbeddingsIngestDocsPostResponse200 & {
+    headers: Headers
+  }
+export type ingestDocumentsEmbeddingsIngestDocsPostResponseError =
+  ingestDocumentsEmbeddingsIngestDocsPostResponse422 & {
+    headers: Headers
+  }
 
-export const getIngestDocumentsEmbeddingsIngestDocsPostUrl = (params?: IngestDocumentsEmbeddingsIngestDocsPostParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type ingestDocumentsEmbeddingsIngestDocsPostResponse =
+  | ingestDocumentsEmbeddingsIngestDocsPostResponseSuccess
+  | ingestDocumentsEmbeddingsIngestDocsPostResponseError
+
+export const getIngestDocumentsEmbeddingsIngestDocsPostUrl = (
+  params?: IngestDocumentsEmbeddingsIngestDocsPostParams,
+) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/embeddings/ingest-docs?${stringifiedParams}` : `/api/embeddings/ingest-docs`
+  return stringifiedParams.length > 0
+    ? `/api/embeddings/ingest-docs?${stringifiedParams}`
+    : `/api/embeddings/ingest-docs`
 }
 
-export const ingestDocumentsEmbeddingsIngestDocsPost = async (ingestDocumentsEmbeddingsIngestDocsPostBody: number[],
-    params?: IngestDocumentsEmbeddingsIngestDocsPostParams, options?: RequestInit): Promise<ingestDocumentsEmbeddingsIngestDocsPostResponse> => {
-  
-  const res = await fetch(getIngestDocumentsEmbeddingsIngestDocsPostUrl(params),
-  {      
+export const ingestDocumentsEmbeddingsIngestDocsPost = async (
+  ingestDocumentsEmbeddingsIngestDocsPostBody: number[],
+  params?: IngestDocumentsEmbeddingsIngestDocsPostParams,
+  options?: RequestInit,
+): Promise<ingestDocumentsEmbeddingsIngestDocsPostResponse> => {
+  const res = await fetch(getIngestDocumentsEmbeddingsIngestDocsPostUrl(params), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      ingestDocumentsEmbeddingsIngestDocsPostBody,)
-  }
-)
+    body: JSON.stringify(ingestDocumentsEmbeddingsIngestDocsPostBody),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: ingestDocumentsEmbeddingsIngestDocsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as ingestDocumentsEmbeddingsIngestDocsPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as ingestDocumentsEmbeddingsIngestDocsPostResponse
 }
-
-
 
 /**
  * @summary Search
@@ -1781,49 +1870,48 @@ export type searchEmbeddingsSearchGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type searchEmbeddingsSearchGetResponseSuccess = (searchEmbeddingsSearchGetResponse200) & {
-  headers: Headers;
-};
-export type searchEmbeddingsSearchGetResponseError = (searchEmbeddingsSearchGetResponse422) & {
-  headers: Headers;
-};
 
-export type searchEmbeddingsSearchGetResponse = (searchEmbeddingsSearchGetResponseSuccess | searchEmbeddingsSearchGetResponseError)
+export type searchEmbeddingsSearchGetResponseSuccess = searchEmbeddingsSearchGetResponse200 & {
+  headers: Headers
+}
+export type searchEmbeddingsSearchGetResponseError = searchEmbeddingsSearchGetResponse422 & {
+  headers: Headers
+}
 
-export const getSearchEmbeddingsSearchGetUrl = (params: SearchEmbeddingsSearchGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type searchEmbeddingsSearchGetResponse =
+  | searchEmbeddingsSearchGetResponseSuccess
+  | searchEmbeddingsSearchGetResponseError
+
+export const getSearchEmbeddingsSearchGetUrl = (params: SearchEmbeddingsSearchGetParams) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
-  return stringifiedParams.length > 0 ? `/api/embeddings/search?${stringifiedParams}` : `/api/embeddings/search`
+  return stringifiedParams.length > 0
+    ? `/api/embeddings/search?${stringifiedParams}`
+    : `/api/embeddings/search`
 }
 
-export const searchEmbeddingsSearchGet = async (params: SearchEmbeddingsSearchGetParams, options?: RequestInit): Promise<searchEmbeddingsSearchGetResponse> => {
-  
-  const res = await fetch(getSearchEmbeddingsSearchGetUrl(params),
-  {      
+export const searchEmbeddingsSearchGet = async (
+  params: SearchEmbeddingsSearchGetParams,
+  options?: RequestInit,
+): Promise<searchEmbeddingsSearchGetResponse> => {
+  const res = await fetch(getSearchEmbeddingsSearchGetUrl(params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: searchEmbeddingsSearchGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as searchEmbeddingsSearchGetResponse
 }
-
-
 
 /**
  * @summary Embedding Status
@@ -1832,40 +1920,36 @@ export type embeddingStatusEmbeddingsStatusGetResponse200 = {
   data: EmbeddingStatusResponse
   status: 200
 }
-    
-export type embeddingStatusEmbeddingsStatusGetResponseSuccess = (embeddingStatusEmbeddingsStatusGetResponse200) & {
-  headers: Headers;
-};
-;
 
-export type embeddingStatusEmbeddingsStatusGetResponse = (embeddingStatusEmbeddingsStatusGetResponseSuccess)
+export type embeddingStatusEmbeddingsStatusGetResponseSuccess =
+  embeddingStatusEmbeddingsStatusGetResponse200 & {
+    headers: Headers
+  }
+
+export type embeddingStatusEmbeddingsStatusGetResponse =
+  embeddingStatusEmbeddingsStatusGetResponseSuccess
 
 export const getEmbeddingStatusEmbeddingsStatusGetUrl = () => {
-
-
-  
-
   return `/api/embeddings/status`
 }
 
-export const embeddingStatusEmbeddingsStatusGet = async ( options?: RequestInit): Promise<embeddingStatusEmbeddingsStatusGetResponse> => {
-  
-  const res = await fetch(getEmbeddingStatusEmbeddingsStatusGetUrl(),
-  {      
+export const embeddingStatusEmbeddingsStatusGet = async (
+  options?: RequestInit,
+): Promise<embeddingStatusEmbeddingsStatusGetResponse> => {
+  const res = await fetch(getEmbeddingStatusEmbeddingsStatusGetUrl(), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: embeddingStatusEmbeddingsStatusGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as embeddingStatusEmbeddingsStatusGetResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as embeddingStatusEmbeddingsStatusGetResponse
 }
-
-
 
 /**
  * @summary Cancel Embeddings
@@ -1874,40 +1958,36 @@ export type cancelEmbeddingsEmbeddingsCancelPostResponse200 = {
   data: SyncCancelResponse
   status: 200
 }
-    
-export type cancelEmbeddingsEmbeddingsCancelPostResponseSuccess = (cancelEmbeddingsEmbeddingsCancelPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type cancelEmbeddingsEmbeddingsCancelPostResponse = (cancelEmbeddingsEmbeddingsCancelPostResponseSuccess)
+export type cancelEmbeddingsEmbeddingsCancelPostResponseSuccess =
+  cancelEmbeddingsEmbeddingsCancelPostResponse200 & {
+    headers: Headers
+  }
+
+export type cancelEmbeddingsEmbeddingsCancelPostResponse =
+  cancelEmbeddingsEmbeddingsCancelPostResponseSuccess
 
 export const getCancelEmbeddingsEmbeddingsCancelPostUrl = () => {
-
-
-  
-
   return `/api/embeddings/cancel`
 }
 
-export const cancelEmbeddingsEmbeddingsCancelPost = async ( options?: RequestInit): Promise<cancelEmbeddingsEmbeddingsCancelPostResponse> => {
-  
-  const res = await fetch(getCancelEmbeddingsEmbeddingsCancelPostUrl(),
-  {      
+export const cancelEmbeddingsEmbeddingsCancelPost = async (
+  options?: RequestInit,
+): Promise<cancelEmbeddingsEmbeddingsCancelPostResponse> => {
+  const res = await fetch(getCancelEmbeddingsEmbeddingsCancelPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: cancelEmbeddingsEmbeddingsCancelPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as cancelEmbeddingsEmbeddingsCancelPostResponse
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cancelEmbeddingsEmbeddingsCancelPostResponse
 }
-
-
 
 /**
  * @summary Get Queue Status
@@ -1916,40 +1996,31 @@ export type getQueueStatusQueueStatusGetResponse200 = {
   data: QueueStatusResponse
   status: 200
 }
-    
-export type getQueueStatusQueueStatusGetResponseSuccess = (getQueueStatusQueueStatusGetResponse200) & {
-  headers: Headers;
-};
-;
 
-export type getQueueStatusQueueStatusGetResponse = (getQueueStatusQueueStatusGetResponseSuccess)
+export type getQueueStatusQueueStatusGetResponseSuccess =
+  getQueueStatusQueueStatusGetResponse200 & {
+    headers: Headers
+  }
+
+export type getQueueStatusQueueStatusGetResponse = getQueueStatusQueueStatusGetResponseSuccess
 
 export const getGetQueueStatusQueueStatusGetUrl = () => {
-
-
-  
-
   return `/api/queue/status`
 }
 
-export const getQueueStatusQueueStatusGet = async ( options?: RequestInit): Promise<getQueueStatusQueueStatusGetResponse> => {
-  
-  const res = await fetch(getGetQueueStatusQueueStatusGetUrl(),
-  {      
+export const getQueueStatusQueueStatusGet = async (
+  options?: RequestInit,
+): Promise<getQueueStatusQueueStatusGetResponse> => {
+  const res = await fetch(getGetQueueStatusQueueStatusGetUrl(), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: getQueueStatusQueueStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getQueueStatusQueueStatusGetResponse
 }
-
-
 
 /**
  * @summary Enqueue
@@ -1963,43 +2034,38 @@ export type enqueueQueueEnqueuePostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type enqueueQueueEnqueuePostResponseSuccess = (enqueueQueueEnqueuePostResponse200) & {
-  headers: Headers;
-};
-export type enqueueQueueEnqueuePostResponseError = (enqueueQueueEnqueuePostResponse422) & {
-  headers: Headers;
-};
 
-export type enqueueQueueEnqueuePostResponse = (enqueueQueueEnqueuePostResponseSuccess | enqueueQueueEnqueuePostResponseError)
+export type enqueueQueueEnqueuePostResponseSuccess = enqueueQueueEnqueuePostResponse200 & {
+  headers: Headers
+}
+export type enqueueQueueEnqueuePostResponseError = enqueueQueueEnqueuePostResponse422 & {
+  headers: Headers
+}
+
+export type enqueueQueueEnqueuePostResponse =
+  | enqueueQueueEnqueuePostResponseSuccess
+  | enqueueQueueEnqueuePostResponseError
 
 export const getEnqueueQueueEnqueuePostUrl = () => {
-
-
-  
-
   return `/api/queue/enqueue`
 }
 
-export const enqueueQueueEnqueuePost = async (queueEnqueue: QueueEnqueue, options?: RequestInit): Promise<enqueueQueueEnqueuePostResponse> => {
-  
-  const res = await fetch(getEnqueueQueueEnqueuePostUrl(),
-  {      
+export const enqueueQueueEnqueuePost = async (
+  queueEnqueue: QueueEnqueue,
+  options?: RequestInit,
+): Promise<enqueueQueueEnqueuePostResponse> => {
+  const res = await fetch(getEnqueueQueueEnqueuePostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      queueEnqueue,)
-  }
-)
+    body: JSON.stringify(queueEnqueue),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: enqueueQueueEnqueuePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as enqueueQueueEnqueuePostResponse
 }
-
-
 
 /**
  * @summary Peek
@@ -2013,49 +2079,46 @@ export type peekQueuePeekGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type peekQueuePeekGetResponseSuccess = (peekQueuePeekGetResponse200) & {
-  headers: Headers;
-};
-export type peekQueuePeekGetResponseError = (peekQueuePeekGetResponse422) & {
-  headers: Headers;
-};
 
-export type peekQueuePeekGetResponse = (peekQueuePeekGetResponseSuccess | peekQueuePeekGetResponseError)
+export type peekQueuePeekGetResponseSuccess = peekQueuePeekGetResponse200 & {
+  headers: Headers
+}
+export type peekQueuePeekGetResponseError = peekQueuePeekGetResponse422 & {
+  headers: Headers
+}
 
-export const getPeekQueuePeekGetUrl = (params?: PeekQueuePeekGetParams,) => {
-  const normalizedParams = new URLSearchParams();
+export type peekQueuePeekGetResponse =
+  | peekQueuePeekGetResponseSuccess
+  | peekQueuePeekGetResponseError
+
+export const getPeekQueuePeekGetUrl = (params?: PeekQueuePeekGetParams) => {
+  const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  });
+  })
 
-  const stringifiedParams = normalizedParams.toString();
+  const stringifiedParams = normalizedParams.toString()
 
   return stringifiedParams.length > 0 ? `/api/queue/peek?${stringifiedParams}` : `/api/queue/peek`
 }
 
-export const peekQueuePeekGet = async (params?: PeekQueuePeekGetParams, options?: RequestInit): Promise<peekQueuePeekGetResponse> => {
-  
-  const res = await fetch(getPeekQueuePeekGetUrl(params),
-  {      
+export const peekQueuePeekGet = async (
+  params?: PeekQueuePeekGetParams,
+  options?: RequestInit,
+): Promise<peekQueuePeekGetResponse> => {
+  const res = await fetch(getPeekQueuePeekGetUrl(params), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: peekQueuePeekGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as peekQueuePeekGetResponse
 }
-
-
 
 /**
  * @summary Clear
@@ -2064,40 +2127,30 @@ export type clearQueueClearPostResponse200 = {
   data: QueueCancelResponse
   status: 200
 }
-    
-export type clearQueueClearPostResponseSuccess = (clearQueueClearPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type clearQueueClearPostResponse = (clearQueueClearPostResponseSuccess)
+export type clearQueueClearPostResponseSuccess = clearQueueClearPostResponse200 & {
+  headers: Headers
+}
+
+export type clearQueueClearPostResponse = clearQueueClearPostResponseSuccess
 
 export const getClearQueueClearPostUrl = () => {
-
-
-  
-
   return `/api/queue/clear`
 }
 
-export const clearQueueClearPost = async ( options?: RequestInit): Promise<clearQueueClearPostResponse> => {
-  
-  const res = await fetch(getClearQueueClearPostUrl(),
-  {      
+export const clearQueueClearPost = async (
+  options?: RequestInit,
+): Promise<clearQueueClearPostResponse> => {
+  const res = await fetch(getClearQueueClearPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: clearQueueClearPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as clearQueueClearPostResponse
 }
-
-
 
 /**
  * @summary Cancel
@@ -2106,40 +2159,30 @@ export type cancelQueueCancelPostResponse200 = {
   data: QueueCancelResponse
   status: 200
 }
-    
-export type cancelQueueCancelPostResponseSuccess = (cancelQueueCancelPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type cancelQueueCancelPostResponse = (cancelQueueCancelPostResponseSuccess)
+export type cancelQueueCancelPostResponseSuccess = cancelQueueCancelPostResponse200 & {
+  headers: Headers
+}
+
+export type cancelQueueCancelPostResponse = cancelQueueCancelPostResponseSuccess
 
 export const getCancelQueueCancelPostUrl = () => {
-
-
-  
-
   return `/api/queue/cancel`
 }
 
-export const cancelQueueCancelPost = async ( options?: RequestInit): Promise<cancelQueueCancelPostResponse> => {
-  
-  const res = await fetch(getCancelQueueCancelPostUrl(),
-  {      
+export const cancelQueueCancelPost = async (
+  options?: RequestInit,
+): Promise<cancelQueueCancelPostResponse> => {
+  const res = await fetch(getCancelQueueCancelPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: cancelQueueCancelPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as cancelQueueCancelPostResponse
 }
-
-
 
 /**
  * @summary Reset
@@ -2148,40 +2191,30 @@ export type resetQueueResetStatsPostResponse200 = {
   data: QueueResetResponse
   status: 200
 }
-    
-export type resetQueueResetStatsPostResponseSuccess = (resetQueueResetStatsPostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type resetQueueResetStatsPostResponse = (resetQueueResetStatsPostResponseSuccess)
+export type resetQueueResetStatsPostResponseSuccess = resetQueueResetStatsPostResponse200 & {
+  headers: Headers
+}
+
+export type resetQueueResetStatsPostResponse = resetQueueResetStatsPostResponseSuccess
 
 export const getResetQueueResetStatsPostUrl = () => {
-
-
-  
-
   return `/api/queue/reset-stats`
 }
 
-export const resetQueueResetStatsPost = async ( options?: RequestInit): Promise<resetQueueResetStatsPostResponse> => {
-  
-  const res = await fetch(getResetQueueResetStatsPostUrl(),
-  {      
+export const resetQueueResetStatsPost = async (
+  options?: RequestInit,
+): Promise<resetQueueResetStatsPostResponse> => {
+  const res = await fetch(getResetQueueResetStatsPostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: resetQueueResetStatsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resetQueueResetStatsPostResponse
 }
-
-
 
 /**
  * @summary Pause
@@ -2190,40 +2223,30 @@ export type pauseQueuePausePostResponse200 = {
   data: QueuePauseResponse
   status: 200
 }
-    
-export type pauseQueuePausePostResponseSuccess = (pauseQueuePausePostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type pauseQueuePausePostResponse = (pauseQueuePausePostResponseSuccess)
+export type pauseQueuePausePostResponseSuccess = pauseQueuePausePostResponse200 & {
+  headers: Headers
+}
+
+export type pauseQueuePausePostResponse = pauseQueuePausePostResponseSuccess
 
 export const getPauseQueuePausePostUrl = () => {
-
-
-  
-
   return `/api/queue/pause`
 }
 
-export const pauseQueuePausePost = async ( options?: RequestInit): Promise<pauseQueuePausePostResponse> => {
-  
-  const res = await fetch(getPauseQueuePausePostUrl(),
-  {      
+export const pauseQueuePausePost = async (
+  options?: RequestInit,
+): Promise<pauseQueuePausePostResponse> => {
+  const res = await fetch(getPauseQueuePausePostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: pauseQueuePausePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as pauseQueuePausePostResponse
 }
-
-
 
 /**
  * @summary Resume
@@ -2232,40 +2255,30 @@ export type resumeQueueResumePostResponse200 = {
   data: QueuePauseResponse
   status: 200
 }
-    
-export type resumeQueueResumePostResponseSuccess = (resumeQueueResumePostResponse200) & {
-  headers: Headers;
-};
-;
 
-export type resumeQueueResumePostResponse = (resumeQueueResumePostResponseSuccess)
+export type resumeQueueResumePostResponseSuccess = resumeQueueResumePostResponse200 & {
+  headers: Headers
+}
+
+export type resumeQueueResumePostResponse = resumeQueueResumePostResponseSuccess
 
 export const getResumeQueueResumePostUrl = () => {
-
-
-  
-
   return `/api/queue/resume`
 }
 
-export const resumeQueueResumePost = async ( options?: RequestInit): Promise<resumeQueueResumePostResponse> => {
-  
-  const res = await fetch(getResumeQueueResumePostUrl(),
-  {      
+export const resumeQueueResumePost = async (
+  options?: RequestInit,
+): Promise<resumeQueueResumePostResponse> => {
+  const res = await fetch(getResumeQueueResumePostUrl(), {
     ...options,
-    method: 'POST'
-    
-    
-  }
-)
+    method: 'POST',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: resumeQueueResumePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resumeQueueResumePostResponse
 }
-
-
 
 /**
  * @summary Move
@@ -2279,43 +2292,38 @@ export type moveQueueReorderPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type moveQueueReorderPostResponseSuccess = (moveQueueReorderPostResponse200) & {
-  headers: Headers;
-};
-export type moveQueueReorderPostResponseError = (moveQueueReorderPostResponse422) & {
-  headers: Headers;
-};
 
-export type moveQueueReorderPostResponse = (moveQueueReorderPostResponseSuccess | moveQueueReorderPostResponseError)
+export type moveQueueReorderPostResponseSuccess = moveQueueReorderPostResponse200 & {
+  headers: Headers
+}
+export type moveQueueReorderPostResponseError = moveQueueReorderPostResponse422 & {
+  headers: Headers
+}
+
+export type moveQueueReorderPostResponse =
+  | moveQueueReorderPostResponseSuccess
+  | moveQueueReorderPostResponseError
 
 export const getMoveQueueReorderPostUrl = () => {
-
-
-  
-
   return `/api/queue/reorder`
 }
 
-export const moveQueueReorderPost = async (queueMoveRequest: QueueMoveRequest, options?: RequestInit): Promise<moveQueueReorderPostResponse> => {
-  
-  const res = await fetch(getMoveQueueReorderPostUrl(),
-  {      
+export const moveQueueReorderPost = async (
+  queueMoveRequest: QueueMoveRequest,
+  options?: RequestInit,
+): Promise<moveQueueReorderPostResponse> => {
+  const res = await fetch(getMoveQueueReorderPostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      queueMoveRequest,)
-  }
-)
+    body: JSON.stringify(queueMoveRequest),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: moveQueueReorderPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as moveQueueReorderPostResponse
 }
-
-
 
 /**
  * @summary Move Top
@@ -2329,43 +2337,38 @@ export type moveTopQueueMoveTopPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type moveTopQueueMoveTopPostResponseSuccess = (moveTopQueueMoveTopPostResponse200) & {
-  headers: Headers;
-};
-export type moveTopQueueMoveTopPostResponseError = (moveTopQueueMoveTopPostResponse422) & {
-  headers: Headers;
-};
 
-export type moveTopQueueMoveTopPostResponse = (moveTopQueueMoveTopPostResponseSuccess | moveTopQueueMoveTopPostResponseError)
+export type moveTopQueueMoveTopPostResponseSuccess = moveTopQueueMoveTopPostResponse200 & {
+  headers: Headers
+}
+export type moveTopQueueMoveTopPostResponseError = moveTopQueueMoveTopPostResponse422 & {
+  headers: Headers
+}
+
+export type moveTopQueueMoveTopPostResponse =
+  | moveTopQueueMoveTopPostResponseSuccess
+  | moveTopQueueMoveTopPostResponseError
 
 export const getMoveTopQueueMoveTopPostUrl = () => {
-
-
-  
-
   return `/api/queue/move-top`
 }
 
-export const moveTopQueueMoveTopPost = async (queueMoveEdgeRequest: QueueMoveEdgeRequest, options?: RequestInit): Promise<moveTopQueueMoveTopPostResponse> => {
-  
-  const res = await fetch(getMoveTopQueueMoveTopPostUrl(),
-  {      
+export const moveTopQueueMoveTopPost = async (
+  queueMoveEdgeRequest: QueueMoveEdgeRequest,
+  options?: RequestInit,
+): Promise<moveTopQueueMoveTopPostResponse> => {
+  const res = await fetch(getMoveTopQueueMoveTopPostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      queueMoveEdgeRequest,)
-  }
-)
+    body: JSON.stringify(queueMoveEdgeRequest),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: moveTopQueueMoveTopPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as moveTopQueueMoveTopPostResponse
 }
-
-
 
 /**
  * @summary Move Bottom
@@ -2379,43 +2382,40 @@ export type moveBottomQueueMoveBottomPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type moveBottomQueueMoveBottomPostResponseSuccess = (moveBottomQueueMoveBottomPostResponse200) & {
-  headers: Headers;
-};
-export type moveBottomQueueMoveBottomPostResponseError = (moveBottomQueueMoveBottomPostResponse422) & {
-  headers: Headers;
-};
 
-export type moveBottomQueueMoveBottomPostResponse = (moveBottomQueueMoveBottomPostResponseSuccess | moveBottomQueueMoveBottomPostResponseError)
+export type moveBottomQueueMoveBottomPostResponseSuccess =
+  moveBottomQueueMoveBottomPostResponse200 & {
+    headers: Headers
+  }
+export type moveBottomQueueMoveBottomPostResponseError =
+  moveBottomQueueMoveBottomPostResponse422 & {
+    headers: Headers
+  }
+
+export type moveBottomQueueMoveBottomPostResponse =
+  | moveBottomQueueMoveBottomPostResponseSuccess
+  | moveBottomQueueMoveBottomPostResponseError
 
 export const getMoveBottomQueueMoveBottomPostUrl = () => {
-
-
-  
-
   return `/api/queue/move-bottom`
 }
 
-export const moveBottomQueueMoveBottomPost = async (queueMoveEdgeRequest: QueueMoveEdgeRequest, options?: RequestInit): Promise<moveBottomQueueMoveBottomPostResponse> => {
-  
-  const res = await fetch(getMoveBottomQueueMoveBottomPostUrl(),
-  {      
+export const moveBottomQueueMoveBottomPost = async (
+  queueMoveEdgeRequest: QueueMoveEdgeRequest,
+  options?: RequestInit,
+): Promise<moveBottomQueueMoveBottomPostResponse> => {
+  const res = await fetch(getMoveBottomQueueMoveBottomPostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      queueMoveEdgeRequest,)
-  }
-)
+    body: JSON.stringify(queueMoveEdgeRequest),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: moveBottomQueueMoveBottomPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as moveBottomQueueMoveBottomPostResponse
 }
-
-
 
 /**
  * @summary Remove
@@ -2429,43 +2429,38 @@ export type removeQueueRemovePostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type removeQueueRemovePostResponseSuccess = (removeQueueRemovePostResponse200) & {
-  headers: Headers;
-};
-export type removeQueueRemovePostResponseError = (removeQueueRemovePostResponse422) & {
-  headers: Headers;
-};
 
-export type removeQueueRemovePostResponse = (removeQueueRemovePostResponseSuccess | removeQueueRemovePostResponseError)
+export type removeQueueRemovePostResponseSuccess = removeQueueRemovePostResponse200 & {
+  headers: Headers
+}
+export type removeQueueRemovePostResponseError = removeQueueRemovePostResponse422 & {
+  headers: Headers
+}
+
+export type removeQueueRemovePostResponse =
+  | removeQueueRemovePostResponseSuccess
+  | removeQueueRemovePostResponseError
 
 export const getRemoveQueueRemovePostUrl = () => {
-
-
-  
-
   return `/api/queue/remove`
 }
 
-export const removeQueueRemovePost = async (queueRemoveRequest: QueueRemoveRequest, options?: RequestInit): Promise<removeQueueRemovePostResponse> => {
-  
-  const res = await fetch(getRemoveQueueRemovePostUrl(),
-  {      
+export const removeQueueRemovePost = async (
+  queueRemoveRequest: QueueRemoveRequest,
+  options?: RequestInit,
+): Promise<removeQueueRemovePostResponse> => {
+  const res = await fetch(getRemoveQueueRemovePostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      queueRemoveRequest,)
-  }
-)
+    body: JSON.stringify(queueRemoveRequest),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: removeQueueRemovePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as removeQueueRemovePostResponse
 }
-
-
 
 /**
  * @summary Status
@@ -2474,40 +2469,28 @@ export type statusStatusGetResponse200 = {
   data: StatusResponse
   status: 200
 }
-    
-export type statusStatusGetResponseSuccess = (statusStatusGetResponse200) & {
-  headers: Headers;
-};
-;
 
-export type statusStatusGetResponse = (statusStatusGetResponseSuccess)
+export type statusStatusGetResponseSuccess = statusStatusGetResponse200 & {
+  headers: Headers
+}
+
+export type statusStatusGetResponse = statusStatusGetResponseSuccess
 
 export const getStatusStatusGetUrl = () => {
-
-
-  
-
   return `/api/status`
 }
 
-export const statusStatusGet = async ( options?: RequestInit): Promise<statusStatusGetResponse> => {
-  
-  const res = await fetch(getStatusStatusGetUrl(),
-  {      
+export const statusStatusGet = async (options?: RequestInit): Promise<statusStatusGetResponse> => {
+  const res = await fetch(getStatusStatusGetUrl(), {
     ...options,
-    method: 'GET'
-    
-    
-  }
-)
+    method: 'GET',
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: statusStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as statusStatusGetResponse
 }
-
-
 
 /**
  * @summary Chat
@@ -2521,43 +2504,36 @@ export type chatChatPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type chatChatPostResponseSuccess = (chatChatPostResponse200) & {
-  headers: Headers;
-};
-export type chatChatPostResponseError = (chatChatPostResponse422) & {
-  headers: Headers;
-};
 
-export type chatChatPostResponse = (chatChatPostResponseSuccess | chatChatPostResponseError)
+export type chatChatPostResponseSuccess = chatChatPostResponse200 & {
+  headers: Headers
+}
+export type chatChatPostResponseError = chatChatPostResponse422 & {
+  headers: Headers
+}
+
+export type chatChatPostResponse = chatChatPostResponseSuccess | chatChatPostResponseError
 
 export const getChatChatPostUrl = () => {
-
-
-  
-
   return `/api/chat`
 }
 
-export const chatChatPost = async (chatRequest: ChatRequest, options?: RequestInit): Promise<chatChatPostResponse> => {
-  
-  const res = await fetch(getChatChatPostUrl(),
-  {      
+export const chatChatPost = async (
+  chatRequest: ChatRequest,
+  options?: RequestInit,
+): Promise<chatChatPostResponse> => {
+  const res = await fetch(getChatChatPostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      chatRequest,)
-  }
-)
+    body: JSON.stringify(chatRequest),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: chatChatPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as chatChatPostResponse
 }
-
-
 
 /**
  * @summary Chat Stream
@@ -2571,38 +2547,35 @@ export type chatStreamChatStreamPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
-    
-export type chatStreamChatStreamPostResponseSuccess = (chatStreamChatStreamPostResponse200) & {
-  headers: Headers;
-};
-export type chatStreamChatStreamPostResponseError = (chatStreamChatStreamPostResponse422) & {
-  headers: Headers;
-};
 
-export type chatStreamChatStreamPostResponse = (chatStreamChatStreamPostResponseSuccess | chatStreamChatStreamPostResponseError)
+export type chatStreamChatStreamPostResponseSuccess = chatStreamChatStreamPostResponse200 & {
+  headers: Headers
+}
+export type chatStreamChatStreamPostResponseError = chatStreamChatStreamPostResponse422 & {
+  headers: Headers
+}
+
+export type chatStreamChatStreamPostResponse =
+  | chatStreamChatStreamPostResponseSuccess
+  | chatStreamChatStreamPostResponseError
 
 export const getChatStreamChatStreamPostUrl = () => {
-
-
-  
-
   return `/api/chat/stream`
 }
 
-export const chatStreamChatStreamPost = async (chatRequest: ChatRequest, options?: RequestInit): Promise<chatStreamChatStreamPostResponse> => {
-  
-  const res = await fetch(getChatStreamChatStreamPostUrl(),
-  {      
+export const chatStreamChatStreamPost = async (
+  chatRequest: ChatRequest,
+  options?: RequestInit,
+): Promise<chatStreamChatStreamPostResponse> => {
+  const res = await fetch(getChatStreamChatStreamPostUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      chatRequest,)
-  }
-)
+    body: JSON.stringify(chatRequest),
+  })
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
   const data: chatStreamChatStreamPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as chatStreamChatStreamPostResponse
 }

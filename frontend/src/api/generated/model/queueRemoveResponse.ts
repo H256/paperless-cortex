@@ -6,6 +6,6 @@
  */
 
 export interface QueueRemoveResponse {
-  enabled: boolean;
-  removed: boolean;
+  enabled: boolean
+  removed: boolean
 }
