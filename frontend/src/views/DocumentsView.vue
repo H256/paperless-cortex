@@ -214,37 +214,27 @@
                 </a>
               </td>
               <td class="px-6 py-3">
-                <div class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
-                  <div class="inline-flex items-center gap-1" :title="doc.has_embeddings ? 'Embeddings' : 'No embeddings'">
-                    <Layers class="h-3 w-3" :class="doc.has_embeddings ? 'text-emerald-500' : 'text-slate-400'" />
-                    <span class="sr-only">Embeddings</span>
-                  </div>
-                  <div class="inline-flex items-center gap-1" :title="doc.has_vision_pages ? 'Vision OCR' : 'No vision OCR'">
-                    <ScanText class="h-3 w-3" :class="doc.has_vision_pages ? 'text-emerald-500' : 'text-slate-400'" />
-                    <span class="sr-only">Vision OCR</span>
-                  </div>
-                  <div
-                    class="inline-flex items-center gap-1"
-                    :title="doc.has_suggestions_paperless ? 'Suggestions (paperless)' : 'No suggestions (paperless)'"
-                  >
-                    <Lightbulb class="h-3 w-3" :class="doc.has_suggestions_paperless ? 'text-emerald-500' : 'text-slate-400'" />
-                    <span class="sr-only">Suggestions (paperless)</span>
-                  </div>
-                  <div
-                    class="inline-flex items-center gap-1"
-                    :title="doc.has_suggestions_vision ? 'Suggestions (vision)' : 'No suggestions (vision)'"
-                  >
-                    <Eye class="h-3 w-3" :class="doc.has_suggestions_vision ? 'text-emerald-500' : 'text-slate-400'" />
-                    <span class="sr-only">Suggestions (vision)</span>
-                  </div>
-                  <div class="inline-flex items-center gap-1" :title="doc.local_cached ? 'Synced locally' : 'No local cache'">
-                    <RefreshCw class="h-3 w-3" :class="doc.local_cached ? 'text-emerald-500' : 'text-slate-400'" />
-                    <span class="sr-only">Synced locally</span>
-                  </div>
-                  <div class="inline-flex items-center gap-1" :title="doc.local_overrides ? 'Local overrides' : 'No local overrides'">
-                    <Pencil class="h-3 w-3" :class="doc.local_overrides ? 'text-amber-500' : 'text-slate-300'" />
-                    <span class="sr-only">Local overrides</span>
-                  </div>
+                <div
+                  class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap"
+                  :title="fulfilledTooltip(doc)"
+                >
+                  <template v-if="missingIcons(doc).length">
+                    <div
+                      v-for="item in missingIcons(doc)"
+                      :key="item.label"
+                      class="inline-flex items-center gap-1"
+                      :title="`Missing ${item.label}`"
+                    >
+                      <component :is="item.icon" class="h-3 w-3 text-amber-500" />
+                      <span class="sr-only">Missing {{ item.label }}</span>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="inline-flex items-center gap-1" title="All processed">
+                      <CheckCircle class="h-3 w-3 text-emerald-500" />
+                      <span class="sr-only">All processed</span>
+                    </div>
+                  </template>
                 </div>
               </td>
             </tr>
@@ -403,7 +393,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, watch, ref, reactive } from 'vue';
-import { ChevronDown, Database, ExternalLink, Eye, Layers, Lightbulb, Loader2, Pencil, RefreshCw, ScanText, XCircle } from 'lucide-vue-next';
+import { CheckCircle, ChevronDown, Database, ExternalLink, Eye, Layers, Lightbulb, Loader2, Pencil, RefreshCw, ScanText, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
@@ -647,6 +637,29 @@ const correspondentLabel = (id?: number | null, name?: string | null) => {
 
 const hasDerived = (doc: DocumentRow) => {
   return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages);
+};
+
+const missingIcons = (doc: DocumentRow) => {
+  const items: { label: string; icon: any }[] = [];
+  if (!doc.has_embeddings) items.push({ label: 'Embeddings', icon: Layers });
+  if (!doc.has_vision_pages) items.push({ label: 'Vision OCR', icon: ScanText });
+  if (!doc.has_suggestions_paperless) items.push({ label: 'Suggestions (paperless)', icon: Lightbulb });
+  if (doc.has_vision_pages && !doc.has_suggestions_vision) items.push({ label: 'Suggestions (vision)', icon: Eye });
+  if (!doc.local_cached) items.push({ label: 'Local cache', icon: RefreshCw });
+  if (!doc.local_overrides) items.push({ label: 'Local overrides', icon: Pencil });
+  return items;
+};
+
+const fulfilledTooltip = (doc: DocumentRow) => {
+  const done: string[] = [];
+  if (doc.has_embeddings) done.push('Embeddings');
+  if (doc.has_vision_pages) done.push('Vision OCR');
+  if (doc.has_suggestions_paperless) done.push('Suggestions (paperless)');
+  if (doc.has_vision_pages && doc.has_suggestions_vision) done.push('Suggestions (vision)');
+  if (doc.local_cached) done.push('Local cache');
+  if (doc.local_overrides) done.push('Local overrides');
+  if (!done.length) return 'Nothing processed yet';
+  return `Done: ${done.join(', ')}`;
 };
 
 const isFullyProcessed = (doc: DocumentRow) => {
