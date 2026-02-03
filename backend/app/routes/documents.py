@@ -851,6 +851,14 @@ def process_missing(
         raise HTTPException(status_code=400, detail="limit must be >= 1")
 
     docs = db.query(Document).order_by(Document.id.asc()).all()
+    if include_vision_ocr:
+        docs.sort(
+            key=lambda doc: (
+                doc.page_count is None,
+                doc.page_count or 0,
+                doc.id,
+            )
+        )
     embeddings = {
         row.doc_id: row for row in db.query(DocumentEmbedding).all()
     }

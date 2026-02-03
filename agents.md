@@ -458,3 +458,4 @@ All model names must be configurable via environment variables.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
 - UX: local overrides shown, badges + tooltips, suggestion metadata surfaced.
 - Queue: ETA display, last run timestamp, reset counters when idle.
+- Processing: Vision OCR enqueue order prefers shorter documents first (page_count).
