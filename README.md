@@ -72,6 +72,11 @@ docker compose -f docker-compose.app.yml up --build
 docker compose -f docker-compose.full.yml up --build
 ```
 
+### Worker-only (separate container)
+```bash
+docker compose -f docker-compose.worker.yml up --build
+```
+
 Notes:
 - Update `.env` with Paperless + token settings.
 - Full stack uses local service URLs for DB/Redis/Qdrant/Ollama; adjust as needed.

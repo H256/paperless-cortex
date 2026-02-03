@@ -465,3 +465,4 @@ All model names must be configurable via environment variables.
 - UX: Dashboard extended section now supports 12/24/all month toggle with larger, report-style charts.
 - Branding: Updated app name to “Paperless-NGX Cortex” with slogan “Your documents, understood.”
 - DevOps: Added Dockerfile and compose variants for app-only and full stack deployment.
+- DevOps: Added worker-only compose variant.

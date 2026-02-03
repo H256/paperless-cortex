@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  worker:
+    build: .
+    container_name: paperless-ngx-cortex-worker
+    command: ["python", "-m", "app.worker"]
+    env_file:
+      - .env
+    restart: unless-stopped
