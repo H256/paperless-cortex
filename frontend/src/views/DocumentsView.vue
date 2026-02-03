@@ -650,7 +650,14 @@ const missingIcons = (doc: DocumentRow) => {
   if (!doc.has_suggestions_paperless) items.push({ label: 'Suggestions (paperless)', icon: Lightbulb });
   if (doc.has_vision_pages && !doc.has_suggestions_vision) items.push({ label: 'Suggestions (vision)', icon: Eye });
   if (!doc.local_cached) items.push({ label: 'Local cache', icon: RefreshCw });
-  return items;
+  const order = new Map<string, number>([
+    ['Embeddings', 1],
+    ['Vision OCR', 2],
+    ['Suggestions (paperless)', 3],
+    ['Suggestions (vision)', 4],
+    ['Local cache', 5],
+  ]);
+  return items.sort((a, b) => (order.get(a.label) ?? 99) - (order.get(b.label) ?? 99));
 };
 
 const fulfilledTooltip = (doc: DocumentRow) => {
