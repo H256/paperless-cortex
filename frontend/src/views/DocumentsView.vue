@@ -331,24 +331,33 @@
 
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
+            v-if="processStartResult"
             class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click="closePreview"
-            :disabled="processStartLoading"
           >
-            Cancel
+            Close
           </button>
-          <button
-            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || syncStatus.status === 'running'"
-            @click="startFromPreview"
-          >
-            <span v-if="processStartLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Enqueuing...
-            </span>
-            <span v-else-if="syncStatus.status === 'running'">Syncing…</span>
-            <span v-else>Start processing</span>
-          </button>
+          <template v-else>
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="closePreview"
+              :disabled="processStartLoading"
+            >
+              Cancel
+            </button>
+            <button
+              class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || syncStatus.status === 'running'"
+              @click="startFromPreview"
+            >
+              <span v-if="processStartLoading" class="inline-flex items-center gap-2">
+                <Loader2 class="h-4 w-4 animate-spin" />
+                Enqueuing...
+              </span>
+              <span v-else-if="syncStatus.status === 'running'">Syncing…</span>
+              <span v-else>Start processing</span>
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -555,6 +564,7 @@ const startFromPreview = async () => {
   startPolling();
   await documentsStore.startProcessingFromPreview(processParams());
   await queueStore.refreshStatus();
+  documentsStore.clearProcessPreview();
 };
 
 const cancelProcessing = async () => {
