@@ -100,6 +100,8 @@ class DocumentSummary(PaperlessDocument):
     local_overrides: Optional[bool] = None
     has_embeddings: Optional[bool] = None
     has_suggestions: Optional[bool] = None
+    has_suggestions_paperless: Optional[bool] = None
+    has_suggestions_vision: Optional[bool] = None
     has_vision_pages: Optional[bool] = None
 
 

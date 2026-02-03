@@ -3285,6 +3285,28 @@
             ],
             "title": "Has Suggestions"
           },
+          "has_suggestions_paperless": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Suggestions Paperless"
+          },
+          "has_suggestions_vision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Suggestions Vision"
+          },
           "has_vision_pages": {
             "anyOf": [
               {

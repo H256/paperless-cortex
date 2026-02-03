@@ -172,6 +172,8 @@ def list_documents(
         doc.update(analysis_by_doc.get(doc_id, {}))
         sources = suggestions_by_doc.get(doc_id, set())
         doc["has_suggestions"] = bool(sources)
+        doc["has_suggestions_paperless"] = "paperless_ocr" in sources
+        doc["has_suggestions_vision"] = "vision_ocr" in sources
         doc["has_vision_pages"] = doc_id in vision_pages
     return payload
 

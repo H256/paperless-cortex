@@ -457,6 +457,7 @@ All model names must be configurable via environment variables.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
 - UX: local overrides shown, badges + tooltips, suggestion metadata surfaced.
+- UX: Document list now shows per-task status icons (embeddings, vision OCR, suggestions by source, sync, overrides) with red/amber/green status badges.
 - Queue: ETA display, last run timestamp, reset counters when idle.
 - Processing: Vision OCR enqueue order prefers shorter documents first (page_count).
 - Feature: Added Dashboard page with document stats, tags/correspondents breakdown, and page count distribution.

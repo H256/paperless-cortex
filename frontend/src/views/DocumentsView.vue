@@ -214,18 +214,52 @@
                 </a>
               </td>
               <td class="px-6 py-3">
-                <span
-                  v-if="!hasDerived(doc)"
-                  class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-200"
-                >
-                  No analysis
-                </span>
-                <span
-                  v-else
-                  class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200"
-                >
-                  Analyzed
-                </span>
+                <div class="flex flex-col gap-2">
+                  <span
+                    v-if="!hasDerived(doc)"
+                    class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-200"
+                  >
+                    No analysis
+                  </span>
+                  <span
+                    v-else-if="isFullyProcessed(doc)"
+                    class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200"
+                  >
+                    Fully processed
+                  </span>
+                  <span
+                    v-else
+                    class="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                  >
+                    Partial
+                  </span>
+                  <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <div class="inline-flex items-center gap-1" title="Embeddings">
+                      <Layers class="h-3.5 w-3.5" :class="doc.has_embeddings ? 'text-emerald-500' : 'text-rose-400'" />
+                      <span class="sr-only">Embeddings</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1" title="Vision OCR">
+                      <ScanText class="h-3.5 w-3.5" :class="doc.has_vision_pages ? 'text-emerald-500' : 'text-rose-400'" />
+                      <span class="sr-only">Vision OCR</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1" title="Suggestions (paperless)">
+                      <Lightbulb class="h-3.5 w-3.5" :class="doc.has_suggestions_paperless ? 'text-emerald-500' : 'text-rose-400'" />
+                      <span class="sr-only">Suggestions (paperless)</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1" title="Suggestions (vision)">
+                      <Eye class="h-3.5 w-3.5" :class="doc.has_suggestions_vision ? 'text-emerald-500' : 'text-rose-400'" />
+                      <span class="sr-only">Suggestions (vision)</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1" title="Synced locally">
+                      <RefreshCw class="h-3.5 w-3.5" :class="doc.local_cached ? 'text-emerald-500' : 'text-rose-400'" />
+                      <span class="sr-only">Synced locally</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1" title="Local overrides">
+                      <Pencil class="h-3.5 w-3.5" :class="doc.local_overrides ? 'text-amber-500' : 'text-slate-300'" />
+                      <span class="sr-only">Local overrides</span>
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -383,7 +417,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, watch, ref, reactive } from 'vue';
-import { ChevronDown, Database, ExternalLink, Loader2, Pencil, RefreshCw, XCircle } from 'lucide-vue-next';
+import { ChevronDown, Database, ExternalLink, Eye, Layers, Lightbulb, Loader2, Pencil, RefreshCw, ScanText, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
@@ -627,6 +661,16 @@ const correspondentLabel = (id?: number | null, name?: string | null) => {
 
 const hasDerived = (doc: DocumentRow) => {
   return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages);
+};
+
+const isFullyProcessed = (doc: DocumentRow) => {
+  const hasVision = Boolean(doc.has_vision_pages);
+  const hasEmbeddings = Boolean(doc.has_embeddings);
+  const hasSugP = Boolean(doc.has_suggestions_paperless);
+  const hasSugV = Boolean(doc.has_suggestions_vision);
+  if (!hasEmbeddings || !hasSugP) return false;
+  if (hasVision && !hasSugV) return false;
+  return true;
 };
 
 const visibleDocuments = computed(() => {
