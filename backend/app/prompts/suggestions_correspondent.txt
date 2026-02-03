@@ -8,9 +8,11 @@ Rules:
 - Provide {count} variants.
 - Use short organization names, no full addresses.
 - Prefer known correspondents list if there is a match.
+- If a partial or abbreviated form appears in the document, choose the closest known correspondent (substring/token overlap) even if it is not an exact match.
+- When a known correspondent is plausible, all variants must be chosen from the Known correspondents list (do not invent new names).
 - Use only information explicitly present in the document.
 - If a known correspondent appears in header/footer, prefer it.
-- If no correspondent is present, return an empty list.
+- If no correspondent is present or no plausible known correspondent can be matched, return an empty list (do not guess).
 
 Known correspondents: {correspondents}
 Document metadata: {metadata}

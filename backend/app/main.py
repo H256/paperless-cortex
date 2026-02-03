@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from app.routes import documents, embeddings, meta, sync, queue, status, chat
 from app.config import load_settings
 from app.services.meta_cache import refresh_cache
+from app.services.meta_sync import sync_correspondents_all, sync_tags_all
+from app.db import SessionLocal
 
 app = FastAPI(title="Paperless-NGX Cortex API")
 
@@ -51,4 +53,26 @@ def preload_meta_cache() -> None:
     try:
         refresh_cache(load_settings())
     except Exception as exc:
-        logging.getLogger(__name__).warning("Meta cache preload failed: %s", exc)
+        logging.getLogger(__name__).warning("Meta cache preload failed: %s", exc, exc_info=True)
+
+    settings = load_settings()
+    with SessionLocal() as db:
+        try:
+            total, upserted = sync_tags_all(settings, db)
+            logging.getLogger(__name__).info(
+                "Startup sync tags total=%s upserted=%s", total, upserted
+            )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Startup sync tags failed: %s", exc, exc_info=True
+            )
+
+        try:
+            total, upserted = sync_correspondents_all(settings, db)
+            logging.getLogger(__name__).info(
+                "Startup sync correspondents total=%s upserted=%s", total, upserted
+            )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Startup sync correspondents failed: %s", exc, exc_info=True
+            )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import and_, exists, func
+from sqlalchemy import and_, case, exists, func
 from sqlalchemy.orm import Session
 
 from app.config import Settings, load_settings
@@ -808,10 +808,15 @@ def apply_suggestion_to_document(
         old_value = doc.correspondent_id
         name = str(value).strip() if value is not None else ""
         if name:
+            like_term = f"%{name}%"
             match = (
                 db.query(Correspondent)
-                .filter(Correspondent.name.ilike(name))
-                .one_or_none()
+                .filter(Correspondent.name.ilike(like_term))
+                .order_by(
+                    case((Correspondent.name.ilike(name), 0), else_=1),
+                    func.length(Correspondent.name).asc(),
+                )
+                .first()
             )
             if match:
                 doc.correspondent_id = match.id

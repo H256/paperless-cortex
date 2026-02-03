@@ -3,10 +3,13 @@ import { ApiError } from '../services/http'
 type OrvalResponse<T> = { data: T; status: number; headers: Headers }
 
 const notifyError = (message: string, detail?: string, status?: number) => {
+  console.warn('API error', { message, detail, status })
   window.dispatchEvent(new CustomEvent('app-error', { detail: { message, detail, status } }))
 }
 
-export const unwrap = async <T>(promise: Promise<OrvalResponse<T>>): Promise<T> => {
+export const unwrap = async <T, E = { detail?: string }>(
+  promise: Promise<OrvalResponse<T | E>>,
+): Promise<T> => {
   const res = await promise
   if (res.status >= 200 && res.status < 300) {
     return res.data

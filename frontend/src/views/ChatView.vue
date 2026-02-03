@@ -150,12 +150,16 @@
             >Sources</span
           >
           <span
-            v-if="message.citations.length === 0"
+            v-if="!message.citations || message.citations.length === 0"
             class="text-xs text-slate-500 dark:text-slate-400"
             >No citations.</span
           >
           <div v-else class="flex flex-wrap items-center gap-2">
-            <div v-for="citation in message.citations" :key="citation.id" class="relative group">
+            <div
+              v-for="(citation, idx) in message.citations"
+              :key="citationKey(citation, idx)"
+              class="relative group"
+            >
               <component
                 :is="citation.doc_id ? RouterLink : 'span'"
                 :to="citation.doc_id ? citationLink(citation) : undefined"
@@ -237,6 +241,9 @@ const citationLink = (citation: ChatCitation) => {
   return qs ? `/documents/${citation.doc_id}?${qs}` : `/documents/${citation.doc_id}`
 }
 
+const citationKey = (citation: ChatCitation, idx: number) =>
+  `${citation.id ?? 'x'}-${citation.doc_id ?? 'doc'}-${citation.page ?? 'p'}-${idx}`
+
 const renderMarkdown = (message: ChatMessage) => {
   const map = new Map<number, { tooltip: string; href: string }>()
   ;(message.citations || []).forEach((cite) => {
@@ -273,6 +280,9 @@ const renderMarkdown = (message: ChatMessage) => {
       'sup',
     ],
     ALLOWED_ATTR: ['href', 'title', 'class', 'target', 'rel'],
+    FORBID_TAGS: ['style', 'script'],
+    FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick'],
+    ALLOWED_URI_REGEXP: /^(https?:|mailto:|tel:|\/)/i,
   })
 }
 

@@ -26,6 +26,8 @@ import {
   deleteSuggestionsDocumentsDeleteSuggestionsPost,
   deleteEmbeddingsDocumentsDeleteEmbeddingsPost,
   getDashboardDocumentsDashboardGet,
+  syncTagsSyncTagsPost,
+  syncCorrespondentsSyncCorrespondentsPost,
 } from '../api/generated/client'
 import type {
   ApplyFieldSuggestionResponse,
@@ -68,6 +70,7 @@ import type {
   SyncStatusResponse,
   TagResponse,
   TagsPageResponse,
+  SyncSimpleResponse,
 } from '@/api/generated/model'
 
 export type DocumentRow = DocumentSummary
@@ -180,3 +183,8 @@ export const deleteSuggestions = () =>
 
 export const deleteEmbeddings = () =>
   unwrap<DeleteEmbeddingsResponse>(deleteEmbeddingsDocumentsDeleteEmbeddingsPost())
+
+export const syncTags = () => unwrap<SyncSimpleResponse>(syncTagsSyncTagsPost())
+
+export const syncCorrespondents = () =>
+  unwrap<SyncSimpleResponse>(syncCorrespondentsSyncCorrespondentsPost())
