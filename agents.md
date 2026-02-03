@@ -257,6 +257,15 @@ Vision model is used only for:
 
 All model names must be configurable via environment variables.
 
+## Ausbaustufe: On-the-fly strukturierte Antworten (MVP)
+- Intent-Analyse je Frage (Trend/Zeitleiste, Fakten-Lookup, Latest-Event).
+- Retriever + Reranking auf max. 10 Dokumente pro Anfrage.
+- Pro-Dokument Extraktion in kleines JSON-Schema passend zur Frage (z.B. Preis/Zeitraum, Laborwert/Datum).
+- Aggregation/Reasoning zur Laufzeit (Trends, %-Änderungen, Latest-Event).
+- Antwortformat dynamisch anhand der Frage (Text, Vergleich, Kurz-Timeline).
+- Quellen immer mit Doc-ID + Seitenangabe ausgeben (ohne persistente Tabellen).
+- Phase 2 (optional): Evidence-Locator mit Vision-OCR-Text + BBox-Highlighting.
+
 ## TODO: Client refactor
 - Refactor the frontend: most logic currently lives inside the `views/*.vue` files.
 - Introduce composables/stores (e.g., `useDocuments`, `useQueue`, `useSuggestions`) and shared UI components.
