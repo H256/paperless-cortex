@@ -751,10 +751,6 @@ const queueTotal = computed(() =>
     ? 0
     : Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value),
 )
-const queuePercent = computed(() => {
-  if (!queueTotal.value) return 0
-  return Math.min(100, Math.round((queueProcessed.value / queueTotal.value) * 100))
-})
 const queueEtaText = computed(() => {
   const lastRun = queueStatus.value.last_run_seconds ?? null
   if (!lastRun || !queueOutstanding.value) return '--'
@@ -882,16 +878,6 @@ const fulfilledCount = (doc: DocumentRow) => {
   if (doc.has_vision_pages && doc.has_suggestions_vision) count += 1
   if (doc.local_cached) count += 1
   return count
-}
-
-const isFullyProcessed = (doc: DocumentRow) => {
-  const hasVision = Boolean(doc.has_vision_pages)
-  const hasEmbeddings = Boolean(doc.has_embeddings)
-  const hasSugP = Boolean(doc.has_suggestions_paperless)
-  const hasSugV = Boolean(doc.has_suggestions_vision)
-  if (!hasEmbeddings || !hasSugP) return false
-  return !(hasVision && !hasSugV);
-
 }
 
 const visibleDocuments = computed(() => {

@@ -7,4 +7,3 @@ export type QueueStatus = QueueStatusResponse
 
 export const fetchHealthStatus = () => unwrap<HealthStatus>(statusStatusGet())
 
-export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())

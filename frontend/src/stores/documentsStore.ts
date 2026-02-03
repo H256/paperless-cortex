@@ -162,24 +162,6 @@ export const useDocumentsStore = defineStore('documents', {
         this.syncing = false
       }
     },
-    async reprocessFiltered() {
-      this.syncing = true
-      try {
-        await syncDocuments({
-          page_size: this.pageSize,
-          incremental: false,
-          page: 1,
-          page_only: false,
-          embed: true,
-          force_embed: true,
-        })
-        await this.fetchSyncStatus()
-        await this.fetchEmbedStatus()
-        await this.load()
-      } finally {
-        this.syncing = false
-      }
-    },
     async continueProcessingPreview(options?: ProcessMissingParams) {
       this.syncing = true
       this.processPreviewLoading = true
@@ -272,35 +254,6 @@ export const useDocumentsStore = defineStore('documents', {
     },
     async clearAllIntelligence() {
       return clearIntelligence()
-    },
-    async reembedFiltered(force = false) {
-      this.embedding = true
-      try {
-        const ids = this.documents.map((doc) => doc.id)
-        if (ids.length) {
-          await ingestEmbeddingsForDocs(ids, { force })
-        } else {
-          await ingestEmbeddings({ force, limit: 0 })
-        }
-        await this.fetchEmbedStatus()
-      } finally {
-        this.embedding = false
-      }
-    },
-    async reprocessMissing() {
-      this.syncing = true
-      try {
-        const missing = this.documents.filter((doc) => !doc.has_embeddings || !doc.has_vision_pages)
-        for (const doc of missing) {
-          await syncDocument(doc.id, { embed: true, force_embed: true })
-        }
-        await this.fetchEmbedStatus()
-      } finally {
-        this.syncing = false
-      }
-    },
-    async reprocessDocument(docId: number, doReembed: boolean) {
-      await syncDocument(docId, { embed: doReembed, force_embed: doReembed })
     },
     async cancelProcessing() {
       await cancelSync()

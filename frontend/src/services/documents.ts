@@ -86,7 +86,6 @@ export type EmbedStatus = EmbeddingStatusResponse
 export type DocumentStats = DocumentStatsResponse
 export type DocumentDashboard = DocumentDashboardResponse
 export type PageText = PageTextOut
-export type SuggestionPayload = SuggestionsResponseSuggestions
 export type ProcessMissingParams = ProcessMissingDocumentsProcessMissingPostParams
 
 export const listDocuments = (params: ListDocumentsDocumentsGetParams) =>
