@@ -324,11 +324,6 @@
           </div>
         </div>
 
-        <div v-if="processStartResult" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Enqueued {{ processStartResult.enqueued ?? 0 }} documents ({{ processStartResult.tasks ?? 0 }} tasks). Queue length: {{ queueStatus.length ?? 0 }},
-          in progress: {{ queueStatus.in_progress ?? 0 }}.
-        </div>
-
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
             v-if="processStartResult"
@@ -370,6 +365,7 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
 import { useQueueStore } from '../stores/queueStore';
+import { useToastStore } from '../stores/toastStore';
 import { useStatusStore } from '../stores/statusStore';
 import { DocumentRow } from '../services/documents';
 
@@ -377,6 +373,7 @@ const router = useRouter();
 const documentsStore = useDocumentsStore();
 const queueStore = useQueueStore();
 const statusStore = useStatusStore();
+const toastStore = useToastStore();
 
 const {
   documents,
@@ -564,6 +561,13 @@ const startFromPreview = async () => {
   startPolling();
   await documentsStore.startProcessingFromPreview(processParams());
   await queueStore.refreshStatus();
+  if (processStartResult.value) {
+    toastStore.push(
+      `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
+      'success',
+      'Queue started'
+    );
+  }
   documentsStore.clearProcessPreview();
 };
 

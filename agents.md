@@ -307,3 +307,4 @@ All model names must be configurable via environment variables.
 - Note: Worker lock loss was observed during long jobs; TTL bumped to 5 minutes and lock refresh runs in a background thread. If it still exits, check Redis connectivity or multiple worker instances.
 - Fix: Continue-processing now only queues missing embeddings/suggestions (no timestamp-based reprocessing).
 - Fix: Continue-processing modal closes after enqueue and shows only a Close button once queued.
+- Feature: Continue-processing enqueue summary now appears as a toast after closing the modal.
