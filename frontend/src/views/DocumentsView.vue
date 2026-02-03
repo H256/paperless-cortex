@@ -534,8 +534,11 @@ const formatDuration = (totalSeconds: number) => {
 };
 
 const queueOutstanding = computed(() => (queueStatus.value.length ?? 0) + (queueStatus.value.in_progress ?? 0));
-const queueProcessed = computed(() => queueStatus.value.done ?? 0);
-const queueTotal = computed(() => Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value));
+const queueIsIdle = computed(() => !queueStatus.value.enabled || queueOutstanding.value === 0);
+const queueProcessed = computed(() => (queueIsIdle.value ? 0 : (queueStatus.value.done ?? 0)));
+const queueTotal = computed(() =>
+  queueIsIdle.value ? 0 : Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value)
+);
 const queuePercent = computed(() => {
   if (!queueTotal.value) return 0;
   return Math.min(100, Math.round((queueProcessed.value / queueTotal.value) * 100));

@@ -313,3 +313,4 @@ All model names must be configurable via environment variables.
 - Fix: Track embedding source (paperless/vision) on embeddings and use it to compute missing vision embeddings (migration adds document_embeddings.embedding_source).
 - Feature: Continue-processing modal now supports a batch limit slider and passes the limit to the backend.
 - Fix: Continue-processing limit now caps enqueued documents only; preview totals still reflect all missing documents.
+- Fix: Reset queue progress counters to zero when the queue is idle to avoid stale percentages.
