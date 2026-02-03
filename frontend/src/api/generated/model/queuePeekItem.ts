@@ -6,7 +6,7 @@
  */
 
 export interface QueuePeekItem {
-  doc_id?: number | null;
-  task?: string | null;
-  raw?: string | null;
+  doc_id?: number | null
+  task?: string | null
+  raw?: string | null
 }

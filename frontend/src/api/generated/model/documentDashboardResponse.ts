@@ -4,19 +4,19 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { DashboardCount } from './dashboardCount';
-import type { DocumentStatsResponse } from './documentStatsResponse';
-import type { MonthlyProcessingBucket } from './monthlyProcessingBucket';
-import type { PageCountBucket } from './pageCountBucket';
+import type { DashboardCount } from './dashboardCount'
+import type { DocumentStatsResponse } from './documentStatsResponse'
+import type { MonthlyProcessingBucket } from './monthlyProcessingBucket'
+import type { PageCountBucket } from './pageCountBucket'
 
 export interface DocumentDashboardResponse {
-  stats: DocumentStatsResponse;
-  correspondents?: DashboardCount[];
-  top_correspondents?: DashboardCount[];
-  tags?: DashboardCount[];
-  top_tags?: DashboardCount[];
-  page_counts?: PageCountBucket[];
-  document_types?: DashboardCount[];
-  unprocessed_by_correspondent?: DashboardCount[];
-  monthly_processing?: MonthlyProcessingBucket[];
+  stats: DocumentStatsResponse
+  correspondents?: DashboardCount[]
+  top_correspondents?: DashboardCount[]
+  tags?: DashboardCount[]
+  top_tags?: DashboardCount[]
+  page_counts?: PageCountBucket[]
+  document_types?: DashboardCount[]
+  unprocessed_by_correspondent?: DashboardCount[]
+  monthly_processing?: MonthlyProcessingBucket[]
 }

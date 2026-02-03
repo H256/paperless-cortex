@@ -6,5 +6,5 @@
  */
 
 export interface QueueResetResponse {
-  enabled: boolean;
+  enabled: boolean
 }

@@ -4,16 +4,16 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmbeddingMatchDocument } from './embeddingMatchDocument';
+import type { EmbeddingMatchDocument } from './embeddingMatchDocument'
 
 export interface EmbeddingMatch {
-  doc_id?: number | null;
-  page?: number | null;
-  snippet?: string | null;
-  score?: number | null;
-  combined_score?: number | null;
-  source?: string | null;
-  quality_score?: number | null;
-  bbox?: unknown | null;
-  document?: EmbeddingMatchDocument | null;
+  doc_id?: number | null
+  page?: number | null
+  snippet?: string | null
+  score?: number | null
+  combined_score?: number | null
+  source?: string | null
+  quality_score?: number | null
+  bbox?: unknown | null
+  document?: EmbeddingMatchDocument | null
 }

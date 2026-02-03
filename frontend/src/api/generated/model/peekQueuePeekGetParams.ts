@@ -6,5 +6,5 @@
  */
 
 export type PeekQueuePeekGetParams = {
-limit?: number;
-};
+  limit?: number
+}

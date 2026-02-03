@@ -4,11 +4,11 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { CorrespondentResponse } from './correspondentResponse';
+import type { CorrespondentResponse } from './correspondentResponse'
 
 export interface CorrespondentsPageResponse {
-  count?: number | null;
-  next?: string | null;
-  previous?: string | null;
-  results?: CorrespondentResponse[];
+  count?: number | null
+  next?: string | null
+  previous?: string | null
+  results?: CorrespondentResponse[]
 }

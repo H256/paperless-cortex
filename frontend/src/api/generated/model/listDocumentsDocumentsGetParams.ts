@@ -6,12 +6,12 @@
  */
 
 export type ListDocumentsDocumentsGetParams = {
-page?: number;
-page_size?: number;
-ordering?: string | null;
-correspondent__id?: number | null;
-tags__id?: number | null;
-document_date__gte?: string | null;
-document_date__lte?: string | null;
-include_derived?: boolean;
-};
+  page?: number
+  page_size?: number
+  ordering?: string | null
+  correspondent__id?: number | null
+  tags__id?: number | null
+  document_date__gte?: string | null
+  document_date__lte?: string | null
+  include_derived?: boolean
+}

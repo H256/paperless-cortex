@@ -4,21 +4,21 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { DocumentNoteOut } from './documentNoteOut';
+import type { DocumentNoteOut } from './documentNoteOut'
 
 export interface DocumentLocalResponse {
-  id?: number | null;
-  title?: string | null;
-  content?: string | null;
-  document_date?: string | null;
-  created?: string | null;
-  modified?: string | null;
-  correspondent?: number | null;
-  correspondent_name?: string | null;
-  document_type?: number | null;
-  document_type_name?: string | null;
-  tags?: number[];
-  notes?: DocumentNoteOut[];
-  original_file_name?: string | null;
-  status?: string | null;
+  id?: number | null
+  title?: string | null
+  content?: string | null
+  document_date?: string | null
+  created?: string | null
+  modified?: string | null
+  correspondent?: number | null
+  correspondent_name?: string | null
+  document_type?: number | null
+  document_type_name?: string | null
+  tags?: number[]
+  notes?: DocumentNoteOut[]
+  original_file_name?: string | null
+  status?: string | null
 }

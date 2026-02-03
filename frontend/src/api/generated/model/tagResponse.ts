@@ -6,12 +6,12 @@
  */
 
 export interface TagResponse {
-  id?: number | null;
-  name?: string | null;
-  color?: string | null;
-  is_inbox_tag?: boolean | null;
-  slug?: string | null;
-  matching_algorithm?: unknown | null;
-  is_insensitive?: boolean | null;
-  [key: string]: unknown;
- }
+  id?: number | null
+  name?: string | null
+  color?: string | null
+  is_inbox_tag?: boolean | null
+  slug?: string | null
+  matching_algorithm?: unknown | null
+  is_insensitive?: boolean | null
+  [key: string]: unknown
+}

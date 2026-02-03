@@ -6,6 +6,6 @@
  */
 
 export interface ChatHistoryItem {
-  question: string;
-  answer: string;
+  question: string
+  answer: string
 }

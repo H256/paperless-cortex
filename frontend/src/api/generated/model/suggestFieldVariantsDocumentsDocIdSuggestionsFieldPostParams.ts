@@ -6,5 +6,5 @@
  */
 
 export type SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams = {
-priority?: boolean;
-};
+  priority?: boolean
+}

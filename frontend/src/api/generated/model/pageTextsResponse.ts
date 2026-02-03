@@ -4,9 +4,9 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { PageTextOut } from './pageTextOut';
+import type { PageTextOut } from './pageTextOut'
 
 export interface PageTextsResponse {
-  doc_id: number;
-  pages?: PageTextOut[];
+  doc_id: number
+  pages?: PageTextOut[]
 }

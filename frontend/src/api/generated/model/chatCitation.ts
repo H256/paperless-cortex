@@ -6,12 +6,12 @@
  */
 
 export interface ChatCitation {
-  id: number;
-  doc_id?: number | null;
-  page?: number | null;
-  source?: string | null;
-  bbox?: unknown | null;
-  score?: number | null;
-  quality_score?: number | null;
-  snippet?: string | null;
+  id: number
+  doc_id?: number | null
+  page?: number | null
+  source?: string | null
+  bbox?: unknown | null
+  score?: number | null
+  quality_score?: number | null
+  snippet?: string | null
 }

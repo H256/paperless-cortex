@@ -4,10 +4,10 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { TextQualityMetricsMetrics } from './textQualityMetricsMetrics';
+import type { TextQualityMetricsMetrics } from './textQualityMetricsMetrics'
 
 export interface TextQualityMetrics {
-  score: number;
-  reasons?: string[];
-  metrics?: TextQualityMetricsMetrics;
+  score: number
+  reasons?: string[]
+  metrics?: TextQualityMetricsMetrics
 }

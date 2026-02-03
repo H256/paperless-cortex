@@ -4,11 +4,11 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { DocumentSummary } from './documentSummary';
+import type { DocumentSummary } from './documentSummary'
 
 export interface DocumentsPageResponse {
-  count?: number | null;
-  next?: string | null;
-  previous?: string | null;
-  results?: DocumentSummary[];
+  count?: number | null
+  next?: string | null
+  previous?: string | null
+  results?: DocumentSummary[]
 }

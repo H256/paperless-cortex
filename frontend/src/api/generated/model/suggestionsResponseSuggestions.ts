@@ -5,4 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SuggestionsResponseSuggestions = { [key: string]: unknown };
+export type SuggestionsResponseSuggestions = { [key: string]: unknown }

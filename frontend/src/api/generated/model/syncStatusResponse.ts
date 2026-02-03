@@ -6,11 +6,11 @@
  */
 
 export interface SyncStatusResponse {
-  last_synced_at?: string | null;
-  status: string;
-  processed: number;
-  total: number;
-  started_at?: string | null;
-  cancel_requested?: boolean | null;
-  eta_seconds?: number | null;
+  last_synced_at?: string | null
+  status: string
+  processed: number
+  total: number
+  started_at?: string | null
+  cancel_requested?: boolean | null
+  eta_seconds?: number | null
 }

@@ -6,10 +6,10 @@
  */
 
 export interface DocumentTypeResponse {
-  id?: number | null;
-  name?: string | null;
-  slug?: string | null;
-  matching_algorithm?: unknown | null;
-  is_insensitive?: boolean | null;
-  [key: string]: unknown;
- }
+  id?: number | null
+  name?: string | null
+  slug?: string | null
+  matching_algorithm?: unknown | null
+  is_insensitive?: boolean | null
+  [key: string]: unknown
+}

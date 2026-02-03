@@ -1,15 +1,15 @@
-import { createApp } from 'vue';
-import { createPinia } from 'pinia';
-import { createRouter, createWebHistory } from 'vue-router';
-import App from './App.vue';
-import DocumentsView from './views/DocumentsView.vue';
-import DocumentDetailView from './views/DocumentDetailView.vue';
-import DashboardView from './views/DashboardView.vue';
-import QueueView from './views/QueueView.vue';
-import SearchView from './views/SearchView.vue';
-import ChatView from './views/ChatView.vue';
-import MaintenanceView from './views/MaintenanceView.vue';
-import './index.css';
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import { createRouter, createWebHistory } from 'vue-router'
+import App from './App.vue'
+import DocumentsView from './views/DocumentsView.vue'
+import DocumentDetailView from './views/DocumentDetailView.vue'
+import DashboardView from './views/DashboardView.vue'
+import QueueView from './views/QueueView.vue'
+import SearchView from './views/SearchView.vue'
+import ChatView from './views/ChatView.vue'
+import MaintenanceView from './views/MaintenanceView.vue'
+import './index.css'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -23,9 +23,9 @@ const router = createRouter({
     { path: '/chat', component: ChatView },
     { path: '/operations', component: MaintenanceView },
   ],
-});
+})
 
-const app = createApp(App);
-app.use(createPinia());
-app.use(router);
-app.mount('#app');
+const app = createApp(App)
+app.use(createPinia())
+app.use(router)
+app.mount('#app')

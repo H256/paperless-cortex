@@ -6,6 +6,6 @@
  */
 
 export type SyncTagsSyncTagsPostParams = {
-page?: number;
-page_size?: number;
-};
+  page?: number
+  page_size?: number
+}

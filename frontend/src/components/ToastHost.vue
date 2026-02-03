@@ -12,14 +12,14 @@
 </template>
 
 <script setup lang="ts">
-import Toast from './Toast.vue';
-import { storeToRefs } from 'pinia';
-import { useToastStore } from '../stores/toastStore';
+import Toast from './Toast.vue'
+import { storeToRefs } from 'pinia'
+import { useToastStore } from '../stores/toastStore'
 
-const toastStore = useToastStore();
-const { toasts } = storeToRefs(toastStore);
+const toastStore = useToastStore()
+const { toasts } = storeToRefs(toastStore)
 
 const remove = (id: string) => {
-  toastStore.remove(id);
-};
+  toastStore.remove(id)
+}
 </script>

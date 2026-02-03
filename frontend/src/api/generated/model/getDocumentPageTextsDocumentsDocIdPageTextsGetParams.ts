@@ -6,5 +6,5 @@
  */
 
 export type GetDocumentPageTextsDocumentsDocIdPageTextsGetParams = {
-priority?: boolean;
-};
+  priority?: boolean
+}

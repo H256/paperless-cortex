@@ -6,6 +6,6 @@
  */
 
 export type GetDocumentPagePreviewDocumentsDocIdPagePreviewGetParams = {
-page: number;
-max_dim?: number | null;
-};
+  page: number
+  max_dim?: number | null
+}

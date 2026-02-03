@@ -6,6 +6,6 @@
  */
 
 export interface SyncSimpleResponse {
-  count: number;
-  upserted: number;
+  count: number
+  upserted: number
 }

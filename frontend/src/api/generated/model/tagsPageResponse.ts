@@ -4,11 +4,11 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { TagResponse } from './tagResponse';
+import type { TagResponse } from './tagResponse'
 
 export interface TagsPageResponse {
-  count?: number | null;
-  next?: string | null;
-  previous?: string | null;
-  results?: TagResponse[];
+  count?: number | null
+  next?: string | null
+  previous?: string | null
+  results?: TagResponse[]
 }

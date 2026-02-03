@@ -23,9 +23,9 @@
 
 <script setup lang="ts">
 defineProps<{
-  href?: string;
-  title?: string;
-  ariaLabel?: string;
-  disabled?: boolean;
-}>();
+  href?: string
+  title?: string
+  ariaLabel?: string
+  disabled?: boolean
+}>()
 </script>

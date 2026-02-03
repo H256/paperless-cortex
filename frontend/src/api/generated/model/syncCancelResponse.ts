@@ -6,5 +6,5 @@
  */
 
 export interface SyncCancelResponse {
-  status: string;
+  status: string
 }

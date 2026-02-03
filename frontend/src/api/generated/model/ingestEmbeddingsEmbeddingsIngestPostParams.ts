@@ -6,7 +6,7 @@
  */
 
 export type IngestEmbeddingsEmbeddingsIngestPostParams = {
-doc_id?: number | null;
-limit?: number;
-force?: boolean;
-};
+  doc_id?: number | null
+  limit?: number
+  force?: boolean
+}

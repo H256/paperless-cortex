@@ -6,5 +6,5 @@
  */
 
 export interface QueueMoveEdgeRequest {
-  index: number;
+  index: number
 }

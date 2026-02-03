@@ -6,22 +6,22 @@
  */
 
 export interface DocumentSummary {
-  id?: number | null;
-  title?: string | null;
-  content?: string | null;
-  correspondent?: number | null;
-  document_type?: number | null;
-  document_date?: string | null;
-  created?: string | null;
-  modified?: string | null;
-  tags?: number[];
-  correspondent_name?: string | null;
-  local_cached?: boolean | null;
-  local_overrides?: boolean | null;
-  has_embeddings?: boolean | null;
-  has_suggestions?: boolean | null;
-  has_suggestions_paperless?: boolean | null;
-  has_suggestions_vision?: boolean | null;
-  has_vision_pages?: boolean | null;
-  [key: string]: unknown;
- }
+  id?: number | null
+  title?: string | null
+  content?: string | null
+  correspondent?: number | null
+  document_type?: number | null
+  document_date?: string | null
+  created?: string | null
+  modified?: string | null
+  tags?: number[]
+  correspondent_name?: string | null
+  local_cached?: boolean | null
+  local_overrides?: boolean | null
+  has_embeddings?: boolean | null
+  has_suggestions?: boolean | null
+  has_suggestions_paperless?: boolean | null
+  has_suggestions_vision?: boolean | null
+  has_vision_pages?: boolean | null
+  [key: string]: unknown
+}

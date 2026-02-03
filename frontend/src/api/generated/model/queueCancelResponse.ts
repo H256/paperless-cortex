@@ -6,6 +6,6 @@
  */
 
 export interface QueueCancelResponse {
-  enabled: boolean;
-  cancelled?: boolean | null;
+  enabled: boolean
+  cancelled?: boolean | null
 }

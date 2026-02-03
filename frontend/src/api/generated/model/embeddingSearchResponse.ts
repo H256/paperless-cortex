@@ -4,10 +4,10 @@
  * Paperless Intelligence API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmbeddingMatch } from './embeddingMatch';
+import type { EmbeddingMatch } from './embeddingMatch'
 
 export interface EmbeddingSearchResponse {
-  query: string;
-  top_k: number;
-  matches?: EmbeddingMatch[];
+  query: string
+  top_k: number
+  matches?: EmbeddingMatch[]
 }

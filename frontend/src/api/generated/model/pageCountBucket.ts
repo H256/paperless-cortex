@@ -6,6 +6,6 @@
  */
 
 export interface PageCountBucket {
-  label: string;
-  count: number;
+  label: string
+  count: number
 }

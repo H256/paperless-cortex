@@ -6,6 +6,6 @@
  */
 
 export interface QueueMoveRequest {
-  from_index: number;
-  to_index: number;
+  from_index: number
+  to_index: number
 }

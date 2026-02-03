@@ -6,7 +6,7 @@
  */
 
 export interface DeleteEmbeddingsResponse {
-  deleted: number;
-  qdrant_deleted: number;
-  qdrant_errors: number;
+  deleted: number
+  qdrant_deleted: number
+  qdrant_errors: number
 }

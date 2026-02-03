@@ -6,6 +6,6 @@
  */
 
 export type SyncCorrespondentsSyncCorrespondentsPostParams = {
-page?: number;
-page_size?: number;
-};
+  page?: number
+  page_size?: number
+}

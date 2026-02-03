@@ -6,7 +6,7 @@
  */
 
 export type SyncDocumentSyncDocumentsDocIdPostParams = {
-embed?: boolean | null;
-force_embed?: boolean;
-priority?: boolean;
-};
+  embed?: boolean | null
+  force_embed?: boolean
+  priority?: boolean
+}

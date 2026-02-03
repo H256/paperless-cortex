@@ -6,11 +6,11 @@
  */
 
 export type ProcessMissingDocumentsProcessMissingPostParams = {
-dry_run?: boolean;
-include_vision_ocr?: boolean;
-include_embeddings?: boolean;
-include_suggestions_paperless?: boolean;
-include_suggestions_vision?: boolean;
-embeddings_mode?: string;
-limit?: number | null;
-};
+  dry_run?: boolean
+  include_vision_ocr?: boolean
+  include_embeddings?: boolean
+  include_suggestions_paperless?: boolean
+  include_suggestions_vision?: boolean
+  embeddings_mode?: string
+  limit?: number | null
+}

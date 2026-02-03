@@ -6,7 +6,7 @@
  */
 
 export interface ApplySuggestionToDocument {
-  source?: string | null;
-  field: string;
-  value: unknown;
+  source?: string | null
+  field: string
+  value: unknown
 }

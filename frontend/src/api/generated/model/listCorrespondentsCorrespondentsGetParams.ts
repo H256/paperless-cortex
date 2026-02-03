@@ -6,6 +6,6 @@
  */
 
 export type ListCorrespondentsCorrespondentsGetParams = {
-page?: number;
-page_size?: number;
-};
+  page?: number
+  page_size?: number
+}

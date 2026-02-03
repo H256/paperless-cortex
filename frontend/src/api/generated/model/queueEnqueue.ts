@@ -6,5 +6,5 @@
  */
 
 export interface QueueEnqueue {
-  doc_ids: number[];
+  doc_ids: number[]
 }

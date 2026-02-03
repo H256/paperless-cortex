@@ -6,7 +6,7 @@
  */
 
 export interface SyncDocumentResponse {
-  id: number;
-  status: string;
-  embedded: number;
+  id: number
+  status: string
+  embedded: number
 }

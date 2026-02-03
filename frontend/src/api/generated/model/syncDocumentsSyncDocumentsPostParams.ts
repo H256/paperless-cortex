@@ -6,12 +6,12 @@
  */
 
 export type SyncDocumentsSyncDocumentsPostParams = {
-page_size?: number;
-incremental?: boolean;
-embed?: boolean | null;
-page?: number;
-page_only?: boolean;
-force_embed?: boolean;
-mark_missing?: boolean;
-insert_only?: boolean;
-};
+  page_size?: number
+  incremental?: boolean
+  embed?: boolean | null
+  page?: number
+  page_only?: boolean
+  force_embed?: boolean
+  mark_missing?: boolean
+  insert_only?: boolean
+}

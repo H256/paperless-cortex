@@ -6,14 +6,14 @@
  */
 
 export interface PaperlessDocument {
-  id?: number | null;
-  title?: string | null;
-  content?: string | null;
-  correspondent?: number | null;
-  document_type?: number | null;
-  document_date?: string | null;
-  created?: string | null;
-  modified?: string | null;
-  tags?: number[];
-  [key: string]: unknown;
- }
+  id?: number | null
+  title?: string | null
+  content?: string | null
+  correspondent?: number | null
+  document_type?: number | null
+  document_date?: string | null
+  created?: string | null
+  modified?: string | null
+  tags?: number[]
+  [key: string]: unknown
+}
