@@ -1,11 +1,6 @@
 <template>
-  <section class="relative overflow-hidden">
-    <div class="pointer-events-none absolute inset-0">
-      <div class="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl"></div>
-      <div class="absolute -left-24 top-40 h-72 w-72 rounded-full bg-amber-300/20 blur-3xl"></div>
-    </div>
-
-    <div class="relative">
+  <section>
+    <div>
       <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 class="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Dashboard</h2>
