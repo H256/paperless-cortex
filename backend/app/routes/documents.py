@@ -887,15 +887,17 @@ def process_missing(
         has_vision = vision_updated_at is not None
 
         need_vision_ocr = settings.enable_vision_ocr and not has_vision
+        # Continue-processing should only handle missing data (no reprocessing based on timestamps).
         need_embeddings = embedding is None
-        if doc_modified and embedded_at and doc_modified > embedded_at:
-            need_embeddings = True
-        if vision_updated_at and embedded_at and vision_updated_at > embedded_at:
-            need_embeddings = True
-        if need_vision_ocr:
-            need_embeddings = True
 
-        prefer_vision_embeddings = settings.enable_vision_ocr and (has_vision or need_vision_ocr)
+        if embeddings_mode == "paperless":
+            prefer_vision_embeddings = False
+        elif embeddings_mode == "vision":
+            prefer_vision_embeddings = True
+            if not has_vision and not (include_vision_ocr and need_vision_ocr):
+                need_embeddings = False
+        else:
+            prefer_vision_embeddings = settings.enable_vision_ocr and (has_vision or (include_vision_ocr and need_vision_ocr))
 
         sugg_p = suggestions.get((doc.id, "paperless_ocr"))
         sugg_v = suggestions.get((doc.id, "vision_ocr"))
@@ -903,13 +905,7 @@ def process_missing(
         sugg_v_at = _parse_iso(sugg_v.created_at) if sugg_v else None
 
         need_sugg_p = sugg_p is None
-        if doc_modified and sugg_p_at and doc_modified > sugg_p_at:
-            need_sugg_p = True
         need_sugg_v = settings.enable_vision_ocr and (has_vision or need_vision_ocr) and sugg_v is None
-        if vision_updated_at and sugg_v_at and vision_updated_at > sugg_v_at:
-            need_sugg_v = True
-        if need_vision_ocr:
-            need_sugg_v = True
 
         selected = False
         if include_vision_ocr and need_vision_ocr:
