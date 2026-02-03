@@ -850,10 +850,7 @@ def process_missing(
     if limit is not None and limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
 
-    docs_query = db.query(Document).order_by(Document.id.asc())
-    if limit is not None:
-        docs_query = docs_query.limit(limit)
-    docs = docs_query.all()
+    docs = db.query(Document).order_by(Document.id.asc()).all()
     embeddings = {
         row.doc_id: row for row in db.query(DocumentEmbedding).all()
     }
@@ -882,6 +879,7 @@ def process_missing(
     missing_embeddings_vision = 0
     missing_sugg_p = 0
     missing_sugg_v = 0
+    selected_for_run = 0
     for doc in docs:
         if _should_skip_doc(doc):
             continue
@@ -945,8 +943,10 @@ def process_missing(
         if selected:
             missing_docs += 1
             if not dry_run:
-                enqueued_tasks += enqueue_task_sequence(settings, tasks)
-                enqueued_docs += 1
+                if limit is None or selected_for_run < limit:
+                    enqueued_tasks += enqueue_task_sequence(settings, tasks)
+                    enqueued_docs += 1
+                    selected_for_run += 1
 
     return {
         "enabled": True,

@@ -312,3 +312,4 @@ All model names must be configurable via environment variables.
 - Fix: Auto/vision embeddings now queued when vision OCR is missing to populate vision embeddings.
 - Fix: Track embedding source (paperless/vision) on embeddings and use it to compute missing vision embeddings (migration adds document_embeddings.embedding_source).
 - Feature: Continue-processing modal now supports a batch limit slider and passes the limit to the backend.
+- Fix: Continue-processing limit now caps enqueued documents only; preview totals still reflect all missing documents.
