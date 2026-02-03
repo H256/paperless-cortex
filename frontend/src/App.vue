@@ -3,7 +3,11 @@
     <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div class="flex items-center gap-3">
-          <div class="h-6 w-6 rounded-full border border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80"></div>
+          <img
+            src="/cortex_image_transparent.png"
+            alt="Paperless-NGX Cortex"
+            class="h-6 w-6 object-contain"
+          />
         </div>
         <div class="flex items-center gap-4">
           <nav class="flex items-center gap-2 text-sm font-medium">
