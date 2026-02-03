@@ -214,35 +214,35 @@
                 </a>
               </td>
               <td class="px-6 py-3">
-                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <div class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
                   <div class="inline-flex items-center gap-1" :title="doc.has_embeddings ? 'Embeddings' : 'No embeddings'">
-                    <Layers class="h-3.5 w-3.5" :class="doc.has_embeddings ? 'text-emerald-500' : 'text-slate-400'" />
+                    <Layers class="h-3 w-3" :class="doc.has_embeddings ? 'text-emerald-500' : 'text-slate-400'" />
                     <span class="sr-only">Embeddings</span>
                   </div>
                   <div class="inline-flex items-center gap-1" :title="doc.has_vision_pages ? 'Vision OCR' : 'No vision OCR'">
-                    <ScanText class="h-3.5 w-3.5" :class="doc.has_vision_pages ? 'text-emerald-500' : 'text-slate-400'" />
+                    <ScanText class="h-3 w-3" :class="doc.has_vision_pages ? 'text-emerald-500' : 'text-slate-400'" />
                     <span class="sr-only">Vision OCR</span>
                   </div>
                   <div
                     class="inline-flex items-center gap-1"
                     :title="doc.has_suggestions_paperless ? 'Suggestions (paperless)' : 'No suggestions (paperless)'"
                   >
-                    <Lightbulb class="h-3.5 w-3.5" :class="doc.has_suggestions_paperless ? 'text-emerald-500' : 'text-slate-400'" />
+                    <Lightbulb class="h-3 w-3" :class="doc.has_suggestions_paperless ? 'text-emerald-500' : 'text-slate-400'" />
                     <span class="sr-only">Suggestions (paperless)</span>
                   </div>
                   <div
                     class="inline-flex items-center gap-1"
                     :title="doc.has_suggestions_vision ? 'Suggestions (vision)' : 'No suggestions (vision)'"
                   >
-                    <Eye class="h-3.5 w-3.5" :class="doc.has_suggestions_vision ? 'text-emerald-500' : 'text-slate-400'" />
+                    <Eye class="h-3 w-3" :class="doc.has_suggestions_vision ? 'text-emerald-500' : 'text-slate-400'" />
                     <span class="sr-only">Suggestions (vision)</span>
                   </div>
                   <div class="inline-flex items-center gap-1" :title="doc.local_cached ? 'Synced locally' : 'No local cache'">
-                    <RefreshCw class="h-3.5 w-3.5" :class="doc.local_cached ? 'text-emerald-500' : 'text-slate-400'" />
+                    <RefreshCw class="h-3 w-3" :class="doc.local_cached ? 'text-emerald-500' : 'text-slate-400'" />
                     <span class="sr-only">Synced locally</span>
                   </div>
                   <div class="inline-flex items-center gap-1" :title="doc.local_overrides ? 'Local overrides' : 'No local overrides'">
-                    <Pencil class="h-3.5 w-3.5" :class="doc.local_overrides ? 'text-amber-500' : 'text-slate-300'" />
+                    <Pencil class="h-3 w-3" :class="doc.local_overrides ? 'text-amber-500' : 'text-slate-300'" />
                     <span class="sr-only">Local overrides</span>
                   </div>
                 </div>
