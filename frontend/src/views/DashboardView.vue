@@ -16,11 +16,18 @@
         </button>
       </div>
 
-      <div v-if="error" class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200">
-        {{ error }}
-      </div>
+        <div v-if="error" class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200">
+          {{ error }}
+        </div>
 
       <template v-else>
+        <div class="mb-8 flex items-center justify-center">
+          <img
+            src="/cortex_image_transparent.png"
+            alt="Paperless-NGX Cortex"
+            class="h-24 w-auto object-contain opacity-90"
+          />
+        </div>
         <div class="grid gap-4 lg:grid-cols-6">
           <div class="lg:col-span-4">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
