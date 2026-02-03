@@ -839,6 +839,7 @@ def process_missing(
     include_suggestions_paperless: bool = True,
     include_suggestions_vision: bool = True,
     embeddings_mode: str = "auto",
+    limit: int | None = None,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
@@ -846,8 +847,13 @@ def process_missing(
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
     if embeddings_mode not in ("auto", "paperless", "vision"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
+    if limit is not None and limit < 1:
+        raise HTTPException(status_code=400, detail="limit must be >= 1")
 
-    docs = db.query(Document).all()
+    docs_query = db.query(Document).order_by(Document.id.asc())
+    if limit is not None:
+        docs_query = docs_query.limit(limit)
+    docs = docs_query.all()
     embeddings = {
         row.doc_id: row for row in db.query(DocumentEmbedding).all()
     }

@@ -293,6 +293,25 @@
         <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Processing options</div>
           <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="flex flex-col gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+              Max documents to process
+              <div class="flex items-center gap-3">
+                <input
+                  v-model.number="batchIndex"
+                  type="range"
+                  :min="0"
+                  :max="batchOptions.length - 1"
+                  step="1"
+                  class="h-2 w-full cursor-pointer accent-indigo-600"
+                />
+                <span class="min-w-[3.5rem] text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {{ batchLabel }}
+                </span>
+              </div>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500">
+                Use a smaller batch if your Ollama server is not always online.
+              </span>
+            </label>
             <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
               <input type="checkbox" v-model="processOptions.includeVisionOcr" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
               Vision OCR
@@ -416,6 +435,13 @@ const processOptions = reactive({
   includeSuggestionsVision: true,
   embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
 });
+const batchOptions = [10, 20, 50, 100, 200, 500, 'All'] as const;
+const batchIndex = ref(batchOptions.length - 1);
+const batchLimit = computed(() => {
+  const value = batchOptions[batchIndex.value];
+  return value === 'All' ? null : value;
+});
+const batchLabel = computed(() => (batchLimit.value === null ? 'All' : String(batchLimit.value)));
 
 const processParams = () => ({
   include_vision_ocr: processOptions.includeVisionOcr,
@@ -423,6 +449,7 @@ const processParams = () => ({
   include_suggestions_paperless: processOptions.includeSuggestionsPaperless,
   include_suggestions_vision: processOptions.includeSuggestionsVision,
   embeddings_mode: processOptions.embeddingsMode,
+  limit: batchLimit.value ?? undefined,
 });
 
 const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
@@ -646,6 +673,11 @@ watch(
   },
   { deep: true }
 );
+
+watch(batchIndex, async () => {
+  if (!showPreviewModal.value) return;
+  await documentsStore.refreshProcessPreview(processParams());
+});
 
 watch(ordering, async () => {
   await load();
