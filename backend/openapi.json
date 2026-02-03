@@ -169,6 +169,27 @@
         }
       }
     },
+    "/documents/dashboard": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_documents_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDashboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}": {
       "get": {
         "tags": [
@@ -832,6 +853,22 @@
               "type": "string",
               "default": "auto",
               "title": "Embeddings Mode"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
             }
           }
         ],
@@ -2727,6 +2764,35 @@
         "type": "object",
         "title": "CorrespondentsPageResponse"
       },
+      "DashboardCount": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "DashboardCount"
+      },
       "DeleteEmbeddingsResponse": {
         "properties": {
           "deleted": {
@@ -2775,6 +2841,82 @@
           "deleted"
         ],
         "title": "DeleteVisionOcrResponse"
+      },
+      "DocumentDashboardResponse": {
+        "properties": {
+          "stats": {
+            "$ref": "#/components/schemas/DocumentStatsResponse"
+          },
+          "correspondents": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Correspondents",
+            "default": []
+          },
+          "top_correspondents": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Top Correspondents",
+            "default": []
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "top_tags": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Top Tags",
+            "default": []
+          },
+          "page_counts": {
+            "items": {
+              "$ref": "#/components/schemas/PageCountBucket"
+            },
+            "type": "array",
+            "title": "Page Counts",
+            "default": []
+          },
+          "document_types": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Document Types",
+            "default": []
+          },
+          "unprocessed_by_correspondent": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Unprocessed By Correspondent",
+            "default": []
+          },
+          "monthly_processing": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyProcessingBucket"
+            },
+            "type": "array",
+            "title": "Monthly Processing",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "stats"
+        ],
+        "title": "DocumentDashboardResponse"
       },
       "DocumentLocalResponse": {
         "properties": {
@@ -3142,6 +3284,28 @@
               }
             ],
             "title": "Has Suggestions"
+          },
+          "has_suggestions_paperless": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Suggestions Paperless"
+          },
+          "has_suggestions_vision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Suggestions Vision"
           },
           "has_vision_pages": {
             "anyOf": [
@@ -3608,6 +3772,52 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MonthlyProcessingBucket": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "processed": {
+            "type": "integer",
+            "title": "Processed"
+          },
+          "unprocessed": {
+            "type": "integer",
+            "title": "Unprocessed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "total",
+          "processed",
+          "unprocessed"
+        ],
+        "title": "MonthlyProcessingBucket"
+      },
+      "PageCountBucket": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "PageCountBucket"
       },
       "PageTextOut": {
         "properties": {

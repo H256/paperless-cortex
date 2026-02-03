@@ -27,6 +27,7 @@ import {
   deleteVisionOcrDocumentsDeleteVisionOcrPost,
   deleteSuggestionsDocumentsDeleteSuggestionsPost,
   deleteEmbeddingsDocumentsDeleteEmbeddingsPost,
+  getDashboardDocumentsDashboardGet,
 } from '../api/generated/client';
 import type {
   ApplyFieldSuggestionResponse,
@@ -36,6 +37,7 @@ import type {
   CorrespondentsPageResponse,
   DocumentLocalResponse,
   DocumentStatsResponse,
+  DocumentDashboardResponse,
   DocumentSummary,
   DocumentTextQualityResponse,
   DocumentTypeResponse,
@@ -82,6 +84,7 @@ export type DocumentType = DocumentTypeResponse;
 export type SyncStatus = SyncStatusResponse;
 export type EmbedStatus = EmbeddingStatusResponse;
 export type DocumentStats = DocumentStatsResponse;
+export type DocumentDashboard = DocumentDashboardResponse;
 export type PageText = PageTextOut;
 export type SuggestionPayload = SuggestionsResponseSuggestions;
 export type ProcessMissingParams = ProcessMissingDocumentsProcessMissingPostParams;
@@ -107,6 +110,8 @@ export const getSyncStatus = () => unwrap<SyncStatus>(syncStatusSyncDocumentsGet
 export const getEmbedStatus = () => unwrap<EmbedStatus>(embeddingStatusEmbeddingsStatusGet());
 
 export const getStats = () => unwrap<DocumentStats>(getDocumentStatsDocumentsStatsGet());
+
+export const getDashboard = () => unwrap<DocumentDashboard>(getDashboardDocumentsDashboardGet());
 
 export const getTags = (page = 1, page_size = 200) =>
   unwrap<TagsPageResponse>(listTagsTagsGet({ page, page_size }));

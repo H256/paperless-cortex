@@ -20,6 +20,8 @@ export interface DocumentSummary {
   local_overrides?: boolean | null;
   has_embeddings?: boolean | null;
   has_suggestions?: boolean | null;
+  has_suggestions_paperless?: boolean | null;
+  has_suggestions_vision?: boolean | null;
   has_vision_pages?: boolean | null;
   [key: string]: unknown;
  }

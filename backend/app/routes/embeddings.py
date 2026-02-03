@@ -179,6 +179,7 @@ def ingest_embeddings(
         existing.content_hash = content_hash
         existing.embedding_model = settings.embedding_model
         existing.embedded_at = datetime.now(timezone.utc).isoformat()
+        existing.embedding_source = "vision" if vision_pages else "paperless"
         existing.chunk_count = len(chunks)
         embedded += 1
         processed += 1
@@ -326,6 +327,7 @@ def ingest_documents(
         existing.content_hash = content_hash
         existing.embedding_model = settings.embedding_model
         existing.embedded_at = datetime.now(timezone.utc).isoformat()
+        existing.embedding_source = "vision" if vision_pages else "paperless"
         existing.chunk_count = len(chunks)
         embedded += 1
         processed += 1

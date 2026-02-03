@@ -49,7 +49,7 @@ import json
 logger = logging.getLogger(__name__)
 
 
-def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages) -> None:
+def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
     content_value = doc.content or ""
     page_texts = (baseline_pages or []) + (vision_pages or [])
     hash_source = "\f".join(f"{page.source}:{page.text}" for page in page_texts) if page_texts else content_value
@@ -92,6 +92,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     existing.content_hash = content_hash
     existing.embedding_model = settings.embedding_model
     existing.embedded_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    existing.embedding_source = embedding_source
     existing.chunk_count = len(chunks)
     db.commit()
 
@@ -197,7 +198,7 @@ def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
         doc.content,
         fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
     )
-    _embed_with_pages(settings, db, doc, baseline_pages, [])
+    _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless")
 
 
 def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
@@ -218,7 +219,7 @@ def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
         .order_by(DocumentPageText.page.asc())
         .all()
     )
-    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages)
+    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages, "vision")
 
 
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:

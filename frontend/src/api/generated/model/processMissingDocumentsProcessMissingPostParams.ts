@@ -12,4 +12,5 @@ include_embeddings?: boolean;
 include_suggestions_paperless?: boolean;
 include_suggestions_vision?: boolean;
 embeddings_mode?: string;
+limit?: number | null;
 };

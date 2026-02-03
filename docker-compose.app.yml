@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  cortex:
+    build: .
+    container_name: paperless-ngx-cortex
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - FRONTEND_DIST=/app/frontend/dist
+    restart: unless-stopped

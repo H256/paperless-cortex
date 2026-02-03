@@ -1,7 +1,7 @@
 # User Manual (Current Features)
 
 ## Overview
-Paperless Intelligence is a read‑only companion to Paperless‑ngx. It syncs metadata + OCR text, runs embeddings (including optional Vision OCR), and provides search and suggestions without modifying Paperless.
+Paperless-NGX Cortex is a read‑only companion to Paperless‑ngx. It syncs metadata + OCR text, runs embeddings (including optional Vision OCR), and provides search and suggestions without modifying Paperless.
 
 ## Setup
 1) Configure `.env` (see `.env.example`)

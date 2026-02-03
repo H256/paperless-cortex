@@ -3,11 +3,17 @@
     <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div>
-          <h1 class="text-lg font-semibold tracking-tight">Paperless Intelligence</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Arcane - read-only intelligence layer</p>
+          <h1 class="text-lg font-semibold tracking-tight">Paperless-NGX Cortex</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
         <div class="flex items-center gap-4">
           <nav class="flex items-center gap-2 text-sm font-medium">
+            <RouterLink to="/dashboard" v-slot="{ isActive }">
+              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
+                <ChartPie class="h-4 w-4" />
+                Dashboard
+              </span>
+            </RouterLink>
             <RouterLink to="/documents" v-slot="{ isActive }">
               <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
                 <FileText class="h-4 w-4" />
@@ -20,16 +26,16 @@
                 Search
               </span>
             </RouterLink>
-            <RouterLink to="/queue" v-slot="{ isActive }">
-              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
-                <List class="h-4 w-4" />
-                Queue
-              </span>
-            </RouterLink>
             <RouterLink to="/chat" v-slot="{ isActive }">
               <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
                 <MessageCircle class="h-4 w-4" />
                 Chat
+              </span>
+            </RouterLink>
+            <RouterLink to="/queue" v-slot="{ isActive }">
+              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
+                <List class="h-4 w-4" />
+                Queue
               </span>
             </RouterLink>
             <RouterLink to="/operations" v-slot="{ isActive }">
@@ -119,10 +125,19 @@
       </div>
     </div>
   </div>
+  <footer class="border-t border-slate-200 bg-white/70 py-3 dark:border-slate-800 dark:bg-slate-900/70">
+    <div class="mx-auto flex max-w-7xl items-center justify-center px-6">
+      <img
+        src="/cortex_image_transparent.png"
+        alt="Paperless-NGX Cortex"
+        class="h-10 w-40 object-contain opacity-85"
+      />
+    </div>
+  </footer>
 </template>
 
 <script setup lang="ts">
-import { FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next';
+import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import StatusLight from './components/StatusLight.vue';
 import ToastHost from './components/ToastHost.vue';

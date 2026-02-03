@@ -18,6 +18,7 @@ from app.models import (
     DocumentEmbedding,
     Tag,
     Correspondent,
+    DocumentType,
     DocumentNote,
     SuggestionAudit,
     document_tags,
@@ -42,6 +43,7 @@ from app.api_models import (
     ApplySuggestionResponse,
     DocumentLocalResponse,
     DocumentStatsResponse,
+    DocumentDashboardResponse,
     DocumentSummary,
     DocumentsPageResponse,
     DocumentTextQualityResponse,
@@ -170,6 +172,8 @@ def list_documents(
         doc.update(analysis_by_doc.get(doc_id, {}))
         sources = suggestions_by_doc.get(doc_id, set())
         doc["has_suggestions"] = bool(sources)
+        doc["has_suggestions_paperless"] = "paperless_ocr" in sources
+        doc["has_suggestions_vision"] = "vision_ocr" in sources
         doc["has_vision_pages"] = doc_id in vision_pages
     return payload
 
@@ -222,6 +226,160 @@ def get_document_stats(db: Session = Depends(get_db)):
         "vision": vision,
         "suggestions": suggestions,
         "fully_processed": fully_processed,
+    }
+
+
+@router.get("/dashboard", response_model=DocumentDashboardResponse)
+def get_dashboard(db: Session = Depends(get_db)):
+    stats = get_document_stats(db)
+    fully_processed_ids = {
+        row[0]
+        for row in db.query(Document.id)
+        .filter(
+            exists().where(DocumentEmbedding.doc_id == Document.id),
+            exists().where(
+                and_(
+                    DocumentPageText.doc_id == Document.id,
+                    DocumentPageText.source == "vision_ocr",
+                )
+            ),
+            exists().where(DocumentSuggestion.doc_id == Document.id),
+        )
+        .all()
+    }
+
+    correspondents_rows = (
+        db.query(Correspondent.id, Correspondent.name, func.count(Document.id))
+        .join(Document, Document.correspondent_id == Correspondent.id)
+        .group_by(Correspondent.id)
+        .order_by(func.count(Document.id).desc(), Correspondent.name.asc())
+        .all()
+    )
+    unassigned_count = db.query(Document.id).filter(Document.correspondent_id.is_(None)).count()
+    correspondents = [
+        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        for row in correspondents_rows
+    ]
+    if unassigned_count:
+        correspondents.append({"id": None, "name": "Ohne Korrespondent", "count": unassigned_count})
+    correspondents.sort(key=lambda item: item["count"], reverse=True)
+    top_correspondents = correspondents[:8]
+
+    tag_rows = (
+        db.query(Tag.id, Tag.name, func.count(document_tags.c.document_id))
+        .join(document_tags, Tag.id == document_tags.c.tag_id)
+        .group_by(Tag.id)
+        .order_by(func.count(document_tags.c.document_id).desc(), Tag.name.asc())
+        .all()
+    )
+    untagged_count = (
+        db.query(Document.id)
+        .filter(~exists().where(document_tags.c.document_id == Document.id))
+        .count()
+    )
+    tags = [{"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]} for row in tag_rows]
+    if untagged_count:
+        tags.append({"id": None, "name": "Ohne Tags", "count": untagged_count})
+    tags.sort(key=lambda item: item["count"], reverse=True)
+    top_tags = tags[:8]
+
+    type_rows = (
+        db.query(DocumentType.id, DocumentType.name, func.count(Document.id))
+        .join(Document, Document.document_type_id == DocumentType.id)
+        .group_by(DocumentType.id)
+        .order_by(func.count(Document.id).desc(), DocumentType.name.asc())
+        .all()
+    )
+    type_unknown = db.query(Document.id).filter(Document.document_type_id.is_(None)).count()
+    document_types = [
+        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        for row in type_rows
+    ]
+    if type_unknown:
+        document_types.append({"id": None, "name": "Ohne Typ", "count": type_unknown})
+    document_types.sort(key=lambda item: item["count"], reverse=True)
+
+    unprocessed_by_correspondent: dict[int | None, int] = {}
+    monthly: dict[str, dict[str, int]] = {}
+    for doc_id, document_date, created, correspondent_id in db.query(
+        Document.id,
+        Document.document_date,
+        Document.created,
+        Document.correspondent_id,
+    ).all():
+        processed = doc_id in fully_processed_ids
+        if not processed:
+            unprocessed_by_correspondent[correspondent_id] = unprocessed_by_correspondent.get(correspondent_id, 0) + 1
+
+        raw_date = document_date or created or ""
+        month = raw_date[:7] if len(raw_date) >= 7 else "Unbekannt"
+        bucket = monthly.get(month)
+        if bucket is None:
+            bucket = {"total": 0, "processed": 0, "unprocessed": 0}
+            monthly[month] = bucket
+        bucket["total"] += 1
+        if processed:
+            bucket["processed"] += 1
+        else:
+            bucket["unprocessed"] += 1
+
+    correspondents_map = {row[0]: row[1] for row in db.query(Correspondent.id, Correspondent.name).all()}
+    unprocessed_corr_list = [
+        {
+            "id": corr_id,
+            "name": correspondents_map.get(corr_id) or ("Ohne Korrespondent" if corr_id is None else "Unbenannt"),
+            "count": count,
+        }
+        for corr_id, count in unprocessed_by_correspondent.items()
+    ]
+    unprocessed_corr_list.sort(key=lambda item: item["count"], reverse=True)
+
+    monthly_processing = [
+        {"label": month, **counts} for month, counts in sorted(monthly.items(), key=lambda item: item[0])
+    ]
+    if monthly_processing and monthly_processing[0]["label"] == "Unbekannt":
+        monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
+
+    buckets = {
+        "1": 0,
+        "2-3": 0,
+        "4-6": 0,
+        "7-10": 0,
+        "11-20": 0,
+        "21-50": 0,
+        "51+": 0,
+        "Unbekannt": 0,
+    }
+    for (page_count,) in db.query(Document.page_count).all():
+        if page_count is None or page_count < 1:
+            buckets["Unbekannt"] += 1
+        elif page_count == 1:
+            buckets["1"] += 1
+        elif page_count <= 3:
+            buckets["2-3"] += 1
+        elif page_count <= 6:
+            buckets["4-6"] += 1
+        elif page_count <= 10:
+            buckets["7-10"] += 1
+        elif page_count <= 20:
+            buckets["11-20"] += 1
+        elif page_count <= 50:
+            buckets["21-50"] += 1
+        else:
+            buckets["51+"] += 1
+
+    page_counts = [{"label": label, "count": count} for label, count in buckets.items()]
+
+    return {
+        "stats": stats,
+        "correspondents": correspondents,
+        "top_correspondents": top_correspondents,
+        "tags": tags,
+        "top_tags": top_tags,
+        "page_counts": page_counts,
+        "document_types": document_types,
+        "unprocessed_by_correspondent": unprocessed_corr_list,
+        "monthly_processing": monthly_processing,
     }
 
 
@@ -839,6 +997,7 @@ def process_missing(
     include_suggestions_paperless: bool = True,
     include_suggestions_vision: bool = True,
     embeddings_mode: str = "auto",
+    limit: int | None = None,
     settings: Settings = Depends(settings_dep),
     db: Session = Depends(get_db),
 ):
@@ -846,8 +1005,18 @@ def process_missing(
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
     if embeddings_mode not in ("auto", "paperless", "vision"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
+    if limit is not None and limit < 1:
+        raise HTTPException(status_code=400, detail="limit must be >= 1")
 
-    docs = db.query(Document).all()
+    docs = db.query(Document).order_by(Document.id.asc()).all()
+    if include_vision_ocr:
+        docs.sort(
+            key=lambda doc: (
+                doc.page_count is None,
+                doc.page_count or 0,
+                doc.id,
+            )
+        )
     embeddings = {
         row.doc_id: row for row in db.query(DocumentEmbedding).all()
     }
@@ -876,6 +1045,7 @@ def process_missing(
     missing_embeddings_vision = 0
     missing_sugg_p = 0
     missing_sugg_v = 0
+    selected_for_run = 0
     for doc in docs:
         if _should_skip_doc(doc):
             continue
@@ -883,19 +1053,24 @@ def process_missing(
         doc_modified = _parse_iso(doc.modified) or _parse_iso(doc.created)
         embedding = embeddings.get(doc.id)
         embedded_at = _parse_iso(embedding.embedded_at) if embedding else None
+        embedding_source = embedding.embedding_source if embedding else None
+        has_vision_embedding = embedding_source == "vision"
         vision_updated_at = vision_latest.get(doc.id)
         has_vision = vision_updated_at is not None
 
         need_vision_ocr = settings.enable_vision_ocr and not has_vision
+        # Continue-processing should only handle missing data (no reprocessing based on timestamps).
         need_embeddings = embedding is None
-        if doc_modified and embedded_at and doc_modified > embedded_at:
-            need_embeddings = True
-        if vision_updated_at and embedded_at and vision_updated_at > embedded_at:
-            need_embeddings = True
-        if need_vision_ocr:
-            need_embeddings = True
 
-        prefer_vision_embeddings = settings.enable_vision_ocr and (has_vision or need_vision_ocr)
+        if embeddings_mode == "paperless":
+            prefer_vision_embeddings = False
+        elif embeddings_mode == "vision":
+            prefer_vision_embeddings = True
+            need_embeddings = not has_vision_embedding
+        else:
+            prefer_vision_embeddings = settings.enable_vision_ocr and (has_vision or (include_vision_ocr and need_vision_ocr))
+            if prefer_vision_embeddings:
+                need_embeddings = not has_vision_embedding
 
         sugg_p = suggestions.get((doc.id, "paperless_ocr"))
         sugg_v = suggestions.get((doc.id, "vision_ocr"))
@@ -903,13 +1078,7 @@ def process_missing(
         sugg_v_at = _parse_iso(sugg_v.created_at) if sugg_v else None
 
         need_sugg_p = sugg_p is None
-        if doc_modified and sugg_p_at and doc_modified > sugg_p_at:
-            need_sugg_p = True
         need_sugg_v = settings.enable_vision_ocr and (has_vision or need_vision_ocr) and sugg_v is None
-        if vision_updated_at and sugg_v_at and vision_updated_at > sugg_v_at:
-            need_sugg_v = True
-        if need_vision_ocr:
-            need_sugg_v = True
 
         selected = False
         if include_vision_ocr and need_vision_ocr:
@@ -940,8 +1109,10 @@ def process_missing(
         if selected:
             missing_docs += 1
             if not dry_run:
-                enqueued_tasks += enqueue_task_sequence(settings, tasks)
-                enqueued_docs += 1
+                if limit is None or selected_for_run < limit:
+                    enqueued_tasks += enqueue_task_sequence(settings, tasks)
+                    enqueued_docs += 1
+                    selected_for_run += 1
 
     return {
         "enabled": True,

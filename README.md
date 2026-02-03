@@ -1,4 +1,4 @@
-# Paperless Intelligence (Arcane)
+# Paperless-NGX Cortex
 
 ## Getting Started
 
@@ -58,6 +58,29 @@ You need to start three components:
    ```
 
 The frontend will be available at `http://localhost:5173`.
+
+## Docker (compose)
+
+### App-only (frontend + backend in one container)
+Builds the frontend inside the container and serves it from the backend.
+```bash
+docker compose -f docker-compose.app.yml up --build
+```
+
+### Full stack (includes Postgres, Redis, Qdrant, Ollama)
+```bash
+docker compose -f docker-compose.full.yml up --build
+```
+
+### Worker-only (separate container)
+```bash
+docker compose -f docker-compose.worker.yml up --build
+```
+
+Notes:
+- Update `.env` with Paperless + token settings.
+- `.env.worker.example` provides a minimal worker-focused template.
+- Full stack uses local service URLs for DB/Redis/Qdrant/Ollama; adjust as needed.
 
 ## Concise flow
 1) **Sync metadata + OCR**  

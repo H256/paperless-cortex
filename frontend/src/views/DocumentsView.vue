@@ -140,8 +140,8 @@
       </div>
     </section>
 
-    <section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div class="overflow-hidden">
+    <section class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div>
         <table class="w-full border-collapse text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
             <tr>
@@ -214,18 +214,32 @@
                 </a>
               </td>
               <td class="px-6 py-3">
-                <span
-                  v-if="!hasDerived(doc)"
-                  class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-200"
-                >
-                  No analysis
-                </span>
-                <span
-                  v-else
-                  class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200"
-                >
-                  Analyzed
-                </span>
+                <div class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
+                  <template v-if="missingIcons(doc).length">
+                    <div
+                      v-for="item in missingIcons(doc)"
+                      :key="item.label"
+                      class="inline-flex items-center gap-1"
+                      :title="`Missing ${item.label}`"
+                    >
+                      <component :is="item.icon" class="h-3 w-3 text-amber-500" />
+                      <span class="sr-only">Missing {{ item.label }}</span>
+                    </div>
+                    <div
+                      v-if="fulfilledCount(doc) > 0"
+                      class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+                      :title="fulfilledTooltip(doc)"
+                    >
+                      +{{ fulfilledCount(doc) }}
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="inline-flex items-center gap-1" title="All processed">
+                      <CheckCircle class="h-3 w-3 text-emerald-500" />
+                      <span class="sr-only">All processed</span>
+                    </div>
+                  </template>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -293,6 +307,25 @@
         <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Processing options</div>
           <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="flex flex-col gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+              Max documents to process
+              <div class="flex items-center gap-3">
+                <input
+                  v-model.number="batchIndex"
+                  type="range"
+                  :min="0"
+                  :max="batchOptions.length - 1"
+                  step="1"
+                  class="h-2 w-full cursor-pointer accent-indigo-600"
+                />
+                <span class="min-w-[3.5rem] text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {{ batchLabel }}
+                </span>
+              </div>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500">
+                Use a smaller batch if your Ollama server is not always online.
+              </span>
+            </label>
             <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
               <input type="checkbox" v-model="processOptions.includeVisionOcr" class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
               Vision OCR
@@ -324,31 +357,39 @@
           </div>
         </div>
 
-        <div v-if="processStartResult" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Enqueued {{ processStartResult.enqueued ?? 0 }} documents ({{ processStartResult.tasks ?? 0 }} tasks). Queue length: {{ queueStatus.length ?? 0 }},
-          in progress: {{ queueStatus.in_progress ?? 0 }}.
-        </div>
-
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
+            v-if="processStartResult"
             class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click="closePreview"
-            :disabled="processStartLoading"
           >
-            Cancel
+            Close
           </button>
-          <button
-            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || syncStatus.status === 'running'"
-            @click="startFromPreview"
-          >
-            <span v-if="processStartLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Enqueuing...
-            </span>
-            <span v-else-if="syncStatus.status === 'running'">Syncing…</span>
-            <span v-else>Start processing</span>
-          </button>
+          <template v-else>
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="closePreview"
+              :disabled="processStartLoading"
+            >
+              Cancel
+            </button>
+            <button
+              class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              :class="{
+                'cursor-not-allowed opacity-60':
+                  documentsStore.processPreviewLoading || processStartLoading || syncing || isSyncingNow,
+              }"
+              :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || isSyncingNow"
+              @click="startFromPreview"
+            >
+              <span v-if="processStartLoading" class="inline-flex items-center gap-2">
+                <Loader2 class="h-4 w-4 animate-spin" />
+                Enqueuing...
+              </span>
+              <span v-else-if="isSyncingNow">Syncing…</span>
+              <span v-else>Start processing</span>
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -356,11 +397,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, watch, ref, reactive } from 'vue';
-import { ChevronDown, Database, ExternalLink, Loader2, Pencil, RefreshCw, XCircle } from 'lucide-vue-next';
+import { CheckCircle, ChevronDown, Database, ExternalLink, Eye, Layers, Lightbulb, Loader2, Pencil, RefreshCw, ScanText, XCircle } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documentsStore';
 import { useQueueStore } from '../stores/queueStore';
+import { useToastStore } from '../stores/toastStore';
 import { useStatusStore } from '../stores/statusStore';
 import { DocumentRow } from '../services/documents';
 
@@ -368,6 +410,7 @@ const router = useRouter();
 const documentsStore = useDocumentsStore();
 const queueStore = useQueueStore();
 const statusStore = useStatusStore();
+const toastStore = useToastStore();
 
 const {
   documents,
@@ -406,6 +449,13 @@ const processOptions = reactive({
   includeSuggestionsVision: true,
   embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
 });
+const batchOptions = [10, 20, 50, 100, 200, 500, 'All'] as const;
+const batchIndex = ref(batchOptions.length - 1);
+const batchLimit = computed(() => {
+  const value = batchOptions[batchIndex.value];
+  return value === 'All' ? null : value;
+});
+const batchLabel = computed(() => (batchLimit.value === null ? 'All' : String(batchLimit.value)));
 
 const processParams = () => ({
   include_vision_ocr: processOptions.includeVisionOcr,
@@ -413,6 +463,7 @@ const processParams = () => ({
   include_suggestions_paperless: processOptions.includeSuggestionsPaperless,
   include_suggestions_vision: processOptions.includeSuggestionsVision,
   embeddings_mode: processOptions.embeddingsMode,
+  limit: batchLimit.value ?? undefined,
 });
 
 const paperlessBaseUrl = computed(() => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '');
@@ -439,6 +490,7 @@ const startPolling = () => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
 const isProcessing = computed(() => syncStatus.value.status === 'running' || embedStatus.value.status === 'running');
+const isSyncingNow = computed(() => syncStatus.value.status === 'running');
 const hasQueuedWork = computed(() => {
   if (!queueStatus.value.enabled) return false;
   return (queueStatus.value.length ?? 0) > 0 || (queueStatus.value.in_progress ?? 0) > 0;
@@ -496,8 +548,11 @@ const formatDuration = (totalSeconds: number) => {
 };
 
 const queueOutstanding = computed(() => (queueStatus.value.length ?? 0) + (queueStatus.value.in_progress ?? 0));
-const queueProcessed = computed(() => queueStatus.value.done ?? 0);
-const queueTotal = computed(() => Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value));
+const queueIsIdle = computed(() => !queueStatus.value.enabled || queueOutstanding.value === 0);
+const queueProcessed = computed(() => (queueIsIdle.value ? 0 : (queueStatus.value.done ?? 0)));
+const queueTotal = computed(() =>
+  queueIsIdle.value ? 0 : Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value)
+);
 const queuePercent = computed(() => {
   if (!queueTotal.value) return 0;
   return Math.min(100, Math.round((queueProcessed.value / queueTotal.value) * 100));
@@ -555,6 +610,14 @@ const startFromPreview = async () => {
   startPolling();
   await documentsStore.startProcessingFromPreview(processParams());
   await queueStore.refreshStatus();
+  if (processStartResult.value) {
+    toastStore.push(
+      `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
+      'success',
+      'Queue started'
+    );
+  }
+  documentsStore.clearProcessPreview();
 };
 
 const cancelProcessing = async () => {
@@ -578,6 +641,54 @@ const correspondentLabel = (id?: number | null, name?: string | null) => {
 
 const hasDerived = (doc: DocumentRow) => {
   return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages);
+};
+
+const missingIcons = (doc: DocumentRow) => {
+  const items: { label: string; icon: any }[] = [];
+  if (!doc.has_embeddings) items.push({ label: 'Embeddings', icon: Layers });
+  if (!doc.has_vision_pages) items.push({ label: 'Vision OCR', icon: ScanText });
+  if (!doc.has_suggestions_paperless) items.push({ label: 'Suggestions (paperless)', icon: Lightbulb });
+  if (doc.has_vision_pages && !doc.has_suggestions_vision) items.push({ label: 'Suggestions (vision)', icon: Eye });
+  if (!doc.local_cached) items.push({ label: 'Local cache', icon: RefreshCw });
+  const order = new Map<string, number>([
+    ['Embeddings', 1],
+    ['Vision OCR', 2],
+    ['Suggestions (paperless)', 3],
+    ['Suggestions (vision)', 4],
+    ['Local cache', 5],
+  ]);
+  return items.sort((a, b) => (order.get(a.label) ?? 99) - (order.get(b.label) ?? 99));
+};
+
+const fulfilledTooltip = (doc: DocumentRow) => {
+  const done: string[] = [];
+  if (doc.has_embeddings) done.push('Embeddings');
+  if (doc.has_vision_pages) done.push('Vision OCR');
+  if (doc.has_suggestions_paperless) done.push('Suggestions (paperless)');
+  if (doc.has_vision_pages && doc.has_suggestions_vision) done.push('Suggestions (vision)');
+  if (doc.local_cached) done.push('Local cache');
+  if (!done.length) return 'Nothing processed yet';
+  return `Done: ${done.join(', ')}`;
+};
+
+const fulfilledCount = (doc: DocumentRow) => {
+  let count = 0;
+  if (doc.has_embeddings) count += 1;
+  if (doc.has_vision_pages) count += 1;
+  if (doc.has_suggestions_paperless) count += 1;
+  if (doc.has_vision_pages && doc.has_suggestions_vision) count += 1;
+  if (doc.local_cached) count += 1;
+  return count;
+};
+
+const isFullyProcessed = (doc: DocumentRow) => {
+  const hasVision = Boolean(doc.has_vision_pages);
+  const hasEmbeddings = Boolean(doc.has_embeddings);
+  const hasSugP = Boolean(doc.has_suggestions_paperless);
+  const hasSugV = Boolean(doc.has_suggestions_vision);
+  if (!hasEmbeddings || !hasSugP) return false;
+  if (hasVision && !hasSugV) return false;
+  return true;
 };
 
 const visibleDocuments = computed(() => {
@@ -627,6 +738,11 @@ watch(
   },
   { deep: true }
 );
+
+watch(batchIndex, async () => {
+  if (!showPreviewModal.value) return;
+  await documentsStore.refreshProcessPreview(processParams());
+});
 
 watch(ordering, async () => {
   await load();

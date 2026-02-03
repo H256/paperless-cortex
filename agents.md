@@ -9,13 +9,13 @@ Build a separate "intelligence" project that augments Paperless-ngx with:
 
 The project runs as a separate stack on host "Arcane" (Docker). Paperless itself is a separate stack and must not be modified.
 
-## High-level design
+## High-level design (current)
 Paperless-ngx remains the source of truth. This project:
 1) reads metadata + OCR text from Paperless API (Token auth)
 2) optionally fetches PDF pages for highlighting or vision-based OCR fallback
 3) runs LLM analysis (remote Ollama server)
 4) stores results in Postgres plus embeddings in Qdrant
-5) provides a FastAPI backend plus separate Vue frontend for inspection and manual, per-field writeback
+5) provides a FastAPI backend plus Vue frontend for inspection and manual, per-field writeback
 
 ## Constraints / Non-goals
 - No automatic writeback to Paperless. Default is read-only.
@@ -36,21 +36,20 @@ Paperless-ngx remains the source of truth. This project:
 - Postgres/Redis are exposed only via LAN ports (bound to Arcane LAN IP) and must be firewalled to the dev machine if used remotely.
 - Ollama is hosted on another server (more compute) and is accessed via HTTP (base URL configurable).
 
-## Components
-### Current minimal stack (to run first)
-- Postgres (metadata, runs, entities, summaries, OCR alternative layers)
-- Qdrant (embeddings and chunk metadata)
-- Redis optional (queue/ cache can be added later)
+## Components (current stack)
+- Postgres (metadata, OCR alternative layers, suggestions, audit)
+- Qdrant (embeddings + chunk metadata)
+- Redis (queue + worker lock)
 
-### Application layer (current)
+### Application layer
 - FastAPI backend:
   - Read-only API for documents, tags, correspondents, document types, and connections
-  - Manual writeback endpoints later (per-field, per-doc)
+  - Manual writeback endpoints (per-field, per-doc)
   - Queue management endpoints (peek/reorder/move-top/move-bottom/pause/reset)
   - Processing utilities: dry-run missing-work summary, reset intelligence data, mark missing Paperless docs
 - Vue 3 (Vite, Composition API) frontend:
   - Read-only views: doc list, doc details, semantic search, chat UI, queue manager
-  - Manual writeback buttons per doc plus per field (later)
+  - Manual writeback buttons per doc plus per field
   - PDF viewer with highlight overlays (PDF.js attempted; CSP-safe preview fallback active)
 
 ## Paperless integration
@@ -70,22 +69,19 @@ Paperless-ngx remains the source of truth. This project:
   - for PDF preview rendering when CSP blocks PDF.js
 
 ### Sync strategy
-- Keep a local record of the document text hash / modified timestamp.
-- Only re-analyze when the text changed or the user explicitly triggers a re-run.
+- Continue-processing syncs new docs and enqueues only missing tasks.
+- Reprocess-all clears intelligence data and rebuilds.
+- Local edits are preserved; insert-only sync avoids overwriting.
 
 ## Second OCR (vision fallback)
 ### Goal
 Improve recognition for cases where Paperless OCR is poor. Do not replace baseline; store as an alternate layer.
 
-### Recommended approach
-1) Score OCR quality using heuristics:
-   - excessive unknown chars, very short tokens, garbled text, missing expected patterns
-2) Only re-OCR problematic pages (not the whole PDF)
-3) Store results with:
-   - source="vision_ocr," page=N, confidence, text, (optional) word-level bounding boxes
-4) Merge strategy:
-   - Keep Paperless OCR as a baseline
-   - Use vision OCR as fallback during analysis/search where it improves confidence
+### Current approach
+1) Score OCR quality using heuristics (length, non-alnum ratio, score)
+2) Re-OCR only problematic pages (not whole PDF)
+3) Store results as alternate layer (source="vision_ocr", page, text, model, processed_at)
+4) Merge strategy: Paperless OCR is baseline; Vision OCR is fallback for analysis/search
 
 ## Embeddings + search
 - Chunk text into ~500--1000 token blocks.
@@ -98,8 +94,8 @@ Improve recognition for cases where Paperless OCR is poor. Do not replace baseli
 
 ### Current state (highlights)
 - PDF text extraction uses PyMuPDF word boxes when available and stores bbox per chunk in Qdrant.
-- Vision OCR pages are stored in DB; embeddings reuse stored vision text (no double-OCR).
-- Chat/Search citations deep-link to document viewer with page + bbox.
+- Vision OCR pages are stored in DB (text only); embeddings reuse stored vision text.
+- Chat/Search citations deep-link to document viewer with page + bbox (when available).
 - PDF.js viewer exists; CSP-safe fallback uses server-side page preview image with highlight overlay.
 
 ### Citations
@@ -153,8 +149,10 @@ Every writeback must be stored locally:
 - POST /documents/{id}/writeback (explicit per-field actions)
 
 ### New endpoints (implemented)
-- POST /documents/process-missing->dry_run=1 (summary of missing work + optional enqueue)
+- POST /documents/process-missing (summary + enqueue missing work)
 - POST /documents/reset-intelligence (clear embeddings/page texts/suggestions)
+- POST /documents/clear-intelligence (wipe local documents + intelligence data)
+- POST /documents/delete-vision-ocr /delete-suggestions /delete-embeddings
 - GET /documents/{id}/pdf (proxy PDF bytes)
 - Queue: POST /queue/move-top, POST /queue/move-bottom
 
@@ -199,7 +197,7 @@ Environment variables (examples):
 - Backend: http://localhost:8000
 - Frontend: http://localhost:5173
 
-## MVP Definition of Done
+## MVP Definition of Done (achieved)
 - Compose stack runs on Arcane: Postgres + Qdrant (+optional Redis), persistent in ./data
 - Dev machine can reach:
   - Qdrant via https://qdrant.elysium.lan (Traefik)
@@ -209,7 +207,7 @@ Environment variables (examples):
 - Embedding ingestion works: chunks stored in Qdrant with doc_id payload
 - Simple query endpoint returns top matches with citations (doc_id/page)
 
-## Current UX (processing)
+## Current UX (processing) (achieved)
 - "Continue processing" runs a dry-run, shows missing-work summary, and enqueues only missing tasks.
 - "Reprocess all" clears intelligence data and rebuilds (explicit confirmation).
 - Queue UI supports reorder + move top/bottom, and bulk enqueue is batched to avoid Redis socket exhaustion.
@@ -257,51 +255,215 @@ Vision model is used only for:
 
 All model names must be configurable via environment variables.
 
-## TODO: Client refactor
-- Refactor the frontend: most logic currently lives inside the `views/*.vue` files.
-- Introduce composables/stores (e.g., `useDocuments`, `useQueue`, `useSuggestions`) and shared UI components.
-- Extract repeated API calls and UI helpers into dedicated modules.
+## Ausbaustufe: On-the-fly strukturierte Antworten (MVP)
+- Intent-Analyse je Frage (Trend/Zeitleiste, Fakten-Lookup, Latest-Event).
+- Retriever + Reranking auf max. 10 Dokumente pro Anfrage.
+- Pro-Dokument Extraktion in kleines JSON-Schema passend zur Frage (z.B. Preis/Zeitraum, Laborwert/Datum).
+- Aggregation/Reasoning zur Laufzeit (Trends, %-Änderungen, Latest-Event).
+- Antwortformat dynamisch anhand der Frage (Text, Vergleich, Kurz-Timeline).
+- Quellen immer mit Doc-ID + Seitenangabe ausgeben (ohne persistente Tabellen).
+- Phase 2 (optional): Evidence-Locator mit Vision-OCR-Text + BBox-Highlighting.
+- Phase 2a (MVP, on-the-fly): Für zitierte Seiten Layout-OCR on-demand ausführen, Snippet matchen, BBox aggregieren, sonst fallback auf Doc-ID + Seite.
 
-## TODO: Server refactor
-- Review backend services/routes for duplication and refactor to shared utilities.
-- Consolidate queue/task logic and reduce repeated OCR/embedding/suggestion pathways.
-- Ensure consistent logging and error handling across components.
+### Phase 2a Umsetzungsskizze (on-the-fly BBox)
+- Backend: neuer Chat-Postprozess-Schritt `resolve_evidence` (nach LLM-Antwort).
+- Eingabe: Liste von Zitaten {doc_id, page, snippet} + optional `max_pages=3`.
+- Pro Seite:
+  - PDF-Page rendern (bestehende Render-Funktion).
+  - Vision-OCR mit Layout-Output (Wörter + BBox) on-demand ausführen.
+  - Fuzzy-Match Snippet → Word-Sequence.
+  - BBox aggregieren (min/max der Wort-BBoxes).
+- Ausgabe: Zitate mit `bbox` ergänzen, Fallback: doc_id+page, wenn kein Match.
+- UI: vorhandenes Highlight-Overlay nutzen; bei fehlender BBox nur Seite öffnen.
+- Konfig: Timeout + max pages pro Antwort begrenzen.
 
+### Phase 2a Detaillierter Plan (vollständig)
+#### Backend – API & Modelle
+- Neues Modell `EvidenceRequest`:
+  - `citations`: [{ doc_id, page, snippet, source_id? }]
+  - `max_pages`: int (default 3)
+  - `timeout_seconds`: int (default 30–60)
+  - `language`: optional (für Matching-Optimierung)
+- Neues Modell `EvidenceMatch`:
+  - `doc_id`, `page`, `snippet`, `bbox` (optional), `confidence` (0–1), `status` ("ok" | "no_match" | "error")
+- Neuer Endpoint: `POST /chat/resolve-evidence`
+  - Nimmt `EvidenceRequest`, liefert Liste `EvidenceMatch`.
+  - Wird im Chat-Flow intern nach dem LLM-Aufruf genutzt (kein UI-Call nötig).
 
-## Session log
+#### Backend – Evidence Resolver (Schritte)
+1) **Normalize Snippet**: Trim, lower, whitespace collapse, punctuation strip.
+2) **Render Page**: PDF-Page rendern (bestehende `render_pdf_pages`).
+3) **Layout-OCR On-Demand**:
+   - Vision-OCR Prompt erweitern: "Return words with bounding boxes" (strukturierter JSON Output).
+   - Ergebnis: Liste von Wörtern mit BBox.
+4) **Snippet Matching**:
+   - Tokenize snippet + OCR words.
+   - Sliding window + fuzzy match (ratio >= 0.8).
+   - Fallback: subsequence match (if partial).
+5) **BBox Aggregation**:
+   - `min(x0,y0)` + `max(x1,y1)` der Wort-BBoxes im Match.
+6) **Confidence Score**:
+   - aus Match-Score ableiten (e.g., fuzzy ratio).
+7) **Return**:
+   - `bbox` nur wenn Match ok; sonst status no_match.
 
-### 2026-01-31
-- Search reranking: oversample + lexical/phrase boost, combined_score surfaced, top_k enforced.
-- UI/UX: dark theme toggle, processing panel (dry-run + reprocess), queue controls, search result actions.
-- Viewer/citations: PDF preview flow and highlight support in place; continue refining details page UX tomorrow.
+#### Backend – Vision OCR Erweiterung
+- Neue Funktion `ocr_pdf_pages_with_layout` in `app/services/vision_ocr.py`.
+- Prompt-Template für JSON Output:
+  - `{ page: int, words: [{text, bbox:[x0,y0,x1,y1]}] }`
+- Fallback: wenn Layout-OCR fehlschlägt, return `status=error`.
 
-### 2026-02-02
-- Fix: Continue processing uses insert-only sync to avoid overwriting document edits, reprocess prioritizes queued tasks, and worker lock enforces a single queue worker.
-- Fix: Suggestions apply refreshes derived tabs, queue view supports Doc ID filtering with correct reordering indices, and documents list adds analysis filter plus persistent cancel button when queue has work.
-- Feature: Continue-processing modal now allows selecting which tasks to enqueue (vision OCR, embeddings with mode, and suggestions) and the preview updates accordingly.
-- Feature: Store AI model + processed timestamps for documents, suggestions, and vision OCR pages; surface analysis model on document list with a filter input.
-- Fix: Queue stats now record last-run duration and UI shows queue-based ETA with a "Last run" timestamp.
-- Chore: Added verification checklist for the 2026-02-02 changes.
-- Chore: Alembic heads merged after adding AI model metadata migration.
-- Fix: Continue-processing modal now shows enqueue progress with disabled buttons and a loader while queueing starts.
-- Fix: Reprocess-all modal now shows sync progress with a loader and disables actions while running.
-- Fix: Continue-processing modal now shows sync progress while fetching updates.
-- Fix: Continue-processing modal opens immediately, shows sync progress, and disables start until sync completes.
-- Feature: Added Maintenance page with Reprocess All and destructive cleanup actions for vision OCR, suggestions, and embeddings.
-- Feature: Renamed Maintenance page to Operations and added runtime URLs/models section.
-- Feature: Added copy buttons for runtime URLs and models on Operations page.
-- Feature: Added reusable Toast component with copy-to-clipboard feedback.
-- Feature: Added "Clear all intelligence data" block to Operations page (no reprocessing).
-- Fix: Clear-all now deletes all local documents and uses a modal confirmation with an explicit checkbox.
-- Chore: Regenerated OpenAPI client and routed all frontend API calls through it.
-- Fix: Clear-all action now falls back to direct API call if store method is missing.
-- Chore: Renamed clear-all section to "Wipe local data" and clarified Paperless remains unchanged.
-- Feature: Added local cache status in document list (Paperless only vs Paperless + Local).
-- Feature: Display suggestion model + last processed time in document detail view.
-- Feature: Toast notification when a document is queued from detail re-process.
-- Fix: Increased worker lock TTL to 5 minutes for long-running vision OCR tasks.
-- Fix: Document list now shows local edits (title/date/tags/correspondent) when local overrides exist.
-- Feature: Added Local override badge in document list.
-- Fix: Chunk Qdrant upserts to stay under 32MB payload limit.
-- Fix: Refresh worker lock in a background thread to avoid lock loss during long tasks.
-- Note: Worker lock loss was observed during long jobs; TTL bumped to 5 minutes and lock refresh runs in a background thread. If it still exits, check Redis connectivity or multiple worker instances.
+#### Backend – Performance / Limits
+- Max Seiten pro Antwort (`max_pages=3`).
+- Hard timeout pro Seite.
+- Optional: Cache im RAM für (doc_id, page) → OCR-Layout für 5–10 Min.
+
+#### Backend – Integration in Chat
+- Chat-Pipeline:
+  1) Retrieve top-k chunks
+  2) LLM answer + citations (doc_id/page/snippet)
+  3) `resolve_evidence` aufrufen (max 3 Seiten)
+  4) Antwort mit bbox-enriched citations zurückgeben
+
+#### Frontend – UI/Viewer
+- Keine großen Änderungen nötig: Viewer nutzt bereits bbox.
+- Wenn `bbox` fehlt: nur Seite öffnen + Hinweis "keine exakte Fundstelle".
+- Optional: Badge "approx." für nicht-exakte Matches.
+
+#### Tests / Validierung
+- Unit-Test: Snippet-Match → korrektes BBox aggregiert.
+- Integration-Test: 1–2 PDFs mit OCR-Layout, Match → Highlight.
+
+#### MVP-Abnahme
+- Frage beantworten → Zitate enthalten bbox bei mind. 1 Seite.
+- Fehlende bbox bricht nicht den Chat-Flow.
+
+#### Ausführliche Spezifikation (vollständig)
+##### EvidenceRequest Payload
+- `citations`: array
+  - `doc_id`: int
+  - `page`: int (1-based)
+  - `snippet`: string (short excerpt from LLM output)
+  - `source_id`: optional (index from retrieval)
+- `max_pages`: int (default 3, hard max 5)
+- `timeout_seconds`: int (default 45)
+- `min_match_ratio`: float (default 0.8)
+
+##### EvidenceMatch Payload
+- `doc_id`, `page`, `snippet`
+- `bbox`: optional `[x0,y0,x1,y1]` in page coordinates (same as existing viewer)
+- `confidence`: float (0–1)
+- `status`: `"ok" | "no_match" | "error"`
+- `error`: optional string
+
+##### OCR Layout Output (on-the-fly)
+- Prompt response JSON:
+  - `page`: int
+  - `words`: [{ `text`: string, `bbox`: [x0,y0,x1,y1] }]
+- Normalization rules:
+  - Lowercase, collapse whitespace, strip punctuation from both snippet and word tokens.
+  - Keep digits and currency symbols.
+
+##### Matching Algorithm (deterministic)
+1) Tokenize snippet into words.
+2) Tokenize OCR words (already per word).
+3) Sliding window across OCR words of length `len(snippet_tokens) ± 2`.
+4) Compute fuzzy ratio (e.g., RapidFuzz ratio) on joined strings.
+5) Choose max ratio; accept if >= `min_match_ratio`.
+6) If no match: fallback to partial token overlap (>=60%).
+7) Aggregate bbox of matched word range.
+
+##### Caching
+- In-memory LRU:
+  - Key: `(doc_id, page, ocr_model)`
+  - Value: layout words + bboxes
+  - TTL: 5–10 minutes
+- Cache size: 50 pages (configurable).
+
+##### Failure / Fallback Behavior
+- If OCR fails → return `status=error` (do not break chat).
+- If match fails → `status=no_match` (return page-only citation).
+- If page render fails → `status=error`.
+
+##### Security / Limits
+- Cap `citations` processed to `max_pages`.
+- Enforce timeout per page render + OCR call.
+- Reject empty snippets or pages <=0.
+
+##### Frontend Integration Details
+- Viewer already consumes `{doc_id, page, bbox}`.
+- When `status=no_match`, show badge “Seite geöffnet (kein exakter Treffer)”.
+- When `status=error`, show badge “Fundstelle nicht ermittelbar”.
+
+##### Implementation Notes
+- Add `resolve_evidence` call in chat service only when:
+  - citations exist AND
+  - at least 1 snippet length >= 20 chars.
+- Store original snippet in response for debugging.
+
+## Ausbaustufe: OCR-Qualitäts-Scoring (Prompt-Score)
+### Ziel
+- OCR-Qualität für Paperless- und Vision-OCR als Kennzahl pro Dokument speichern.
+- Separat triggerbarer Task (Queue).
+
+### Datenmodell
+- Neue Tabelle `ocr_quality_scores`:
+  - `doc_id` (FK)
+  - `source` ("paperless_ocr" | "vision_ocr")
+  - `score` (int 0–100)
+  - `model_name` (string)
+  - `method` ("prompt_score")
+  - `processed_at` (iso)
+- Optional (später): `ocr_quality_pages` für Page-Level-Scoring.
+
+### Backend – Service
+- Neuer Service `ocr_quality.py`:
+  - Prompt: "Bewerte die OCR-Qualität dieses Texts von 0–100. Gib nur eine Zahl."
+  - Pro Seite scoren, pro Dokument aggregieren (Median).
+  - Parse robust (erste Zahl im Antworttext).
+- Konfig:
+  - `OCR_QUALITY_MODEL` (default: OLLAMA_MODEL)
+  - `OCR_QUALITY_MIN_CHARS` (z.B. 50) um leere Seiten zu skippen
+  - `OCR_QUALITY_TIMEOUT` (z.B. 30–60s)
+
+### Backend – Queue Task
+- Neuer Queue-Task: `ocr_quality`
+- Worker-Handler:
+  - Lade `DocumentPageText` für `source` (paperless_ocr / vision_ocr)
+  - Wenn keine Seiten → skip + status
+  - Score berechnen, upsert in `ocr_quality_scores`
+
+### Backend – Endpoints
+- `POST /documents/{id}/ocr-quality`:
+  - Body: `{ source?: "paperless_ocr"|"vision_ocr", force?: bool }`
+  - Enqueue task(s) oder direkt berechnen (optional)
+- `POST /documents/ocr-quality`:
+  - Body: `{ doc_ids?: [], source?: ..., force?: bool }`
+  - Bulk enqueue
+- `GET /documents/{id}` erweitert:
+  - `ocr_quality`: { paperless: {score, processed_at}, vision: {score, processed_at} }
+
+### UI (später)
+- Detailansicht: Anzeige der OCR-Qualität je Quelle.
+- Optional: Hinweis "Vision besser" wenn Score +X höher.
+- Operations: Button "OCR-Qualität messen" für alle Dokumente.
+
+## Roadmap (short)
+- Client refactor: extract logic from `views/*.vue` into composables/stores and shared components.
+- Server refactor: consolidate queue/task logic and standardize error handling.
+
+## Recent changes (2026-02-02 to 2026-02-03)
+- Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
+- Missing-work logic: only enqueue missing items; vision embedding source tracked.
+- Operations page: destructive actions + wipe local data + runtime config + copy buttons.
+- UX: local overrides shown, badges + tooltips, suggestion metadata surfaced.
+- UX: Document list now shows per-task status icons (embeddings, vision OCR, suggestions by source, sync, overrides) with red/amber/green status badges.
+- Queue: ETA display, last run timestamp, reset counters when idle.
+- Processing: Vision OCR enqueue order prefers shorter documents first (page_count).
+- Feature: Added Dashboard page with document stats, tags/correspondents breakdown, and page count distribution.
+- Feature: Dashboard extended with monthly processing trend, document types, and unprocessed-by-correspondent charts.
+- UX: Dashboard extended section now supports 12/24/all month toggle with larger, report-style charts.
+- Branding: Updated app name to “Paperless-NGX Cortex” with slogan “Your documents, understood.”
+- DevOps: Added Dockerfile and compose variants for app-only and full stack deployment.
+- DevOps: Added worker-only compose variant.
+- DevOps: Added worker entrypoint guard for QUEUE_ENABLED and worker env template.

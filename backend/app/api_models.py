@@ -100,6 +100,8 @@ class DocumentSummary(PaperlessDocument):
     local_overrides: Optional[bool] = None
     has_embeddings: Optional[bool] = None
     has_suggestions: Optional[bool] = None
+    has_suggestions_paperless: Optional[bool] = None
+    has_suggestions_vision: Optional[bool] = None
     has_vision_pages: Optional[bool] = None
 
 
@@ -182,6 +184,36 @@ class DocumentStatsResponse(BaseModel):
     vision: int
     suggestions: int
     fully_processed: int
+
+
+class DashboardCount(BaseModel):
+    id: Optional[int] = None
+    name: str
+    count: int
+
+
+class PageCountBucket(BaseModel):
+    label: str
+    count: int
+
+
+class MonthlyProcessingBucket(BaseModel):
+    label: str
+    total: int
+    processed: int
+    unprocessed: int
+
+
+class DocumentDashboardResponse(BaseModel):
+    stats: DocumentStatsResponse
+    correspondents: list[DashboardCount] = []
+    top_correspondents: list[DashboardCount] = []
+    tags: list[DashboardCount] = []
+    top_tags: list[DashboardCount] = []
+    page_counts: list[PageCountBucket] = []
+    document_types: list[DashboardCount] = []
+    unprocessed_by_correspondent: list[DashboardCount] = []
+    monthly_processing: list[MonthlyProcessingBucket] = []
 
 
 class TextQualityMetrics(BaseModel):

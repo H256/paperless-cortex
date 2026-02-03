@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  worker:
+    build: .
+    container_name: paperless-ngx-cortex-worker
+    command: ["/app/docker/worker_entrypoint.sh"]
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -92,6 +92,7 @@ class DocumentEmbedding(Base):
     content_hash: Mapped[str | None] = mapped_column(String(128))
     embedding_model: Mapped[str | None] = mapped_column(String(128))
     embedded_at: Mapped[str | None] = mapped_column(String(64))
+    embedding_source: Mapped[str | None] = mapped_column(String(32))
     chunk_count: Mapped[int | None] = mapped_column(Integer)
 
 
