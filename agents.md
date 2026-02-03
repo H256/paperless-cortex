@@ -277,6 +277,67 @@ All model names must be configurable via environment variables.
 - UI: vorhandenes Highlight-Overlay nutzen; bei fehlender BBox nur Seite öffnen.
 - Konfig: Timeout + max pages pro Antwort begrenzen.
 
+### Phase 2a Detaillierter Plan (vollständig)
+#### Backend – API & Modelle
+- Neues Modell `EvidenceRequest`:
+  - `citations`: [{ doc_id, page, snippet, source_id? }]
+  - `max_pages`: int (default 3)
+  - `timeout_seconds`: int (default 30–60)
+  - `language`: optional (für Matching-Optimierung)
+- Neues Modell `EvidenceMatch`:
+  - `doc_id`, `page`, `snippet`, `bbox` (optional), `confidence` (0–1), `status` ("ok" | "no_match" | "error")
+- Neuer Endpoint: `POST /chat/resolve-evidence`
+  - Nimmt `EvidenceRequest`, liefert Liste `EvidenceMatch`.
+  - Wird im Chat-Flow intern nach dem LLM-Aufruf genutzt (kein UI-Call nötig).
+
+#### Backend – Evidence Resolver (Schritte)
+1) **Normalize Snippet**: Trim, lower, whitespace collapse, punctuation strip.
+2) **Render Page**: PDF-Page rendern (bestehende `render_pdf_pages`).
+3) **Layout-OCR On-Demand**:
+   - Vision-OCR Prompt erweitern: "Return words with bounding boxes" (strukturierter JSON Output).
+   - Ergebnis: Liste von Wörtern mit BBox.
+4) **Snippet Matching**:
+   - Tokenize snippet + OCR words.
+   - Sliding window + fuzzy match (ratio >= 0.8).
+   - Fallback: subsequence match (if partial).
+5) **BBox Aggregation**:
+   - `min(x0,y0)` + `max(x1,y1)` der Wort-BBoxes im Match.
+6) **Confidence Score**:
+   - aus Match-Score ableiten (e.g., fuzzy ratio).
+7) **Return**:
+   - `bbox` nur wenn Match ok; sonst status no_match.
+
+#### Backend – Vision OCR Erweiterung
+- Neue Funktion `ocr_pdf_pages_with_layout` in `app/services/vision_ocr.py`.
+- Prompt-Template für JSON Output:
+  - `{ page: int, words: [{text, bbox:[x0,y0,x1,y1]}] }`
+- Fallback: wenn Layout-OCR fehlschlägt, return `status=error`.
+
+#### Backend – Performance / Limits
+- Max Seiten pro Antwort (`max_pages=3`).
+- Hard timeout pro Seite.
+- Optional: Cache im RAM für (doc_id, page) → OCR-Layout für 5–10 Min.
+
+#### Backend – Integration in Chat
+- Chat-Pipeline:
+  1) Retrieve top-k chunks
+  2) LLM answer + citations (doc_id/page/snippet)
+  3) `resolve_evidence` aufrufen (max 3 Seiten)
+  4) Antwort mit bbox-enriched citations zurückgeben
+
+#### Frontend – UI/Viewer
+- Keine großen Änderungen nötig: Viewer nutzt bereits bbox.
+- Wenn `bbox` fehlt: nur Seite öffnen + Hinweis "keine exakte Fundstelle".
+- Optional: Badge "approx." für nicht-exakte Matches.
+
+#### Tests / Validierung
+- Unit-Test: Snippet-Match → korrektes BBox aggregiert.
+- Integration-Test: 1–2 PDFs mit OCR-Layout, Match → Highlight.
+
+#### MVP-Abnahme
+- Frage beantworten → Zitate enthalten bbox bei mind. 1 Seite.
+- Fehlende bbox bricht nicht den Chat-Flow.
+
 ## Roadmap (short)
 - Client refactor: extract logic from `views/*.vue` into composables/stores and shared components.
 - Server refactor: consolidate queue/task logic and standardize error handling.
