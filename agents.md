@@ -401,6 +401,53 @@ All model names must be configurable via environment variables.
   - at least 1 snippet length >= 20 chars.
 - Store original snippet in response for debugging.
 
+## Ausbaustufe: OCR-Qualitäts-Scoring (Prompt-Score)
+### Ziel
+- OCR-Qualität für Paperless- und Vision-OCR als Kennzahl pro Dokument speichern.
+- Separat triggerbarer Task (Queue).
+
+### Datenmodell
+- Neue Tabelle `ocr_quality_scores`:
+  - `doc_id` (FK)
+  - `source` ("paperless_ocr" | "vision_ocr")
+  - `score` (int 0–100)
+  - `model_name` (string)
+  - `method` ("prompt_score")
+  - `processed_at` (iso)
+- Optional (später): `ocr_quality_pages` für Page-Level-Scoring.
+
+### Backend – Service
+- Neuer Service `ocr_quality.py`:
+  - Prompt: "Bewerte die OCR-Qualität dieses Texts von 0–100. Gib nur eine Zahl."
+  - Pro Seite scoren, pro Dokument aggregieren (Median).
+  - Parse robust (erste Zahl im Antworttext).
+- Konfig:
+  - `OCR_QUALITY_MODEL` (default: OLLAMA_MODEL)
+  - `OCR_QUALITY_MIN_CHARS` (z.B. 50) um leere Seiten zu skippen
+  - `OCR_QUALITY_TIMEOUT` (z.B. 30–60s)
+
+### Backend – Queue Task
+- Neuer Queue-Task: `ocr_quality`
+- Worker-Handler:
+  - Lade `DocumentPageText` für `source` (paperless_ocr / vision_ocr)
+  - Wenn keine Seiten → skip + status
+  - Score berechnen, upsert in `ocr_quality_scores`
+
+### Backend – Endpoints
+- `POST /documents/{id}/ocr-quality`:
+  - Body: `{ source?: "paperless_ocr"|"vision_ocr", force?: bool }`
+  - Enqueue task(s) oder direkt berechnen (optional)
+- `POST /documents/ocr-quality`:
+  - Body: `{ doc_ids?: [], source?: ..., force?: bool }`
+  - Bulk enqueue
+- `GET /documents/{id}` erweitert:
+  - `ocr_quality`: { paperless: {score, processed_at}, vision: {score, processed_at} }
+
+### UI (später)
+- Detailansicht: Anzeige der OCR-Qualität je Quelle.
+- Optional: Hinweis "Vision besser" wenn Score +X höher.
+- Operations: Button "OCR-Qualität messen" für alle Dokumente.
+
 ## Roadmap (short)
 - Client refactor: extract logic from `views/*.vue` into composables/stores and shared components.
 - Server refactor: consolidate queue/task logic and standardize error handling.
