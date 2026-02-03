@@ -21,11 +21,11 @@
         </div>
 
       <template v-else>
-        <div class="mb-6 flex items-center justify-center">
+        <div class="mb-6 flex items-center justify-start">
           <img
             src="/cortex_image_transparent.png"
             alt="Paperless-NGX Cortex"
-            class="h-16 w-auto object-contain opacity-90"
+            class="h-20 w-auto object-contain opacity-90"
           />
         </div>
         <div class="grid gap-4 lg:grid-cols-6">
