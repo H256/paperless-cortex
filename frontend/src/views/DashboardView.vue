@@ -27,7 +27,7 @@
               <img
                 src="/cortex_image_transparent.png"
                 alt="Paperless-NGX Cortex"
-                class="h-24 w-auto object-contain opacity-90"
+                class="h-28 w-auto object-contain opacity-90"
               />
             </div>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
