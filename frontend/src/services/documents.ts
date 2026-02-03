@@ -18,8 +18,6 @@ import {
   getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGet,
   applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPost,
   applySuggestionToDocumentDocumentsDocIdApplySuggestionPost,
-  ingestEmbeddingsEmbeddingsIngestPost,
-  ingestDocumentsEmbeddingsIngestDocsPost,
   cancelEmbeddingsEmbeddingsCancelPost,
   processMissingDocumentsProcessMissingPost,
   resetIntelligenceDocumentsResetIntelligencePost,
@@ -42,14 +40,11 @@ import type {
   DocumentTextQualityResponse,
   DocumentTypeResponse,
   DocumentsPageResponse,
-  EmbeddingIngestResponse,
   EmbeddingStatusResponse,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
-  IngestDocumentsEmbeddingsIngestDocsPostParams,
-  IngestEmbeddingsEmbeddingsIngestPostParams,
   ListDocumentsDocumentsGetParams,
   PageTextOut,
   PageTextsResponse,
@@ -58,7 +53,6 @@ import type {
   SuggestionFieldApply,
   SuggestionFieldRequest,
   SuggestionsResponse,
-  SuggestionsResponseSuggestions,
   ProcessMissingResponse,
   ProcessMissingDocumentsProcessMissingPostParams,
   ResetIntelligenceResponse,
@@ -169,15 +163,6 @@ export const applySuggestionToDocument = (id: number, payload: ApplySuggestionTo
   unwrap<ApplySuggestionResponse>(
     applySuggestionToDocumentDocumentsDocIdApplySuggestionPost(id, payload),
   )
-
-export const ingestEmbeddings = (params: IngestEmbeddingsEmbeddingsIngestPostParams) =>
-  unwrap<EmbeddingIngestResponse>(ingestEmbeddingsEmbeddingsIngestPost(params))
-
-export const ingestEmbeddingsForDocs = (
-  ids: number[],
-  params: IngestDocumentsEmbeddingsIngestDocsPostParams,
-) => unwrap<EmbeddingIngestResponse>(ingestDocumentsEmbeddingsIngestDocsPost(ids, params))
-
 export const processMissing = (params?: ProcessMissingParams) =>
   unwrap<ProcessMissingResponse>(processMissingDocumentsProcessMissingPost(params))
 

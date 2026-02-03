@@ -452,12 +452,15 @@
           Processing options
         </div>
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
-          <label
+          <div
             class="flex flex-col gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2"
           >
-            Max documents to process
+            <label for="batch-index" class="text-xs font-medium text-slate-700 dark:text-slate-200">
+              Max documents to process
+            </label>
             <div class="flex items-center gap-3">
               <input
+                id="batch-index"
                 v-model.number="batchIndex"
                 type="range"
                 :min="0"
@@ -474,7 +477,7 @@
             <span class="text-[11px] text-slate-400 dark:text-slate-500">
               Use a smaller batch if your Ollama server is not always online.
             </span>
-          </label>
+          </div>
           <label
             class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
           >

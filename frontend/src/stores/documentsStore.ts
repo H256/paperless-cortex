@@ -7,8 +7,6 @@ import {
   getStats,
   getSyncStatus,
   getTags,
-  ingestEmbeddings,
-  ingestEmbeddingsForDocs,
   listDocuments,
   deleteEmbeddings,
   deleteSuggestions,
@@ -17,7 +15,6 @@ import {
   processMissing,
   resetIntelligence,
   syncDocuments,
-  syncDocument,
 } from '../services/documents'
 import type {
   DocumentRow,
