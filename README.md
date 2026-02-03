@@ -59,6 +59,23 @@ You need to start three components:
 
 The frontend will be available at `http://localhost:5173`.
 
+## Docker (compose)
+
+### App-only (frontend + backend in one container)
+Builds the frontend inside the container and serves it from the backend.
+```bash
+docker compose -f docker-compose.app.yml up --build
+```
+
+### Full stack (includes Postgres, Redis, Qdrant, Ollama)
+```bash
+docker compose -f docker-compose.full.yml up --build
+```
+
+Notes:
+- Update `.env` with Paperless + token settings.
+- Full stack uses local service URLs for DB/Redis/Qdrant/Ollama; adjust as needed.
+
 ## Concise flow
 1) **Sync metadata + OCR**  
    The backend pulls document metadata and the Paperless OCR text via API and stores them in Postgres.
