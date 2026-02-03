@@ -157,6 +157,63 @@
       </div>
     </section>
 
+    <section class="mt-6 grid gap-4 md:grid-cols-2">
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          Sync correspondents
+        </h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Pulls the full correspondent list from Paperless into the local cache.
+        </p>
+        <div class="mt-4 flex items-center gap-3">
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="correspondentsSyncLoading"
+            @click="syncCorrespondentsNow"
+          >
+            <span v-if="correspondentsSyncLoading" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Syncing...
+            </span>
+            <span v-else>Sync correspondents</span>
+          </button>
+          <div
+            v-if="correspondentsSyncResult"
+            class="text-xs text-slate-500 dark:text-slate-400"
+          >
+            Upserted {{ correspondentsSyncResult.upserted }} / {{ correspondentsSyncResult.count }}
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Sync tags</h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Pulls the full tag list from Paperless into the local cache.
+        </p>
+        <div class="mt-4 flex items-center gap-3">
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="tagsSyncLoading"
+            @click="syncTagsNow"
+          >
+            <span v-if="tagsSyncLoading" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Syncing...
+            </span>
+            <span v-else>Sync tags</span>
+          </button>
+          <div v-if="tagsSyncResult" class="text-xs text-slate-500 dark:text-slate-400">
+            Upserted {{ tagsSyncResult.upserted }} / {{ tagsSyncResult.count }}
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section
       class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
@@ -409,11 +466,13 @@ import { computed, onMounted, ref } from 'vue'
 import { RefreshCcw, Loader2 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useDocumentsStore } from '../stores/documentsStore'
-import { clearIntelligence } from '../services/documents'
+import { clearIntelligence, syncCorrespondents, syncTags } from '../services/documents'
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
+import { useQueueStore } from '../stores/queueStore'
 
 const documentsStore = useDocumentsStore()
+const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const toastStore = useToastStore()
 
@@ -473,6 +532,11 @@ const clearAllResult = ref<{
   qdrant_errors: number
 } | null>(null)
 
+const correspondentsSyncLoading = ref(false)
+const tagsSyncLoading = ref(false)
+const correspondentsSyncResult = ref<{ count: number; upserted: number } | null>(null)
+const tagsSyncResult = ref<{ count: number; upserted: number } | null>(null)
+
 const openReprocessModal = () => {
   showReprocessModal.value = true
 }
@@ -502,6 +566,10 @@ const confirmVision = async () => {
   try {
     const result = await documentsStore.removeVisionOcr()
     visionResult.value = { deleted: result.deleted ?? 0 }
+    toastStore.push('Vision OCR removed', 'success', 'Completed')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to remove vision OCR'
+    toastStore.push(message, 'danger', 'Error')
   } finally {
     visionLoading.value = false
   }
@@ -515,6 +583,10 @@ const confirmSuggestions = async () => {
   try {
     const result = await documentsStore.removeSuggestions()
     suggestionsResult.value = { deleted: result.deleted ?? 0 }
+    toastStore.push('Suggestions removed', 'success', 'Completed')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to remove suggestions'
+    toastStore.push(message, 'danger', 'Error')
   } finally {
     suggestionsLoading.value = false
   }
@@ -534,8 +606,42 @@ const confirmEmbeddings = async () => {
       qdrant_deleted: result.qdrant_deleted ?? 0,
       qdrant_errors: result.qdrant_errors ?? 0,
     }
+    toastStore.push('Embeddings removed', 'success', 'Completed')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to remove embeddings'
+    toastStore.push(message, 'danger', 'Error')
   } finally {
     embeddingsLoading.value = false
+  }
+}
+
+const syncCorrespondentsNow = async () => {
+  correspondentsSyncLoading.value = true
+  correspondentsSyncResult.value = null
+  try {
+    const result = await syncCorrespondents()
+    correspondentsSyncResult.value = {
+      count: result.count ?? 0,
+      upserted: result.upserted ?? 0,
+    }
+    toastStore.push('Correspondents synced', 'success', 'Sync complete')
+  } finally {
+    correspondentsSyncLoading.value = false
+  }
+}
+
+const syncTagsNow = async () => {
+  tagsSyncLoading.value = true
+  tagsSyncResult.value = null
+  try {
+    const result = await syncTags()
+    tagsSyncResult.value = {
+      count: result.count ?? 0,
+      upserted: result.upserted ?? 0,
+    }
+    toastStore.push('Tags synced', 'success', 'Sync complete')
+  } finally {
+    tagsSyncLoading.value = false
   }
 }
 
@@ -580,6 +686,10 @@ const confirmClearAll = async () => {
       qdrant_errors: result.qdrant_errors ?? 0,
     }
     showClearAllModal.value = false
+    toastStore.push('Local data wiped', 'success', 'Completed')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to wipe local data'
+    toastStore.push(message, 'danger', 'Error')
   } finally {
     clearAllLoading.value = false
   }

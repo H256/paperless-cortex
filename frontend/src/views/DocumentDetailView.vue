@@ -900,6 +900,9 @@ const applyToDocument = async (source: string, field: string, data: SuggestionDa
   if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || ''
   if (field === 'tags') value = data.tags || data.suggested_tags || []
   if (field === 'note') value = data.summary || ''
+  if (field === 'tags') {
+    if (!Array.isArray(value) || value.length === 0) return
+  }
   if (value === null || value === undefined || value === '') return
   const label = typeof value === 'string' ? value : JSON.stringify(value)
   const ok = window.confirm(`Apply ${field} to document: ${label}?`)
