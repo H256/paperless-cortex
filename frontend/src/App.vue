@@ -8,16 +8,16 @@
         </div>
         <div class="flex items-center gap-4">
           <nav class="flex items-center gap-2 text-sm font-medium">
-            <RouterLink to="/documents" v-slot="{ isActive }">
-              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
-                <FileText class="h-4 w-4" />
-                Documents
-              </span>
-            </RouterLink>
             <RouterLink to="/dashboard" v-slot="{ isActive }">
               <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
                 <ChartPie class="h-4 w-4" />
                 Dashboard
+              </span>
+            </RouterLink>
+            <RouterLink to="/documents" v-slot="{ isActive }">
+              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
+                <FileText class="h-4 w-4" />
+                Documents
               </span>
             </RouterLink>
             <RouterLink to="/search" v-slot="{ isActive }">
@@ -26,16 +26,16 @@
                 Search
               </span>
             </RouterLink>
-            <RouterLink to="/queue" v-slot="{ isActive }">
-              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
-                <List class="h-4 w-4" />
-                Queue
-              </span>
-            </RouterLink>
             <RouterLink to="/chat" v-slot="{ isActive }">
               <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
                 <MessageCircle class="h-4 w-4" />
                 Chat
+              </span>
+            </RouterLink>
+            <RouterLink to="/queue" v-slot="{ isActive }">
+              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
+                <List class="h-4 w-4" />
+                Queue
               </span>
             </RouterLink>
             <RouterLink to="/operations" v-slot="{ isActive }">
