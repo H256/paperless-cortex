@@ -21,15 +21,15 @@
         </div>
 
       <template v-else>
-        <div class="mb-8 flex items-center justify-center">
-          <img
-            src="/cortex_image_transparent.png"
-            alt="Paperless-NGX Cortex"
-            class="h-24 w-auto object-contain opacity-90"
-          />
-        </div>
         <div class="grid gap-4 lg:grid-cols-6">
           <div class="lg:col-span-4">
+            <div class="mb-6 flex items-center justify-start">
+              <img
+                src="/cortex_image_transparent.png"
+                alt="Paperless-NGX Cortex"
+                class="h-24 w-auto object-contain opacity-90"
+              />
+            </div>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Documents</div>
