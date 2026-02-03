@@ -184,6 +184,26 @@ class DocumentStatsResponse(BaseModel):
     fully_processed: int
 
 
+class DashboardCount(BaseModel):
+    id: Optional[int] = None
+    name: str
+    count: int
+
+
+class PageCountBucket(BaseModel):
+    label: str
+    count: int
+
+
+class DocumentDashboardResponse(BaseModel):
+    stats: DocumentStatsResponse
+    correspondents: list[DashboardCount] = []
+    top_correspondents: list[DashboardCount] = []
+    tags: list[DashboardCount] = []
+    top_tags: list[DashboardCount] = []
+    page_counts: list[PageCountBucket] = []
+
+
 class TextQualityMetrics(BaseModel):
     score: float
     reasons: list[str] = []

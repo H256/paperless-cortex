@@ -169,6 +169,27 @@
         }
       }
     },
+    "/documents/dashboard": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_documents_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDashboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}": {
       "get": {
         "tags": [
@@ -2743,6 +2764,35 @@
         "type": "object",
         "title": "CorrespondentsPageResponse"
       },
+      "DashboardCount": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "DashboardCount"
+      },
       "DeleteEmbeddingsResponse": {
         "properties": {
           "deleted": {
@@ -2791,6 +2841,58 @@
           "deleted"
         ],
         "title": "DeleteVisionOcrResponse"
+      },
+      "DocumentDashboardResponse": {
+        "properties": {
+          "stats": {
+            "$ref": "#/components/schemas/DocumentStatsResponse"
+          },
+          "correspondents": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Correspondents",
+            "default": []
+          },
+          "top_correspondents": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Top Correspondents",
+            "default": []
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "top_tags": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Top Tags",
+            "default": []
+          },
+          "page_counts": {
+            "items": {
+              "$ref": "#/components/schemas/PageCountBucket"
+            },
+            "type": "array",
+            "title": "Page Counts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "stats"
+        ],
+        "title": "DocumentDashboardResponse"
       },
       "DocumentLocalResponse": {
         "properties": {
@@ -3624,6 +3726,24 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "PageCountBucket": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "PageCountBucket"
       },
       "PageTextOut": {
         "properties": {

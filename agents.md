@@ -459,3 +459,4 @@ All model names must be configurable via environment variables.
 - UX: local overrides shown, badges + tooltips, suggestion metadata surfaced.
 - Queue: ETA display, last run timestamp, reset counters when idle.
 - Processing: Vision OCR enqueue order prefers shorter documents first (page_count).
+- Feature: Added Dashboard page with document stats, tags/correspondents breakdown, and page count distribution.

@@ -14,6 +14,12 @@
                 Documents
               </span>
             </RouterLink>
+            <RouterLink to="/dashboard" v-slot="{ isActive }">
+              <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
+                <ChartPie class="h-4 w-4" />
+                Dashboard
+              </span>
+            </RouterLink>
             <RouterLink to="/search" v-slot="{ isActive }">
               <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1', isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white']">
                 <Search class="h-4 w-4" />
@@ -122,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next';
+import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import StatusLight from './components/StatusLight.vue';
 import ToastHost from './components/ToastHost.vue';

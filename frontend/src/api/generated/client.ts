@@ -16,6 +16,7 @@ import type {
   DeleteEmbeddingsResponse,
   DeleteSuggestionsResponse,
   DeleteVisionOcrResponse,
+  DocumentDashboardResponse,
   DocumentLocalResponse,
   DocumentStatsResponse,
   DocumentTextQualityResponse,
@@ -167,6 +168,48 @@ export const getDocumentStatsDocumentsStatsGet = async ( options?: RequestInit):
   
   const data: getDocumentStatsDocumentsStatsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentStatsDocumentsStatsGetResponse
+}
+
+
+
+/**
+ * @summary Get Dashboard
+ */
+export type getDashboardDocumentsDashboardGetResponse200 = {
+  data: DocumentDashboardResponse
+  status: 200
+}
+    
+export type getDashboardDocumentsDashboardGetResponseSuccess = (getDashboardDocumentsDashboardGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getDashboardDocumentsDashboardGetResponse = (getDashboardDocumentsDashboardGetResponseSuccess)
+
+export const getGetDashboardDocumentsDashboardGetUrl = () => {
+
+
+  
+
+  return `/api/documents/dashboard`
+}
+
+export const getDashboardDocumentsDashboardGet = async ( options?: RequestInit): Promise<getDashboardDocumentsDashboardGetResponse> => {
+  
+  const res = await fetch(getGetDashboardDocumentsDashboardGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDashboardDocumentsDashboardGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDashboardDocumentsDashboardGetResponse
 }
 
 

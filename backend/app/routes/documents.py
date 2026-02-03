@@ -42,6 +42,7 @@ from app.api_models import (
     ApplySuggestionResponse,
     DocumentLocalResponse,
     DocumentStatsResponse,
+    DocumentDashboardResponse,
     DocumentSummary,
     DocumentsPageResponse,
     DocumentTextQualityResponse,
@@ -222,6 +223,85 @@ def get_document_stats(db: Session = Depends(get_db)):
         "vision": vision,
         "suggestions": suggestions,
         "fully_processed": fully_processed,
+    }
+
+
+@router.get("/dashboard", response_model=DocumentDashboardResponse)
+def get_dashboard(db: Session = Depends(get_db)):
+    stats = get_document_stats(db)
+
+    correspondents_rows = (
+        db.query(Correspondent.id, Correspondent.name, func.count(Document.id))
+        .join(Document, Document.correspondent_id == Correspondent.id)
+        .group_by(Correspondent.id)
+        .order_by(func.count(Document.id).desc(), Correspondent.name.asc())
+        .all()
+    )
+    unassigned_count = db.query(Document.id).filter(Document.correspondent_id.is_(None)).count()
+    correspondents = [
+        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        for row in correspondents_rows
+    ]
+    if unassigned_count:
+        correspondents.append({"id": None, "name": "Ohne Korrespondent", "count": unassigned_count})
+    correspondents.sort(key=lambda item: item["count"], reverse=True)
+    top_correspondents = correspondents[:8]
+
+    tag_rows = (
+        db.query(Tag.id, Tag.name, func.count(document_tags.c.document_id))
+        .join(document_tags, Tag.id == document_tags.c.tag_id)
+        .group_by(Tag.id)
+        .order_by(func.count(document_tags.c.document_id).desc(), Tag.name.asc())
+        .all()
+    )
+    untagged_count = (
+        db.query(Document.id)
+        .filter(~exists().where(document_tags.c.document_id == Document.id))
+        .count()
+    )
+    tags = [{"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]} for row in tag_rows]
+    if untagged_count:
+        tags.append({"id": None, "name": "Ohne Tags", "count": untagged_count})
+    tags.sort(key=lambda item: item["count"], reverse=True)
+    top_tags = tags[:8]
+
+    buckets = {
+        "1": 0,
+        "2-3": 0,
+        "4-6": 0,
+        "7-10": 0,
+        "11-20": 0,
+        "21-50": 0,
+        "51+": 0,
+        "Unbekannt": 0,
+    }
+    for (page_count,) in db.query(Document.page_count).all():
+        if page_count is None or page_count < 1:
+            buckets["Unbekannt"] += 1
+        elif page_count == 1:
+            buckets["1"] += 1
+        elif page_count <= 3:
+            buckets["2-3"] += 1
+        elif page_count <= 6:
+            buckets["4-6"] += 1
+        elif page_count <= 10:
+            buckets["7-10"] += 1
+        elif page_count <= 20:
+            buckets["11-20"] += 1
+        elif page_count <= 50:
+            buckets["21-50"] += 1
+        else:
+            buckets["51+"] += 1
+
+    page_counts = [{"label": label, "count": count} for label, count in buckets.items()]
+
+    return {
+        "stats": stats,
+        "correspondents": correspondents,
+        "top_correspondents": top_correspondents,
+        "tags": tags,
+        "top_tags": top_tags,
+        "page_counts": page_counts,
     }
 
 
