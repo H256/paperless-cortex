@@ -342,14 +342,18 @@
             </button>
             <button
               class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-              :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || syncStatus.status === 'running'"
+              :class="{
+                'cursor-not-allowed opacity-60':
+                  documentsStore.processPreviewLoading || processStartLoading || syncing || isSyncingNow,
+              }"
+              :disabled="documentsStore.processPreviewLoading || processStartLoading || syncing || isSyncingNow"
               @click="startFromPreview"
             >
               <span v-if="processStartLoading" class="inline-flex items-center gap-2">
                 <Loader2 class="h-4 w-4 animate-spin" />
                 Enqueuing...
               </span>
-              <span v-else-if="syncStatus.status === 'running'">Syncing…</span>
+              <span v-else-if="isSyncingNow">Syncing…</span>
               <span v-else>Start processing</span>
             </button>
           </template>
@@ -445,6 +449,7 @@ const startPolling = () => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
 const isProcessing = computed(() => syncStatus.value.status === 'running' || embedStatus.value.status === 'running');
+const isSyncingNow = computed(() => syncStatus.value.status === 'running');
 const hasQueuedWork = computed(() => {
   if (!queueStatus.value.enabled) return false;
   return (queueStatus.value.length ?? 0) > 0 || (queueStatus.value.in_progress ?? 0) > 0;
