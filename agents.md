@@ -263,6 +263,7 @@ All model names must be configurable via environment variables.
 - Antwortformat dynamisch anhand der Frage (Text, Vergleich, Kurz-Timeline).
 - Quellen immer mit Doc-ID + Seitenangabe ausgeben (ohne persistente Tabellen).
 - Phase 2 (optional): Evidence-Locator mit Vision-OCR-Text + BBox-Highlighting.
+- Phase 2a (MVP, on-the-fly): Für zitierte Seiten Layout-OCR on-demand ausführen, Snippet matchen, BBox aggregieren, sonst fallback auf Doc-ID + Seite.
 
 ## Roadmap (short)
 - Client refactor: extract logic from `views/*.vue` into composables/stores and shared components.
