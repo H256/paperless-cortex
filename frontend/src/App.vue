@@ -6,7 +6,7 @@
           <img
             src="/cortex_image_transparent.png"
             alt="Paperless-NGX Cortex"
-            class="h-6 w-6 object-contain"
+            class="h-10 w-10 object-contain"
           />
         </div>
         <div class="flex items-center gap-4">
