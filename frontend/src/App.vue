@@ -3,8 +3,8 @@
     <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div>
-          <h1 class="text-lg font-semibold tracking-tight">Paperless Intelligence</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Arcane - read-only intelligence layer</p>
+          <h1 class="text-lg font-semibold tracking-tight">Paperless-NGX Cortex</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
         <div class="flex items-center gap-4">
           <nav class="flex items-center gap-2 text-sm font-medium">
