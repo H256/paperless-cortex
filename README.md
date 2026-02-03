@@ -1,4 +1,4 @@
-# Paperless Intelligence (Arcane)
+# Paperless-NGX Cortex
 
 ## Getting Started
 
