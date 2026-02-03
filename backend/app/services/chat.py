@@ -106,7 +106,7 @@ def answer_question(
     min_quality: int | None = None,
     history: list[dict[str, str]] | None = None,
     stream: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
     if not settings.ollama_base_url or not settings.ollama_model:
         raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
     if not settings.qdrant_url or not settings.qdrant_collection:

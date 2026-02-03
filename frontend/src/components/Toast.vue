@@ -20,6 +20,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+defineOptions({ name: 'AppToast' })
+
 type Tone = 'info' | 'success' | 'warning' | 'danger'
 
 const props = withDefaults(

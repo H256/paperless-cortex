@@ -25,6 +25,8 @@ import type {
   Correspondent,
   ProcessMissingParams,
 } from '../services/documents'
+import type { SyncDocumentsSyncDocumentsPostParams } from '@/api/generated/model'
+import { toOptionalNumber } from '../utils/number'
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
@@ -88,8 +90,8 @@ export const useDocumentsStore = defineStore('documents', {
         page,
         page_size: pageSize,
         ordering,
-        correspondent__id: selectedCorrespondent || undefined,
-        tags__id: selectedTag || undefined,
+        correspondent__id: toOptionalNumber(selectedCorrespondent),
+        tags__id: toOptionalNumber(selectedTag),
         document_date__gte: dateFrom || undefined,
         document_date__lte: dateTo || undefined,
         include_derived: true,
@@ -188,13 +190,13 @@ export const useDocumentsStore = defineStore('documents', {
       try {
         const preview = await processMissing({ dry_run: true, ...options })
         this.processPreview = {
-          docs: preview.docs,
-          missing_docs: preview.missing_docs,
-          missing_vision_ocr: preview.missing_vision_ocr,
-          missing_embeddings: preview.missing_embeddings,
-          missing_embeddings_vision: preview.missing_embeddings_vision,
-          missing_suggestions_paperless: preview.missing_suggestions_paperless,
-          missing_suggestions_vision: preview.missing_suggestions_vision,
+          docs: preview.docs ?? undefined,
+          missing_docs: preview.missing_docs ?? undefined,
+          missing_vision_ocr: preview.missing_vision_ocr ?? undefined,
+          missing_embeddings: preview.missing_embeddings ?? undefined,
+          missing_embeddings_vision: preview.missing_embeddings_vision ?? undefined,
+          missing_suggestions_paperless: preview.missing_suggestions_paperless ?? undefined,
+          missing_suggestions_vision: preview.missing_suggestions_vision ?? undefined,
         }
       } finally {
         this.processPreviewLoading = false
@@ -222,7 +224,7 @@ export const useDocumentsStore = defineStore('documents', {
     async reprocessAll() {
       this.syncing = true
       try {
-        await syncDocuments({
+        const params: SyncDocumentsSyncDocumentsPostParams = {
           page_size: 200,
           incremental: false,
           page: 1,
@@ -230,7 +232,8 @@ export const useDocumentsStore = defineStore('documents', {
           embed: false,
           force_embed: false,
           mark_missing: true,
-        } as any)
+        }
+        await syncDocuments(params)
         await resetIntelligence()
         await processMissing()
         await this.fetchSyncStatus()

@@ -93,6 +93,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 type BBox = [number, number, number, number]
 
+const errorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message || fallback
+  if (typeof err === 'string') return err || fallback
+  return fallback
+}
+
 const props = defineProps<{
   pdfUrl: string
   page?: number
@@ -176,8 +182,8 @@ const loadPdf = async () => {
     emit('loaded', pageCount.value)
     pageInput.value = displayPage.value
     scheduleRender(displayPage.value)
-  } catch (err: any) {
-    error.value = err?.message ?? 'Failed to load PDF.'
+  } catch (err: unknown) {
+    error.value = errorMessage(err, 'Failed to load PDF.')
   } finally {
     loading.value = false
   }
@@ -204,8 +210,8 @@ const renderPage = async (pageNumber: number) => {
   let page: PDFPageProxy
   try {
     page = await pdfDoc.value.getPage(pageNumber)
-  } catch (err: any) {
-    error.value = err?.message ?? 'Failed to render page.'
+  } catch (err: unknown) {
+    error.value = errorMessage(err, 'Failed to render page.')
     return
   }
   const baseViewport = page.getViewport({ scale: 1 })
@@ -230,9 +236,9 @@ const renderPage = async (pageNumber: number) => {
   renderTask.value = task
   try {
     await task.promise
-  } catch (err: any) {
-    if (err?.name !== 'RenderingCancelledException') {
-      error.value = err?.message ?? 'Failed to render page.'
+  } catch (err: unknown) {
+    if (!(err instanceof Error && err.name === 'RenderingCancelledException')) {
+      error.value = errorMessage(err, 'Failed to render page.')
     }
   } finally {
     if (renderTask.value === task) {

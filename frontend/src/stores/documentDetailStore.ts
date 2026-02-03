@@ -18,6 +18,39 @@ import {
   suggestFieldVariants,
   syncDocument,
 } from '../services/documents'
+import type {TextQualityMetrics} from "@/api/generated/model";
+
+type SuggestionPayload = Record<string, unknown>
+type SuggestionsState = {
+  paperless_ocr?: SuggestionPayload
+  vision_ocr?: SuggestionPayload
+  best_pick?: SuggestionPayload
+  suggestions_meta?: Record<string, unknown>
+}
+
+const errorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message || fallback
+  if (typeof err === 'string') return err || fallback
+  return fallback
+}
+
+const extractVariants = (data: unknown): unknown[] => {
+  if (!data || typeof data !== 'object') return []
+  const root = data as { variants?: unknown }
+  const variantsContainer = root.variants
+  if (!variantsContainer || typeof variantsContainer !== 'object') return []
+  const parsed = (variantsContainer as { parsed?: { variants?: unknown[] } }).parsed
+  if (Array.isArray(parsed?.variants)) return parsed.variants
+  const direct = (variantsContainer as { variants?: unknown[] }).variants
+  if (Array.isArray(direct)) return direct
+  return []
+}
+
+const isQueued = (data: unknown) =>
+  typeof data === 'object' &&
+  data !== null &&
+  'queued' in data &&
+  Boolean((data as { queued?: boolean }).queued)
 
 export const useDocumentDetailStore = defineStore('documentDetail', {
   state: () => ({
@@ -30,17 +63,13 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
     pageTexts: [] as PageText[],
     pageTextsLoading: false,
     pageTextsError: '',
-    contentQuality: null as {
-      score: number
-      reasons: string[]
-      metrics: Record<string, number>
-    } | null,
+    contentQuality: null as TextQualityMetrics | null,
     contentQualityLoading: false,
     contentQualityError: '',
-    suggestions: null as { paperless_ocr?: any; vision_ocr?: any; best_pick?: any } | null,
+    suggestions: null as SuggestionsState | null,
     suggestionsLoading: false,
     suggestionsError: '',
-    suggestionVariants: {} as Record<string, any[]>,
+    suggestionVariants: {} as Record<string, unknown[]>,
     suggestionVariantLoading: {} as Record<string, boolean>,
     suggestionVariantError: {} as Record<string, string>,
   }),
@@ -91,8 +120,8 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       try {
         const data = await getPageTexts(id, priority)
         this.pageTexts = data.pages ?? []
-      } catch (err: any) {
-        this.pageTextsError = err?.message ?? 'Failed to load page texts'
+      } catch (err: unknown) {
+        this.pageTextsError = errorMessage(err, 'Failed to load page texts')
       } finally {
         this.pageTextsLoading = false
       }
@@ -103,8 +132,8 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       try {
         const data = await getTextQuality(id, priority)
         this.contentQuality = data.quality ?? null
-      } catch (err: any) {
-        this.contentQualityError = err?.message ?? 'Failed to load text quality'
+      } catch (err: unknown) {
+        this.contentQualityError = errorMessage(err, 'Failed to load text quality')
       } finally {
         this.contentQualityLoading = false
       }
@@ -114,11 +143,12 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       this.suggestionsError = ''
       try {
         const data = await getSuggestions(id)
+        const meta = (data as { suggestions_meta?: Record<string, unknown> }).suggestions_meta
         this.suggestions = data.suggestions
-          ? { ...data.suggestions, suggestions_meta: (data as any).suggestions_meta }
+          ? { ...data.suggestions, suggestions_meta: meta }
           : null
-      } catch (err: any) {
-        this.suggestionsError = err?.message ?? 'Failed to load suggestions'
+      } catch (err: unknown) {
+        this.suggestionsError = errorMessage(err, 'Failed to load suggestions')
       } finally {
         this.suggestionsLoading = false
       }
@@ -128,11 +158,12 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       this.suggestionsError = ''
       try {
         const data = await getSuggestions(id, { source, refresh: true, priority: true })
+        const meta = (data as { suggestions_meta?: Record<string, unknown> }).suggestions_meta
         this.suggestions = data.suggestions
-          ? { ...data.suggestions, suggestions_meta: (data as any).suggestions_meta }
+          ? { ...data.suggestions, suggestions_meta: meta }
           : null
-      } catch (err: any) {
-        this.suggestionsError = err?.message ?? 'Failed to refresh suggestions'
+      } catch (err: unknown) {
+        this.suggestionsError = errorMessage(err, 'Failed to refresh suggestions')
       } finally {
         this.suggestionsLoading = false
       }
@@ -143,17 +174,16 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       this.suggestionVariantError = { ...this.suggestionVariantError, [key]: '' }
       try {
         const data = await suggestFieldVariants(id, { source, field, count: 3 }, true)
-        const variants =
-          (data as any)?.variants?.parsed?.variants || (data as any)?.variants?.variants || []
-        if (Array.isArray(variants) && variants.length) {
+        const variants = extractVariants(data)
+        if (variants.length) {
           this.suggestionVariants = { ...this.suggestionVariants, [key]: variants }
-        } else if ((data as any)?.queued) {
+        } else if (isQueued(data)) {
           await this.pollVariants(id, source, field)
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         this.suggestionVariantError = {
           ...this.suggestionVariantError,
-          [key]: err?.message ?? 'Failed to generate variants',
+          [key]: errorMessage(err, 'Failed to generate variants'),
         }
       } finally {
         this.suggestionVariantLoading = { ...this.suggestionVariantLoading, [key]: false }
@@ -169,10 +199,10 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
             this.suggestionVariants = { ...this.suggestionVariants, [key]: data.variants }
             return
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           this.suggestionVariantError = {
             ...this.suggestionVariantError,
-            [key]: err?.message ?? 'Failed to fetch variants',
+            [key]: errorMessage(err, 'Failed to fetch variants'),
           }
           return
         }
@@ -182,22 +212,23 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       id: number,
       source: 'paperless_ocr' | 'vision_ocr',
       field: string,
-      value: any,
+      value: unknown,
     ) {
       this.suggestionsLoading = true
       this.suggestionsError = ''
       try {
         const data = await applyFieldSuggestion(id, { source, field, value })
-        if ((data as any)?.suggestions) {
-          this.suggestions = { ...this.suggestions, ...(data as any).suggestions }
+        const suggestions = (data as { suggestions?: SuggestionsState }).suggestions
+        if (suggestions) {
+          this.suggestions = { ...this.suggestions, ...suggestions }
         }
-      } catch (err: any) {
-        this.suggestionsError = err?.message ?? 'Failed to apply suggestion'
+      } catch (err: unknown) {
+        this.suggestionsError = errorMessage(err, 'Failed to apply suggestion')
       } finally {
         this.suggestionsLoading = false
       }
     },
-    async applyToDocument(id: number, payload: { source?: string; field: string; value: any }) {
+    async applyToDocument(id: number, payload: { source?: string; field: string; value: unknown }) {
       await applySuggestionToDocument(id, payload)
     },
   },

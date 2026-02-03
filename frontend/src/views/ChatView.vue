@@ -205,6 +205,7 @@ import { RouterLink } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChatStore, ChatMessage } from '../stores/chatStore'
+import type { ChatCitation } from '../services/chat'
 import { useLoading } from '../composables/useLoading'
 
 const chatStore = useChatStore()
@@ -226,7 +227,7 @@ const encodeBBox = (bbox: unknown) => {
   return nums.map((value) => value.toFixed(5)).join(',')
 }
 
-const citationLink = (citation: any) => {
+const citationLink = (citation: ChatCitation) => {
   if (!citation?.doc_id) return ''
   const params = new URLSearchParams()
   if (citation.page) params.set('page', String(citation.page))

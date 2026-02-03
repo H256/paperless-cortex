@@ -41,8 +41,8 @@ export const useSearchStore = defineStore('search', {
           min_quality: this.minQuality || undefined,
         })
         this.results = data.matches ?? []
-      } catch (err: any) {
-        this.error = err?.message ?? 'Search failed'
+      } catch (err: unknown) {
+        this.error = err instanceof Error ? err.message : 'Search failed'
       } finally {
         this.loading = false
       }

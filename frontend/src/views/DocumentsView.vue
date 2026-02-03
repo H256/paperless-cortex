@@ -579,7 +579,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref, reactive } from 'vue'
+import { computed, onMounted, watch, ref, reactive, type Component } from 'vue'
 import {
   CheckCircle,
   ChevronDown,
@@ -600,7 +600,7 @@ import { useDocumentsStore } from '../stores/documentsStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
-import { DocumentRow } from '../services/documents'
+import type {DocumentRow} from '../services/documents'
 
 const router = useRouter()
 const documentsStore = useDocumentsStore()
@@ -844,7 +844,7 @@ const hasDerived = (doc: DocumentRow) => {
 }
 
 const missingIcons = (doc: DocumentRow) => {
-  const items: { label: string; icon: any }[] = []
+  const items: { label: string; icon: Component }[] = []
   if (!doc.has_embeddings) items.push({ label: 'Embeddings', icon: Layers })
   if (!doc.has_vision_pages) items.push({ label: 'Vision OCR', icon: ScanText })
   if (!doc.has_suggestions_paperless)
