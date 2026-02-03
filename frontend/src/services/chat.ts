@@ -1,6 +1,6 @@
 import { unwrap } from '../api/orval'
 import { chatChatPost } from '../api/generated/client'
-import type { ChatCitation, ChatRequest, ChatResponse } from '../api/generated/model'
+import type { ChatCitation, ChatRequest, ChatResponse } from '@/api/generated/model'
 
 export type { ChatCitation, ChatResponse }
 

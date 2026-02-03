@@ -74,7 +74,7 @@ import type {
   SyncStatusResponse,
   TagResponse,
   TagsPageResponse,
-} from '../api/generated/model'
+} from '@/api/generated/model'
 
 export type DocumentRow = DocumentSummary
 export type DocumentDetail = DocumentLocalResponse

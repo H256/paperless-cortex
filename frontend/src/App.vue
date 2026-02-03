@@ -273,20 +273,12 @@ onMounted(() => {
   setInterval(queueStore.refreshStatus, 5000)
   setInterval(statusStore.refresh, 7000)
   window.addEventListener('app-error', onErrorEvent as EventListener)
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener('change', onMediaQueryChange)
-  } else {
-    mediaQuery.addListener(onMediaQueryChange)
-  }
+  mediaQuery.addEventListener('change', onMediaQueryChange)
 })
 
 onUnmounted(() => {
   window.removeEventListener('app-error', onErrorEvent as EventListener)
-  if (mediaQuery.removeEventListener) {
-    mediaQuery.removeEventListener('change', onMediaQueryChange)
-  } else {
-    mediaQuery.removeListener(onMediaQueryChange)
-  }
+  mediaQuery.removeEventListener('change', onMediaQueryChange)
 })
 
 watch(theme, (value) => {
