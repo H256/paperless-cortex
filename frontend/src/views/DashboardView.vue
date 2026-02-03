@@ -21,15 +21,15 @@
         </div>
 
       <template v-else>
+        <div class="mb-6 flex items-center justify-center">
+          <img
+            src="/cortex_image_transparent.png"
+            alt="Paperless-NGX Cortex"
+            class="h-16 w-auto object-contain opacity-90"
+          />
+        </div>
         <div class="grid gap-4 lg:grid-cols-6">
           <div class="lg:col-span-4">
-            <div class="mb-6 flex items-center justify-start lg:h-56">
-              <img
-                src="/cortex_image_transparent.png"
-                alt="Paperless-NGX Cortex"
-                class="h-full w-auto object-contain opacity-90"
-              />
-            </div>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Documents</div>
@@ -82,7 +82,7 @@
           </div>
 
           <div class="lg:col-span-2">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:h-56 flex flex-col justify-center">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Tags (top)</div>
               <div class="mt-4 flex items-center gap-6">
                 <div class="h-28 w-28 rounded-full" :style="donutStyle"></div>
