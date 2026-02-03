@@ -452,12 +452,15 @@
           Processing options
         </div>
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
-          <label
+          <div
             class="flex flex-col gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2"
           >
-            Max documents to process
+            <label for="batch-index" class="text-xs font-medium text-slate-700 dark:text-slate-200">
+              Max documents to process
+            </label>
             <div class="flex items-center gap-3">
               <input
+                id="batch-index"
                 v-model.number="batchIndex"
                 type="range"
                 :min="0"
@@ -474,7 +477,7 @@
             <span class="text-[11px] text-slate-400 dark:text-slate-500">
               Use a smaller batch if your Ollama server is not always online.
             </span>
-          </label>
+          </div>
           <label
             class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
           >
@@ -576,7 +579,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref, reactive } from 'vue'
+import { computed, onMounted, watch, ref, reactive, type Component } from 'vue'
 import {
   CheckCircle,
   ChevronDown,
@@ -597,7 +600,7 @@ import { useDocumentsStore } from '../stores/documentsStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
-import { DocumentRow } from '../services/documents'
+import type {DocumentRow} from '../services/documents'
 
 const router = useRouter()
 const documentsStore = useDocumentsStore()
@@ -751,10 +754,6 @@ const queueTotal = computed(() =>
     ? 0
     : Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value),
 )
-const queuePercent = computed(() => {
-  if (!queueTotal.value) return 0
-  return Math.min(100, Math.round((queueProcessed.value / queueTotal.value) * 100))
-})
 const queueEtaText = computed(() => {
   const lastRun = queueStatus.value.last_run_seconds ?? null
   if (!lastRun || !queueOutstanding.value) return '--'
@@ -845,7 +844,7 @@ const hasDerived = (doc: DocumentRow) => {
 }
 
 const missingIcons = (doc: DocumentRow) => {
-  const items: { label: string; icon: any }[] = []
+  const items: { label: string; icon: Component }[] = []
   if (!doc.has_embeddings) items.push({ label: 'Embeddings', icon: Layers })
   if (!doc.has_vision_pages) items.push({ label: 'Vision OCR', icon: ScanText })
   if (!doc.has_suggestions_paperless)
@@ -882,16 +881,6 @@ const fulfilledCount = (doc: DocumentRow) => {
   if (doc.has_vision_pages && doc.has_suggestions_vision) count += 1
   if (doc.local_cached) count += 1
   return count
-}
-
-const isFullyProcessed = (doc: DocumentRow) => {
-  const hasVision = Boolean(doc.has_vision_pages)
-  const hasEmbeddings = Boolean(doc.has_embeddings)
-  const hasSugP = Boolean(doc.has_suggestions_paperless)
-  const hasSugV = Boolean(doc.has_suggestions_vision)
-  if (!hasEmbeddings || !hasSugP) return false
-  return !(hasVision && !hasSugV);
-
 }
 
 const visibleDocuments = computed(() => {

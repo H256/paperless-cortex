@@ -434,6 +434,12 @@ const loading = ref(false)
 const error = ref('')
 const data = ref<DashboardPayload | null>(null)
 
+const errorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message || fallback
+  if (typeof err === 'string') return err || fallback
+  return fallback
+}
+
 const stats = computed(
   () =>
     data.value?.stats ?? {
@@ -534,8 +540,8 @@ const load = async () => {
   error.value = ''
   try {
     data.value = await getDashboard()
-  } catch (err: any) {
-    error.value = err?.message ?? 'Failed to load dashboard'
+  } catch (err: unknown) {
+    error.value = errorMessage(err, 'Failed to load dashboard')
   } finally {
     loading.value = false
   }

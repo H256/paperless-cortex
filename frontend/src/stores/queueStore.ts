@@ -40,8 +40,9 @@ export const useQueueStore = defineStore('queue', {
         this.peekLoading = true
         const data = await fetchQueuePeek(this.peekLimit)
         this.peekItems = data.items ?? []
-      } catch (err: any) {
-        this.error = err?.message ?? 'Failed to load queue items'
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to load queue items'
+        this.error = message || 'Failed to load queue items'
       } finally {
         this.peekLoading = false
       }

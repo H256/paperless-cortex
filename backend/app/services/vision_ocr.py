@@ -165,7 +165,7 @@ def ocr_pdf_pages(
     results: list[PageText] = []
     count = 0
     for page in iter_pdf_pages(pdf_bytes, page_numbers, max_dim=settings.vision_ocr_max_dim):
-        if settings.vision_ocr_max_pages > 0 and count >= settings.vision_ocr_max_pages:
+        if 0 < settings.vision_ocr_max_pages <= count:
             break
         text = _ollama_generate(settings, settings.vision_model, prompt, page.image_bytes)
         results.append(PageText(page=page.page_index + 1, text=text, source="vision_ocr"))

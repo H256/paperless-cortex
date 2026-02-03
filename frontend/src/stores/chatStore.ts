@@ -28,6 +28,15 @@ export interface ChatMessage {
   createdAt: number
 }
 
+const errorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message || fallback
+  if (typeof err === 'string') return err || fallback
+  return fallback
+}
+
+const isAbortError = (err: unknown) =>
+  err instanceof DOMException ? err.name === 'AbortError' : err instanceof Error && err.name === 'AbortError'
+
 export const useChatStore = defineStore('chat', {
   state: () => ({
     question: '',
@@ -115,9 +124,9 @@ export const useChatStore = defineStore('chat', {
           saveMessages(this.messages)
           this.question = ''
         }
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') {
-          this.error = err?.message ?? 'Chat failed'
+      } catch (err: unknown) {
+        if (!isAbortError(err)) {
+          this.error = errorMessage(err, 'Chat failed')
         }
       } finally {
         this.loading = false

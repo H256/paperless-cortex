@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Paperless Intelligence API",
+    "title": "Paperless-NGX Cortex API",
     "version": "0.1.0"
   },
   "paths": {
@@ -666,71 +666,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/PageTextsResponse"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/{doc_id}/page-preview": {
-      "get": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Get Document Page Preview",
-        "operationId": "get_document_page_preview_documents__doc_id__page_preview_get",
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Doc Id"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Page"
-            }
-          },
-          {
-            "name": "max_dim",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Max Dim"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },

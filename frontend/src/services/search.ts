@@ -1,6 +1,6 @@
 import { unwrap } from '../api/orval'
 import { searchEmbeddingsSearchGet } from '../api/generated/client'
-import type { EmbeddingSearchResponse, EmbeddingMatch } from '../api/generated/model'
+import type { EmbeddingSearchResponse, EmbeddingMatch } from '@/api/generated/model'
 
 export type SearchResult = EmbeddingMatch
 

@@ -45,6 +45,12 @@ type RequestOptions = {
   signal?: AbortSignal
 }
 
+const errorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message || fallback
+  if (typeof err === 'string') return err || fallback
+  return fallback
+}
+
 export const request = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
   const { method = 'GET', params, body, headers, signal } = options
   const url = buildUrl(path, params)
@@ -65,10 +71,10 @@ export const request = async <T>(path: string, options: RequestOptions = {}): Pr
   let response: Response
   try {
     response = await fetch(url, init)
-  } catch (err: any) {
-    const message = err?.message || 'Network error'
+  } catch (err: unknown) {
+    const message = errorMessage(err, 'Network error')
     window.dispatchEvent(new CustomEvent('app-error', { detail: { message, status: 0 } }))
-    throw err
+    throw err instanceof Error ? err : new Error(message)
   }
   if (!response.ok) {
     let message = response.statusText || 'Request failed'

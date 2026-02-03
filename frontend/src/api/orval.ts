@@ -11,7 +11,7 @@ export const unwrap = async <T>(promise: Promise<OrvalResponse<T>>): Promise<T> 
   if (res.status >= 200 && res.status < 300) {
     return res.data
   }
-  const detail = (res.data as any)?.detail
+  const detail = (res.data as { detail?: string } | null | undefined)?.detail
   const message = detail || `Request failed (${res.status})`
   notifyError(message, detail, res.status)
   throw new ApiError(message, res.status, detail)

@@ -748,10 +748,8 @@ const {
   correspondents,
   docTypes,
   pageTexts,
-  pageTextsLoading,
   pageTextsError,
   contentQuality,
-  contentQualityLoading,
   contentQualityError,
   suggestions,
   suggestionsLoading,
@@ -798,19 +796,32 @@ const paperlessUrl = computed(() =>
     : '',
 )
 
-const normalizeSuggestion = (input: any) => {
+type SuggestionData = Record<string, unknown>
+
+const errorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message || fallback
+  if (typeof err === 'string') return err || fallback
+  return fallback
+}
+
+const normalizeSuggestion = (input: unknown) => {
   if (!input || (typeof input === 'object' && Object.keys(input).length === 0)) {
     return null
   }
-  const raw = input.raw || null
-  const data = input.parsed || (raw ? null : input)
+  const raw = (input as { raw?: string | null }).raw || null
+  const parsed = (input as { parsed?: SuggestionData }).parsed
+  const data = parsed || (raw ? null : (input as SuggestionData))
   return { raw, data }
 }
 
 const paperlessSuggestion = computed(() => normalizeSuggestion(suggestions.value?.paperless_ocr))
 const visionSuggestion = computed(() => normalizeSuggestion(suggestions.value?.vision_ocr))
 const bestPickSuggestion = computed(() => normalizeSuggestion(suggestions.value?.best_pick))
-const suggestionsMeta = computed(() => (suggestions.value as any)?.suggestions_meta || {})
+const suggestionsMeta = computed(
+  () =>
+    (suggestions.value as { suggestions_meta?: Record<string, unknown> } | null)
+      ?.suggestions_meta || {},
+)
 const suggestionFields = [
   { key: 'title', label: 'Suggested title' },
   { key: 'date', label: 'Suggested date' },
@@ -831,16 +842,18 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const fieldValue = (data: any, field: string) => {
+const fieldValue = (data: SuggestionData, field: string) => {
   if (!data) return ''
-  if (field === 'title') return data.title || data.suggested_title
-  if (field === 'date') return data.date || data.suggested_document_date
-  if (field === 'correspondent') return data.correspondent || data.suggested_correspondent
-  if (field === 'tags') return data.tags || data.suggested_tags
-  return data[field]
+  const asString = (value: unknown) => (typeof value === 'string' ? value : '')
+  if (field === 'title') return asString(data.title) || asString(data.suggested_title)
+  if (field === 'date') return asString(data.date) || asString(data.suggested_document_date)
+  if (field === 'correspondent')
+    return asString(data.correspondent) || asString(data.suggested_correspondent)
+  if (field === 'tags') return (data.tags ?? data.suggested_tags) || ''
+  return data[field] ?? ''
 }
 
-const normalizedTags = (data: any): string[] => {
+const normalizedTags = (data: SuggestionData): string[] => {
   const raw = fieldValue(data, 'tags')
   if (!raw) return []
   if (Array.isArray(raw)) return raw.map((tag) => String(tag)).filter(Boolean)
@@ -868,16 +881,20 @@ const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: strin
   await documentStore.suggestField(id, source, field)
 }
 
-const applyVariant = async (source: 'paperless_ocr' | 'vision_ocr', field: string, value: any) => {
+const applyVariant = async (
+  source: 'paperless_ocr' | 'vision_ocr',
+  field: string,
+  value: unknown,
+) => {
   const label = typeof value === 'string' ? value : JSON.stringify(value)
   const ok = window.confirm(`Overwrite ${field} with: ${label}?`)
   if (!ok) return
   await documentStore.applyVariant(id, source, field, value)
 }
 
-const applyToDocument = async (source: string, field: string, data: any) => {
+const applyToDocument = async (source: string, field: string, data: SuggestionData | null) => {
   if (!data) return
-  let value: any = data[field]
+  let value: unknown = data[field]
   if (field === 'title') value = data.title || data.suggested_title || ''
   if (field === 'date') value = data.date || data.suggested_document_date || ''
   if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || ''
@@ -902,8 +919,8 @@ const applyToDocument = async (source: string, field: string, data: any) => {
     if (reloadQuality) {
       await loadContentQuality()
     }
-  } catch (err: any) {
-    suggestionsError.value = err?.message ?? 'Failed to apply suggestion to document'
+  } catch (err: unknown) {
+    suggestionsError.value = errorMessage(err, 'Failed to apply suggestion to document')
   }
 }
 

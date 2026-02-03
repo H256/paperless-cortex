@@ -115,11 +115,7 @@
             Doc {{ result.doc_id }} - Page {{ result.page ?? 'n/a' }} -
             {{ result.source || 'unknown' }} - Score
             {{ result.score?.toFixed ? result.score.toFixed(3) : result.score }} - Rerank
-            {{
-              (result as any).combined_score?.toFixed
-                ? (result as any).combined_score.toFixed(3)
-                : ((result as any).combined_score ?? 'n/a')
-            }}
+            {{ combinedScore(result) }}
             - Quality {{ result.quality_score }}
           </div>
           <div
@@ -166,6 +162,7 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
 import { computed } from 'vue'
+import type { SearchResult } from '../services/search'
 import { RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSearchStore } from '../stores/searchStore'
@@ -186,7 +183,14 @@ const encodeBBox = (bbox: unknown) => {
   return nums.map((value) => value.toFixed(5)).join(',')
 }
 
-const resultLink = (result: any) => {
+const combinedScore = (result: SearchResult) => {
+  const value = (result as { combined_score?: number }).combined_score
+  if (typeof value === 'number') return value.toFixed(3)
+  if (value === null || value === undefined) return 'n/a'
+  return String(value)
+}
+
+const resultLink = (result: SearchResult) => {
   if (!result?.doc_id) return ''
   const params = new URLSearchParams()
   if (result.page) params.set('page', String(result.page))
