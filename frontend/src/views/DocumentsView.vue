@@ -214,10 +214,7 @@
                 </a>
               </td>
               <td class="px-6 py-3">
-                <div
-                  class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap"
-                  :title="fulfilledTooltip(doc)"
-                >
+                <div class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
                   <template v-if="missingIcons(doc).length">
                     <div
                       v-for="item in missingIcons(doc)"
@@ -227,6 +224,13 @@
                     >
                       <component :is="item.icon" class="h-3 w-3 text-amber-500" />
                       <span class="sr-only">Missing {{ item.label }}</span>
+                    </div>
+                    <div
+                      v-if="fulfilledCount(doc) > 0"
+                      class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+                      :title="fulfilledTooltip(doc)"
+                    >
+                      +{{ fulfilledCount(doc) }}
                     </div>
                   </template>
                   <template v-else>
@@ -646,7 +650,6 @@ const missingIcons = (doc: DocumentRow) => {
   if (!doc.has_suggestions_paperless) items.push({ label: 'Suggestions (paperless)', icon: Lightbulb });
   if (doc.has_vision_pages && !doc.has_suggestions_vision) items.push({ label: 'Suggestions (vision)', icon: Eye });
   if (!doc.local_cached) items.push({ label: 'Local cache', icon: RefreshCw });
-  if (!doc.local_overrides) items.push({ label: 'Local overrides', icon: Pencil });
   return items;
 };
 
@@ -657,9 +660,18 @@ const fulfilledTooltip = (doc: DocumentRow) => {
   if (doc.has_suggestions_paperless) done.push('Suggestions (paperless)');
   if (doc.has_vision_pages && doc.has_suggestions_vision) done.push('Suggestions (vision)');
   if (doc.local_cached) done.push('Local cache');
-  if (doc.local_overrides) done.push('Local overrides');
   if (!done.length) return 'Nothing processed yet';
   return `Done: ${done.join(', ')}`;
+};
+
+const fulfilledCount = (doc: DocumentRow) => {
+  let count = 0;
+  if (doc.has_embeddings) count += 1;
+  if (doc.has_vision_pages) count += 1;
+  if (doc.has_suggestions_paperless) count += 1;
+  if (doc.has_vision_pages && doc.has_suggestions_vision) count += 1;
+  if (doc.local_cached) count += 1;
+  return count;
 };
 
 const isFullyProcessed = (doc: DocumentRow) => {
