@@ -883,6 +883,8 @@ def process_missing(
         doc_modified = _parse_iso(doc.modified) or _parse_iso(doc.created)
         embedding = embeddings.get(doc.id)
         embedded_at = _parse_iso(embedding.embedded_at) if embedding else None
+        embedding_source = embedding.embedding_source if embedding else None
+        has_vision_embedding = embedding_source == "vision"
         vision_updated_at = vision_latest.get(doc.id)
         has_vision = vision_updated_at is not None
 
@@ -894,10 +896,11 @@ def process_missing(
             prefer_vision_embeddings = False
         elif embeddings_mode == "vision":
             prefer_vision_embeddings = True
-            if not has_vision and not (include_vision_ocr and need_vision_ocr):
-                need_embeddings = False
+            need_embeddings = not has_vision_embedding
         else:
             prefer_vision_embeddings = settings.enable_vision_ocr and (has_vision or (include_vision_ocr and need_vision_ocr))
+            if prefer_vision_embeddings:
+                need_embeddings = not has_vision_embedding
 
         sugg_p = suggestions.get((doc.id, "paperless_ocr"))
         sugg_v = suggestions.get((doc.id, "vision_ocr"))
@@ -921,7 +924,7 @@ def process_missing(
                 task_type = "embeddings_vision" if prefer_vision_embeddings else "embeddings_paperless"
             tasks.append({"doc_id": doc.id, "task": task_type})
             missing_embeddings += 1
-            if embeddings_mode in ("vision", "auto"):
+            if task_type == "embeddings_vision":
                 missing_embeddings_vision += 1
             selected = True
         if include_suggestions_paperless and need_sugg_p:

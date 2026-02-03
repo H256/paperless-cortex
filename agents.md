@@ -309,3 +309,5 @@ All model names must be configurable via environment variables.
 - Fix: Continue-processing modal closes after enqueue and shows only a Close button once queued.
 - Feature: Continue-processing enqueue summary now appears as a toast after closing the modal.
 - Fix: Missing vision embeddings count now reflects auto/vision embedding modes.
+- Fix: Auto/vision embeddings now queued when vision OCR is missing to populate vision embeddings.
+- Fix: Track embedding source (paperless/vision) on embeddings and use it to compute missing vision embeddings (migration adds document_embeddings.embedding_source).
