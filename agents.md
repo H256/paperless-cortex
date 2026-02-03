@@ -461,3 +461,4 @@ All model names must be configurable via environment variables.
 - Processing: Vision OCR enqueue order prefers shorter documents first (page_count).
 - Feature: Added Dashboard page with document stats, tags/correspondents breakdown, and page count distribution.
 - Feature: Dashboard extended with monthly processing trend, document types, and unprocessed-by-correspondent charts.
+- UX: Dashboard extended section now supports 12/24/all month toggle with larger, report-style charts.

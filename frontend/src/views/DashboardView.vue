@@ -144,24 +144,53 @@
           </div>
         </div>
 
-        <div class="mt-8 rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+        <div class="mt-10 rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
           <div class="flex items-center justify-between">
             <div>
               <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Erweitert</div>
-              <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">Deep dive on processing and structure</div>
+              <div class="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">Deep dive on processing and structure</div>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 text-xs font-semibold text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <button
+                class="rounded-full px-3 py-1 transition"
+                :class="monthlyRange === '12' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''"
+                @click="monthlyRange = '12'"
+              >
+                12 Monate
+              </button>
+              <button
+                class="rounded-full px-3 py-1 transition"
+                :class="monthlyRange === '24' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''"
+                @click="monthlyRange = '24'"
+              >
+                24 Monate
+              </button>
+              <button
+                class="rounded-full px-3 py-1 transition"
+                :class="monthlyRange === 'all' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''"
+                @click="monthlyRange = 'all'"
+              >
+                Alle
+              </button>
             </div>
           </div>
 
-          <div class="mt-6 grid gap-6 lg:grid-cols-3">
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Monthly processing</div>
-              <div class="mt-4 flex items-end gap-2 overflow-x-auto pb-2">
+          <div class="mt-8 grid gap-6 lg:grid-cols-3">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div class="flex items-center justify-between">
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Monthly processing</div>
+                <div class="text-[11px] text-slate-400">processed vs. open</div>
+              </div>
+              <div class="mt-5 flex items-end gap-3 overflow-x-auto pb-2">
                 <div
-                  v-for="item in monthlyProcessing"
+                  v-for="item in monthlySeries"
                   :key="item.label"
-                  class="flex w-10 flex-shrink-0 flex-col items-center gap-2 text-[10px] text-slate-400"
+                  class="flex w-12 flex-shrink-0 flex-col items-center gap-2 text-[10px] text-slate-400"
                 >
-                  <div class="flex h-24 w-6 flex-col-reverse overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div
+                    class="flex h-28 w-7 flex-col-reverse overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+                    :title="`${item.label}: ${item.processed} processed / ${item.unprocessed} open`"
+                  >
                     <div
                       class="bg-emerald-400"
                       :style="{ height: (item.processed / monthlyMax) * 100 + '%' }"
@@ -178,7 +207,7 @@
               </div>
             </div>
 
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Unprocessed by correspondent</div>
               <div class="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
                 <div v-for="item in unprocessedByCorrespondent.slice(0, 8)" :key="item.name">
@@ -193,7 +222,7 @@
               </div>
             </div>
 
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Document types</div>
               <div class="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
                 <div v-for="item in docTypes.slice(0, 8)" :key="item.name">
@@ -260,6 +289,7 @@ const pageCounts = computed(() => data.value?.page_counts ?? []);
 const docTypes = computed(() => data.value?.document_types ?? []);
 const unprocessedByCorrespondent = computed(() => data.value?.unprocessed_by_correspondent ?? []);
 const monthlyProcessing = computed(() => data.value?.monthly_processing ?? []);
+const monthlyRange = ref<'12' | '24' | 'all'>('24');
 const tags = computed(() => data.value?.tags ?? []);
 const topTags = computed(() => data.value?.top_tags ?? []);
 
@@ -322,7 +352,13 @@ const barPercent = (value: number, max: number) => {
   return Math.round((value / max) * 100);
 };
 
-const monthlyMax = computed(() => Math.max(1, ...monthlyProcessing.value.map((item) => item.total)));
+const monthlySeries = computed(() => {
+  if (!monthlyProcessing.value.length) return [];
+  if (monthlyRange.value === 'all') return monthlyProcessing.value;
+  const windowSize = monthlyRange.value === '12' ? 12 : 24;
+  return monthlyProcessing.value.slice(-windowSize);
+});
+const monthlyMax = computed(() => Math.max(1, ...monthlySeries.value.map((item) => item.total)));
 const docTypeMax = computed(() => Math.max(1, ...docTypes.value.map((item) => item.count)));
 const unprocessedMax = computed(() => Math.max(1, ...unprocessedByCorrespondent.value.map((item) => item.count)));
 
