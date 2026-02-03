@@ -6,6 +6,7 @@
  */
 import type { DashboardCount } from './dashboardCount';
 import type { DocumentStatsResponse } from './documentStatsResponse';
+import type { MonthlyProcessingBucket } from './monthlyProcessingBucket';
 import type { PageCountBucket } from './pageCountBucket';
 
 export interface DocumentDashboardResponse {
@@ -15,4 +16,7 @@ export interface DocumentDashboardResponse {
   tags?: DashboardCount[];
   top_tags?: DashboardCount[];
   page_counts?: PageCountBucket[];
+  document_types?: DashboardCount[];
+  unprocessed_by_correspondent?: DashboardCount[];
+  monthly_processing?: MonthlyProcessingBucket[];
 }

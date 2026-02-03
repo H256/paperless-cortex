@@ -44,6 +44,7 @@ export * from './ingestEmbeddingsEmbeddingsIngestPostParams';
 export * from './listCorrespondentsCorrespondentsGetParams';
 export * from './listDocumentsDocumentsGetParams';
 export * from './listTagsTagsGetParams';
+export * from './monthlyProcessingBucket';
 export * from './pageCountBucket';
 export * from './pageTextOut';
 export * from './pageTextQuality';

@@ -460,3 +460,4 @@ All model names must be configurable via environment variables.
 - Queue: ETA display, last run timestamp, reset counters when idle.
 - Processing: Vision OCR enqueue order prefers shorter documents first (page_count).
 - Feature: Added Dashboard page with document stats, tags/correspondents breakdown, and page count distribution.
+- Feature: Dashboard extended with monthly processing trend, document types, and unprocessed-by-correspondent charts.

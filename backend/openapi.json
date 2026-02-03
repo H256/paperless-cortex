@@ -2886,6 +2886,30 @@
             "type": "array",
             "title": "Page Counts",
             "default": []
+          },
+          "document_types": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Document Types",
+            "default": []
+          },
+          "unprocessed_by_correspondent": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardCount"
+            },
+            "type": "array",
+            "title": "Unprocessed By Correspondent",
+            "default": []
+          },
+          "monthly_processing": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyProcessingBucket"
+            },
+            "type": "array",
+            "title": "Monthly Processing",
+            "default": []
           }
         },
         "type": "object",
@@ -3726,6 +3750,34 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MonthlyProcessingBucket": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "processed": {
+            "type": "integer",
+            "title": "Processed"
+          },
+          "unprocessed": {
+            "type": "integer",
+            "title": "Unprocessed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "total",
+          "processed",
+          "unprocessed"
+        ],
+        "title": "MonthlyProcessingBucket"
       },
       "PageCountBucket": {
         "properties": {

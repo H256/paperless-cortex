@@ -143,6 +143,72 @@
             </div>
           </div>
         </div>
+
+        <div class="mt-8 rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Erweitert</div>
+              <div class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">Deep dive on processing and structure</div>
+            </div>
+          </div>
+
+          <div class="mt-6 grid gap-6 lg:grid-cols-3">
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Monthly processing</div>
+              <div class="mt-4 flex items-end gap-2 overflow-x-auto pb-2">
+                <div
+                  v-for="item in monthlyProcessing"
+                  :key="item.label"
+                  class="flex w-10 flex-shrink-0 flex-col items-center gap-2 text-[10px] text-slate-400"
+                >
+                  <div class="flex h-24 w-6 flex-col-reverse overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div
+                      class="bg-emerald-400"
+                      :style="{ height: (item.processed / monthlyMax) * 100 + '%' }"
+                      title="Processed"
+                    ></div>
+                    <div
+                      class="bg-amber-400"
+                      :style="{ height: (item.unprocessed / monthlyMax) * 100 + '%' }"
+                      title="Unprocessed"
+                    ></div>
+                  </div>
+                  <span>{{ item.label }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Unprocessed by correspondent</div>
+              <div class="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                <div v-for="item in unprocessedByCorrespondent.slice(0, 8)" :key="item.name">
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-700 dark:text-slate-200">{{ item.name }}</span>
+                    <span>{{ item.count }}</span>
+                  </div>
+                  <div class="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div class="h-2 rounded-full bg-rose-400" :style="{ width: barPercent(item.count, unprocessedMax) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Document types</div>
+              <div class="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                <div v-for="item in docTypes.slice(0, 8)" :key="item.name">
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-700 dark:text-slate-200">{{ item.name }}</span>
+                    <span>{{ item.count }}</span>
+                  </div>
+                  <div class="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div class="h-2 rounded-full bg-indigo-400" :style="{ width: barPercent(item.count, docTypeMax) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
   </section>
@@ -170,6 +236,9 @@ type DashboardPayload = {
   tags: DashboardCount[];
   top_tags: DashboardCount[];
   page_counts: PageCountBucket[];
+  document_types: DashboardCount[];
+  unprocessed_by_correspondent: DashboardCount[];
+  monthly_processing: { label: string; total: number; processed: number; unprocessed: number }[];
 };
 
 const loading = ref(false);
@@ -188,6 +257,9 @@ const stats = computed(() => data.value?.stats ?? {
 const correspondents = computed(() => data.value?.correspondents ?? []);
 const topCorrespondents = computed(() => data.value?.top_correspondents ?? []);
 const pageCounts = computed(() => data.value?.page_counts ?? []);
+const docTypes = computed(() => data.value?.document_types ?? []);
+const unprocessedByCorrespondent = computed(() => data.value?.unprocessed_by_correspondent ?? []);
+const monthlyProcessing = computed(() => data.value?.monthly_processing ?? []);
 const tags = computed(() => data.value?.tags ?? []);
 const topTags = computed(() => data.value?.top_tags ?? []);
 
@@ -249,6 +321,10 @@ const barPercent = (value: number, max: number) => {
   if (!max) return 0;
   return Math.round((value / max) * 100);
 };
+
+const monthlyMax = computed(() => Math.max(1, ...monthlyProcessing.value.map((item) => item.total)));
+const docTypeMax = computed(() => Math.max(1, ...docTypes.value.map((item) => item.count)));
+const unprocessedMax = computed(() => Math.max(1, ...unprocessedByCorrespondent.value.map((item) => item.count)));
 
 const load = async () => {
   loading.value = true;

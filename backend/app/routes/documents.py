@@ -18,6 +18,7 @@ from app.models import (
     DocumentEmbedding,
     Tag,
     Correspondent,
+    DocumentType,
     DocumentNote,
     SuggestionAudit,
     document_tags,
@@ -229,6 +230,21 @@ def get_document_stats(db: Session = Depends(get_db)):
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
 def get_dashboard(db: Session = Depends(get_db)):
     stats = get_document_stats(db)
+    fully_processed_ids = {
+        row[0]
+        for row in db.query(Document.id)
+        .filter(
+            exists().where(DocumentEmbedding.doc_id == Document.id),
+            exists().where(
+                and_(
+                    DocumentPageText.doc_id == Document.id,
+                    DocumentPageText.source == "vision_ocr",
+                )
+            ),
+            exists().where(DocumentSuggestion.doc_id == Document.id),
+        )
+        .all()
+    }
 
     correspondents_rows = (
         db.query(Correspondent.id, Correspondent.name, func.count(Document.id))
@@ -264,6 +280,63 @@ def get_dashboard(db: Session = Depends(get_db)):
         tags.append({"id": None, "name": "Ohne Tags", "count": untagged_count})
     tags.sort(key=lambda item: item["count"], reverse=True)
     top_tags = tags[:8]
+
+    type_rows = (
+        db.query(DocumentType.id, DocumentType.name, func.count(Document.id))
+        .join(Document, Document.document_type_id == DocumentType.id)
+        .group_by(DocumentType.id)
+        .order_by(func.count(Document.id).desc(), DocumentType.name.asc())
+        .all()
+    )
+    type_unknown = db.query(Document.id).filter(Document.document_type_id.is_(None)).count()
+    document_types = [
+        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        for row in type_rows
+    ]
+    if type_unknown:
+        document_types.append({"id": None, "name": "Ohne Typ", "count": type_unknown})
+    document_types.sort(key=lambda item: item["count"], reverse=True)
+
+    unprocessed_by_correspondent: dict[int | None, int] = {}
+    monthly: dict[str, dict[str, int]] = {}
+    for doc_id, document_date, created, correspondent_id in db.query(
+        Document.id,
+        Document.document_date,
+        Document.created,
+        Document.correspondent_id,
+    ).all():
+        processed = doc_id in fully_processed_ids
+        if not processed:
+            unprocessed_by_correspondent[correspondent_id] = unprocessed_by_correspondent.get(correspondent_id, 0) + 1
+
+        raw_date = document_date or created or ""
+        month = raw_date[:7] if len(raw_date) >= 7 else "Unbekannt"
+        bucket = monthly.get(month)
+        if bucket is None:
+            bucket = {"total": 0, "processed": 0, "unprocessed": 0}
+            monthly[month] = bucket
+        bucket["total"] += 1
+        if processed:
+            bucket["processed"] += 1
+        else:
+            bucket["unprocessed"] += 1
+
+    correspondents_map = {row[0]: row[1] for row in db.query(Correspondent.id, Correspondent.name).all()}
+    unprocessed_corr_list = [
+        {
+            "id": corr_id,
+            "name": correspondents_map.get(corr_id) or ("Ohne Korrespondent" if corr_id is None else "Unbenannt"),
+            "count": count,
+        }
+        for corr_id, count in unprocessed_by_correspondent.items()
+    ]
+    unprocessed_corr_list.sort(key=lambda item: item["count"], reverse=True)
+
+    monthly_processing = [
+        {"label": month, **counts} for month, counts in sorted(monthly.items(), key=lambda item: item[0])
+    ]
+    if monthly_processing and monthly_processing[0]["label"] == "Unbekannt":
+        monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
 
     buckets = {
         "1": 0,
@@ -302,6 +375,9 @@ def get_dashboard(db: Session = Depends(get_db)):
         "tags": tags,
         "top_tags": top_tags,
         "page_counts": page_counts,
+        "document_types": document_types,
+        "unprocessed_by_correspondent": unprocessed_corr_list,
+        "monthly_processing": monthly_processing,
     }
 
 

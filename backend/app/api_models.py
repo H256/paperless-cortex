@@ -195,6 +195,13 @@ class PageCountBucket(BaseModel):
     count: int
 
 
+class MonthlyProcessingBucket(BaseModel):
+    label: str
+    total: int
+    processed: int
+    unprocessed: int
+
+
 class DocumentDashboardResponse(BaseModel):
     stats: DocumentStatsResponse
     correspondents: list[DashboardCount] = []
@@ -202,6 +209,9 @@ class DocumentDashboardResponse(BaseModel):
     tags: list[DashboardCount] = []
     top_tags: list[DashboardCount] = []
     page_counts: list[PageCountBucket] = []
+    document_types: list[DashboardCount] = []
+    unprocessed_by_correspondent: list[DashboardCount] = []
+    monthly_processing: list[MonthlyProcessingBucket] = []
 
 
 class TextQualityMetrics(BaseModel):
