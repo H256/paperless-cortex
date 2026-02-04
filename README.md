@@ -7,7 +7,7 @@
 - Node.js (for frontend)
 - PostgreSQL
 - Qdrant (vector database)
-- Ollama (for embeddings and vision OCR)
+- OpenAI-compatible LLM server (for text, embeddings, and vision OCR)
 - Redis (optional, for queue-based processing)
 
 ### Installation
@@ -26,7 +26,7 @@
 
 3. **Configure environment**
    - Copy `.env.example` to `.env` (repo root)
-   - Update with your Paperless-ngx, PostgreSQL, Qdrant, and Ollama settings
+   - Update with your Paperless-ngx, PostgreSQL, Qdrant, and LLM settings
 
 4. **Run database migrations**
    ```bash
@@ -67,7 +67,7 @@ Builds the frontend inside the container and serves it from the backend.
 docker compose -f docker-compose.app.yml up --build
 ```
 
-### Full stack (includes Postgres, Redis, Qdrant, Ollama)
+### Full stack (includes Postgres, Redis, Qdrant)
 ```bash
 docker compose -f docker-compose.full.yml up --build
 ```
@@ -80,7 +80,7 @@ docker compose -f docker-compose.worker.yml up --build
 Notes:
 - Update `.env` with Paperless + token settings.
 - `.env.worker.example` provides a minimal worker-focused template.
-- Full stack uses local service URLs for DB/Redis/Qdrant/Ollama; adjust as needed.
+- Full stack uses local service URLs for DB/Redis/Qdrant; adjust as needed.
 
 ## Concise flow
 1) **Sync metadata + OCR**  
@@ -89,7 +89,7 @@ Notes:
 2) **Page text layers**  
    - If the Paperless OCR text contains form-feed page breaks, it is split into pages.  
    - Otherwise, the PDF is downloaded and text is extracted per page (pdfminer).  
-   - If vision OCR is enabled, pages are rendered to images and sent to Ollama for OCR.  
+   - If vision OCR is enabled, pages are rendered to images and sent to the vision LLM for OCR.  
      On re-processing (`force_embed=true`) all pages go through vision OCR.
 
 3) **Quality scoring**  
@@ -110,7 +110,7 @@ Notes:
 - **Backend**
   - Sync Paperless metadata into Postgres (read-only).
   - Page-aware text extraction + quality scoring per page.
-  - Vision OCR (Ollama) with per-page rendering, max-dimension scaling, and logging.
+  - Vision OCR (LLM) with per-page rendering, max-dimension scaling, and logging.
   - Embeddings stored in Qdrant with `doc_id`, `page`, `source`, `quality_score`.
   - Suggestions pipeline (two runs: Paperless OCR + Vision OCR) stored in DB with "best pick."
   - Queue-backed processing with Redis + worker and status/ETA.
@@ -120,7 +120,7 @@ Notes:
   - Document detail: text quality, page texts, suggestions side-by-side with field variants and apply.
   - Semantic search page with source filter, quality slider, dedupe/rerank.
   - Queue management page.
-  - Footer status lights for Web / Worker / Ollama.
+  - Footer status lights for Web / Worker / LLM text / embeddings / vision.
   - Generate API client (Orval): `ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate`
 
 ## Key endpoints (backend)
@@ -131,7 +131,7 @@ Notes:
 - `POST /api/documents/{id}/suggestions/field` field variants (title/date/correspondent/tags).
 - `POST /api/documents/{id}/suggestions/field/apply` store selected variant.
 - `GET /api/queue/status`, `POST /api/queue/clear`, `POST /api/queue/reset`.
-- `GET /api/status` system status (web/worker/ollama + paperless_base_url).
+- `GET /api/status` system status (web/worker/llm text/embedding/vision + paperless_base_url).
 
 ## Queue + worker
 - When `QUEUE_ENABLED=1`, sync/embedding calls enqueue doc IDs to Redis.

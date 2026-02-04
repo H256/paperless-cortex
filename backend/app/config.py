@@ -16,8 +16,8 @@ class Settings:
     qdrant_api_key: str | None
     redis_host: str | None
     queue_enabled: bool
-    ollama_base_url: str | None
-    ollama_model: str | None
+    llm_base_url: str | None
+    text_model: str | None
     embedding_model: str | None
     qdrant_collection: str | None
     embed_on_sync: bool
@@ -57,8 +57,8 @@ def load_settings() -> Settings:
         qdrant_api_key=os.getenv("QDRANT_API_KEY"),
         redis_host=os.getenv("REDIS_HOST"),
         queue_enabled=os.getenv("QUEUE_ENABLED", "0") == "1",
-        ollama_base_url=os.getenv("OLLAMA_BASE_URL"),
-        ollama_model=os.getenv("OLLAMA_MODEL"),
+        llm_base_url=os.getenv("LLM_BASE_URL"),
+        text_model=os.getenv("TEXT_MODEL"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "paperless_chunks"),
         embed_on_sync=os.getenv("EMBED_ON_SYNC", "0") == "1",

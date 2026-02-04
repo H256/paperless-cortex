@@ -13,8 +13,11 @@ import type {
   ClearIntelligenceResponse,
   CorrespondentResponse,
   CorrespondentsPageResponse,
+  DeleteEmbeddingsDocumentsDeleteEmbeddingsPostParams,
   DeleteEmbeddingsResponse,
+  DeleteSuggestionsDocumentsDeleteSuggestionsPostParams,
   DeleteSuggestionsResponse,
+  DeleteVisionOcrDocumentsDeleteVisionOcrPostParams,
   DeleteVisionOcrResponse,
   DocumentDashboardResponse,
   DocumentLocalResponse,
@@ -370,6 +373,421 @@ export const getDocumentTextQualityDocumentsDocIdTextQualityGet = async (docId: 
 
 
 /**
+ * @summary Get Document Page Texts
+ */
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse200 = {
+  data: PageTextsResponse
+  status: 200
+}
+
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess | getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError)
+
+export const getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl = (docId: number,
+    params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/page-texts?${stringifiedParams}` : `/api/documents/${docId}/page-texts`
+}
+
+export const getDocumentPageTextsDocumentsDocIdPageTextsGet = async (docId: number,
+    params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams, options?: RequestInit): Promise<getDocumentPageTextsDocumentsDocIdPageTextsGetResponse> => {
+  
+  const res = await fetch(getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentPageTextsDocumentsDocIdPageTextsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPageTextsDocumentsDocIdPageTextsGetResponse
+}
+
+
+
+/**
+ * @summary Get Document Pdf
+ */
+export type getDocumentPdfDocumentsDocIdPdfGetResponse200 = {
+  data: unknown
+  status: 200
+}
+
+export type getDocumentPdfDocumentsDocIdPdfGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentPdfDocumentsDocIdPdfGetResponseSuccess = (getDocumentPdfDocumentsDocIdPdfGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentPdfDocumentsDocIdPdfGetResponseError = (getDocumentPdfDocumentsDocIdPdfGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentPdfDocumentsDocIdPdfGetResponse = (getDocumentPdfDocumentsDocIdPdfGetResponseSuccess | getDocumentPdfDocumentsDocIdPdfGetResponseError)
+
+export const getGetDocumentPdfDocumentsDocIdPdfGetUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/documents/${docId}/pdf`
+}
+
+export const getDocumentPdfDocumentsDocIdPdfGet = async (docId: number, options?: RequestInit): Promise<getDocumentPdfDocumentsDocIdPdfGetResponse> => {
+  
+  const res = await fetch(getGetDocumentPdfDocumentsDocIdPdfGetUrl(docId),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentPdfDocumentsDocIdPdfGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPdfDocumentsDocIdPdfGetResponse
+}
+
+
+
+/**
+ * @summary Process Missing
+ */
+export type processMissingDocumentsProcessMissingPostResponse200 = {
+  data: ProcessMissingResponse
+  status: 200
+}
+
+export type processMissingDocumentsProcessMissingPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type processMissingDocumentsProcessMissingPostResponseSuccess = (processMissingDocumentsProcessMissingPostResponse200) & {
+  headers: Headers;
+};
+export type processMissingDocumentsProcessMissingPostResponseError = (processMissingDocumentsProcessMissingPostResponse422) & {
+  headers: Headers;
+};
+
+export type processMissingDocumentsProcessMissingPostResponse = (processMissingDocumentsProcessMissingPostResponseSuccess | processMissingDocumentsProcessMissingPostResponseError)
+
+export const getProcessMissingDocumentsProcessMissingPostUrl = (params?: ProcessMissingDocumentsProcessMissingPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/process-missing?${stringifiedParams}` : `/api/documents/process-missing`
+}
+
+export const processMissingDocumentsProcessMissingPost = async (params?: ProcessMissingDocumentsProcessMissingPostParams, options?: RequestInit): Promise<processMissingDocumentsProcessMissingPostResponse> => {
+  
+  const res = await fetch(getProcessMissingDocumentsProcessMissingPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: processMissingDocumentsProcessMissingPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as processMissingDocumentsProcessMissingPostResponse
+}
+
+
+
+/**
+ * @summary Reset Intelligence
+ */
+export type resetIntelligenceDocumentsResetIntelligencePostResponse200 = {
+  data: ResetIntelligenceResponse
+  status: 200
+}
+    
+export type resetIntelligenceDocumentsResetIntelligencePostResponseSuccess = (resetIntelligenceDocumentsResetIntelligencePostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type resetIntelligenceDocumentsResetIntelligencePostResponse = (resetIntelligenceDocumentsResetIntelligencePostResponseSuccess)
+
+export const getResetIntelligenceDocumentsResetIntelligencePostUrl = () => {
+
+
+  
+
+  return `/api/documents/reset-intelligence`
+}
+
+export const resetIntelligenceDocumentsResetIntelligencePost = async ( options?: RequestInit): Promise<resetIntelligenceDocumentsResetIntelligencePostResponse> => {
+  
+  const res = await fetch(getResetIntelligenceDocumentsResetIntelligencePostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as resetIntelligenceDocumentsResetIntelligencePostResponse
+}
+
+
+
+/**
+ * @summary Clear Intelligence
+ */
+export type clearIntelligenceDocumentsClearIntelligencePostResponse200 = {
+  data: ClearIntelligenceResponse
+  status: 200
+}
+    
+export type clearIntelligenceDocumentsClearIntelligencePostResponseSuccess = (clearIntelligenceDocumentsClearIntelligencePostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type clearIntelligenceDocumentsClearIntelligencePostResponse = (clearIntelligenceDocumentsClearIntelligencePostResponseSuccess)
+
+export const getClearIntelligenceDocumentsClearIntelligencePostUrl = () => {
+
+
+  
+
+  return `/api/documents/clear-intelligence`
+}
+
+export const clearIntelligenceDocumentsClearIntelligencePost = async ( options?: RequestInit): Promise<clearIntelligenceDocumentsClearIntelligencePostResponse> => {
+  
+  const res = await fetch(getClearIntelligenceDocumentsClearIntelligencePostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: clearIntelligenceDocumentsClearIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as clearIntelligenceDocumentsClearIntelligencePostResponse
+}
+
+
+
+/**
+ * @summary Delete Vision Ocr
+ */
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200 = {
+  data: DeleteVisionOcrResponse
+  status: 200
+}
+
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200) & {
+  headers: Headers;
+};
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponseError = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponse422) & {
+  headers: Headers;
+};
+
+export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess | deleteVisionOcrDocumentsDeleteVisionOcrPostResponseError)
+
+export const getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl = (params?: DeleteVisionOcrDocumentsDeleteVisionOcrPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/delete/vision-ocr?${stringifiedParams}` : `/api/documents/delete/vision-ocr`
+}
+
+export const deleteVisionOcrDocumentsDeleteVisionOcrPost = async (params?: DeleteVisionOcrDocumentsDeleteVisionOcrPostParams, options?: RequestInit): Promise<deleteVisionOcrDocumentsDeleteVisionOcrPostResponse> => {
+  
+  const res = await fetch(getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: deleteVisionOcrDocumentsDeleteVisionOcrPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as deleteVisionOcrDocumentsDeleteVisionOcrPostResponse
+}
+
+
+
+/**
+ * @summary Delete Suggestions
+ */
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200 = {
+  data: DeleteSuggestionsResponse
+  status: 200
+}
+
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200) & {
+  headers: Headers;
+};
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponseError = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponse422) & {
+  headers: Headers;
+};
+
+export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess | deleteSuggestionsDocumentsDeleteSuggestionsPostResponseError)
+
+export const getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl = (params?: DeleteSuggestionsDocumentsDeleteSuggestionsPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/delete/suggestions?${stringifiedParams}` : `/api/documents/delete/suggestions`
+}
+
+export const deleteSuggestionsDocumentsDeleteSuggestionsPost = async (params?: DeleteSuggestionsDocumentsDeleteSuggestionsPostParams, options?: RequestInit): Promise<deleteSuggestionsDocumentsDeleteSuggestionsPostResponse> => {
+  
+  const res = await fetch(getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: deleteSuggestionsDocumentsDeleteSuggestionsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as deleteSuggestionsDocumentsDeleteSuggestionsPostResponse
+}
+
+
+
+/**
+ * @summary Delete Embeddings
+ */
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200 = {
+  data: DeleteEmbeddingsResponse
+  status: 200
+}
+
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200) & {
+  headers: Headers;
+};
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseError = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse422) & {
+  headers: Headers;
+};
+
+export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess | deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseError)
+
+export const getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl = (params?: DeleteEmbeddingsDocumentsDeleteEmbeddingsPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/delete/embeddings?${stringifiedParams}` : `/api/documents/delete/embeddings`
+}
+
+export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async (params?: DeleteEmbeddingsDocumentsDeleteEmbeddingsPostParams, options?: RequestInit): Promise<deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse> => {
+  
+  const res = await fetch(getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
+}
+
+
+
+/**
  * @summary Get Document Suggestions
  */
 export type getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse200 = {
@@ -643,379 +1061,6 @@ export const applySuggestionToDocumentDocumentsDocIdApplySuggestionPost = async 
   
   const data: applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse
-}
-
-
-
-/**
- * @summary Get Document Page Texts
- */
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse200 = {
-  data: PageTextsResponse
-  status: 200
-}
-
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
-    
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponse422) & {
-  headers: Headers;
-};
-
-export type getDocumentPageTextsDocumentsDocIdPageTextsGetResponse = (getDocumentPageTextsDocumentsDocIdPageTextsGetResponseSuccess | getDocumentPageTextsDocumentsDocIdPageTextsGetResponseError)
-
-export const getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl = (docId: number,
-    params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/documents/${docId}/page-texts?${stringifiedParams}` : `/api/documents/${docId}/page-texts`
-}
-
-export const getDocumentPageTextsDocumentsDocIdPageTextsGet = async (docId: number,
-    params?: GetDocumentPageTextsDocumentsDocIdPageTextsGetParams, options?: RequestInit): Promise<getDocumentPageTextsDocumentsDocIdPageTextsGetResponse> => {
-  
-  const res = await fetch(getGetDocumentPageTextsDocumentsDocIdPageTextsGetUrl(docId,params),
-  {      
-    ...options,
-    method: 'GET'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentPageTextsDocumentsDocIdPageTextsGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentPageTextsDocumentsDocIdPageTextsGetResponse
-}
-
-
-
-/**
- * @summary Get Document Pdf
- */
-export type getDocumentPdfDocumentsDocIdPdfGetResponse200 = {
-  data: unknown
-  status: 200
-}
-
-export type getDocumentPdfDocumentsDocIdPdfGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
-    
-export type getDocumentPdfDocumentsDocIdPdfGetResponseSuccess = (getDocumentPdfDocumentsDocIdPdfGetResponse200) & {
-  headers: Headers;
-};
-export type getDocumentPdfDocumentsDocIdPdfGetResponseError = (getDocumentPdfDocumentsDocIdPdfGetResponse422) & {
-  headers: Headers;
-};
-
-export type getDocumentPdfDocumentsDocIdPdfGetResponse = (getDocumentPdfDocumentsDocIdPdfGetResponseSuccess | getDocumentPdfDocumentsDocIdPdfGetResponseError)
-
-export const getGetDocumentPdfDocumentsDocIdPdfGetUrl = (docId: number,) => {
-
-
-  
-
-  return `/api/documents/${docId}/pdf`
-}
-
-export const getDocumentPdfDocumentsDocIdPdfGet = async (docId: number, options?: RequestInit): Promise<getDocumentPdfDocumentsDocIdPdfGetResponse> => {
-  
-  const res = await fetch(getGetDocumentPdfDocumentsDocIdPdfGetUrl(docId),
-  {      
-    ...options,
-    method: 'GET'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: getDocumentPdfDocumentsDocIdPdfGetResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getDocumentPdfDocumentsDocIdPdfGetResponse
-}
-
-
-
-/**
- * @summary Process Missing
- */
-export type processMissingDocumentsProcessMissingPostResponse200 = {
-  data: ProcessMissingResponse
-  status: 200
-}
-
-export type processMissingDocumentsProcessMissingPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
-    
-export type processMissingDocumentsProcessMissingPostResponseSuccess = (processMissingDocumentsProcessMissingPostResponse200) & {
-  headers: Headers;
-};
-export type processMissingDocumentsProcessMissingPostResponseError = (processMissingDocumentsProcessMissingPostResponse422) & {
-  headers: Headers;
-};
-
-export type processMissingDocumentsProcessMissingPostResponse = (processMissingDocumentsProcessMissingPostResponseSuccess | processMissingDocumentsProcessMissingPostResponseError)
-
-export const getProcessMissingDocumentsProcessMissingPostUrl = (params?: ProcessMissingDocumentsProcessMissingPostParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/documents/process-missing?${stringifiedParams}` : `/api/documents/process-missing`
-}
-
-export const processMissingDocumentsProcessMissingPost = async (params?: ProcessMissingDocumentsProcessMissingPostParams, options?: RequestInit): Promise<processMissingDocumentsProcessMissingPostResponse> => {
-  
-  const res = await fetch(getProcessMissingDocumentsProcessMissingPostUrl(params),
-  {      
-    ...options,
-    method: 'POST'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: processMissingDocumentsProcessMissingPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as processMissingDocumentsProcessMissingPostResponse
-}
-
-
-
-/**
- * @summary Reset Intelligence
- */
-export type resetIntelligenceDocumentsResetIntelligencePostResponse200 = {
-  data: ResetIntelligenceResponse
-  status: 200
-}
-    
-export type resetIntelligenceDocumentsResetIntelligencePostResponseSuccess = (resetIntelligenceDocumentsResetIntelligencePostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type resetIntelligenceDocumentsResetIntelligencePostResponse = (resetIntelligenceDocumentsResetIntelligencePostResponseSuccess)
-
-export const getResetIntelligenceDocumentsResetIntelligencePostUrl = () => {
-
-
-  
-
-  return `/api/documents/reset-intelligence`
-}
-
-export const resetIntelligenceDocumentsResetIntelligencePost = async ( options?: RequestInit): Promise<resetIntelligenceDocumentsResetIntelligencePostResponse> => {
-  
-  const res = await fetch(getResetIntelligenceDocumentsResetIntelligencePostUrl(),
-  {      
-    ...options,
-    method: 'POST'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as resetIntelligenceDocumentsResetIntelligencePostResponse
-}
-
-
-
-/**
- * @summary Clear Intelligence
- */
-export type clearIntelligenceDocumentsClearIntelligencePostResponse200 = {
-  data: ClearIntelligenceResponse
-  status: 200
-}
-    
-export type clearIntelligenceDocumentsClearIntelligencePostResponseSuccess = (clearIntelligenceDocumentsClearIntelligencePostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type clearIntelligenceDocumentsClearIntelligencePostResponse = (clearIntelligenceDocumentsClearIntelligencePostResponseSuccess)
-
-export const getClearIntelligenceDocumentsClearIntelligencePostUrl = () => {
-
-
-  
-
-  return `/api/documents/clear-intelligence`
-}
-
-export const clearIntelligenceDocumentsClearIntelligencePost = async ( options?: RequestInit): Promise<clearIntelligenceDocumentsClearIntelligencePostResponse> => {
-  
-  const res = await fetch(getClearIntelligenceDocumentsClearIntelligencePostUrl(),
-  {      
-    ...options,
-    method: 'POST'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: clearIntelligenceDocumentsClearIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as clearIntelligenceDocumentsClearIntelligencePostResponse
-}
-
-
-
-/**
- * @summary Delete Vision Ocr
- */
-export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200 = {
-  data: DeleteVisionOcrResponse
-  status: 200
-}
-    
-export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type deleteVisionOcrDocumentsDeleteVisionOcrPostResponse = (deleteVisionOcrDocumentsDeleteVisionOcrPostResponseSuccess)
-
-export const getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl = () => {
-
-
-  
-
-  return `/api/documents/delete-vision-ocr`
-}
-
-export const deleteVisionOcrDocumentsDeleteVisionOcrPost = async ( options?: RequestInit): Promise<deleteVisionOcrDocumentsDeleteVisionOcrPostResponse> => {
-  
-  const res = await fetch(getDeleteVisionOcrDocumentsDeleteVisionOcrPostUrl(),
-  {      
-    ...options,
-    method: 'POST'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: deleteVisionOcrDocumentsDeleteVisionOcrPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteVisionOcrDocumentsDeleteVisionOcrPostResponse
-}
-
-
-
-/**
- * @summary Delete Suggestions
- */
-export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200 = {
-  data: DeleteSuggestionsResponse
-  status: 200
-}
-    
-export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type deleteSuggestionsDocumentsDeleteSuggestionsPostResponse = (deleteSuggestionsDocumentsDeleteSuggestionsPostResponseSuccess)
-
-export const getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl = () => {
-
-
-  
-
-  return `/api/documents/delete-suggestions`
-}
-
-export const deleteSuggestionsDocumentsDeleteSuggestionsPost = async ( options?: RequestInit): Promise<deleteSuggestionsDocumentsDeleteSuggestionsPostResponse> => {
-  
-  const res = await fetch(getDeleteSuggestionsDocumentsDeleteSuggestionsPostUrl(),
-  {      
-    ...options,
-    method: 'POST'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: deleteSuggestionsDocumentsDeleteSuggestionsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteSuggestionsDocumentsDeleteSuggestionsPostResponse
-}
-
-
-
-/**
- * @summary Delete Embeddings
- */
-export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200 = {
-  data: DeleteEmbeddingsResponse
-  status: 200
-}
-    
-export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse = (deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponseSuccess)
-
-export const getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl = () => {
-
-
-  
-
-  return `/api/documents/delete-embeddings`
-}
-
-export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async ( options?: RequestInit): Promise<deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse> => {
-  
-  const res = await fetch(getDeleteEmbeddingsDocumentsDeleteEmbeddingsPostUrl(),
-  {      
-    ...options,
-    method: 'POST'
-    
-    
-  }
-)
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
-  const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
 }
 
 

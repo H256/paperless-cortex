@@ -83,9 +83,24 @@
             :title="statusStore.health.worker_detail"
           />
           <StatusLight
-            label="Ollama"
-            :status="statusStore.health.ollama"
-            :title="statusStore.health.ollama_detail"
+            label="LLM"
+            :status="statusStore.health.llm"
+            :title="statusStore.health.llm_detail"
+          />
+          <StatusLight
+            label="LLM Text"
+            :status="statusStore.health.llm_text"
+            :title="statusStore.health.llm_text_detail"
+          />
+          <StatusLight
+            label="LLM Embed"
+            :status="statusStore.health.llm_embedding"
+            :title="statusStore.health.llm_embedding_detail"
+          />
+          <StatusLight
+            label="LLM Vision"
+            :status="statusStore.health.llm_vision"
+            :title="statusStore.health.llm_vision_detail"
           />
         </div>
         <div class="flex flex-wrap items-center gap-4">

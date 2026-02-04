@@ -26,21 +26,6 @@ services:
       - "6333:6333"
     restart: unless-stopped
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: cortex-ollama
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    # For GPU hosts, uncomment the following:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - capabilities: [gpu]
-    restart: unless-stopped
-
   cortex:
     build: .
     container_name: paperless-ngx-cortex
@@ -48,7 +33,6 @@ services:
       - postgres
       - redis
       - qdrant
-      - ollama
     ports:
       - "8000:8000"
     env_file:
@@ -59,10 +43,9 @@ services:
       - REDIS_HOST=redis
       - QUEUE_ENABLED=1
       - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - LLM_BASE_URL=
     restart: unless-stopped
 
 volumes:
   postgres_data:
   qdrant_data:
-  ollama_data:

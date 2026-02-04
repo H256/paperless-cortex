@@ -7,8 +7,8 @@ from typing import Iterable
 import logging
 
 from app.config import Settings
-from app.services import ollama
-from app.services.guard import ensure_ollama_ready
+from app.services import llm_client
+from app.services.guard import ensure_vision_llm_ready
 from app.services.page_types import PageText
 
 logger = logging.getLogger(__name__)
@@ -101,34 +101,35 @@ def iter_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim
         yield VisionPage(page_index=page_index, image_bytes=png_bytes)
 
 
-def _ollama_generate(settings: Settings, model: str, prompt: str, image_bytes: bytes) -> str:
-    ensure_ollama_ready(settings, require_model=False)
-    base = ollama.base_url(settings)
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "images": [base64.b64encode(image_bytes).decode("ascii")],
-    }
+def _vision_generate(settings: Settings, model: str, prompt: str, image_bytes: bytes) -> str:
+    ensure_vision_llm_ready(settings, require_model=False)
+    base = llm_client.base_url(settings)
+    image_b64 = base64.b64encode(image_bytes).decode("ascii")
     logger.info(
-        "Ollama vision generate model=%s prompt_chars=%s image_bytes=%s",
+        "LLM vision generate model=%s prompt_chars=%s image_bytes=%s",
         model,
         len(prompt),
         len(image_bytes),
     )
-    if __import__("os").getenv("OLLAMA_DEBUG") == "1":
+    if __import__("os").getenv("LLM_DEBUG") == "1":
         logger.info("Vision OCR prompt:\n%s", prompt)
-    with ollama.client(settings, timeout=settings.vision_ocr_timeout_seconds) as http:
-        response = http.post(f"{base}/api/generate", json=payload)
-        response.raise_for_status()
-        data = response.json()
-        text = str(data.get("response") or "").strip()
-        if __import__("os").getenv("OLLAMA_DEBUG") == "1":
-            sample = text[:300]
-            logger.info("Vision OCR response len=%s sample=%s", len(text), sample)
-        else:
-            logger.info("Vision OCR response len=%s", len(text))
-        return text
+    content: list[dict[str, object]] = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+    ]
+    text = llm_client.chat_completion(
+        settings,
+        base,
+        model=model,
+        messages=[{"role": "user", "content": content}],
+        timeout=settings.vision_ocr_timeout_seconds,
+    )
+    if __import__("os").getenv("LLM_DEBUG") == "1":
+        sample = text[:300]
+        logger.info("Vision OCR response len=%s sample=%s", len(text), sample)
+    else:
+        logger.info("Vision OCR response len=%s", len(text))
+    return text
 
 
 def ocr_pdf_pages(
@@ -138,15 +139,14 @@ def ocr_pdf_pages(
 ) -> list[PageText]:
     if not settings.vision_model:
         raise RuntimeError("VISION_MODEL not set")
-    ensure_ollama_ready(settings, require_model=False)
-    ollama.ensure_model(settings, settings.vision_model)
+    ensure_vision_llm_ready(settings, require_model=False)
     prompt = load_prompt(settings)
     results: list[PageText] = []
     count = 0
     for page in iter_pdf_pages(pdf_bytes, page_numbers, max_dim=settings.vision_ocr_max_dim):
         if 0 < settings.vision_ocr_max_pages <= count:
             break
-        text = _ollama_generate(settings, settings.vision_model, prompt, page.image_bytes)
+        text = _vision_generate(settings, settings.vision_model, prompt, page.image_bytes)
         results.append(PageText(page=page.page_index + 1, text=text, source="vision_ocr"))
         count += 1
     logger.info("Vision OCR rendering count=%s max_dim=%s", count, settings.vision_ocr_max_dim)

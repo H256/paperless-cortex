@@ -12,12 +12,15 @@ class StatusEntry(BaseModel):
 class StatusResponse(BaseModel):
     web: StatusEntry
     worker: StatusEntry
-    ollama: StatusEntry
+    llm: StatusEntry
+    llm_text: StatusEntry
+    llm_embedding: StatusEntry
+    llm_vision: StatusEntry
     paperless_base_url: Optional[str] = None
-    ollama_base_url: Optional[str] = None
+    llm_base_url: Optional[str] = None
     qdrant_url: Optional[str] = None
     redis_host: Optional[str] = None
-    ollama_model: Optional[str] = None
+    text_model: Optional[str] = None
     embedding_model: Optional[str] = None
     vision_model: Optional[str] = None
     latency_ms: Optional[int] = None

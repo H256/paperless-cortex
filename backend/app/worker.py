@@ -148,7 +148,7 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         doc_id,
         "paperless_ocr",
         baseline_suggestions,
-        model_name=settings.ollama_model,
+        model_name=settings.text_model,
     )
     if vision_pages:
         vision_text = "\n\n".join(page.text or "" for page in vision_pages)
@@ -164,7 +164,7 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
             doc_id,
             "vision_ocr",
             vision_suggestions,
-            model_name=settings.ollama_model,
+            model_name=settings.text_model,
         )
 
 def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
@@ -245,7 +245,7 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
         doc_id,
         "paperless_ocr",
         baseline_suggestions,
-        model_name=settings.ollama_model,
+        model_name=settings.text_model,
     )
 
 
@@ -277,7 +277,7 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
                 doc_id,
                 "vision_ocr",
                 vision_suggestions,
-                model_name=settings.ollama_model,
+                model_name=settings.text_model,
             )
 
 
@@ -322,7 +322,7 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
             {"variants": variants.get("variants") if isinstance(variants, dict) else variants},
             ensure_ascii=False,
         ),
-        model_name=settings.ollama_model,
+        model_name=settings.text_model,
         commit=False,
     )
     audit_suggestion_run(db, doc_id, source, f"field_variants:{field}", commit=False)

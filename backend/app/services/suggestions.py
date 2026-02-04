@@ -7,8 +7,8 @@ from pathlib import Path
 from datetime import datetime
 
 from app.config import Settings
-from app.services import ollama
-from app.services.guard import ensure_ollama_ready
+from app.services import llm_client
+from app.services.guard import ensure_text_llm_ready
 
 logger = logging.getLogger(__name__)
 
@@ -191,8 +191,8 @@ def generate_suggestions(
     tags: list[str],
     correspondents: list[str],
 ) -> dict[str, Any]:
-    ensure_ollama_ready(settings)
-    base = ollama.base_url(settings)
+    ensure_text_llm_ready(settings)
+    base = llm_client.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -212,32 +212,27 @@ def generate_suggestions(
     )
     logger.info(
         "Suggestions request model=%s chars=%s doc_id=%s",
-        settings.ollama_model,
+        settings.text_model,
         len(trimmed),
         document.get("id"),
     )
-    if __import__("os").getenv("OLLAMA_DEBUG") == "1":
+    if __import__("os").getenv("LLM_DEBUG") == "1":
         logger.info("Suggestions prompt:\n%s", prompt)
-    with ollama.client(settings, timeout=120) as http:
-        response = http.post(
-            f"{base}/api/generate",
-            json={
-                "model": settings.ollama_model,
-                "prompt": prompt,
-                "stream": False,
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
-        raw_text = str(payload.get("response") or "").strip()
-        logger.info("Suggestions response len=%s", len(raw_text))
-        try:
-            parsed = _extract_json(raw_text)
-        except Exception as exc:
-            logger.warning("Suggestions JSON parse failed: %s", exc)
-            parsed = {"raw": raw_text}
-        if settings.suggestions_debug:
-            parsed = {"raw": raw_text, "parsed": parsed}
+    raw_text = llm_client.chat_completion(
+        settings,
+        base,
+        model=settings.text_model or "",
+        messages=[{"role": "user", "content": prompt}],
+        timeout=120,
+    )
+    logger.info("Suggestions response len=%s", len(raw_text))
+    try:
+        parsed = _extract_json(raw_text)
+    except Exception as exc:
+        logger.warning("Suggestions JSON parse failed: %s", exc)
+        parsed = {"raw": raw_text}
+    if settings.suggestions_debug:
+        parsed = {"raw": raw_text, "parsed": parsed}
     return parsed
 
 
@@ -269,8 +264,8 @@ def generate_field_variants(
     count: int,
     current_value: object | None = None,
 ) -> dict[str, Any]:
-    ensure_ollama_ready(settings)
-    base = ollama.base_url(settings)
+    ensure_text_llm_ready(settings)
+    base = llm_client.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -292,31 +287,26 @@ def generate_field_variants(
     )
     logger.info(
         "Suggestions field request model=%s field=%s count=%s doc_id=%s",
-        settings.ollama_model,
+        settings.text_model,
         field,
         count,
         document.get("id"),
     )
-    if __import__("os").getenv("OLLAMA_DEBUG") == "1":
+    if __import__("os").getenv("LLM_DEBUG") == "1":
         logger.info("Suggestions field prompt:\n%s", prompt)
-    with ollama.client(settings, timeout=120) as http:
-        response = http.post(
-            f"{base}/api/generate",
-            json={
-                "model": settings.ollama_model,
-                "prompt": prompt,
-                "stream": False,
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
-        raw_text = str(payload.get("response") or "").strip()
-        logger.info("Suggestions field response len=%s", len(raw_text))
-        try:
-            parsed = _extract_json(raw_text)
-        except Exception as exc:
-            logger.warning("Suggestions field JSON parse failed: %s", exc)
-            parsed = {"raw": raw_text}
-        if settings.suggestions_debug:
-            parsed = {"raw": raw_text, "parsed": parsed}
-        return parsed
+    raw_text = llm_client.chat_completion(
+        settings,
+        base,
+        model=settings.text_model or "",
+        messages=[{"role": "user", "content": prompt}],
+        timeout=120,
+    )
+    logger.info("Suggestions field response len=%s", len(raw_text))
+    try:
+        parsed = _extract_json(raw_text)
+    except Exception as exc:
+        logger.warning("Suggestions field JSON parse failed: %s", exc)
+        parsed = {"raw": raw_text}
+    if settings.suggestions_debug:
+        parsed = {"raw": raw_text, "parsed": parsed}
+    return parsed

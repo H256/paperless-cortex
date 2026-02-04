@@ -93,7 +93,7 @@ def get_document_suggestions(
             doc_id,
             "paperless_ocr",
             baseline_suggestions,
-            model_name=settings.ollama_model,
+            model_name=settings.text_model,
         )
         return baseline_suggestions
 
@@ -129,7 +129,7 @@ def get_document_suggestions(
             doc_id,
             "vision_ocr",
             vision_suggestions,
-            model_name=settings.ollama_model,
+            model_name=settings.text_model,
         )
         return vision_suggestions
 
