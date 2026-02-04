@@ -19,6 +19,7 @@ from app.services.queue import (
     move_queue_item_to_bottom,
     remove_queue_item,
 )
+from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
     QueueStatusResponse,
     QueueEnqueueResponse,
@@ -53,7 +54,7 @@ class QueueMoveEdgeRequest(BaseModel):
 @router.get("/status", response_model=QueueStatusResponse)
 def get_queue_status(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "length": None, "paused": False}
+        return queue_disabled_response(length=None, paused=False)
     stats = queue_stats(settings) or {"length": None, "total": 0, "in_progress": 0, "done": 0}
     return {"enabled": True, **stats, "paused": is_paused(settings)}
 
@@ -61,7 +62,7 @@ def get_queue_status(settings: Settings = Depends(get_settings)):
 @router.post("/enqueue", response_model=QueueEnqueueResponse)
 def enqueue(payload: QueueEnqueue, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "enqueued": 0}
+        return queue_disabled_response(enqueued=0)
     count = enqueue_docs(settings, payload.doc_ids)
     return {"enabled": True, "enqueued": count}
 
@@ -69,7 +70,7 @@ def enqueue(payload: QueueEnqueue, settings: Settings = Depends(get_settings)):
 @router.get("/peek", response_model=QueuePeekResponse)
 def peek(limit: int = 20, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "items": []}
+        return queue_disabled_response(items=[])
     items = peek_queue(settings, limit=limit)
     return {"enabled": True, "items": items}
 
@@ -77,7 +78,7 @@ def peek(limit: int = 20, settings: Settings = Depends(get_settings)):
 @router.post("/clear", response_model=QueueCancelResponse)
 def clear(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False}
+        return queue_disabled_response()
     cancel_queue(settings)
     return {"enabled": True, "cancelled": True}
 
@@ -85,7 +86,7 @@ def clear(settings: Settings = Depends(get_settings)):
 @router.post("/cancel", response_model=QueueCancelResponse)
 def cancel(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False}
+        return queue_disabled_response()
     cancel_queue(settings)
     return {"enabled": True, "cancelled": True}
 
@@ -93,7 +94,7 @@ def cancel(settings: Settings = Depends(get_settings)):
 @router.post("/reset-stats", response_model=QueueResetResponse)
 def reset(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False}
+        return queue_disabled_response()
     reset_stats(settings)
     return {"enabled": True}
 
@@ -101,7 +102,7 @@ def reset(settings: Settings = Depends(get_settings)):
 @router.post("/pause", response_model=QueuePauseResponse)
 def pause(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "paused": False}
+        return queue_disabled_response(paused=False)
     pause_queue(settings)
     return {"enabled": True, "paused": True}
 
@@ -109,7 +110,7 @@ def pause(settings: Settings = Depends(get_settings)):
 @router.post("/resume", response_model=QueuePauseResponse)
 def resume(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "paused": False}
+        return queue_disabled_response(paused=False)
     resume_queue(settings)
     return {"enabled": True, "paused": False}
 
@@ -117,7 +118,7 @@ def resume(settings: Settings = Depends(get_settings)):
 @router.post("/reorder", response_model=QueueMoveResponse)
 def move(payload: QueueMoveRequest, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "moved": False}
+        return queue_disabled_response(moved=False)
     moved = reorder_queue(settings, payload.from_index, payload.to_index)
     return {"enabled": True, "moved": moved}
 
@@ -125,7 +126,7 @@ def move(payload: QueueMoveRequest, settings: Settings = Depends(get_settings)):
 @router.post("/move-top", response_model=QueueMoveResponse)
 def move_top(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "moved": False}
+        return queue_disabled_response(moved=False)
     moved = move_queue_item_to_top(settings, payload.index)
     return {"enabled": True, "moved": moved}
 
@@ -133,7 +134,7 @@ def move_top(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_set
 @router.post("/move-bottom", response_model=QueueMoveResponse)
 def move_bottom(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "moved": False}
+        return queue_disabled_response(moved=False)
     moved = move_queue_item_to_bottom(settings, payload.index)
     return {"enabled": True, "moved": moved}
 
@@ -141,6 +142,6 @@ def move_bottom(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_
 @router.post("/remove", response_model=QueueRemoveResponse)
 def remove(payload: QueueRemoveRequest, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
-        return {"enabled": False, "removed": False}
+        return queue_disabled_response(removed=False)
     removed = remove_queue_item(settings, payload.index)
     return {"enabled": True, "removed": removed}
