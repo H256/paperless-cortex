@@ -39,8 +39,8 @@ from app.services.queue import (
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
 from app.services.page_text_store import upsert_page_texts
-from app.services.suggestions import generate_suggestions, normalize_suggestions_payload, generate_field_variants
-from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
+from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
@@ -134,28 +134,36 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
     baseline_text = doc.content or ""
-    baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
-    baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(
+    baseline_suggestions = generate_normalized_suggestions(
+        settings,
+        raw,
+        baseline_text,
+        tags=tags,
+        correspondents=correspondents,
+    )
+    persist_suggestions(
         db,
         doc_id,
         "paperless_ocr",
-        __import__("json").dumps(baseline_suggestions, ensure_ascii=False),
+        baseline_suggestions,
         model_name=settings.ollama_model,
     )
-    audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
     if vision_pages:
         vision_text = "\n\n".join(page.text or "" for page in vision_pages)
-        vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
-        vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-        upsert_suggestion(
+        vision_suggestions = generate_normalized_suggestions(
+            settings,
+            raw,
+            vision_text,
+            tags=tags,
+            correspondents=correspondents,
+        )
+        persist_suggestions(
             db,
             doc_id,
             "vision_ocr",
-            __import__("json").dumps(vision_suggestions, ensure_ascii=False),
+            vision_suggestions,
             model_name=settings.ollama_model,
         )
-        audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
 
 def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
     if is_cancel_requested(settings):
@@ -223,17 +231,20 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     correspondents = get_cached_correspondents(settings)
     raw = paperless.get_document(settings, doc_id)
     baseline_text = doc.content or ""
-    baseline_suggestions = generate_suggestions(settings, raw, baseline_text, tags, correspondents)
-    baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-    upsert_suggestion(
+    baseline_suggestions = generate_normalized_suggestions(
+        settings,
+        raw,
+        baseline_text,
+        tags=tags,
+        correspondents=correspondents,
+    )
+    persist_suggestions(
         db,
         doc_id,
         "paperless_ocr",
-        json.dumps(baseline_suggestions, ensure_ascii=False),
+        baseline_suggestions,
         model_name=settings.ollama_model,
     )
-    audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
-    db.commit()
 
 
 def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
@@ -252,17 +263,20 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
     if vision_pages:
         vision_text = "\n\n".join(page.text or "" for page in vision_pages).strip()
         if vision_text:
-            vision_suggestions = generate_suggestions(settings, raw, vision_text, tags, correspondents)
-            vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-            upsert_suggestion(
+            vision_suggestions = generate_normalized_suggestions(
+                settings,
+                raw,
+                vision_text,
+                tags=tags,
+                correspondents=correspondents,
+            )
+            persist_suggestions(
                 db,
                 doc_id,
                 "vision_ocr",
-                json.dumps(vision_suggestions, ensure_ascii=False),
+                vision_suggestions,
                 model_name=settings.ollama_model,
             )
-            audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
-    db.commit()
 
 
 def _process_suggest_field(settings, db: Session, task: dict) -> None:

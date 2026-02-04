@@ -98,3 +98,22 @@ def audit_suggestion_run(
     )
     db.add(audit)
     db.commit()
+
+
+def persist_suggestions(
+    db: Session,
+    doc_id: int,
+    source: str,
+    payload: dict[str, object],
+    *,
+    model_name: str | None = None,
+    action: str = "suggestions_generate",
+) -> None:
+    upsert_suggestion(
+        db,
+        doc_id,
+        source,
+        __import__("json").dumps(payload, ensure_ascii=False),
+        model_name=model_name,
+    )
+    audit_suggestion_run(db, doc_id, source, action)

@@ -242,6 +242,24 @@ def generate_suggestions(
     return parsed
 
 
+def generate_normalized_suggestions(
+    settings: Settings,
+    document: dict[str, Any],
+    text: str,
+    *,
+    tags: list[str],
+    correspondents: list[str],
+) -> dict[str, Any]:
+    suggestions = generate_suggestions(
+        settings,
+        document,
+        text,
+        tags=tags,
+        correspondents=correspondents,
+    )
+    return normalize_suggestions_payload(suggestions, tags)
+
+
 def generate_field_variants(
     settings: Settings,
     document: dict[str, Any],

@@ -51,6 +51,30 @@ def _enqueue_embedding_tasks(
     return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
 
 
+def _queue_status_response(
+    settings: Settings,
+    db: Session,
+    state: SyncState | None,
+) -> dict[str, object]:
+    stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
+    status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
+    if status == "running" and state and not state.started_at:
+        state.started_at = datetime.now(timezone.utc).isoformat()
+        state.status = "running"
+        db.commit()
+    started_at = state.started_at if state else None
+    eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
+    return {
+        "status": status,
+        "processed": stats["done"],
+        "total": stats["total"],
+        "started_at": started_at,
+        "last_synced_at": state.last_synced_at if state else None,
+        "cancel_requested": state.cancel_requested if state else False,
+        "eta_seconds": eta_seconds,
+    }
+
+
 @router.post("/ingest", response_model=EmbeddingIngestResponse)
 def ingest_embeddings(
     doc_id: int | None = Query(default=None),
@@ -410,23 +434,7 @@ def search(
 def embedding_status(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
     state = db.get(SyncState, "embeddings")
     if settings.queue_enabled:
-        stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
-        status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
-        if status == "running" and state and not state.started_at:
-            state.started_at = datetime.now(timezone.utc).isoformat()
-            state.status = "running"
-            db.commit()
-        started_at = state.started_at if state else None
-        eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
-        return {
-            "status": status,
-            "processed": stats["done"],
-            "total": stats["total"],
-            "started_at": started_at,
-            "last_synced_at": state.last_synced_at if state else None,
-            "cancel_requested": state.cancel_requested if state else False,
-            "eta_seconds": eta_seconds,
-        }
+        return _queue_status_response(settings, db, state)
     if not state:
         return {"status": "idle", "processed": 0, "total": 0, "started_at": None}
     eta_seconds = estimate_eta_seconds(state.started_at, state.processed, state.total)

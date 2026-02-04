@@ -28,7 +28,11 @@ from app.services.embeddings import (
 )
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_sequence, enqueue_task_sequence_front
-from app.services.meta_upsert import upsert_correspondents, upsert_document_types, upsert_tags
+from app.services.meta_sync import (
+    sync_correspondents_page,
+    sync_document_types_page,
+    sync_tags_page,
+)
 from app.api_models import (
     SyncDocumentsResponse,
     SyncStatusResponse,
@@ -341,11 +345,8 @@ def sync_tags(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_tags(settings, page=page, page_size=page_size)
-    results = payload.get("results", [])
-    upserted = upsert_tags(db, results)
-    db.commit()
-    return {"count": len(results), "upserted": upserted}
+    count, upserted = sync_tags_page(settings, db, page=page, page_size=page_size)
+    return {"count": count, "upserted": upserted}
 
 
 @router.post("/correspondents", response_model=SyncSimpleResponse)
@@ -355,11 +356,8 @@ def sync_correspondents(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_correspondents(settings, page=page, page_size=page_size)
-    results = payload.get("results", [])
-    upserted = upsert_correspondents(db, results)
-    db.commit()
-    return {"count": len(results), "upserted": upserted}
+    count, upserted = sync_correspondents_page(settings, db, page=page, page_size=page_size)
+    return {"count": count, "upserted": upserted}
 
 
 @router.post("/document-types", response_model=SyncSimpleResponse)
@@ -369,11 +367,8 @@ def sync_document_types(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_document_types(settings, page=page, page_size=page_size)
-    results = payload.get("results", [])
-    upserted = upsert_document_types(db, results)
-    db.commit()
-    return {"count": len(results), "upserted": upserted}
+    count, upserted = sync_document_types_page(settings, db, page=page, page_size=page_size)
+    return {"count": count, "upserted": upserted}
 
 
 def _embed_documents(

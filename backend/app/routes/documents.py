@@ -25,18 +25,19 @@ from app.models import (
 )
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.suggestions import (
-    generate_suggestions,
     generate_field_variants,
+    generate_normalized_suggestions,
     normalize_suggestions_payload,
     merge_suggestions,
 )
 from app.services import paperless
 from app.services.text_pages import get_baseline_page_texts, get_page_text_layers, score_text_quality
-from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
+from app.services.suggestion_store import persist_suggestions, audit_suggestion_run
 from app.services.suggestion_store import update_suggestion_field
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_docs_front, enqueue_task_front, enqueue_task_sequence_front
 from app.services.embeddings import delete_points_for_doc
+from app.services.page_texts_merge import collect_page_texts
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
@@ -451,50 +452,35 @@ def get_document_suggestions(
 
     def run_baseline() -> dict[str, object]:
         baseline_text = raw.get("content") or ""
-        baseline_suggestions = generate_suggestions(
+        baseline_suggestions = generate_normalized_suggestions(
             settings,
             raw,
             baseline_text,
             tags=tags,
             correspondents=correspondents,
         )
-        baseline_suggestions = normalize_suggestions_payload(baseline_suggestions, tags)
-        upsert_suggestion(
+        persist_suggestions(
             db,
             doc_id,
             "paperless_ocr",
-            json.dumps(baseline_suggestions, ensure_ascii=False),
+            baseline_suggestions,
             model_name=settings.ollama_model,
         )
-        audit_suggestion_run(db, doc_id, "paperless_ocr", "suggestions_generate")
         return baseline_suggestions
 
     def run_vision() -> dict[str, object] | None:
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
+        if not settings.enable_vision_ocr:
+            logger.warning("Vision OCR refresh requested but ENABLE_VISION_OCR=0 doc=%s", doc_id)
+            return {"error": "vision_ocr_disabled"}
+        doc = db.get(Document, doc_id)
+        if not doc:
+            return {"error": "document_missing"}
+        _, vision_pages, _ = collect_page_texts(
+            settings,
+            db,
+            doc,
+            force_vision=True,
         )
-        if not vision_pages:
-            if not settings.enable_vision_ocr:
-                logger.warning("Vision OCR refresh requested but ENABLE_VISION_OCR=0 doc=%s", doc_id)
-                return {"error": "vision_ocr_disabled"}
-            logger.info("Vision OCR pages missing; running OCR on-demand doc=%s", doc_id)
-            _, vision_generated = get_page_text_layers(
-                settings,
-                raw.get("content") or "",
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc_id),
-                force_full_vision=True,
-            )
-            if vision_generated:
-                upsert_page_texts(db, settings, doc_id, vision_generated, source_filter="vision_ocr")
-                vision_pages = (
-                    db.query(DocumentPageText)
-                    .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-                    .order_by(DocumentPageText.page.asc())
-                    .all()
-                )
         if not vision_pages:
             logger.warning("Vision OCR produced no pages doc=%s", doc_id)
             return {"error": "vision_ocr_empty"}
@@ -502,22 +488,20 @@ def get_document_suggestions(
         if not vision_text:
             logger.warning("Vision OCR returned empty text doc=%s", doc_id)
             return {"error": "vision_ocr_empty_text"}
-        vision_suggestions = generate_suggestions(
+        vision_suggestions = generate_normalized_suggestions(
             settings,
             raw,
             vision_text,
             tags=tags,
             correspondents=correspondents,
         )
-        vision_suggestions = normalize_suggestions_payload(vision_suggestions, tags)
-        upsert_suggestion(
+        persist_suggestions(
             db,
             doc_id,
             "vision_ocr",
-            json.dumps(vision_suggestions, ensure_ascii=False),
+            vision_suggestions,
             model_name=settings.ollama_model,
         )
-        audit_suggestion_run(db, doc_id, "vision_ocr", "suggestions_generate")
         return vision_suggestions
 
     if refresh and priority and settings.queue_enabled:
