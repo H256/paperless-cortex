@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 import logging
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.services.chat import answer_question
 from app.api_models import ChatRequest, ChatResponse
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=ChatResponse)
-def chat(payload: ChatRequest, settings: Settings = Depends(load_settings)):
+def chat(payload: ChatRequest, settings: Settings = Depends(get_settings)):
     logger.info("Chat request question_len=%s top_k=%s", len(payload.question), payload.top_k)
     return answer_question(
         settings,
@@ -25,7 +26,7 @@ def chat(payload: ChatRequest, settings: Settings = Depends(load_settings)):
 
 
 @router.post("/stream")
-def chat_stream(payload: ChatRequest, settings: Settings = Depends(load_settings)):
+def chat_stream(payload: ChatRequest, settings: Settings = Depends(get_settings)):
     logger.info("Chat stream request question_len=%s top_k=%s", len(payload.question), payload.top_k)
     return answer_question(
         settings,

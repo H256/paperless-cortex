@@ -1,0 +1,7 @@
+from __future__ import annotations
+
+from app.config import Settings, load_settings
+
+
+def get_settings() -> Settings:
+    return load_settings()

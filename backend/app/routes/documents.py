@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import and_, case, exists, func
 from sqlalchemy.orm import Session
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.db import get_db
 import json
 
@@ -76,10 +77,6 @@ def _should_skip_doc(doc: Document) -> bool:
     return bool(doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"))
 
 
-def settings_dep() -> Settings:
-    return load_settings()
-
-
 @router.get("/", response_model=DocumentsPageResponse)
 def list_documents(
     page: int = 1,
@@ -90,7 +87,7 @@ def list_documents(
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
     include_derived: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     payload = paperless.list_documents(
@@ -380,7 +377,7 @@ def get_dashboard(db: Session = Depends(get_db)):
 
 
 @router.get("/{doc_id}", response_model=PaperlessDocument)
-def get_document(doc_id: int, settings: Settings = Depends(settings_dep)):
+def get_document(doc_id: int, settings: Settings = Depends(get_settings)):
     return paperless.get_document(settings, doc_id)
 
 
@@ -410,7 +407,7 @@ def get_local_document(doc_id: int, db: Session = Depends(get_db)):
 def get_document_text_quality(
     doc_id: int,
     priority: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
 ):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch text quality doc=%s", doc_id)
@@ -441,7 +438,7 @@ def get_document_suggestions(
     source: str | None = None,
     refresh: bool = False,
     priority: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     logger = __import__("logging").getLogger(__name__)
@@ -659,7 +656,7 @@ def suggest_field_variants(
     doc_id: int,
     payload: SuggestionFieldRequest,
     priority: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     raw = paperless.get_document(settings, doc_id)
@@ -781,7 +778,7 @@ def apply_field_suggestion(
 def apply_suggestion_to_document(
     doc_id: int,
     payload: ApplySuggestionToDocument,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     logger = __import__("logging").getLogger(__name__)
@@ -883,7 +880,7 @@ def apply_suggestion_to_document(
 def get_document_page_texts(
     doc_id: int,
     priority: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     logger = __import__("logging").getLogger(__name__)
@@ -942,7 +939,7 @@ def get_document_page_texts(
 @router.get("/{doc_id}/pdf")
 def get_document_pdf(
     doc_id: int,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
 ):
     pdf_bytes = paperless.get_document_pdf(settings, doc_id)
     return Response(
@@ -961,7 +958,7 @@ def process_missing(
     include_suggestions_vision: bool = True,
     embeddings_mode: str = "auto",
     limit: int | None = None,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     if not settings.queue_enabled:
@@ -1112,7 +1109,7 @@ def reset_intelligence(
 
 @router.post("/clear-intelligence", response_model=ClearIntelligenceResponse)
 def clear_intelligence(
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     doc_count = db.query(Document).count()
@@ -1172,7 +1169,7 @@ def delete_suggestions(
 
 @router.post("/delete-embeddings", response_model=DeleteEmbeddingsResponse)
 def delete_embeddings(
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     doc_ids = [row.doc_id for row in db.query(DocumentEmbedding.doc_id).all()]

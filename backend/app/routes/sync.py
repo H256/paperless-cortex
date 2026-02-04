@@ -6,7 +6,8 @@ from hashlib import sha256
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.db import get_db
 from app.models import (
     Correspondent,
@@ -42,10 +43,6 @@ from app.api_models import (
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
-def settings_dep() -> Settings:
-    return load_settings()
-
-
 @router.post("/documents", response_model=SyncDocumentsResponse)
 def sync_documents(
     page_size: int = 50,
@@ -56,7 +53,7 @@ def sync_documents(
     force_embed: bool = False,
     mark_missing: bool = False,
     insert_only: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     if embed is None:
@@ -327,7 +324,7 @@ def _upsert_document(
 @router.post("/documents/{doc_id}", response_model=SyncDocumentResponse)
 def sync_document(
     doc_id: int,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
     embed: bool | None = None,
     force_embed: bool = False,
@@ -380,7 +377,7 @@ def sync_document(
 def sync_tags(
     page: int = 1,
     page_size: int = 200,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     payload = paperless.list_tags(settings, page=page, page_size=page_size)
@@ -411,7 +408,7 @@ def sync_tags(
 def sync_correspondents(
     page: int = 1,
     page_size: int = 200,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     payload = paperless.list_correspondents(settings, page=page, page_size=page_size)
@@ -441,7 +438,7 @@ def sync_correspondents(
 def sync_document_types(
     page: int = 1,
     page_size: int = 200,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     payload = paperless.list_document_types(settings, page=page, page_size=page_size)

@@ -7,7 +7,8 @@ import re
 import logging
 from sqlalchemy.orm import Session
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.db import get_db
 from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState, Correspondent
 from app.services.embeddings import (
@@ -34,16 +35,12 @@ router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
 
 
-def settings_dep() -> Settings:
-    return load_settings()
-
-
 @router.post("/ingest", response_model=EmbeddingIngestResponse)
 def ingest_embeddings(
     doc_id: int | None = Query(default=None),
     limit: int = Query(default=100),
     force: bool = Query(default=False),
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     state = db.get(SyncState, "embeddings")
@@ -200,7 +197,7 @@ def ingest_embeddings(
 def ingest_documents(
     doc_ids: list[int],
     force: bool = Query(default=False),
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
@@ -353,7 +350,7 @@ def search(
     source: str | None = None,
     min_quality: int | None = None,
     include_doc: bool = True,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     logger.info(
