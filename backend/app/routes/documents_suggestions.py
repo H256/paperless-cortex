@@ -262,10 +262,7 @@ def suggest_field_variants(
             "count": max(1, min(payload.count, 5)),
             "current": current,
         }
-        if priority:
-            enqueue_task_front(settings, task)
-        else:
-            enqueue_task_front(settings, task)
+        enqueue_task_front(settings, task)
         return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "queued": True}
 
     variants = generate_field_variants(

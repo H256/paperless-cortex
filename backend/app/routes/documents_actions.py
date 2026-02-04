@@ -26,6 +26,13 @@ from app.routes.queue_guard import require_queue_enabled
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
+def _clear_intelligence_tables(db: Session) -> None:
+    db.execute(delete(DocumentSuggestion))
+    db.execute(delete(DocumentPageText))
+    db.execute(delete(DocumentEmbedding))
+    db.commit()
+
+
 @router.post("/process-missing", response_model=ProcessMissingResponse)
 def process_missing(
     dry_run: bool = False,
@@ -162,10 +169,7 @@ def reset_intelligence(
 ):
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    db.execute(delete(DocumentSuggestion))
-    db.execute(delete(DocumentPageText))
-    db.execute(delete(DocumentEmbedding))
-    db.commit()
+    _clear_intelligence_tables(db)
     return {"enabled": True}
 
 
@@ -176,10 +180,7 @@ def clear_intelligence(
 ):
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    db.execute(delete(DocumentSuggestion))
-    db.execute(delete(DocumentPageText))
-    db.execute(delete(DocumentEmbedding))
-    db.commit()
+    _clear_intelligence_tables(db)
     return {"enabled": True}
 
 
