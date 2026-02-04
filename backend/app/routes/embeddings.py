@@ -30,6 +30,7 @@ from app.api_models import (
     EmbeddingStatusResponse,
     SyncCancelResponse,
 )
+from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
@@ -469,16 +470,7 @@ def embedding_status(db: Session = Depends(get_db), settings: Settings = Depends
             state.status = "running"
             db.commit()
         started_at = state.started_at if state else None
-        eta_seconds = None
-        if started_at and stats["done"] and stats["total"]:
-            try:
-                started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-                elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-                rate = stats["done"] / max(1.0, elapsed)
-                remaining = stats["total"] - stats["done"]
-                eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
-            except Exception:
-                eta_seconds = None
+        eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
         return {
             "status": status,
             "processed": stats["done"],
@@ -490,16 +482,7 @@ def embedding_status(db: Session = Depends(get_db), settings: Settings = Depends
         }
     if not state:
         return {"status": "idle", "processed": 0, "total": 0, "started_at": None}
-    eta_seconds = None
-    if state.started_at and state.processed and state.total:
-        try:
-            started = datetime.fromisoformat(state.started_at.replace("Z", "+00:00"))
-            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-            rate = state.processed / max(1.0, elapsed)
-            remaining = state.total - state.processed
-            eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
-        except Exception:
-            eta_seconds = None
+    eta_seconds = estimate_eta_seconds(state.started_at, state.processed, state.total)
     return {
         "status": state.status or "idle",
         "processed": state.processed or 0,

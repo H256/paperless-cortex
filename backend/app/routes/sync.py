@@ -39,6 +39,7 @@ from app.api_models import (
     SyncDocumentResponse,
     SyncSimpleResponse,
 )
+from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -191,16 +192,7 @@ def sync_status(db: Session = Depends(get_db)):
     state = db.get(SyncState, "documents")
     if not state:
         return {"last_synced_at": None, "status": "idle", "processed": 0, "total": 0}
-    eta_seconds = None
-    if state.started_at and state.processed and state.total:
-        try:
-            started = datetime.fromisoformat(state.started_at.replace("Z", "+00:00"))
-            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-            rate = state.processed / max(1.0, elapsed)
-            remaining = state.total - state.processed
-            eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
-        except Exception:
-            eta_seconds = None
+    eta_seconds = estimate_eta_seconds(state.started_at, state.processed, state.total)
     return {
         "last_synced_at": state.last_synced_at,
         "status": state.status or "idle",
