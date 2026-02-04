@@ -78,6 +78,24 @@ def _should_skip_doc(doc: Document) -> bool:
     return bool(doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"))
 
 
+def _parse_suggestion_payload(row: DocumentSuggestion, tags: list[str]) -> dict[str, object]:
+    try:
+        parsed = json.loads(row.payload)
+        return normalize_suggestions_payload(parsed, tags)
+    except Exception:
+        return {"raw": row.payload}
+
+
+def _load_suggestions_map(
+    db: Session, doc_id: int, tags: list[str], source: str | None = None
+) -> dict[str, object]:
+    query = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id)
+    if source:
+        query = query.filter(DocumentSuggestion.source == source)
+    rows = query.order_by(DocumentSuggestion.source.asc()).all()
+    return {row.source: _parse_suggestion_payload(row, tags) for row in rows}
+
+
 @router.get("/", response_model=DocumentsPageResponse)
 def list_documents(
     page: int = 1,
@@ -516,18 +534,7 @@ def get_document_suggestions(
             )
         elif source == "paperless_ocr":
             enqueue_task_front(settings, {"doc_id": doc_id, "task": "suggestions_paperless"})
-        stored = (
-            db.query(DocumentSuggestion)
-            .filter(DocumentSuggestion.doc_id == doc_id)
-            .order_by(DocumentSuggestion.source.asc())
-            .all()
-        )
-        for row in stored:
-            try:
-                parsed = json.loads(row.payload)
-                suggestions_by_source[row.source] = normalize_suggestions_payload(parsed, tags)
-            except Exception:
-                suggestions_by_source[row.source] = {"raw": row.payload}
+        suggestions_by_source = _load_suggestions_map(db, doc_id, tags)
         meta_rows = (
             db.query(DocumentSuggestion)
             .filter(DocumentSuggestion.doc_id == doc_id)
@@ -553,42 +560,13 @@ def get_document_suggestions(
                 suggestions_by_source["vision_ocr"] = vision
         # Ensure best_pick has both sources when refreshing only one side.
         if source == "vision_ocr" and "paperless_ocr" not in suggestions_by_source:
-            stored = (
-                db.query(DocumentSuggestion)
-                .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == "paperless_ocr")
-                .one_or_none()
+            suggestions_by_source.update(
+                _load_suggestions_map(db, doc_id, tags, source="paperless_ocr")
             )
-            if stored:
-                try:
-                    parsed = json.loads(stored.payload)
-                    suggestions_by_source["paperless_ocr"] = normalize_suggestions_payload(parsed, tags)
-                except Exception:
-                    suggestions_by_source["paperless_ocr"] = {"raw": stored.payload}
         if source == "paperless_ocr" and "vision_ocr" not in suggestions_by_source:
-            stored = (
-                db.query(DocumentSuggestion)
-                .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == "vision_ocr")
-                .one_or_none()
-            )
-            if stored:
-                try:
-                    parsed = json.loads(stored.payload)
-                    suggestions_by_source["vision_ocr"] = normalize_suggestions_payload(parsed, tags)
-                except Exception:
-                    suggestions_by_source["vision_ocr"] = {"raw": stored.payload}
+            suggestions_by_source.update(_load_suggestions_map(db, doc_id, tags, source="vision_ocr"))
     else:
-        stored = (
-            db.query(DocumentSuggestion)
-            .filter(DocumentSuggestion.doc_id == doc_id)
-            .order_by(DocumentSuggestion.source.asc())
-            .all()
-        )
-        for row in stored:
-            try:
-                parsed = json.loads(row.payload)
-                suggestions_by_source[row.source] = normalize_suggestions_payload(parsed, tags)
-            except Exception:
-                suggestions_by_source[row.source] = {"raw": row.payload}
+        suggestions_by_source = _load_suggestions_map(db, doc_id, tags)
 
     meta_rows = (
         db.query(DocumentSuggestion)

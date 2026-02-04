@@ -321,9 +321,30 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
             ensure_ascii=False,
         ),
         model_name=settings.ollama_model,
+        commit=False,
     )
-    audit_suggestion_run(db, doc_id, source, f"field_variants:{field}")
+    audit_suggestion_run(db, doc_id, source, f"field_variants:{field}", commit=False)
     db.commit()
+
+
+def _dispatch_task(settings, db: Session, task_type: str, doc_id: int, task: dict | None) -> None:
+    handlers = {
+        "sync": lambda: _process_sync_only(settings, db, doc_id),
+        "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id),
+        "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id),
+        "suggestions_paperless": lambda: _process_suggestions_paperless(settings, db, doc_id),
+        "suggestions_vision": lambda: _process_suggestions_vision(settings, db, doc_id),
+        "suggest_field": lambda: _process_suggest_field(settings, db, task or {}),
+    }
+    if task_type == "vision_ocr":
+        force = bool(task.get("force")) if isinstance(task, dict) else False
+        _process_vision_ocr_only(settings, db, doc_id, force=force)
+        return
+    handler = handlers.get(task_type)
+    if handler:
+        handler()
+        return
+    _process_doc(settings, db, doc_id)
 
 
 def main() -> None:
@@ -396,23 +417,7 @@ def main() -> None:
             run_started = time.time()
             try:
                 with SessionLocal() as db:
-                    if task_type == "sync":
-                        _process_sync_only(settings, db, doc_id)
-                    elif task_type == "vision_ocr":
-                        force = bool(task.get("force")) if isinstance(task, dict) else False
-                        _process_vision_ocr_only(settings, db, doc_id, force=force)
-                    elif task_type == "embeddings_paperless":
-                        _process_embeddings_paperless(settings, db, doc_id)
-                    elif task_type == "embeddings_vision":
-                        _process_embeddings_vision(settings, db, doc_id)
-                    elif task_type == "suggestions_paperless":
-                        _process_suggestions_paperless(settings, db, doc_id)
-                    elif task_type == "suggestions_vision":
-                        _process_suggestions_vision(settings, db, doc_id)
-                    elif task_type == "suggest_field":
-                        _process_suggest_field(settings, db, task if isinstance(task, dict) else {})
-                    else:
-                        _process_doc(settings, db, doc_id)
+                    _dispatch_task(settings, db, task_type, doc_id, task if isinstance(task, dict) else None)
             except Exception as exc:
                 logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
             finally:
