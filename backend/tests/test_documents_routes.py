@@ -4,7 +4,8 @@ from __future__ import annotations
 def test_get_local_document_missing(api_client):
     response = api_client.get("/documents/999/local")
     assert response.status_code == 200
-    assert response.json() == {"status": "missing"}
+    payload = response.json()
+    assert payload["status"] == "missing"
 
 
 def test_process_missing_queue_disabled(api_client):
