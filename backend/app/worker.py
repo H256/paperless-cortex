@@ -36,7 +36,8 @@ from app.services.queue import (
     clear_queue,
     is_paused,
 )
-from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
+from app.services.text_pages import get_baseline_page_texts
+from app.services.page_texts_merge import collect_page_texts
 from app.services.page_text_store import upsert_page_texts
 from app.services.suggestions import generate_suggestions, normalize_suggestions_payload, generate_field_variants
 from app.services.suggestion_store import upsert_suggestion, audit_suggestion_run
@@ -121,14 +122,12 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         return
 
     # Embeddings (with vision OCR)
-    baseline_pages, vision_pages = get_page_text_layers(
+    baseline_pages, vision_pages, _ = collect_page_texts(
         settings,
-        doc.content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-        force_full_vision=True,
+        db,
+        doc,
+        force_vision=True,
     )
-    if vision_pages:
-        upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
     _embed_with_pages(settings, db, doc, baseline_pages, vision_pages)
 
     # Suggestions
@@ -174,14 +173,12 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         if existing:
             logger.info("Vision OCR skipped (cached) doc=%s", doc_id)
             return
-    _, vision_pages = get_page_text_layers(
+    _, vision_pages, _ = collect_page_texts(
         settings,
-        doc.content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-        force_full_vision=True,
+        db,
+        doc,
+        force_vision=True,
     )
-    if vision_pages:
-        upsert_page_texts(db, settings, doc.id, vision_pages, source_filter="vision_ocr")
     db.commit()
 
 def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
@@ -206,16 +203,11 @@ def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
     doc = db.get(Document, doc_id)
     if not doc:
         return
-    baseline_pages = get_baseline_page_texts(
+    baseline_pages, vision_pages, _ = collect_page_texts(
         settings,
-        doc.content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-    )
-    vision_pages = (
-        db.query(DocumentPageText)
-        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-        .order_by(DocumentPageText.page.asc())
-        .all()
+        db,
+        doc,
+        force_vision=False,
     )
     _embed_with_pages(settings, db, doc, baseline_pages, vision_pages, "vision")
 

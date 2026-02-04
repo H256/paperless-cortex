@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.deps import get_settings
 from app.db import get_db
-from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState, Correspondent
+from app.models import Document, DocumentEmbedding, SyncState, Correspondent
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
@@ -19,9 +19,8 @@ from app.services.embeddings import (
     upsert_points,
 )
 from app.services.embedding_init import ensure_embedding_collection
-from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
+from app.services.page_texts_merge import collect_page_texts
 from app.services import paperless
-from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task, queue_stats
 from app.services.sync_state import ensure_started, get_or_create_state, mark_running
 from app.api_models import (
@@ -86,28 +85,12 @@ def ingest_embeddings(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages = get_baseline_page_texts(
+        baseline_pages, vision_pages, page_texts = collect_page_texts(
             settings,
-            doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            db,
+            doc,
+            force_vision=force,
         )
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if force:
-            _, regenerated = get_page_text_layers(
-                settings,
-                doc.content,
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-                force_full_vision=True,
-            )
-            if regenerated:
-                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
-                vision_pages = regenerated
-        page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
             state.processed = processed
@@ -222,28 +205,12 @@ def ingest_documents(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages = get_baseline_page_texts(
+        baseline_pages, vision_pages, page_texts = collect_page_texts(
             settings,
-            doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            db,
+            doc,
+            force_vision=force,
         )
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if force:
-            _, regenerated = get_page_text_layers(
-                settings,
-                doc.content,
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-                force_full_vision=True,
-            )
-            if regenerated:
-                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
-                vision_pages = regenerated
-        page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
             state.processed = processed
