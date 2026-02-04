@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.routes import documents, embeddings, meta, sync, queue, status, chat
+from app.routes import documents, documents_actions, documents_suggestions, embeddings, meta, sync, queue, status, chat
 from app.config import load_settings
 from app.services.meta_cache import refresh_cache
 from app.services.meta_sync import sync_correspondents_all, sync_tags_all
@@ -28,6 +28,8 @@ app.add_middleware(
 api = FastAPI(title="Paperless-NGX Cortex API")
 
 api.include_router(documents.router)
+api.include_router(documents_actions.router)
+api.include_router(documents_suggestions.router)
 api.include_router(meta.router)
 api.include_router(sync.router)
 api.include_router(embeddings.router)
