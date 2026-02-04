@@ -459,9 +459,8 @@ def search(
 
 
 @router.get("/status", response_model=EmbeddingStatusResponse)
-def embedding_status(db: Session = Depends(get_db)):
+def embedding_status(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
     state = db.get(SyncState, "embeddings")
-    settings = load_settings()
     if settings.queue_enabled:
         stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
         status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
