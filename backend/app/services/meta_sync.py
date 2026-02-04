@@ -8,25 +8,13 @@ from app.config import Settings
 from app.models import Correspondent, Tag
 from app.schemas import CorrespondentIn, TagIn
 from app.services import paperless
+from app.services.pagination import load_all_pages
 
 logger = logging.getLogger(__name__)
 
 
-def _load_all_pages(fetch_page, page_size: int = 200) -> list[dict]:
-    page = 1
-    results: list[dict] = []
-    while True:
-        payload = fetch_page(page=page, page_size=page_size)
-        page_results = payload.get("results", []) or []
-        results.extend(page_results)
-        if not payload.get("next"):
-            break
-        page += 1
-    return results
-
-
 def sync_tags_all(settings: Settings, db: Session, page_size: int = 200) -> tuple[int, int]:
-    results = _load_all_pages(lambda **kw: paperless.list_tags(settings, **kw), page_size)
+    results = load_all_pages(lambda **kw: paperless.list_tags(settings, **kw), page_size)
     upserted = 0
     seen: set[int] = set()
     for raw in results:
@@ -52,7 +40,7 @@ def sync_tags_all(settings: Settings, db: Session, page_size: int = 200) -> tupl
 def sync_correspondents_all(
     settings: Settings, db: Session, page_size: int = 200
 ) -> tuple[int, int]:
-    results = _load_all_pages(
+    results = load_all_pages(
         lambda **kw: paperless.list_correspondents(settings, **kw), page_size
     )
     upserted = 0
@@ -74,4 +62,3 @@ def sync_correspondents_all(
         upserted += 1
     db.commit()
     return len(results), upserted
-
