@@ -6,6 +6,7 @@ from typing import Any
 from app.config import Settings
 from app.services import paperless
 from app.services import ollama
+from app.services import qdrant
 
 
 def check_paperless(settings: Settings) -> tuple[bool, str]:
@@ -19,12 +20,10 @@ def check_paperless(settings: Settings) -> tuple[bool, str]:
 def check_qdrant(settings: Settings) -> tuple[bool, str]:
     if not settings.qdrant_url:
         return False, "QDRANT_URL not set"
-    headers: dict[str, str] = {}
-    if settings.qdrant_api_key:
-        headers["api-key"] = settings.qdrant_api_key
     try:
-        with httpx.Client(timeout=5, verify=settings.httpx_verify_tls) as client:
-            response = client.get(f"{settings.qdrant_url.rstrip('/')}/healthz", headers=headers)
+        base = qdrant.base_url(settings)
+        with qdrant.client(settings, timeout=5) as http:
+            response = http.get(f"{base}/healthz", headers=qdrant.headers(settings))
             response.raise_for_status()
         return True, "ok"
     except Exception as exc:

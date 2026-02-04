@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from app.config import Settings
 from app.services import ollama
+from app.services.guard import ensure_ollama_ready, ensure_qdrant_ready
 from app.services.embeddings import embed_text, search_points
 
 logger = logging.getLogger(__name__)
@@ -107,10 +108,8 @@ def answer_question(
     history: list[dict[str, str]] | None = None,
     stream: bool = False,
 ) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
-    if not settings.ollama_base_url or not settings.ollama_model:
-        raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
-    if not settings.qdrant_url or not settings.qdrant_collection:
-        raise RuntimeError("QDRANT_URL/QDRANT_COLLECTION not set")
+    ensure_ollama_ready(settings)
+    ensure_qdrant_ready(settings)
     vector = embed_text(settings, question)
     raw = search_points(settings, vector, limit=max(3, top_k * 3))
     hits = raw.get("result", []) or []

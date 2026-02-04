@@ -472,6 +472,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: standardized suggestion generation + persistence helpers.
 - Backend refactor: extracted queue-based embedding status response helper.
 - Backend refactor: centralized Ollama base URL + client in `services/ollama.py`.
+- Backend refactor: centralized Qdrant client helpers and shared guard checks.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

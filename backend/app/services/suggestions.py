@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.config import Settings
 from app.services import ollama
+from app.services.guard import ensure_ollama_ready
 
 logger = logging.getLogger(__name__)
 
@@ -190,8 +191,7 @@ def generate_suggestions(
     tags: list[str],
     correspondents: list[str],
 ) -> dict[str, Any]:
-    if not settings.ollama_base_url or not settings.ollama_model:
-        raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
+    ensure_ollama_ready(settings)
     base = ollama.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
@@ -269,8 +269,7 @@ def generate_field_variants(
     count: int,
     current_value: object | None = None,
 ) -> dict[str, Any]:
-    if not settings.ollama_base_url or not settings.ollama_model:
-        raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
+    ensure_ollama_ready(settings)
     base = ollama.base_url(settings)
     doc_meta = {
         "id": document.get("id"),

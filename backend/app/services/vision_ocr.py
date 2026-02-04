@@ -8,6 +8,7 @@ import logging
 
 from app.config import Settings
 from app.services import ollama
+from app.services.guard import ensure_ollama_ready
 from app.services.page_types import PageText
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,7 @@ def iter_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim
 
 
 def _ollama_generate(settings: Settings, model: str, prompt: str, image_bytes: bytes) -> str:
+    ensure_ollama_ready(settings, require_model=False)
     base = ollama.base_url(settings)
     payload = {
         "model": model,
@@ -136,6 +138,7 @@ def ocr_pdf_pages(
 ) -> list[PageText]:
     if not settings.vision_model:
         raise RuntimeError("VISION_MODEL not set")
+    ensure_ollama_ready(settings, require_model=False)
     ollama.ensure_model(settings, settings.vision_model)
     prompt = load_prompt(settings)
     results: list[PageText] = []
