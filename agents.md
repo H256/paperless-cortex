@@ -455,6 +455,7 @@ All model names must be configurable via environment variables.
 ## Recent changes (2026-02-02 to 2026-02-03)
 - Backend refactor: centralized `get_settings` dependency for routes in `app/deps.py`.
 - Backend refactor: extracted pagination helper shared by meta cache + sync.
+- Frontend refactor: unified footer and cleaned up interval cleanup in `App.vue`.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

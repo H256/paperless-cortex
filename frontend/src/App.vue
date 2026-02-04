@@ -173,6 +173,11 @@
           <div v-if="queueStore.status.enabled">Total: {{ queueStore.status.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
         </div>
+        <img
+          src="/cortex_image_transparent.png"
+          alt="Paperless-NGX Cortex"
+          class="h-10 w-40 object-contain opacity-85"
+        />
       </div>
     </footer>
     <ToastHost />
@@ -198,17 +203,6 @@
       </div>
     </div>
   </div>
-  <footer
-    class="border-t border-slate-200 bg-white/70 py-3 dark:border-slate-800 dark:bg-slate-900/70"
-  >
-    <div class="mx-auto flex max-w-7xl items-center justify-center px-6">
-      <img
-        src="/cortex_image_transparent.png"
-        alt="Paperless-NGX Cortex"
-        class="h-10 w-40 object-contain opacity-85"
-      />
-    </div>
-  </footer>
 </template>
 
 <script setup lang="ts">
@@ -242,6 +236,8 @@ const prefersDark = ref(mediaQuery.matches)
 const effectiveTheme = computed(() =>
   theme.value === 'system' ? (prefersDark.value ? 'dark' : 'light') : theme.value,
 )
+let queueIntervalId: number | null = null
+let statusIntervalId: number | null = null
 
 const applyTheme = (value: string) => {
   const root = document.documentElement
@@ -265,8 +261,8 @@ onMounted(() => {
   applyTheme(effectiveTheme.value)
   queueStore.refreshStatus()
   statusStore.refresh()
-  setInterval(queueStore.refreshStatus, 5000)
-  setInterval(statusStore.refresh, 7000)
+  queueIntervalId = window.setInterval(queueStore.refreshStatus, 5000)
+  statusIntervalId = window.setInterval(statusStore.refresh, 7000)
   window.addEventListener('app-error', onErrorEvent as EventListener)
   mediaQuery.addEventListener('change', onMediaQueryChange)
 })
@@ -274,6 +270,14 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('app-error', onErrorEvent as EventListener)
   mediaQuery.removeEventListener('change', onMediaQueryChange)
+  if (queueIntervalId !== null) {
+    window.clearInterval(queueIntervalId)
+    queueIntervalId = null
+  }
+  if (statusIntervalId !== null) {
+    window.clearInterval(statusIntervalId)
+    statusIntervalId = null
+  }
 })
 
 watch(theme, (value) => {
