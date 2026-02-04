@@ -14,7 +14,6 @@ from app.models import (
     Document,
     DocumentEmbedding,
     DocumentNote,
-    DocumentPageText,
     DocumentType,
     SyncState,
     Tag,
@@ -27,9 +26,9 @@ from app.services.embeddings import (
     make_point_id,
     upsert_points,
 )
-from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
-from app.services.page_text_store import upsert_page_texts
+from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_sequence, enqueue_task_sequence_front
+from app.services.meta_upsert import upsert_correspondents, upsert_document_types, upsert_tags
 from app.api_models import (
     SyncDocumentsResponse,
     SyncStatusResponse,
@@ -344,24 +343,7 @@ def sync_tags(
 ):
     payload = paperless.list_tags(settings, page=page, page_size=page_size)
     results = payload.get("results", [])
-    upserted = 0
-    seen: set[int] = set()
-    for raw in results:
-        data = TagIn.model_validate(raw)
-        if data.id in seen:
-            continue
-        seen.add(data.id)
-        tag = db.get(Tag, data.id)
-        if not tag:
-            tag = Tag(id=data.id)
-            db.add(tag)
-        tag.name = data.name
-        tag.color = data.color
-        tag.is_inbox_tag = data.is_inbox_tag
-        tag.slug = data.slug
-        tag.matching_algorithm = data.matching_algorithm
-        tag.is_insensitive = data.is_insensitive
-        upserted += 1
+    upserted = upsert_tags(db, results)
     db.commit()
     return {"count": len(results), "upserted": upserted}
 
@@ -375,23 +357,7 @@ def sync_correspondents(
 ):
     payload = paperless.list_correspondents(settings, page=page, page_size=page_size)
     results = payload.get("results", [])
-    upserted = 0
-    seen: set[int] = set()
-    for raw in results:
-        data = CorrespondentIn.model_validate(raw)
-        if data.id in seen:
-            continue
-        seen.add(data.id)
-        correspondent = db.get(Correspondent, data.id)
-        if not correspondent:
-            correspondent = Correspondent(id=data.id)
-            db.add(correspondent)
-            db.flush()
-        correspondent.name = data.name
-        correspondent.slug = data.slug
-        correspondent.matching_algorithm = data.matching_algorithm
-        correspondent.is_insensitive = data.is_insensitive
-        upserted += 1
+    upserted = upsert_correspondents(db, results)
     db.commit()
     return {"count": len(results), "upserted": upserted}
 
@@ -405,22 +371,7 @@ def sync_document_types(
 ):
     payload = paperless.list_document_types(settings, page=page, page_size=page_size)
     results = payload.get("results", [])
-    upserted = 0
-    seen: set[int] = set()
-    for raw in results:
-        data = DocumentTypeIn.model_validate(raw)
-        if data.id in seen:
-            continue
-        seen.add(data.id)
-        doc_type = db.get(DocumentType, data.id)
-        if not doc_type:
-            doc_type = DocumentType(id=data.id)
-            db.add(doc_type)
-        doc_type.name = data.name
-        doc_type.slug = data.slug
-        doc_type.matching_algorithm = data.matching_algorithm
-        doc_type.is_insensitive = data.is_insensitive
-        upserted += 1
+    upserted = upsert_document_types(db, results)
     db.commit()
     return {"count": len(results), "upserted": upserted}
 
@@ -446,28 +397,12 @@ def _embed_documents(
     logger.info("Embedding run docs=%s", len(documents))
     for doc in documents:
         content_value = doc.content or ""
-        baseline_pages = get_baseline_page_texts(
+        baseline_pages, vision_pages, page_texts = collect_page_texts(
             settings,
-            doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            db,
+            doc,
+            force_vision=force_embed,
         )
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if force_embed:
-            _, regenerated = get_page_text_layers(
-                settings,
-                doc.content,
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-                force_full_vision=True,
-            )
-            if regenerated:
-                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
-                vision_pages = regenerated
-        page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
             state.processed = processed
