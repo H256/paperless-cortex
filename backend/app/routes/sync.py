@@ -6,14 +6,14 @@ from hashlib import sha256
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.db import get_db
 from app.models import (
     Correspondent,
     Document,
     DocumentEmbedding,
     DocumentNote,
-    DocumentPageText,
     DocumentType,
     SyncState,
     Tag,
@@ -23,14 +23,16 @@ from app.services import paperless
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
-    embed_text,
-    ensure_qdrant_collection,
     make_point_id,
     upsert_points,
 )
-from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
-from app.services.page_text_store import upsert_page_texts
+from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_sequence, enqueue_task_sequence_front
+from app.services.meta_sync import (
+    sync_correspondents_page,
+    sync_document_types_page,
+    sync_tags_page,
+)
 from app.api_models import (
     SyncDocumentsResponse,
     SyncStatusResponse,
@@ -38,12 +40,12 @@ from app.api_models import (
     SyncDocumentResponse,
     SyncSimpleResponse,
 )
+from app.services.time_utils import estimate_eta_seconds
+from app.services.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.queue_tasks import build_task_sequence
+from app.services.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
-
-
-def settings_dep() -> Settings:
-    return load_settings()
 
 
 @router.post("/documents", response_model=SyncDocumentsResponse)
@@ -56,7 +58,7 @@ def sync_documents(
     force_embed: bool = False,
     mark_missing: bool = False,
     insert_only: bool = False,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     if embed is None:
@@ -66,15 +68,8 @@ def sync_documents(
         state = db.get(SyncState, "documents")
         modified_since = state.last_synced_at if state else None
 
-    state = db.get(SyncState, "documents")
-    if not state:
-        state = SyncState(key="documents")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = None
-    state.cancel_requested = False
+    state = get_or_create_state(db, "documents")
+    mark_running(state, total=None, processed=0)
     db.commit()
 
     upserted = 0
@@ -158,23 +153,11 @@ def sync_documents(
     if embed and embed_queue:
         if settings.queue_enabled:
             for doc in embed_queue:
-                tasks = []
-                if settings.enable_vision_ocr:
-                    tasks.append({"doc_id": doc.id, "task": "vision_ocr", "force": bool(force_embed)})
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
-                else:
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                tasks = build_task_sequence(settings, doc.id, include_sync=False, force=bool(force_embed))
                 enqueue_task_sequence(settings, tasks)
-            embed_state = db.get(SyncState, "embeddings")
-            if not embed_state:
-                embed_state = SyncState(key="embeddings")
-                db.add(embed_state)
+            embed_state = get_or_create_state(db, "embeddings")
             embed_state.status = "running"
-            if not embed_state.started_at:
-                embed_state.started_at = datetime.now(timezone.utc).isoformat()
+            ensure_started(embed_state)
             embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
             db.commit()
             embedded = 0
@@ -194,16 +177,7 @@ def sync_status(db: Session = Depends(get_db)):
     state = db.get(SyncState, "documents")
     if not state:
         return {"last_synced_at": None, "status": "idle", "processed": 0, "total": 0}
-    eta_seconds = None
-    if state.started_at and state.processed and state.total:
-        try:
-            started = datetime.fromisoformat(state.started_at.replace("Z", "+00:00"))
-            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-            rate = state.processed / max(1.0, elapsed)
-            remaining = state.total - state.processed
-            eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
-        except Exception:
-            eta_seconds = None
+    eta_seconds = estimate_eta_seconds(state.started_at, state.processed, state.total)
     return {
         "last_synced_at": state.last_synced_at,
         "status": state.status or "idle",
@@ -327,7 +301,7 @@ def _upsert_document(
 @router.post("/documents/{doc_id}", response_model=SyncDocumentResponse)
 def sync_document(
     doc_id: int,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
     embed: bool | None = None,
     force_embed: bool = False,
@@ -347,26 +321,14 @@ def sync_document(
         doc = db.get(Document, doc_id)
         if doc:
             if settings.queue_enabled:
-                tasks = []
-                if settings.enable_vision_ocr:
-                    tasks.append({"doc_id": doc.id, "task": "vision_ocr", "force": bool(force_embed)})
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
-                else:
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                tasks = build_task_sequence(settings, doc.id, include_sync=False, force=bool(force_embed))
                 if priority:
                     enqueue_task_sequence_front(settings, tasks, force=True)
                 else:
                     enqueue_task_sequence(settings, tasks)
-                embed_state = db.get(SyncState, "embeddings")
-                if not embed_state:
-                    embed_state = SyncState(key="embeddings")
-                    db.add(embed_state)
+                embed_state = get_or_create_state(db, "embeddings")
                 embed_state.status = "running"
-                if not embed_state.started_at:
-                    embed_state.started_at = datetime.now(timezone.utc).isoformat()
+                ensure_started(embed_state)
                 embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
                 db.commit()
                 embedded = 0
@@ -380,90 +342,33 @@ def sync_document(
 def sync_tags(
     page: int = 1,
     page_size: int = 200,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_tags(settings, page=page, page_size=page_size)
-    results = payload.get("results", [])
-    upserted = 0
-    seen: set[int] = set()
-    for raw in results:
-        data = TagIn.model_validate(raw)
-        if data.id in seen:
-            continue
-        seen.add(data.id)
-        tag = db.get(Tag, data.id)
-        if not tag:
-            tag = Tag(id=data.id)
-            db.add(tag)
-        tag.name = data.name
-        tag.color = data.color
-        tag.is_inbox_tag = data.is_inbox_tag
-        tag.slug = data.slug
-        tag.matching_algorithm = data.matching_algorithm
-        tag.is_insensitive = data.is_insensitive
-        upserted += 1
-    db.commit()
-    return {"count": len(results), "upserted": upserted}
+    count, upserted = sync_tags_page(settings, db, page=page, page_size=page_size)
+    return {"count": count, "upserted": upserted}
 
 
 @router.post("/correspondents", response_model=SyncSimpleResponse)
 def sync_correspondents(
     page: int = 1,
     page_size: int = 200,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_correspondents(settings, page=page, page_size=page_size)
-    results = payload.get("results", [])
-    upserted = 0
-    seen: set[int] = set()
-    for raw in results:
-        data = CorrespondentIn.model_validate(raw)
-        if data.id in seen:
-            continue
-        seen.add(data.id)
-        correspondent = db.get(Correspondent, data.id)
-        if not correspondent:
-            correspondent = Correspondent(id=data.id)
-            db.add(correspondent)
-            db.flush()
-        correspondent.name = data.name
-        correspondent.slug = data.slug
-        correspondent.matching_algorithm = data.matching_algorithm
-        correspondent.is_insensitive = data.is_insensitive
-        upserted += 1
-    db.commit()
-    return {"count": len(results), "upserted": upserted}
+    count, upserted = sync_correspondents_page(settings, db, page=page, page_size=page_size)
+    return {"count": count, "upserted": upserted}
 
 
 @router.post("/document-types", response_model=SyncSimpleResponse)
 def sync_document_types(
     page: int = 1,
     page_size: int = 200,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_document_types(settings, page=page, page_size=page_size)
-    results = payload.get("results", [])
-    upserted = 0
-    seen: set[int] = set()
-    for raw in results:
-        data = DocumentTypeIn.model_validate(raw)
-        if data.id in seen:
-            continue
-        seen.add(data.id)
-        doc_type = db.get(DocumentType, data.id)
-        if not doc_type:
-            doc_type = DocumentType(id=data.id)
-            db.add(doc_type)
-        doc_type.name = data.name
-        doc_type.slug = data.slug
-        doc_type.matching_algorithm = data.matching_algorithm
-        doc_type.is_insensitive = data.is_insensitive
-        upserted += 1
-    db.commit()
-    return {"count": len(results), "upserted": upserted}
+    count, upserted = sync_document_types_page(settings, db, page=page, page_size=page_size)
+    return {"count": count, "upserted": upserted}
 
 
 def _embed_documents(
@@ -476,46 +381,23 @@ def _embed_documents(
         return 0
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    ensure_embedding_collection(settings)
     points = []
     embedded = 0
     processed = 0
-    state = db.get(SyncState, "embeddings")
-    if not state:
-        state = SyncState(key="embeddings")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = len(documents)
+    state = get_or_create_state(db, "embeddings")
+    mark_running(state, total=len(documents), processed=0, reset_cancel=False)
     db.commit()
     logger = __import__("logging").getLogger(__name__)
     logger.info("Embedding run docs=%s", len(documents))
     for doc in documents:
         content_value = doc.content or ""
-        baseline_pages = get_baseline_page_texts(
+        baseline_pages, vision_pages, page_texts = collect_page_texts(
             settings,
-            doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            db,
+            doc,
+            force_vision=force_embed,
         )
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if force_embed:
-            _, regenerated = get_page_text_layers(
-                settings,
-                doc.content,
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-                force_full_vision=True,
-            )
-            if regenerated:
-                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
-                vision_pages = regenerated
-        page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
             state.processed = processed

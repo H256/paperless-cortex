@@ -7,10 +7,19 @@ import httpx
 from app.config import Settings
 
 
-def _api_base(settings: Settings) -> str:
+def base_url(settings: Settings) -> str | None:
+    if not settings.paperless_base_url:
+        return None
     base = settings.paperless_base_url.rstrip("/")
     if base.endswith("/api"):
         base = base[:-4]
+    return base
+
+
+def _api_base(settings: Settings) -> str:
+    base = base_url(settings)
+    if not base:
+        return "/api"
     return f"{base}/api"
 
 

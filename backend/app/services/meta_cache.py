@@ -5,6 +5,7 @@ from typing import Iterable
 
 from app.config import Settings
 from app.services import paperless
+from app.services.pagination import load_all_pages
 
 logger = logging.getLogger(__name__)
 
@@ -12,24 +13,11 @@ _cache: dict[str, list[str]] = {"tags": [], "correspondents": []}
 _loaded = False
 
 
-def _load_all_pages(fetch_page, page_size: int = 200) -> list[dict]:
-    page = 1
-    results: list[dict] = []
-    while True:
-        payload = fetch_page(page=page, page_size=page_size)
-        page_results = payload.get("results", []) or []
-        results.extend(page_results)
-        if not payload.get("next"):
-            break
-        page += 1
-    return results
-
-
 def refresh_cache(settings: Settings) -> None:
     global _loaded
     try:
-        tags = _load_all_pages(lambda **kw: paperless.list_tags(settings, **kw))
-        correspondents = _load_all_pages(
+        tags = load_all_pages(lambda **kw: paperless.list_tags(settings, **kw))
+        correspondents = load_all_pages(
             lambda **kw: paperless.list_correspondents(settings, **kw)
         )
         _cache["tags"] = sorted(

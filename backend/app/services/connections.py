@@ -3,10 +3,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import httpx
-
 from app.config import Settings
 from app.services import paperless
+from app.services import ollama
+from app.services import qdrant
 
 
 def check_paperless(settings: Settings) -> tuple[bool, str]:
@@ -20,12 +20,10 @@ def check_paperless(settings: Settings) -> tuple[bool, str]:
 def check_qdrant(settings: Settings) -> tuple[bool, str]:
     if not settings.qdrant_url:
         return False, "QDRANT_URL not set"
-    headers: dict[str, str] = {}
-    if settings.qdrant_api_key:
-        headers["api-key"] = settings.qdrant_api_key
     try:
-        with httpx.Client(timeout=5, verify=settings.httpx_verify_tls) as client:
-            response = client.get(f"{settings.qdrant_url.rstrip('/')}/healthz", headers=headers)
+        base = qdrant.base_url(settings)
+        with qdrant.client(settings, timeout=5) as http:
+            response = http.get(f"{base}/healthz", headers=qdrant.headers(settings))
             response.raise_for_status()
         return True, "ok"
     except Exception as exc:
@@ -36,9 +34,10 @@ def check_ollama(settings: Settings) -> tuple[bool, str]:
     if not settings.ollama_base_url or not settings.ollama_model:
         return False, "OLLAMA_BASE_URL/OLLAMA_MODEL not set"
     try:
-        with httpx.Client(timeout=15, verify=settings.httpx_verify_tls) as client:
-            response = client.post(
-                f"{settings.ollama_base_url.rstrip('/')}/api/generate",
+        base = ollama.base_url(settings)
+        with ollama.client(settings, timeout=15) as http:
+            response = http.post(
+                f"{base}/api/generate",
                 json={"model": settings.ollama_model, "prompt": "warum ist der himmel blau?", "stream": False},
             )
             response.raise_for_status()

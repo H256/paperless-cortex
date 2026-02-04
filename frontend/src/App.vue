@@ -9,86 +9,7 @@
           <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
         <div class="flex items-center gap-4">
-          <nav class="flex items-center gap-2 text-sm font-medium">
-            <RouterLink to="/dashboard" v-slot="{ isActive }">
-              <span
-                :class="[
-                  'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',
-                ]"
-              >
-                <ChartPie class="h-4 w-4" />
-                Dashboard
-              </span>
-            </RouterLink>
-            <RouterLink to="/documents" v-slot="{ isActive }">
-              <span
-                :class="[
-                  'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',
-                ]"
-              >
-                <FileText class="h-4 w-4" />
-                Documents
-              </span>
-            </RouterLink>
-            <RouterLink to="/search" v-slot="{ isActive }">
-              <span
-                :class="[
-                  'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',
-                ]"
-              >
-                <Search class="h-4 w-4" />
-                Search
-              </span>
-            </RouterLink>
-            <RouterLink to="/chat" v-slot="{ isActive }">
-              <span
-                :class="[
-                  'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',
-                ]"
-              >
-                <MessageCircle class="h-4 w-4" />
-                Chat
-              </span>
-            </RouterLink>
-            <RouterLink to="/queue" v-slot="{ isActive }">
-              <span
-                :class="[
-                  'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',
-                ]"
-              >
-                <List class="h-4 w-4" />
-                Queue
-              </span>
-            </RouterLink>
-            <RouterLink to="/operations" v-slot="{ isActive }">
-              <span
-                :class="[
-                  'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                  isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',
-                ]"
-              >
-                <Wrench class="h-4 w-4" />
-                Operations
-              </span>
-            </RouterLink>
-          </nav>
+          <AppNav :items="navItems" />
           <div
             class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
           >
@@ -173,6 +94,11 @@
           <div v-if="queueStore.status.enabled">Total: {{ queueStore.status.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
         </div>
+        <img
+          src="/cortex_image_transparent.png"
+          alt="Paperless-NGX Cortex"
+          class="h-10 w-40 object-contain opacity-85"
+        />
       </div>
     </footer>
     <ToastHost />
@@ -198,32 +124,12 @@
       </div>
     </div>
   </div>
-  <footer
-    class="border-t border-slate-200 bg-white/70 py-3 dark:border-slate-800 dark:bg-slate-900/70"
-  >
-    <div class="mx-auto flex max-w-7xl items-center justify-center px-6">
-      <img
-        src="/cortex_image_transparent.png"
-        alt="Paperless-NGX Cortex"
-        class="h-10 w-40 object-contain opacity-85"
-      />
-    </div>
-  </footer>
 </template>
 
 <script setup lang="ts">
-import {
-  ChartPie,
-  FileText,
-  Laptop,
-  List,
-  MessageCircle,
-  Moon,
-  Search,
-  Sun,
-  Wrench,
-} from 'lucide-vue-next'
+import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
+import AppNav from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
 import ToastHost from './components/ToastHost.vue'
 import { useQueueStore } from './stores/queueStore'
@@ -242,6 +148,16 @@ const prefersDark = ref(mediaQuery.matches)
 const effectiveTheme = computed(() =>
   theme.value === 'system' ? (prefersDark.value ? 'dark' : 'light') : theme.value,
 )
+let queueIntervalId: number | null = null
+let statusIntervalId: number | null = null
+const navItems = [
+  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+  { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/search', label: 'Search', icon: Search },
+  { to: '/chat', label: 'Chat', icon: MessageCircle },
+  { to: '/queue', label: 'Queue', icon: List },
+  { to: '/operations', label: 'Operations', icon: Wrench },
+]
 
 const applyTheme = (value: string) => {
   const root = document.documentElement
@@ -265,8 +181,8 @@ onMounted(() => {
   applyTheme(effectiveTheme.value)
   queueStore.refreshStatus()
   statusStore.refresh()
-  setInterval(queueStore.refreshStatus, 5000)
-  setInterval(statusStore.refresh, 7000)
+  queueIntervalId = window.setInterval(queueStore.refreshStatus, 5000)
+  statusIntervalId = window.setInterval(statusStore.refresh, 7000)
   window.addEventListener('app-error', onErrorEvent as EventListener)
   mediaQuery.addEventListener('change', onMediaQueryChange)
 })
@@ -274,6 +190,14 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('app-error', onErrorEvent as EventListener)
   mediaQuery.removeEventListener('change', onMediaQueryChange)
+  if (queueIntervalId !== null) {
+    window.clearInterval(queueIntervalId)
+    queueIntervalId = null
+  }
+  if (statusIntervalId !== null) {
+    window.clearInterval(statusIntervalId)
+    statusIntervalId = null
+  }
 })
 
 watch(theme, (value) => {

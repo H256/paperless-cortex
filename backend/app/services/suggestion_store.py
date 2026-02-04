@@ -17,6 +17,8 @@ def upsert_suggestion(
     payload: str,
     model_name: str | None = None,
     processed_at: str | None = None,
+    *,
+    commit: bool = True,
 ) -> None:
     db.execute(
         delete(DocumentSuggestion).where(
@@ -40,7 +42,8 @@ def upsert_suggestion(
     if doc:
         doc.analysis_model = model_name
         doc.analysis_processed_at = processed_at
-    db.commit()
+    if commit:
+        db.commit()
     logger.info("Stored suggestions doc=%s source=%s", doc_id, source)
 
 
@@ -89,6 +92,8 @@ def audit_suggestion_run(
     doc_id: int,
     source: str,
     action: str,
+    *,
+    commit: bool = True,
 ) -> None:
     audit = SuggestionAudit(
         doc_id=doc_id,
@@ -97,4 +102,26 @@ def audit_suggestion_run(
         created_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(audit)
+    if commit:
+        db.commit()
+
+
+def persist_suggestions(
+    db: Session,
+    doc_id: int,
+    source: str,
+    payload: dict[str, object],
+    *,
+    model_name: str | None = None,
+    action: str = "suggestions_generate",
+) -> None:
+    upsert_suggestion(
+        db,
+        doc_id,
+        source,
+        __import__("json").dumps(payload, ensure_ascii=False),
+        model_name=model_name,
+        commit=False,
+    )
+    audit_suggestion_run(db, doc_id, source, action, commit=False)
     db.commit()

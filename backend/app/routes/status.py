@@ -5,15 +5,13 @@ import time
 import httpx
 from fastapi import APIRouter, Depends
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.services.queue import worker_status
+from app.services import paperless
 from app.api_models import StatusResponse
 
 router = APIRouter(prefix="/status", tags=["status"])
-
-
-def settings_dep() -> Settings:
-    return load_settings()
 
 
 def check_ollama(settings: Settings) -> tuple[bool, str]:
@@ -29,13 +27,11 @@ def check_ollama(settings: Settings) -> tuple[bool, str]:
 
 
 @router.get("", response_model=StatusResponse)
-def status(settings: Settings = Depends(settings_dep)):
+def status(settings: Settings = Depends(get_settings)):
     started = time.perf_counter()
     ollama_ok, ollama_detail = check_ollama(settings)
     worker_ok, worker_detail = worker_status(settings) if settings.queue_enabled else (False, "Queue disabled")
-    paperless_base = (settings.paperless_base_url or "").rstrip("/")
-    if paperless_base.endswith("/api"):
-        paperless_base = paperless_base[:-4]
+    paperless_base = paperless.base_url(settings) or ""
     return {
         "web": {"status": "UP"},
         "worker": {"status": "UP" if worker_ok else "DOWN", "detail": worker_detail},

@@ -6,9 +6,9 @@ from typing import Any
 from pathlib import Path
 from datetime import datetime
 
-import httpx
-
 from app.config import Settings
+from app.services import ollama
+from app.services.guard import ensure_ollama_ready
 
 logger = logging.getLogger(__name__)
 
@@ -191,9 +191,8 @@ def generate_suggestions(
     tags: list[str],
     correspondents: list[str],
 ) -> dict[str, Any]:
-    if not settings.ollama_base_url or not settings.ollama_model:
-        raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
-    base = settings.ollama_base_url.rstrip("/")
+    ensure_ollama_ready(settings)
+    base = ollama.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -219,8 +218,8 @@ def generate_suggestions(
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Suggestions prompt:\n%s", prompt)
-    with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
+    with ollama.client(settings, timeout=120) as http:
+        response = http.post(
             f"{base}/api/generate",
             json={
                 "model": settings.ollama_model,
@@ -242,6 +241,24 @@ def generate_suggestions(
     return parsed
 
 
+def generate_normalized_suggestions(
+    settings: Settings,
+    document: dict[str, Any],
+    text: str,
+    *,
+    tags: list[str],
+    correspondents: list[str],
+) -> dict[str, Any]:
+    suggestions = generate_suggestions(
+        settings,
+        document,
+        text,
+        tags=tags,
+        correspondents=correspondents,
+    )
+    return normalize_suggestions_payload(suggestions, tags)
+
+
 def generate_field_variants(
     settings: Settings,
     document: dict[str, Any],
@@ -252,9 +269,8 @@ def generate_field_variants(
     count: int,
     current_value: object | None = None,
 ) -> dict[str, Any]:
-    if not settings.ollama_base_url or not settings.ollama_model:
-        raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
-    base = settings.ollama_base_url.rstrip("/")
+    ensure_ollama_ready(settings)
+    base = ollama.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -283,8 +299,8 @@ def generate_field_variants(
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Suggestions field prompt:\n%s", prompt)
-    with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
+    with ollama.client(settings, timeout=120) as http:
+        response = http.post(
             f"{base}/api/generate",
             json={
                 "model": settings.ollama_model,

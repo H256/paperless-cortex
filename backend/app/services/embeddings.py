@@ -8,47 +8,28 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.services import ollama
+from app.services import qdrant
+from app.services.guard import ensure_ollama_ready
 from app.services.page_types import PageText, WordBox
 from app.services.text_pages import score_text_quality
 
 logger = logging.getLogger(__name__)
-_model_ready: set[str] = set()
 
 
 def make_point_id(doc_id: int, chunk: int) -> int:
     return doc_id * 1_000_000 + chunk
 
 
-def ensure_model(settings: Settings, model: str) -> None:
-    if not settings.ollama_base_url:
-        raise RuntimeError("OLLAMA_BASE_URL not set")
-    if model in _model_ready:
-        return
-    base = settings.ollama_base_url.rstrip("/")
-    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
-        response = client.get(f"{base}/api/tags")
-        response.raise_for_status()
-        data = response.json()
-        models = {m.get("name") for m in data.get("models", []) if isinstance(m, dict)}
-        if model in models:
-            _model_ready.add(model)
-            return
-        logger.info("Ollama pull model=%s", model)
-        pull = client.post(f"{base}/api/pull", json={"name": model, "stream": False}, timeout=300)
-        pull.raise_for_status()
-        _model_ready.add(model)
-
-
 def embed_text(settings: Settings, text: str) -> list[float]:
-    if not settings.ollama_base_url:
-        raise RuntimeError("OLLAMA_BASE_URL not set")
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
-    ensure_model(settings, settings.embedding_model)
-    base = settings.ollama_base_url.rstrip("/")
+    ensure_ollama_ready(settings, require_model=False)
+    ollama.ensure_model(settings, settings.embedding_model)
+    base = ollama.base_url(settings)
     logger.info("Ollama embeddings model=%s chars=%s", settings.embedding_model, len(text))
-    with httpx.Client(timeout=60, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
+    with ollama.client(settings, timeout=60) as http:
+        response = http.post(
             f"{base}/api/embeddings",
             json={"model": settings.embedding_model, "prompt": text},
         )
@@ -297,23 +278,18 @@ def chunk_document_with_pages(
 def ensure_qdrant_collection(
     settings: Settings, vector_size: int, distance: str = "Cosine"
 ) -> None:
-    if not settings.qdrant_url:
-        raise RuntimeError("QDRANT_URL not set")
-    if not settings.qdrant_collection:
-        raise RuntimeError("QDRANT_COLLECTION not set")
-    base = settings.qdrant_url.rstrip("/")
-    headers: dict[str, str] = {}
-    if settings.qdrant_api_key:
-        headers["api-key"] = settings.qdrant_api_key
-    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
-        resp = client.get(f"{base}/collections/{settings.qdrant_collection}", headers=headers)
+    base = qdrant.base_url(settings)
+    collection = qdrant.collection_name(settings)
+    headers = qdrant.headers(settings)
+    with qdrant.client(settings, timeout=30) as client:
+        resp = client.get(f"{base}/collections/{collection}", headers=headers)
         if resp.status_code == 200:
             info = resp.json()
             config = info.get("result", {}).get("config", {}).get("params", {}).get("vectors", {})
             size = config.get("size")
             if size and int(size) != vector_size:
                 raise RuntimeError(
-                    f"Qdrant collection '{settings.qdrant_collection}' has size {size}, "
+                    f"Qdrant collection '{collection}' has size {size}, "
                     f"but embedding size is {vector_size}. Delete or use a new collection."
                 )
             return
@@ -321,7 +297,7 @@ def ensure_qdrant_collection(
             resp.raise_for_status()
         create_payload = {"vectors": {"size": vector_size, "distance": distance}}
         create = client.put(
-            f"{base}/collections/{settings.qdrant_collection}",
+            f"{base}/collections/{collection}",
             headers=headers,
             json=create_payload,
         )
@@ -349,19 +325,16 @@ def _chunk_points_by_size(points: list[dict[str, Any]], max_bytes: int) -> list[
 
 
 def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
-    if not settings.qdrant_url or not settings.qdrant_collection:
-        raise RuntimeError("QDRANT_URL/QDRANT_COLLECTION not set")
-    base = settings.qdrant_url.rstrip("/")
-    headers: dict[str, str] = {}
-    if settings.qdrant_api_key:
-        headers["api-key"] = settings.qdrant_api_key
+    base = qdrant.base_url(settings)
+    collection = qdrant.collection_name(settings)
+    headers = qdrant.headers(settings)
     logger.info("Qdrant upsert points=%s", len(points))
-    with httpx.Client(timeout=60, verify=settings.httpx_verify_tls) as client:
+    with qdrant.client(settings, timeout=60) as client:
         # Qdrant payload limit is 32MB; keep chunks below ~30MB to be safe.
         batches = _chunk_points_by_size(points, max_bytes=30 * 1024 * 1024)
         for batch in batches:
             response = client.put(
-                f"{base}/collections/{settings.qdrant_collection}/points",
+                f"{base}/collections/{collection}/points",
                 headers=headers,
                 json={"points": batch},
             )
@@ -374,16 +347,13 @@ def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
 
 
 def delete_points_for_doc(settings: Settings, doc_id: int) -> None:
-    if not settings.qdrant_url or not settings.qdrant_collection:
-        raise RuntimeError("QDRANT_URL/QDRANT_COLLECTION not set")
-    base = settings.qdrant_url.rstrip("/")
-    headers: dict[str, str] = {}
-    if settings.qdrant_api_key:
-        headers["api-key"] = settings.qdrant_api_key
+    base = qdrant.base_url(settings)
+    collection = qdrant.collection_name(settings)
+    headers = qdrant.headers(settings)
     payload = {"filter": {"must": [{"key": "doc_id", "match": {"value": doc_id}}]}}
-    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
+    with qdrant.client(settings, timeout=30) as client:
         response = client.post(
-            f"{base}/collections/{settings.qdrant_collection}/points/delete",
+            f"{base}/collections/{collection}/points/delete",
             headers=headers,
             json=payload,
         )
@@ -391,17 +361,4 @@ def delete_points_for_doc(settings: Settings, doc_id: int) -> None:
 
 
 def search_points(settings: Settings, vector: list[float], limit: int = 5) -> dict[str, Any]:
-    if not settings.qdrant_url or not settings.qdrant_collection:
-        raise RuntimeError("QDRANT_URL/QDRANT_COLLECTION not set")
-    base = settings.qdrant_url.rstrip("/")
-    headers: dict[str, str] = {}
-    if settings.qdrant_api_key:
-        headers["api-key"] = settings.qdrant_api_key
-    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
-            f"{base}/collections/{settings.qdrant_collection}/points/search",
-            headers=headers,
-            json={"vector": vector, "limit": limit, "with_payload": True},
-        )
-        response.raise_for_status()
-        return response.json()
+    return qdrant.search(settings, vector, limit=limit, with_payload=True)

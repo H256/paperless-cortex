@@ -5,6 +5,7 @@ import time
 from typing import Iterable
 
 from app.config import Settings
+from app.services.queue_tasks import build_task_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     return enqueue_full_sequence(settings, doc_ids, include_sync=True)
 
 
-def _task_key(task: dict) -> str:
+def task_key(task: dict) -> str:
     doc_id = task.get("doc_id")
     task_type = task.get("task") or "full"
     source = task.get("source")
@@ -67,37 +68,35 @@ def _task_key(task: dict) -> str:
     return f"{doc_id}:{task_type}{suffix}"
 
 
-def enqueue_task(settings: Settings, task: dict) -> int:
+def _enqueue_task(settings: Settings, task: dict, *, front: bool) -> int:
     client = _get_client(settings)
     if not client:
         return 0
     if is_cancel_requested(settings):
         return 0
     payload = __import__("json").dumps(task)
-    key = _task_key(task)
-    if client.sadd(QUEUE_SET, key):
-        client.rpush(QUEUE_KEY, payload)
+    key = task_key(task)
+    is_new = client.sadd(QUEUE_SET, key)
+    if is_new:
         client.incr(STATS_TOTAL)
+    if front:
+        client.lrem(QUEUE_KEY, 0, payload)
+        client.lpush(QUEUE_KEY, payload)
+        logger.info("Prioritized task=%s", key)
+        return 1
+    if is_new:
+        client.rpush(QUEUE_KEY, payload)
         logger.info("Enqueued task=%s", key)
         return 1
     return 0
 
 
+def enqueue_task(settings: Settings, task: dict) -> int:
+    return _enqueue_task(settings, task, front=False)
+
+
 def enqueue_task_front(settings: Settings, task: dict) -> int:
-    client = _get_client(settings)
-    if not client:
-        return 0
-    if is_cancel_requested(settings):
-        return 0
-    payload = __import__("json").dumps(task)
-    key = _task_key(task)
-    is_new = client.sadd(QUEUE_SET, key)
-    if is_new:
-        client.incr(STATS_TOTAL)
-    client.lrem(QUEUE_KEY, 0, payload)
-    client.lpush(QUEUE_KEY, payload)
-    logger.info("Prioritized task=%s", key)
-    return 1
+    return _enqueue_task(settings, task, front=True)
 
 
 def enqueue_task_sequence_front(settings: Settings, tasks: list[dict], force: bool = False) -> int:
@@ -125,7 +124,7 @@ def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool, forc
     added = 0
     for i in range(0, len(tasks), batch_size):
         batch = tasks[i : i + batch_size]
-        keys = [_task_key(task) for task in batch]
+        keys = [task_key(task) for task in batch]
         payloads = [__import__("json").dumps(task) for task in batch]
         if front and force:
             pipe = client.pipeline()
@@ -167,17 +166,7 @@ def enqueue_full_sequence(
 ) -> int:
     total = 0
     for doc_id in doc_ids:
-        tasks: list[dict] = []
-        if include_sync:
-            tasks.append({"doc_id": int(doc_id), "task": "sync"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "vision_ocr"})
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_vision"})
-        else:
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_paperless"})
-        tasks.append({"doc_id": int(doc_id), "task": "suggestions_paperless"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "suggestions_vision"})
+        tasks = build_task_sequence(settings, doc_id, include_sync=include_sync)
         total += enqueue_task_sequence(settings, tasks)
     return total
 
@@ -191,17 +180,7 @@ def enqueue_full_sequence_front(
 ) -> int:
     total = 0
     for doc_id in doc_ids:
-        tasks: list[dict] = []
-        if include_sync:
-            tasks.append({"doc_id": int(doc_id), "task": "sync"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "vision_ocr"})
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_vision"})
-        else:
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_paperless"})
-        tasks.append({"doc_id": int(doc_id), "task": "suggestions_paperless"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "suggestions_vision"})
+        tasks = build_task_sequence(settings, doc_id, include_sync=include_sync)
         total += enqueue_task_sequence_front(settings, tasks)
     return total
 
@@ -411,7 +390,7 @@ def remove_queue_item(settings: Settings, index: int) -> bool:
         client.rpush(QUEUE_KEY, *items)
     payload = _parse_queue_entry(entry)
     if payload:
-        key = _task_key(payload)
+        key = task_key(payload)
         client.srem(QUEUE_SET, key)
     return True
 

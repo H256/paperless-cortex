@@ -7,35 +7,72 @@ import re
 import logging
 from sqlalchemy.orm import Session
 
-from app.config import Settings, load_settings
+from app.config import Settings
+from app.deps import get_settings
 from app.db import get_db
-from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState, Correspondent
+from app.models import Document, DocumentEmbedding, SyncState, Correspondent
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
-    embed_text,
-    ensure_qdrant_collection,
     make_point_id,
     search_points,
     upsert_points,
 )
-from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
+from app.services.embedding_init import ensure_embedding_collection
+from app.services.page_texts_merge import collect_page_texts
 from app.services import paperless
-from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task, queue_stats
+from app.services.sync_state import ensure_started, get_or_create_state, mark_running
 from app.api_models import (
     EmbeddingIngestResponse,
     EmbeddingSearchResponse,
     EmbeddingStatusResponse,
     SyncCancelResponse,
 )
+from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
 
 
-def settings_dep() -> Settings:
-    return load_settings()
+def _enqueue_embedding_tasks(
+    settings: Settings,
+    db: Session,
+    documents: list[Document],
+) -> dict[str, object]:
+    task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
+    for doc in documents:
+        enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
+    state = get_or_create_state(db, "embeddings")
+    state.status = "running"
+    ensure_started(state)
+    state.last_synced_at = datetime.now(timezone.utc).isoformat()
+    db.commit()
+    return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
+
+
+def _queue_status_response(
+    settings: Settings,
+    db: Session,
+    state: SyncState | None,
+) -> dict[str, object]:
+    stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
+    status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
+    if status == "running" and state and not state.started_at:
+        state.started_at = datetime.now(timezone.utc).isoformat()
+        state.status = "running"
+        db.commit()
+    started_at = state.started_at if state else None
+    eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
+    return {
+        "status": status,
+        "processed": stats["done"],
+        "total": stats["total"],
+        "started_at": started_at,
+        "last_synced_at": state.last_synced_at if state else None,
+        "cancel_requested": state.cancel_requested if state else False,
+        "eta_seconds": eta_seconds,
+    }
 
 
 @router.post("/ingest", response_model=EmbeddingIngestResponse)
@@ -43,18 +80,11 @@ def ingest_embeddings(
     doc_id: int | None = Query(default=None),
     limit: int = Query(default=100),
     force: bool = Query(default=False),
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    state = db.get(SyncState, "embeddings")
-    if not state:
-        state = SyncState(key="embeddings")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = 0
-    state.cancel_requested = False
+    state = get_or_create_state(db, "embeddings")
+    mark_running(state, total=0, processed=0)
     db.commit()
     logger.info("Embedding ingest started doc_id=%s limit=%s force=%s", doc_id, limit, force)
 
@@ -71,18 +101,9 @@ def ingest_embeddings(
         db.commit()
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
-        task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
-        for doc in documents:
-            enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
-        state.status = "running"
-        if not state.started_at:
-            state.started_at = datetime.now(timezone.utc).isoformat()
-        state.last_synced_at = datetime.now(timezone.utc).isoformat()
-        db.commit()
-        return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
+        return _enqueue_embedding_tasks(settings, db, documents)
 
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    ensure_embedding_collection(settings)
 
     points = []
     embedded = 0
@@ -97,28 +118,12 @@ def ingest_embeddings(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages = get_baseline_page_texts(
+        baseline_pages, vision_pages, page_texts = collect_page_texts(
             settings,
-            doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            db,
+            doc,
+            force_vision=force,
         )
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if force:
-            _, regenerated = get_page_text_layers(
-                settings,
-                doc.content,
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-                force_full_vision=True,
-            )
-            if regenerated:
-                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
-                vision_pages = regenerated
-        page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
             state.processed = processed
@@ -200,37 +205,17 @@ def ingest_embeddings(
 def ingest_documents(
     doc_ids: list[int],
     force: bool = Query(default=False),
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
     if not documents:
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
-        task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
-        for doc in documents:
-            enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
-        state = db.get(SyncState, "embeddings")
-        if not state:
-            state = SyncState(key="embeddings")
-            db.add(state)
-        state.status = "running"
-        if not state.started_at:
-            state.started_at = datetime.now(timezone.utc).isoformat()
-        state.last_synced_at = datetime.now(timezone.utc).isoformat()
-        db.commit()
-        return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
-    state = db.get(SyncState, "embeddings")
-    if not state:
-        state = SyncState(key="embeddings")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = len(documents)
-    state.cancel_requested = False
+        return _enqueue_embedding_tasks(settings, db, documents)
+    ensure_embedding_collection(settings)
+    state = get_or_create_state(db, "embeddings")
+    mark_running(state, total=len(documents), processed=0)
     db.commit()
     logger.info("Embedding ingest-docs started count=%s force=%s", len(documents), force)
 
@@ -245,28 +230,12 @@ def ingest_documents(
             return {"ingested": 0, "documents_embedded": embedded, "status": "cancelled"}
         content_value = doc.content or ""
         logger.info("Embedding doc=%s fetching page-aware text", doc.id)
-        baseline_pages = get_baseline_page_texts(
+        baseline_pages, vision_pages, page_texts = collect_page_texts(
             settings,
-            doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            db,
+            doc,
+            force_vision=force,
         )
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc.id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if force:
-            _, regenerated = get_page_text_layers(
-                settings,
-                doc.content,
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
-                force_full_vision=True,
-            )
-            if regenerated:
-                upsert_page_texts(db, settings, doc.id, regenerated, source_filter="vision_ocr")
-                vision_pages = regenerated
-        page_texts = baseline_pages + vision_pages
         if not content_value and not page_texts:
             processed += 1
             state.processed = processed
@@ -353,7 +322,7 @@ def search(
     source: str | None = None,
     min_quality: int | None = None,
     include_doc: bool = True,
-    settings: Settings = Depends(settings_dep),
+    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     logger.info(
@@ -462,48 +431,13 @@ def search(
 
 
 @router.get("/status", response_model=EmbeddingStatusResponse)
-def embedding_status(db: Session = Depends(get_db)):
+def embedding_status(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
     state = db.get(SyncState, "embeddings")
-    settings = load_settings()
     if settings.queue_enabled:
-        stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
-        status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
-        if status == "running" and state and not state.started_at:
-            state.started_at = datetime.now(timezone.utc).isoformat()
-            state.status = "running"
-            db.commit()
-        started_at = state.started_at if state else None
-        eta_seconds = None
-        if started_at and stats["done"] and stats["total"]:
-            try:
-                started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-                elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-                rate = stats["done"] / max(1.0, elapsed)
-                remaining = stats["total"] - stats["done"]
-                eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
-            except Exception:
-                eta_seconds = None
-        return {
-            "status": status,
-            "processed": stats["done"],
-            "total": stats["total"],
-            "started_at": started_at,
-            "last_synced_at": state.last_synced_at if state else None,
-            "cancel_requested": state.cancel_requested if state else False,
-            "eta_seconds": eta_seconds,
-        }
+        return _queue_status_response(settings, db, state)
     if not state:
         return {"status": "idle", "processed": 0, "total": 0, "started_at": None}
-    eta_seconds = None
-    if state.started_at and state.processed and state.total:
-        try:
-            started = datetime.fromisoformat(state.started_at.replace("Z", "+00:00"))
-            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-            rate = state.processed / max(1.0, elapsed)
-            remaining = state.total - state.processed
-            eta_seconds = int(max(0.0, remaining / rate)) if rate > 0 else None
-        except Exception:
-            eta_seconds = None
+    eta_seconds = estimate_eta_seconds(state.started_at, state.processed, state.total)
     return {
         "status": state.status or "idle",
         "processed": state.processed or 0,

@@ -453,6 +453,34 @@ All model names must be configurable via environment variables.
 - Server refactor: consolidate queue/task logic and standardize error handling.
 
 ## Recent changes (2026-02-02 to 2026-02-03)
+- Backend refactor: centralized `get_settings` dependency for routes in `app/deps.py`.
+- Backend refactor: extracted pagination helper shared by meta cache + sync.
+- Frontend refactor: unified footer and cleaned up interval cleanup in `App.vue`.
+- Frontend refactor: extracted header navigation into `AppNav` component.
+- Backend fix: use `get_settings` in embeddings status endpoint (post-refactor).
+- Frontend refactor: `AppNav` now receives nav items via props for configurability.
+- Backend refactor: shared ETA calculation via `services/time_utils.py`.
+- Backend refactor: standardized SyncState lifecycle helpers in `services/sync_state.py`.
+- Backend refactor: reduced queue route boilerplate with `queue_disabled_response`.
+- Backend refactor: normalized Paperless base URL via `paperless.base_url`.
+- Backend refactor: centralized queue task sequences in `services/queue_tasks.py`.
+- Backend refactor: consolidated Qdrant collection init in `services/embedding_init.py`.
+- Backend refactor: extracted meta upsert helpers for tags/correspondents/document types.
+- Backend refactor: unified page-text collection with cached/regenerated vision OCR.
+- Backend refactor: consolidated queue-enabled embedding enqueue logic.
+- Backend refactor: moved meta page sync into `services/meta_sync.py`.
+- Backend refactor: standardized suggestion generation + persistence helpers.
+- Backend refactor: extracted queue-based embedding status response helper.
+- Backend refactor: centralized Ollama base URL + client in `services/ollama.py`.
+- Backend refactor: centralized Qdrant client helpers and shared guard checks.
+- Backend refactor: suggestion store now supports single-commit persistence + reused parsing helpers.
+- Backend refactor: worker task dispatch uses a handler map.
+- Backend refactor: centralized Qdrant search helper and standardized queue task keys.
+- Backend refactor: split documents routes into read/suggestions/actions modules.
+- Backend refactor: added document helpers for PDF fetch + document lookup; standardized queue enable guard in routes.
+- Backend refactor: consolidated clear intelligence logic and removed redundant enqueue branch.
+- Backend refactor: unified enqueue logic for queue tasks.
+- Backend tests: added route-level tests for new documents modules.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
