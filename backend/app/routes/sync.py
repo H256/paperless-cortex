@@ -40,6 +40,7 @@ from app.api_models import (
     SyncSimpleResponse,
 )
 from app.services.time_utils import estimate_eta_seconds
+from app.services.sync_state import ensure_started, get_or_create_state, mark_running
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -64,15 +65,8 @@ def sync_documents(
         state = db.get(SyncState, "documents")
         modified_since = state.last_synced_at if state else None
 
-    state = db.get(SyncState, "documents")
-    if not state:
-        state = SyncState(key="documents")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = None
-    state.cancel_requested = False
+    state = get_or_create_state(db, "documents")
+    mark_running(state, total=None, processed=0)
     db.commit()
 
     upserted = 0
@@ -166,13 +160,9 @@ def sync_documents(
                     tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
                     tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
                 enqueue_task_sequence(settings, tasks)
-            embed_state = db.get(SyncState, "embeddings")
-            if not embed_state:
-                embed_state = SyncState(key="embeddings")
-                db.add(embed_state)
+            embed_state = get_or_create_state(db, "embeddings")
             embed_state.status = "running"
-            if not embed_state.started_at:
-                embed_state.started_at = datetime.now(timezone.utc).isoformat()
+            ensure_started(embed_state)
             embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
             db.commit()
             embedded = 0
@@ -349,13 +339,9 @@ def sync_document(
                     enqueue_task_sequence_front(settings, tasks, force=True)
                 else:
                     enqueue_task_sequence(settings, tasks)
-                embed_state = db.get(SyncState, "embeddings")
-                if not embed_state:
-                    embed_state = SyncState(key="embeddings")
-                    db.add(embed_state)
+                embed_state = get_or_create_state(db, "embeddings")
                 embed_state.status = "running"
-                if not embed_state.started_at:
-                    embed_state.started_at = datetime.now(timezone.utc).isoformat()
+                ensure_started(embed_state)
                 embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
                 db.commit()
                 embedded = 0
@@ -470,14 +456,8 @@ def _embed_documents(
     points = []
     embedded = 0
     processed = 0
-    state = db.get(SyncState, "embeddings")
-    if not state:
-        state = SyncState(key="embeddings")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = len(documents)
+    state = get_or_create_state(db, "embeddings")
+    mark_running(state, total=len(documents), processed=0, reset_cancel=False)
     db.commit()
     logger = __import__("logging").getLogger(__name__)
     logger.info("Embedding run docs=%s", len(documents))

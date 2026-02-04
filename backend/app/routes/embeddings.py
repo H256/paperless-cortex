@@ -24,6 +24,7 @@ from app.services.text_pages import get_page_text_layers, get_baseline_page_text
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
 from app.services.queue import enqueue_task, queue_stats
+from app.services.sync_state import ensure_started, get_or_create_state, mark_running
 from app.api_models import (
     EmbeddingIngestResponse,
     EmbeddingSearchResponse,
@@ -44,15 +45,8 @@ def ingest_embeddings(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    state = db.get(SyncState, "embeddings")
-    if not state:
-        state = SyncState(key="embeddings")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = 0
-    state.cancel_requested = False
+    state = get_or_create_state(db, "embeddings")
+    mark_running(state, total=0, processed=0)
     db.commit()
     logger.info("Embedding ingest started doc_id=%s limit=%s force=%s", doc_id, limit, force)
 
@@ -73,8 +67,7 @@ def ingest_embeddings(
         for doc in documents:
             enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
         state.status = "running"
-        if not state.started_at:
-            state.started_at = datetime.now(timezone.utc).isoformat()
+        ensure_started(state)
         state.last_synced_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
@@ -208,27 +201,16 @@ def ingest_documents(
         task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
         for doc in documents:
             enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
-        state = db.get(SyncState, "embeddings")
-        if not state:
-            state = SyncState(key="embeddings")
-            db.add(state)
+        state = get_or_create_state(db, "embeddings")
         state.status = "running"
-        if not state.started_at:
-            state.started_at = datetime.now(timezone.utc).isoformat()
+        ensure_started(state)
         state.last_synced_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
     sample_embedding = embed_text(settings, "dimension probe")
     ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
-    state = db.get(SyncState, "embeddings")
-    if not state:
-        state = SyncState(key="embeddings")
-        db.add(state)
-    state.status = "running"
-    state.started_at = datetime.now(timezone.utc).isoformat()
-    state.processed = 0
-    state.total = len(documents)
-    state.cancel_requested = False
+    state = get_or_create_state(db, "embeddings")
+    mark_running(state, total=len(documents), processed=0)
     db.commit()
     logger.info("Embedding ingest-docs started count=%s force=%s", len(documents), force)
 
