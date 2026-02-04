@@ -458,6 +458,7 @@ All model names must be configurable via environment variables.
 - Frontend refactor: unified footer and cleaned up interval cleanup in `App.vue`.
 - Frontend refactor: extracted header navigation into `AppNav` component.
 - Backend fix: use `get_settings` in embeddings status endpoint (post-refactor).
+- Frontend refactor: `AppNav` now receives nav items via props for configurability.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

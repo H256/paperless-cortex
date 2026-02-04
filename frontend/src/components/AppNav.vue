@@ -1,6 +1,6 @@
 <template>
   <nav class="flex items-center gap-2 text-sm font-medium">
-    <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" v-slot="{ isActive }">
+    <RouterLink v-for="item in items" :key="item.to" :to="item.to" v-slot="{ isActive }">
       <span
         :class="[
           'inline-flex items-center gap-2 rounded-full px-3 py-1',
@@ -17,14 +17,15 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, FileText, List, MessageCircle, Search, Wrench } from 'lucide-vue-next'
+import type { Component } from 'vue'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
-  { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/search', label: 'Search', icon: Search },
-  { to: '/chat', label: 'Chat', icon: MessageCircle },
-  { to: '/queue', label: 'Queue', icon: List },
-  { to: '/operations', label: 'Operations', icon: Wrench },
-]
+type NavItem = {
+  to: string
+  label: string
+  icon: Component
+}
+
+defineProps<{
+  items: NavItem[]
+}>()
 </script>

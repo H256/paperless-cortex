@@ -9,7 +9,7 @@
           <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
         <div class="flex items-center gap-4">
-          <AppNav />
+          <AppNav :items="navItems" />
           <div
             class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
           >
@@ -127,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { Laptop, Moon, Sun } from 'lucide-vue-next'
+import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import AppNav from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
@@ -150,6 +150,14 @@ const effectiveTheme = computed(() =>
 )
 let queueIntervalId: number | null = null
 let statusIntervalId: number | null = null
+const navItems = [
+  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+  { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/search', label: 'Search', icon: Search },
+  { to: '/chat', label: 'Chat', icon: MessageCircle },
+  { to: '/queue', label: 'Queue', icon: List },
+  { to: '/operations', label: 'Operations', icon: Wrench },
+]
 
 const applyTheme = (value: string) => {
   const root = document.documentElement
