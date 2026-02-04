@@ -21,6 +21,7 @@ from app.api_models import (
     ResetIntelligenceResponse,
 )
 from app.routes.documents_common import parse_iso, should_skip_doc
+from app.routes.queue_guard import require_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -37,7 +38,7 @@ def process_missing(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    if not settings.queue_enabled:
+    if not require_queue_enabled(settings):
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
     if embeddings_mode not in ("auto", "paperless", "vision"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
@@ -159,7 +160,7 @@ def reset_intelligence(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    if not settings.queue_enabled:
+    if not require_queue_enabled(settings):
         return {"enabled": False}
     db.execute(delete(DocumentSuggestion))
     db.execute(delete(DocumentPageText))
@@ -173,7 +174,7 @@ def clear_intelligence(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    if not settings.queue_enabled:
+    if not require_queue_enabled(settings):
         return {"enabled": False}
     db.execute(delete(DocumentSuggestion))
     db.execute(delete(DocumentPageText))

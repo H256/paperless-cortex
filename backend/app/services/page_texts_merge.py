@@ -6,7 +6,7 @@ from app.config import Settings
 from app.models import Document, DocumentPageText
 from app.services.page_text_store import upsert_page_texts
 from app.services.text_pages import get_baseline_page_texts, get_page_text_layers
-from app.services import paperless
+from app.services.documents import fetch_pdf_bytes_for_doc
 
 
 def collect_page_texts(
@@ -19,7 +19,7 @@ def collect_page_texts(
     baseline_pages = get_baseline_page_texts(
         settings,
         doc.content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+        fetch_pdf_bytes=lambda: fetch_pdf_bytes_for_doc(settings, doc),
     )
     vision_pages = (
         db.query(DocumentPageText)
@@ -31,7 +31,7 @@ def collect_page_texts(
         _, regenerated = get_page_text_layers(
             settings,
             doc.content,
-            fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+            fetch_pdf_bytes=lambda: fetch_pdf_bytes_for_doc(settings, doc),
             force_full_vision=True,
         )
         if regenerated:

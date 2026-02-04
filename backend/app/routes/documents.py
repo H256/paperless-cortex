@@ -21,6 +21,8 @@ from app.models import (
 from app.services import paperless
 from app.services.queue import enqueue_docs_front
 from app.services.text_pages import get_baseline_page_texts, score_text_quality
+from app.services.documents import fetch_pdf_bytes, get_document_or_none
+from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,
     DocumentStatsResponse,
@@ -344,7 +346,7 @@ def get_document(doc_id: int, settings: Settings = Depends(get_settings)):
 
 @router.get("/{doc_id}/local", response_model=DocumentLocalResponse)
 def get_local_document(doc_id: int, db: Session = Depends(get_db)):
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
     return {
@@ -372,7 +374,7 @@ def get_document_text_quality(
 ):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch text quality doc=%s", doc_id)
-    if priority and settings.queue_enabled:
+    if priority and require_queue_enabled(settings):
         enqueue_docs_front(settings, [doc_id])
     raw = paperless.get_document(settings, doc_id)
     content = raw.get("content") or ""
@@ -402,14 +404,14 @@ def get_document_page_texts(
 ):
     logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch page texts doc=%s", doc_id)
-    if priority and settings.queue_enabled:
+    if priority and require_queue_enabled(settings):
         enqueue_docs_front(settings, [doc_id])
     raw = paperless.get_document(settings, doc_id)
     content = raw.get("content")
     baseline_pages = get_baseline_page_texts(
         settings,
         content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc_id),
+        fetch_pdf_bytes=lambda: fetch_pdf_bytes(settings, doc_id),
     )
     vision_pages = (
         db.query(DocumentPageText)
@@ -458,7 +460,7 @@ def get_document_pdf(
     doc_id: int,
     settings: Settings = Depends(get_settings),
 ):
-    pdf_bytes = paperless.get_document_pdf(settings, doc_id)
+    pdf_bytes = fetch_pdf_bytes(settings, doc_id)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -12,6 +12,7 @@ from app.config import load_settings
 from app.db import SessionLocal
 from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState
 from app.services import paperless
+from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
@@ -118,7 +119,7 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     _upsert_document(db, settings, data, cache)
     db.commit()
 
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return
 
@@ -170,7 +171,7 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort vision OCR doc=%s", doc_id)
         return
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return
     if not force:
@@ -194,13 +195,13 @@ def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
         return
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return
     baseline_pages = get_baseline_page_texts(
         settings,
         doc.content,
-        fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc.id),
+        fetch_pdf_bytes=lambda: fetch_pdf_bytes_for_doc(settings, doc),
     )
     _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless")
 
@@ -209,7 +210,7 @@ def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
         return
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return
     baseline_pages, vision_pages, _ = collect_page_texts(
@@ -225,7 +226,7 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort suggestions doc=%s", doc_id)
         return
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return
     tags = get_cached_tags(settings)
@@ -300,7 +301,7 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
         )
         text = "\n\n".join(page.text or "" for page in vision_pages)
     else:
-        doc = db.get(Document, doc_id)
+        doc = get_document_or_none(db, doc_id)
         text = doc.content if doc else ""
     variants = generate_field_variants(
         settings,

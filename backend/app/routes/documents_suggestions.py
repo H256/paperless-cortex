@@ -21,6 +21,7 @@ from app.models import (
 from app.services import paperless
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.page_text_store import upsert_page_texts
+from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
@@ -33,6 +34,7 @@ from app.api_models import (
     SuggestionsResponse,
 )
 from app.routes.documents_common import load_suggestions_map
+from app.routes.queue_guard import require_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -99,7 +101,7 @@ def get_document_suggestions(
         if not settings.enable_vision_ocr:
             logger.warning("Vision OCR refresh requested but ENABLE_VISION_OCR=0 doc=%s", doc_id)
             return {"error": "vision_ocr_disabled"}
-        doc = db.get(Document, doc_id)
+        doc = get_document_or_none(db, doc_id)
         if not doc:
             return {"error": "document_missing"}
         _, vision_pages, _ = collect_page_texts(
@@ -131,7 +133,7 @@ def get_document_suggestions(
         )
         return vision_suggestions
 
-    if refresh and priority and settings.queue_enabled:
+    if refresh and priority and require_queue_enabled(settings):
         if source == "vision_ocr":
             enqueue_task_sequence_front(
                 settings,
@@ -223,7 +225,7 @@ def suggest_field_variants(
             _, vision_generated = get_page_text_layers(
                 settings,
                 raw.get("content") or "",
-                fetch_pdf_bytes=lambda: paperless.get_document_pdf(settings, doc_id),
+                fetch_pdf_bytes=lambda: fetch_pdf_bytes(settings, doc_id),
                 force_full_vision=True,
             )
             if vision_generated:
@@ -251,7 +253,7 @@ def suggest_field_variants(
             payload_json = {}
         if isinstance(payload_json, dict):
             current = payload_json.get(payload.field)
-    if settings.queue_enabled:
+    if require_queue_enabled(settings):
         task = {
             "doc_id": doc_id,
             "task": "suggest_field",
@@ -327,7 +329,7 @@ def apply_suggestion_to_document(
     db: Session = Depends(get_db),
 ):
     logger = __import__("logging").getLogger(__name__)
-    doc = db.get(Document, doc_id)
+    doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
     field = payload.field

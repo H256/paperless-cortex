@@ -477,6 +477,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: worker task dispatch uses a handler map.
 - Backend refactor: centralized Qdrant search helper and standardized queue task keys.
 - Backend refactor: split documents routes into read/suggestions/actions modules.
+- Backend refactor: added document helpers for PDF fetch + document lookup; standardized queue enable guard in routes.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
