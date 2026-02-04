@@ -192,7 +192,6 @@ def generate_suggestions(
     correspondents: list[str],
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    base = llm_client.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -220,7 +219,6 @@ def generate_suggestions(
         logger.info("Suggestions prompt:\n%s", prompt)
     raw_text = llm_client.chat_completion(
         settings,
-        base,
         model=settings.text_model or "",
         messages=[{"role": "user", "content": prompt}],
         timeout=120,
@@ -265,7 +263,6 @@ def generate_field_variants(
     current_value: object | None = None,
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    base = llm_client.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -296,7 +293,6 @@ def generate_field_variants(
         logger.info("Suggestions field prompt:\n%s", prompt)
     raw_text = llm_client.chat_completion(
         settings,
-        base,
         model=settings.text_model or "",
         messages=[{"role": "user", "content": prompt}],
         timeout=120,

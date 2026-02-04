@@ -25,32 +25,23 @@ def embed_text(settings: Settings, text: str) -> list[float]:
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
     ensure_embedding_llm_ready(settings)
-    base = llm_client.base_url(settings)
     logger.info("LLM embeddings model=%s chars=%s", settings.embedding_model, len(text))
-    with llm_client.client(settings, timeout=60) as http:
-        response = http.post(
-            f"{base}/v1/embeddings",
-            headers=llm_client.headers(settings),
-            json={"model": settings.embedding_model, "input": text},
-        )
-        response.raise_for_status()
-        payload = response.json()
-        data = payload.get("data") or []
-        if not data:
-            raise RuntimeError("Invalid embedding response")
-        embedding = (data[0] or {}).get("embedding")
-        if not isinstance(embedding, list):
-            raise RuntimeError("Invalid embedding response")
-        if settings.llm_base_url and settings.embedding_model:
-            if __import__("os").getenv("LLM_DEBUG") == "1":
-                sample = embedding[:5]
-                logger.info(
-                    "LLM embed model=%s len=%s sample=%s",
-                    settings.embedding_model,
-                    len(embedding),
-                    sample,
-                )
-        return embedding
+    embedding = llm_client.embedding(
+        settings,
+        model=settings.embedding_model,
+        text=text,
+        timeout=60,
+    )
+    if settings.llm_base_url and settings.embedding_model:
+        if __import__("os").getenv("LLM_DEBUG") == "1":
+            sample = embedding[:5]
+            logger.info(
+                "LLM embed model=%s len=%s sample=%s",
+                settings.embedding_model,
+                len(embedding),
+                sample,
+            )
+    return embedding
 
 
 def semantic_chunks(text: str, max_chars: int = 1200, overlap: int = 200) -> list[str]:
