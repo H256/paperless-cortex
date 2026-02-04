@@ -14,6 +14,7 @@ from app.models import Document, DocumentEmbedding, SyncState, Correspondent
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
+    embed_text,
     make_point_id,
     search_points,
     upsert_points,
