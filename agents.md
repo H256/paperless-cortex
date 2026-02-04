@@ -475,6 +475,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: centralized Qdrant client helpers and shared guard checks.
 - Backend refactor: suggestion store now supports single-commit persistence + reused parsing helpers.
 - Backend refactor: worker task dispatch uses a handler map.
+- Backend refactor: centralized Qdrant search helper and standardized queue task keys.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

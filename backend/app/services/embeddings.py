@@ -361,14 +361,4 @@ def delete_points_for_doc(settings: Settings, doc_id: int) -> None:
 
 
 def search_points(settings: Settings, vector: list[float], limit: int = 5) -> dict[str, Any]:
-    base = qdrant.base_url(settings)
-    collection = qdrant.collection_name(settings)
-    headers = qdrant.headers(settings)
-    with qdrant.client(settings, timeout=30) as client:
-        response = client.post(
-            f"{base}/collections/{collection}/points/search",
-            headers=headers,
-            json={"vector": vector, "limit": limit, "with_payload": True},
-        )
-        response.raise_for_status()
-        return response.json()
+    return qdrant.search(settings, vector, limit=limit, with_payload=True)

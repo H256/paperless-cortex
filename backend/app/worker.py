@@ -25,6 +25,7 @@ from app.services.queue import (
     mark_in_progress,
     mark_done,
     QUEUE_SET,
+    task_key,
     mark_worker_heartbeat,
     record_last_run,
     acquire_worker_lock,
@@ -425,14 +426,7 @@ def main() -> None:
                 record_last_run(settings, time.time() - run_started)
                 if client:
                     if isinstance(task, dict):
-                        source = task.get("source")
-                        field = task.get("field")
-                        suffix = ""
-                        if source:
-                            suffix += f":{source}"
-                        if field:
-                            suffix += f":{field}"
-                        client.srem(QUEUE_SET, f"{doc_id}:{task_type}{suffix}")
+                        client.srem(QUEUE_SET, task_key(task))
                     else:
                         client.srem(QUEUE_SET, str(doc_id))
     finally:

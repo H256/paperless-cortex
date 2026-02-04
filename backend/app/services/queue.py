@@ -55,7 +55,7 @@ def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
     return enqueue_full_sequence(settings, doc_ids, include_sync=True)
 
 
-def _task_key(task: dict) -> str:
+def task_key(task: dict) -> str:
     doc_id = task.get("doc_id")
     task_type = task.get("task") or "full"
     source = task.get("source")
@@ -75,7 +75,7 @@ def enqueue_task(settings: Settings, task: dict) -> int:
     if is_cancel_requested(settings):
         return 0
     payload = __import__("json").dumps(task)
-    key = _task_key(task)
+    key = task_key(task)
     if client.sadd(QUEUE_SET, key):
         client.rpush(QUEUE_KEY, payload)
         client.incr(STATS_TOTAL)
@@ -91,7 +91,7 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
     if is_cancel_requested(settings):
         return 0
     payload = __import__("json").dumps(task)
-    key = _task_key(task)
+    key = task_key(task)
     is_new = client.sadd(QUEUE_SET, key)
     if is_new:
         client.incr(STATS_TOTAL)
@@ -126,7 +126,7 @@ def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool, forc
     added = 0
     for i in range(0, len(tasks), batch_size):
         batch = tasks[i : i + batch_size]
-        keys = [_task_key(task) for task in batch]
+        keys = [task_key(task) for task in batch]
         payloads = [__import__("json").dumps(task) for task in batch]
         if front and force:
             pipe = client.pipeline()
@@ -392,7 +392,7 @@ def remove_queue_item(settings: Settings, index: int) -> bool:
         client.rpush(QUEUE_KEY, *items)
     payload = _parse_queue_entry(entry)
     if payload:
-        key = _task_key(payload)
+        key = task_key(payload)
         client.srem(QUEUE_SET, key)
     return True
 
