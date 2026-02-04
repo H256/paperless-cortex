@@ -6,9 +6,8 @@ from typing import Any
 from pathlib import Path
 from datetime import datetime
 
-import httpx
-
 from app.config import Settings
+from app.services import ollama
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +192,7 @@ def generate_suggestions(
 ) -> dict[str, Any]:
     if not settings.ollama_base_url or not settings.ollama_model:
         raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
-    base = settings.ollama_base_url.rstrip("/")
+    base = ollama.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -219,8 +218,8 @@ def generate_suggestions(
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Suggestions prompt:\n%s", prompt)
-    with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
+    with ollama.client(settings, timeout=120) as http:
+        response = http.post(
             f"{base}/api/generate",
             json={
                 "model": settings.ollama_model,
@@ -272,7 +271,7 @@ def generate_field_variants(
 ) -> dict[str, Any]:
     if not settings.ollama_base_url or not settings.ollama_model:
         raise RuntimeError("OLLAMA_BASE_URL/OLLAMA_MODEL not set")
-    base = settings.ollama_base_url.rstrip("/")
+    base = ollama.base_url(settings)
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -301,8 +300,8 @@ def generate_field_variants(
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Suggestions field prompt:\n%s", prompt)
-    with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
+    with ollama.client(settings, timeout=120) as http:
+        response = http.post(
             f"{base}/api/generate",
             json={
                 "model": settings.ollama_model,

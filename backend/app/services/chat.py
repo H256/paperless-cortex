@@ -5,10 +5,10 @@ import logging
 from typing import Any, Iterable
 from pathlib import Path
 
-import httpx
 from fastapi.responses import StreamingResponse
 
 from app.config import Settings
+from app.services import ollama
 from app.services.embeddings import embed_text, search_points
 
 logger = logging.getLogger(__name__)
@@ -130,10 +130,10 @@ def answer_question(
         .replace("{history}", _format_history(history or []))
     )
     logger.info("Chat prompt chars=%s sources=%s", len(prompt), len(sources))
-    base = settings.ollama_base_url.rstrip("/")
+    base = ollama.base_url(settings)
     if not stream:
-        with httpx.Client(timeout=120, verify=settings.httpx_verify_tls) as client:
-            response = client.post(
+        with ollama.client(settings, timeout=120) as http:
+            response = http.post(
                 f"{base}/api/generate",
                 json={
                     "model": settings.ollama_model,
@@ -154,8 +154,8 @@ def answer_question(
 
     def event_stream() -> Iterable[bytes]:
         answer_chunks: list[str] = []
-        with httpx.Client(timeout=None, verify=settings.httpx_verify_tls) as client:
-            with client.stream(
+        with ollama.client(settings, timeout=None) as http:
+            with http.stream(
                 "POST",
                 f"{base}/api/generate",
                 json={

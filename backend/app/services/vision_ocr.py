@@ -6,13 +6,11 @@ from pathlib import Path
 from typing import Iterable
 import logging
 
-import httpx
-
 from app.config import Settings
+from app.services import ollama
 from app.services.page_types import PageText
 
 logger = logging.getLogger(__name__)
-_model_ready: set[str] = set()
 
 DEFAULT_VISION_PROMPT = "Extract all readable text from this page image. Return only the text."
 
@@ -66,26 +64,6 @@ def _render_page_image(doc: "fitz.Document", page_index: int, max_dim: int) -> b
     return pix.tobytes("png")
 
 
-def ensure_model(settings: Settings, model: str) -> None:
-    if not settings.ollama_base_url:
-        raise RuntimeError("OLLAMA_BASE_URL not set")
-    if model in _model_ready:
-        return
-    base = settings.ollama_base_url.rstrip("/")
-    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
-        response = client.get(f"{base}/api/tags")
-        response.raise_for_status()
-        data = response.json()
-        models = {m.get("name") for m in data.get("models", []) if isinstance(m, dict)}
-        if model in models:
-            _model_ready.add(model)
-            return
-        logger.info("Ollama pull model=%s", model)
-        pull = client.post(f"{base}/api/pull", json={"name": model, "stream": False}, timeout=300)
-        pull.raise_for_status()
-        _model_ready.add(model)
-
-
 def render_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim: int) -> list[VisionPage]:
     try:
         import fitz  # PyMuPDF
@@ -123,9 +101,7 @@ def iter_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim
 
 
 def _ollama_generate(settings: Settings, model: str, prompt: str, image_bytes: bytes) -> str:
-    if not settings.ollama_base_url:
-        raise RuntimeError("OLLAMA_BASE_URL not set")
-    base = settings.ollama_base_url.rstrip("/")
+    base = ollama.base_url(settings)
     payload = {
         "model": model,
         "prompt": prompt,
@@ -140,8 +116,8 @@ def _ollama_generate(settings: Settings, model: str, prompt: str, image_bytes: b
     )
     if __import__("os").getenv("OLLAMA_DEBUG") == "1":
         logger.info("Vision OCR prompt:\n%s", prompt)
-    with httpx.Client(timeout=settings.vision_ocr_timeout_seconds, verify=settings.httpx_verify_tls) as client:
-        response = client.post(f"{base}/api/generate", json=payload)
+    with ollama.client(settings, timeout=settings.vision_ocr_timeout_seconds) as http:
+        response = http.post(f"{base}/api/generate", json=payload)
         response.raise_for_status()
         data = response.json()
         text = str(data.get("response") or "").strip()
@@ -160,7 +136,7 @@ def ocr_pdf_pages(
 ) -> list[PageText]:
     if not settings.vision_model:
         raise RuntimeError("VISION_MODEL not set")
-    ensure_model(settings, settings.vision_model)
+    ollama.ensure_model(settings, settings.vision_model)
     prompt = load_prompt(settings)
     results: list[PageText] = []
     count = 0

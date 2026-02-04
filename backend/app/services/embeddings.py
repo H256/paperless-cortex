@@ -8,35 +8,15 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.services import ollama
 from app.services.page_types import PageText, WordBox
 from app.services.text_pages import score_text_quality
 
 logger = logging.getLogger(__name__)
-_model_ready: set[str] = set()
 
 
 def make_point_id(doc_id: int, chunk: int) -> int:
     return doc_id * 1_000_000 + chunk
-
-
-def ensure_model(settings: Settings, model: str) -> None:
-    if not settings.ollama_base_url:
-        raise RuntimeError("OLLAMA_BASE_URL not set")
-    if model in _model_ready:
-        return
-    base = settings.ollama_base_url.rstrip("/")
-    with httpx.Client(timeout=30, verify=settings.httpx_verify_tls) as client:
-        response = client.get(f"{base}/api/tags")
-        response.raise_for_status()
-        data = response.json()
-        models = {m.get("name") for m in data.get("models", []) if isinstance(m, dict)}
-        if model in models:
-            _model_ready.add(model)
-            return
-        logger.info("Ollama pull model=%s", model)
-        pull = client.post(f"{base}/api/pull", json={"name": model, "stream": False}, timeout=300)
-        pull.raise_for_status()
-        _model_ready.add(model)
 
 
 def embed_text(settings: Settings, text: str) -> list[float]:
@@ -44,11 +24,11 @@ def embed_text(settings: Settings, text: str) -> list[float]:
         raise RuntimeError("OLLAMA_BASE_URL not set")
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
-    ensure_model(settings, settings.embedding_model)
-    base = settings.ollama_base_url.rstrip("/")
+    ollama.ensure_model(settings, settings.embedding_model)
+    base = ollama.base_url(settings)
     logger.info("Ollama embeddings model=%s chars=%s", settings.embedding_model, len(text))
-    with httpx.Client(timeout=60, verify=settings.httpx_verify_tls) as client:
-        response = client.post(
+    with ollama.client(settings, timeout=60) as http:
+        response = http.post(
             f"{base}/api/embeddings",
             json={"model": settings.embedding_model, "prompt": text},
         )
