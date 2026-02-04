@@ -462,6 +462,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: shared ETA calculation via `services/time_utils.py`.
 - Backend refactor: standardized SyncState lifecycle helpers in `services/sync_state.py`.
 - Backend refactor: reduced queue route boilerplate with `queue_disabled_response`.
+- Backend refactor: normalized Paperless base URL via `paperless.base_url`.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
