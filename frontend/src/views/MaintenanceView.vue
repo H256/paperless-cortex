@@ -251,15 +251,15 @@
               </dd>
             </div>
             <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Ollama</dt>
+              <dt class="text-slate-500 dark:text-slate-400">LLM Base</dt>
               <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.ollama_base_url || '—' }}</span>
+                <span class="max-w-[220px] truncate">{{ runtime.llm_base_url || '—' }}</span>
                 <button
-                  v-if="runtime.ollama_base_url"
+                  v-if="runtime.llm_base_url"
                   class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.ollama_base_url, 'ollama')"
+                  @click="copyValue(runtime.llm_base_url, 'llm_base')"
                 >
-                  {{ copiedKey === 'ollama' ? 'Copied' : 'Copy' }}
+                  {{ copiedKey === 'llm_base' ? 'Copied' : 'Copy' }}
                 </button>
               </dd>
             </div>
@@ -301,15 +301,15 @@
           </div>
           <dl class="mt-3 space-y-2">
             <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Ollama</dt>
+              <dt class="text-slate-500 dark:text-slate-400">Text LLM</dt>
               <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.ollama_model || '—' }}</span>
+                <span class="max-w-[220px] truncate">{{ runtime.text_model || '—' }}</span>
                 <button
-                  v-if="runtime.ollama_model"
+                  v-if="runtime.text_model"
                   class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.ollama_model, 'ollama_model')"
+                  @click="copyValue(runtime.text_model, 'text_model')"
                 >
-                  {{ copiedKey === 'ollama_model' ? 'Copied' : 'Copy' }}
+                  {{ copiedKey === 'text_model' ? 'Copied' : 'Copy' }}
                 </button>
               </dd>
             </div>

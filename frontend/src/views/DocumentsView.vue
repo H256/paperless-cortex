@@ -475,7 +475,7 @@
               </span>
             </div>
             <span class="text-[11px] text-slate-400 dark:text-slate-500">
-              Use a smaller batch if your Ollama server is not always online.
+              Use a smaller batch if your LLM server is not always online.
             </span>
           </div>
           <label

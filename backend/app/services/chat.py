@@ -8,8 +8,8 @@ from pathlib import Path
 from fastapi.responses import StreamingResponse
 
 from app.config import Settings
-from app.services import ollama
-from app.services.guard import ensure_ollama_ready, ensure_qdrant_ready
+from app.services import llm_client
+from app.services.guard import ensure_text_llm_ready, ensure_qdrant_ready
 from app.services.embeddings import embed_text, search_points
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def answer_question(
     history: list[dict[str, str]] | None = None,
     stream: bool = False,
 ) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
-    ensure_ollama_ready(settings)
+    ensure_text_llm_ready(settings)
     ensure_qdrant_ready(settings)
     vector = embed_text(settings, question)
     raw = search_points(settings, vector, limit=max(3, top_k * 3))
@@ -129,20 +129,15 @@ def answer_question(
         .replace("{history}", _format_history(history or []))
     )
     logger.info("Chat prompt chars=%s sources=%s", len(prompt), len(sources))
-    base = ollama.base_url(settings)
+    base = llm_client.base_url(settings)
     if not stream:
-        with ollama.client(settings, timeout=120) as http:
-            response = http.post(
-                f"{base}/api/generate",
-                json={
-                    "model": settings.ollama_model,
-                    "prompt": prompt,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
-            answer = str(payload.get("response") or "").strip()
+        answer = llm_client.chat_completion(
+            settings,
+            base,
+            model=settings.text_model or "",
+            messages=[{"role": "user", "content": prompt}],
+            timeout=120,
+        )
         for source in sources:
             source.pop("text", None)
         return {
@@ -153,31 +148,16 @@ def answer_question(
 
     def event_stream() -> Iterable[bytes]:
         answer_chunks: list[str] = []
-        with ollama.client(settings, timeout=None) as http:
-            with http.stream(
-                "POST",
-                f"{base}/api/generate",
-                json={
-                    "model": settings.ollama_model,
-                    "prompt": prompt,
-                    "stream": True,
-                },
-            ) as response:
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    try:
-                        data = json.loads(line)
-                    except Exception:
-                        continue
-                    token = data.get("response") or ""
-                    if token:
-                        answer_chunks.append(token)
-                        payload = json.dumps({"token": token})
-                        yield f"data: {payload}\n\n".encode("utf-8")
-                    if data.get("done"):
-                        break
+        for token in llm_client.stream_chat_completion(
+            settings,
+            base,
+            model=settings.text_model or "",
+            messages=[{"role": "user", "content": prompt}],
+            timeout=None,
+        ):
+            answer_chunks.append(token)
+            payload = json.dumps({"token": token})
+            yield f"data: {payload}\n\n".encode("utf-8")
         answer = "".join(answer_chunks).strip()
         for source in sources:
             source.pop("text", None)

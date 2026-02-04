@@ -9,12 +9,15 @@ import type { StatusEntry } from './statusEntry';
 export interface StatusResponse {
   web: StatusEntry;
   worker: StatusEntry;
-  ollama: StatusEntry;
+  llm: StatusEntry;
+  llm_text: StatusEntry;
+  llm_embedding: StatusEntry;
+  llm_vision: StatusEntry;
   paperless_base_url?: string | null;
-  ollama_base_url?: string | null;
+  llm_base_url?: string | null;
   qdrant_url?: string | null;
   redis_host?: string | null;
-  ollama_model?: string | null;
+  text_model?: string | null;
   embedding_model?: string | null;
   vision_model?: string | null;
   latency_ms?: number | null;

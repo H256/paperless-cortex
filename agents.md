@@ -13,7 +13,7 @@ The project runs as a separate stack on host "Arcane" (Docker). Paperless itself
 Paperless-ngx remains the source of truth. This project:
 1) reads metadata + OCR text from Paperless API (Token auth)
 2) optionally fetches PDF pages for highlighting or vision-based OCR fallback
-3) runs LLM analysis (remote Ollama server)
+3) runs LLM analysis (OpenAI-compatible LLM servers)
 4) stores results in Postgres plus embeddings in Qdrant
 5) provides a FastAPI backend plus Vue frontend for inspection and manual, per-field writeback
 
@@ -34,7 +34,7 @@ Paperless-ngx remains the source of truth. This project:
 - qdrant is exposed via Traefik and reachable by LAN DNS (Pi-hole):
   - qdrant.elysium.lan -> Arcane IP
 - Postgres/Redis are exposed only via LAN ports (bound to Arcane LAN IP) and must be firewalled to the dev machine if used remotely.
-- Ollama is hosted on another server (more compute) and is accessed via HTTP (base URL configurable).
+- LLM servers are hosted on separate machines (more compute) and are accessed via HTTP (base URLs configurable).
 
 ## Components (current stack)
 - Postgres (metadata, OCR alternative layers, suggestions, audit)
@@ -160,7 +160,7 @@ Every writeback must be stored locally:
 Environment variables (examples):
 - PAPERLESS_BASE_URL=https://paperless.elysium.lan
 - PAPERLESS_API_TOKEN=...
-- OLLAMA_BASE_URL=http://<ollama-host>:11434
+- LLM_BASE_URL=http://<llm-host>:8080
 - EMBEDDING_MODEL=qwen3-embedding
 - DATABASE_URL=postgres://...
 - QDRANT_URL=https://qdrant.elysium.lan (or internal http://qdrant:6333)
@@ -214,13 +214,13 @@ Environment variables (examples):
 
 ## LLM Configuration
 
-### Ollama Server
-- Ollama runs on a separate AI server (not on Arcane).
-- It is accessed via HTTP.
-- Base URL must be configurable via environment variable.
+### LLM Servers (OpenAI-compatible)
+- LLMs run on separate AI servers (not on Arcane).
+- Accessed via HTTP with OpenAI-compatible endpoints.
+- Base URLs must be configurable via environment variables.
 
 Environment:
-- OLLAMA_BASE_URL=http://<ollama-host>:11434
+- LLM_BASE_URL=http://<llm-host>:8080
 
 ### Primary Model
 - Default reasoning / extraction / chat model:
@@ -422,7 +422,7 @@ All model names must be configurable via environment variables.
   - Pro Seite scoren, pro Dokument aggregieren (Median).
   - Parse robust (erste Zahl im Antworttext).
 - Konfig:
-  - `OCR_QUALITY_MODEL` (default: OLLAMA_MODEL)
+  - `OCR_QUALITY_MODEL` (default: TEXT_MODEL)
   - `OCR_QUALITY_MIN_CHARS` (z.B. 50) um leere Seiten zu skippen
   - `OCR_QUALITY_TIMEOUT` (z.B. 30–60s)
 
@@ -471,7 +471,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: moved meta page sync into `services/meta_sync.py`.
 - Backend refactor: standardized suggestion generation + persistence helpers.
 - Backend refactor: extracted queue-based embedding status response helper.
-- Backend refactor: centralized Ollama base URL + client in `services/ollama.py`.
+- Backend refactor: centralized LLM base URLs + client in `services/llm_client.py`.
 - Backend refactor: centralized Qdrant client helpers and shared guard checks.
 - Backend refactor: suggestion store now supports single-commit persistence + reused parsing helpers.
 - Backend refactor: worker task dispatch uses a handler map.

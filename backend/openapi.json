@@ -326,6 +326,396 @@
         }
       }
     },
+    "/documents/{doc_id}/page-texts": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Page Texts",
+        "operationId": "get_document_page_texts_documents__doc_id__page_texts_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Priority"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageTextsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/pdf": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Pdf",
+        "operationId": "get_document_pdf_documents__doc_id__pdf_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/process-missing": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Process Missing",
+        "operationId": "process_missing_documents_process_missing_post",
+        "parameters": [
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dry Run"
+            }
+          },
+          {
+            "name": "include_vision_ocr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Vision Ocr"
+            }
+          },
+          {
+            "name": "include_embeddings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings"
+            }
+          },
+          {
+            "name": "include_suggestions_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Paperless"
+            }
+          },
+          {
+            "name": "include_suggestions_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Vision"
+            }
+          },
+          {
+            "name": "embeddings_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "auto",
+              "title": "Embeddings Mode"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessMissingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/reset-intelligence": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Reset Intelligence",
+        "operationId": "reset_intelligence_documents_reset_intelligence_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetIntelligenceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/clear-intelligence": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Clear Intelligence",
+        "operationId": "clear_intelligence_documents_clear_intelligence_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearIntelligenceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/delete/vision-ocr": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Vision Ocr",
+        "operationId": "delete_vision_ocr_documents_delete_vision_ocr_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteVisionOcrResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/delete/suggestions": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Suggestions",
+        "operationId": "delete_suggestions_documents_delete_suggestions_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSuggestionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/delete/embeddings": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Embeddings",
+        "operationId": "delete_embeddings_documents_delete_embeddings_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteEmbeddingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}/suggestions": {
       "get": {
         "tags": [
@@ -623,312 +1013,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/{doc_id}/page-texts": {
-      "get": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Get Document Page Texts",
-        "operationId": "get_document_page_texts_documents__doc_id__page_texts_get",
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Doc Id"
-            }
-          },
-          {
-            "name": "priority",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Priority"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageTextsResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/{doc_id}/pdf": {
-      "get": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Get Document Pdf",
-        "operationId": "get_document_pdf_documents__doc_id__pdf_get",
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Doc Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/process-missing": {
-      "post": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Process Missing",
-        "operationId": "process_missing_documents_process_missing_post",
-        "parameters": [
-          {
-            "name": "dry_run",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Dry Run"
-            }
-          },
-          {
-            "name": "include_vision_ocr",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Include Vision Ocr"
-            }
-          },
-          {
-            "name": "include_embeddings",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Include Embeddings"
-            }
-          },
-          {
-            "name": "include_suggestions_paperless",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Include Suggestions Paperless"
-            }
-          },
-          {
-            "name": "include_suggestions_vision",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": true,
-              "title": "Include Suggestions Vision"
-            }
-          },
-          {
-            "name": "embeddings_mode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "auto",
-              "title": "Embeddings Mode"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProcessMissingResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/reset-intelligence": {
-      "post": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Reset Intelligence",
-        "operationId": "reset_intelligence_documents_reset_intelligence_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResetIntelligenceResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/clear-intelligence": {
-      "post": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Clear Intelligence",
-        "operationId": "clear_intelligence_documents_clear_intelligence_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClearIntelligenceResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/delete-vision-ocr": {
-      "post": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Delete Vision Ocr",
-        "operationId": "delete_vision_ocr_documents_delete_vision_ocr_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteVisionOcrResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/delete-suggestions": {
-      "post": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Delete Suggestions",
-        "operationId": "delete_suggestions_documents_delete_suggestions_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteSuggestionsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/documents/delete-embeddings": {
-      "post": {
-        "tags": [
-          "documents"
-        ],
-        "summary": "Delete Embeddings",
-        "operationId": "delete_embeddings_documents_delete_embeddings_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteEmbeddingsResponse"
                 }
               }
             }
@@ -4425,7 +4509,16 @@
           "worker": {
             "$ref": "#/components/schemas/StatusEntry"
           },
-          "ollama": {
+          "llm": {
+            "$ref": "#/components/schemas/StatusEntry"
+          },
+          "llm_text": {
+            "$ref": "#/components/schemas/StatusEntry"
+          },
+          "llm_embedding": {
+            "$ref": "#/components/schemas/StatusEntry"
+          },
+          "llm_vision": {
             "$ref": "#/components/schemas/StatusEntry"
           },
           "paperless_base_url": {
@@ -4439,7 +4532,7 @@
             ],
             "title": "Paperless Base Url"
           },
-          "ollama_base_url": {
+          "llm_base_url": {
             "anyOf": [
               {
                 "type": "string"
@@ -4448,7 +4541,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ollama Base Url"
+            "title": "Llm Base Url"
           },
           "qdrant_url": {
             "anyOf": [
@@ -4472,7 +4565,7 @@
             ],
             "title": "Redis Host"
           },
-          "ollama_model": {
+          "text_model": {
             "anyOf": [
               {
                 "type": "string"
@@ -4481,7 +4574,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ollama Model"
+            "title": "Text Model"
           },
           "embedding_model": {
             "anyOf": [
@@ -4521,7 +4614,10 @@
         "required": [
           "web",
           "worker",
-          "ollama"
+          "llm",
+          "llm_text",
+          "llm_embedding",
+          "llm_vision"
         ],
         "title": "StatusResponse"
       },

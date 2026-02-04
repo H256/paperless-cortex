@@ -8,9 +8,9 @@ from typing import Any
 import httpx
 
 from app.config import Settings
-from app.services import ollama
+from app.services import llm_client
 from app.services import qdrant
-from app.services.guard import ensure_ollama_ready
+from app.services.guard import ensure_embedding_llm_ready
 from app.services.page_types import PageText, WordBox
 from app.services.text_pages import score_text_quality
 
@@ -24,25 +24,28 @@ def make_point_id(doc_id: int, chunk: int) -> int:
 def embed_text(settings: Settings, text: str) -> list[float]:
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
-    ensure_ollama_ready(settings, require_model=False)
-    ollama.ensure_model(settings, settings.embedding_model)
-    base = ollama.base_url(settings)
-    logger.info("Ollama embeddings model=%s chars=%s", settings.embedding_model, len(text))
-    with ollama.client(settings, timeout=60) as http:
+    ensure_embedding_llm_ready(settings)
+    base = llm_client.base_url(settings)
+    logger.info("LLM embeddings model=%s chars=%s", settings.embedding_model, len(text))
+    with llm_client.client(settings, timeout=60) as http:
         response = http.post(
-            f"{base}/api/embeddings",
-            json={"model": settings.embedding_model, "prompt": text},
+            f"{base}/v1/embeddings",
+            headers=llm_client.headers(settings),
+            json={"model": settings.embedding_model, "input": text},
         )
         response.raise_for_status()
         payload = response.json()
-        embedding = payload.get("embedding")
+        data = payload.get("data") or []
+        if not data:
+            raise RuntimeError("Invalid embedding response")
+        embedding = (data[0] or {}).get("embedding")
         if not isinstance(embedding, list):
             raise RuntimeError("Invalid embedding response")
-        if settings.ollama_base_url and settings.embedding_model:
-            if __import__("os").getenv("OLLAMA_DEBUG") == "1":
+        if settings.llm_base_url and settings.embedding_model:
+            if __import__("os").getenv("LLM_DEBUG") == "1":
                 sample = embedding[:5]
                 logger.info(
-                    "Ollama embed model=%s len=%s sample=%s",
+                    "LLM embed model=%s len=%s sample=%s",
                     settings.embedding_model,
                     len(embedding),
                     sample,

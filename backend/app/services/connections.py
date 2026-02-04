@@ -4,8 +4,8 @@ import time
 from typing import Any
 
 from app.config import Settings
+from app.services import llm_client
 from app.services import paperless
-from app.services import ollama
 from app.services import qdrant
 
 
@@ -30,15 +30,14 @@ def check_qdrant(settings: Settings) -> tuple[bool, str]:
         return False, exc.__class__.__name__
 
 
-def check_ollama(settings: Settings) -> tuple[bool, str]:
-    if not settings.ollama_base_url or not settings.ollama_model:
-        return False, "OLLAMA_BASE_URL/OLLAMA_MODEL not set"
+def check_llm(settings: Settings) -> tuple[bool, str]:
+    if not settings.llm_base_url:
+        return False, "LLM_BASE_URL not set"
     try:
-        base = ollama.base_url(settings)
-        with ollama.client(settings, timeout=15) as http:
-            response = http.post(
-                f"{base}/api/generate",
-                json={"model": settings.ollama_model, "prompt": "warum ist der himmel blau?", "stream": False},
+        with llm_client.client(settings, timeout=10) as http:
+            response = http.get(
+                f"{settings.llm_base_url.rstrip('/')}/v1/models",
+                headers=llm_client.headers(settings),
             )
             response.raise_for_status()
         return True, "ok"
@@ -50,7 +49,7 @@ def run_all(settings: Settings) -> list[dict[str, Any]]:
     checks = [
         ("Paperless", check_paperless),
         ("Qdrant", check_qdrant),
-        ("Ollama", check_ollama),
+        ("LLM", check_llm),
     ]
     results: list[dict[str, Any]] = []
     for name, check in checks:
