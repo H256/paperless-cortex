@@ -3,12 +3,16 @@ from __future__ import annotations
 import importlib
 import os
 from pathlib import Path
+import sys
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND_ROOT))
+
+from app.models import Base  # noqa: E402
 
 
 @pytest.fixture()
