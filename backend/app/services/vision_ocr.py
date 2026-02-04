@@ -103,7 +103,6 @@ def iter_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim
 
 def _vision_generate(settings: Settings, model: str, prompt: str, image_bytes: bytes) -> str:
     ensure_vision_llm_ready(settings, require_model=False)
-    base = llm_client.base_url(settings)
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
     logger.info(
         "LLM vision generate model=%s prompt_chars=%s image_bytes=%s",
@@ -119,7 +118,6 @@ def _vision_generate(settings: Settings, model: str, prompt: str, image_bytes: b
     ]
     text = llm_client.chat_completion(
         settings,
-        base,
         model=model,
         messages=[{"role": "user", "content": content}],
         timeout=settings.vision_ocr_timeout_seconds,

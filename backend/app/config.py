@@ -17,6 +17,7 @@ class Settings:
     redis_host: str | None
     queue_enabled: bool
     llm_base_url: str | None
+    llm_api_key: str | None
     text_model: str | None
     embedding_model: str | None
     qdrant_collection: str | None
@@ -58,6 +59,7 @@ def load_settings() -> Settings:
         redis_host=os.getenv("REDIS_HOST"),
         queue_enabled=os.getenv("QUEUE_ENABLED", "0") == "1",
         llm_base_url=os.getenv("LLM_BASE_URL"),
+        llm_api_key=os.getenv("LLM_API_KEY"),
         text_model=os.getenv("TEXT_MODEL"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "paperless_chunks"),

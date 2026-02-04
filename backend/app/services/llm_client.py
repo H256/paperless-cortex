@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Iterable
 
 import httpx
+from openai import OpenAI
 
 from app.config import Settings
 
@@ -21,6 +21,10 @@ def base_url(settings: Settings) -> str:
     return _require(settings.llm_base_url, "LLM_BASE_URL")
 
 
+def sdk_base_url(settings: Settings) -> str:
+    return f"{base_url(settings)}/v1"
+
+
 def client(settings: Settings, timeout: float | None) -> httpx.Client:
     return httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
 
@@ -32,31 +36,29 @@ def headers(settings: Settings) -> dict[str, str]:
     return {}
 
 
+def _sdk_client(settings: Settings, timeout: float | None) -> OpenAI:
+    api_key = settings.llm_api_key or "no-key"
+    return OpenAI(base_url=sdk_base_url(settings), api_key=api_key, timeout=timeout)
+
+
 def chat_completion(
     settings: Settings,
-    base_url: str,
     *,
     model: str,
     messages: list[dict[str, object]],
     timeout: float | None,
 ) -> str:
-    with client(settings, timeout=timeout) as http:
-        response = http.post(
-            f"{base_url}/v1/chat/completions",
-            headers=headers(settings),
-            json={
-                "model": model,
-                "messages": messages,
-                "stream": False,
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
-    choices = payload.get("choices") or []
+    client_sdk = _sdk_client(settings, timeout=timeout)
+    response = client_sdk.chat.completions.create(
+        model=model,
+        messages=messages,
+        stream=False,
+    )
+    choices = response.choices or []
     if not choices:
         raise RuntimeError("LLM response missing choices")
-    message = choices[0].get("message") or {}
-    content = message.get("content")
+    message = choices[0].message
+    content = message.content
     if content is None:
         raise RuntimeError("LLM response missing content")
     return str(content).strip()
@@ -64,41 +66,40 @@ def chat_completion(
 
 def stream_chat_completion(
     settings: Settings,
-    base_url: str,
     *,
     model: str,
     messages: list[dict[str, object]],
     timeout: float | None,
 ) -> Iterable[str]:
-    with client(settings, timeout=timeout) as http:
-        with http.stream(
-            "POST",
-            f"{base_url}/v1/chat/completions",
-            headers=headers(settings),
-            json={
-                "model": model,
-                "messages": messages,
-                "stream": True,
-            },
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                if line.startswith("data:"):
-                    line = line.split("data:", 1)[1].strip()
-                if not line:
-                    continue
-                if line == "[DONE]":
-                    break
-                try:
-                    data = json.loads(line)
-                except Exception:
-                    continue
-                choices = data.get("choices") or []
-                if not choices:
-                    continue
-                delta = choices[0].get("delta") or {}
-                token = delta.get("content")
-                if token:
-                    yield str(token)
+    client_sdk = _sdk_client(settings, timeout=timeout)
+    stream = client_sdk.chat.completions.create(
+        model=model,
+        messages=messages,
+        stream=True,
+    )
+    for event in stream:
+        choices = event.choices or []
+        if not choices:
+            continue
+        delta = choices[0].delta
+        token = delta.content
+        if token:
+            yield str(token)
+
+
+def embedding(
+    settings: Settings,
+    *,
+    model: str,
+    text: str,
+    timeout: float | None,
+) -> list[float]:
+    client_sdk = _sdk_client(settings, timeout=timeout)
+    response = client_sdk.embeddings.create(model=model, input=text)
+    data = response.data or []
+    if not data:
+        raise RuntimeError("Invalid embedding response")
+    embedding = data[0].embedding
+    if not isinstance(embedding, list):
+        raise RuntimeError("Invalid embedding response")
+    return embedding

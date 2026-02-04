@@ -129,11 +129,9 @@ def answer_question(
         .replace("{history}", _format_history(history or []))
     )
     logger.info("Chat prompt chars=%s sources=%s", len(prompt), len(sources))
-    base = llm_client.base_url(settings)
     if not stream:
         answer = llm_client.chat_completion(
             settings,
-            base,
             model=settings.text_model or "",
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
@@ -150,7 +148,6 @@ def answer_question(
         answer_chunks: list[str] = []
         for token in llm_client.stream_chat_completion(
             settings,
-            base,
             model=settings.text_model or "",
             messages=[{"role": "user", "content": prompt}],
             timeout=None,
