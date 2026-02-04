@@ -467,6 +467,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: consolidated Qdrant collection init in `services/embedding_init.py`.
 - Backend refactor: extracted meta upsert helpers for tags/correspondents/document types.
 - Backend refactor: unified page-text collection with cached/regenerated vision OCR.
+- Backend refactor: consolidated queue-enabled embedding enqueue logic.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

@@ -35,6 +35,22 @@ router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)
 
 
+def _enqueue_embedding_tasks(
+    settings: Settings,
+    db: Session,
+    documents: list[Document],
+) -> dict[str, object]:
+    task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
+    for doc in documents:
+        enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
+    state = get_or_create_state(db, "embeddings")
+    state.status = "running"
+    ensure_started(state)
+    state.last_synced_at = datetime.now(timezone.utc).isoformat()
+    db.commit()
+    return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
+
+
 @router.post("/ingest", response_model=EmbeddingIngestResponse)
 def ingest_embeddings(
     doc_id: int | None = Query(default=None),
@@ -61,14 +77,7 @@ def ingest_embeddings(
         db.commit()
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
-        task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
-        for doc in documents:
-            enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
-        state.status = "running"
-        ensure_started(state)
-        state.last_synced_at = datetime.now(timezone.utc).isoformat()
-        db.commit()
-        return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
+        return _enqueue_embedding_tasks(settings, db, documents)
 
     ensure_embedding_collection(settings)
 
@@ -179,15 +188,7 @@ def ingest_documents(
     if not documents:
         return {"ingested": 0, "documents_embedded": 0}
     if settings.queue_enabled:
-        task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
-        for doc in documents:
-            enqueue_task(settings, {"doc_id": doc.id, "task": task_type})
-        state = get_or_create_state(db, "embeddings")
-        state.status = "running"
-        ensure_started(state)
-        state.last_synced_at = datetime.now(timezone.utc).isoformat()
-        db.commit()
-        return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
+        return _enqueue_embedding_tasks(settings, db, documents)
     ensure_embedding_collection(settings)
     state = get_or_create_state(db, "embeddings")
     mark_running(state, total=len(documents), processed=0)
