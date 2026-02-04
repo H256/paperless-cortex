@@ -68,23 +68,7 @@ def task_key(task: dict) -> str:
     return f"{doc_id}:{task_type}{suffix}"
 
 
-def enqueue_task(settings: Settings, task: dict) -> int:
-    client = _get_client(settings)
-    if not client:
-        return 0
-    if is_cancel_requested(settings):
-        return 0
-    payload = __import__("json").dumps(task)
-    key = task_key(task)
-    if client.sadd(QUEUE_SET, key):
-        client.rpush(QUEUE_KEY, payload)
-        client.incr(STATS_TOTAL)
-        logger.info("Enqueued task=%s", key)
-        return 1
-    return 0
-
-
-def enqueue_task_front(settings: Settings, task: dict) -> int:
+def _enqueue_task(settings: Settings, task: dict, *, front: bool) -> int:
     client = _get_client(settings)
     if not client:
         return 0
@@ -95,10 +79,24 @@ def enqueue_task_front(settings: Settings, task: dict) -> int:
     is_new = client.sadd(QUEUE_SET, key)
     if is_new:
         client.incr(STATS_TOTAL)
-    client.lrem(QUEUE_KEY, 0, payload)
-    client.lpush(QUEUE_KEY, payload)
-    logger.info("Prioritized task=%s", key)
-    return 1
+    if front:
+        client.lrem(QUEUE_KEY, 0, payload)
+        client.lpush(QUEUE_KEY, payload)
+        logger.info("Prioritized task=%s", key)
+        return 1
+    if is_new:
+        client.rpush(QUEUE_KEY, payload)
+        logger.info("Enqueued task=%s", key)
+        return 1
+    return 0
+
+
+def enqueue_task(settings: Settings, task: dict) -> int:
+    return _enqueue_task(settings, task, front=False)
+
+
+def enqueue_task_front(settings: Settings, task: dict) -> int:
+    return _enqueue_task(settings, task, front=True)
 
 
 def enqueue_task_sequence_front(settings: Settings, tasks: list[dict], force: bool = False) -> int:

@@ -479,6 +479,7 @@ All model names must be configurable via environment variables.
 - Backend refactor: split documents routes into read/suggestions/actions modules.
 - Backend refactor: added document helpers for PDF fetch + document lookup; standardized queue enable guard in routes.
 - Backend refactor: consolidated clear intelligence logic and removed redundant enqueue branch.
+- Backend refactor: unified enqueue logic for queue tasks.
 - Backend tests: added route-level tests for new documents modules.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
