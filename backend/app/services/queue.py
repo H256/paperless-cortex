@@ -5,6 +5,7 @@ import time
 from typing import Iterable
 
 from app.config import Settings
+from app.services.queue_tasks import build_task_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -167,17 +168,7 @@ def enqueue_full_sequence(
 ) -> int:
     total = 0
     for doc_id in doc_ids:
-        tasks: list[dict] = []
-        if include_sync:
-            tasks.append({"doc_id": int(doc_id), "task": "sync"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "vision_ocr"})
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_vision"})
-        else:
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_paperless"})
-        tasks.append({"doc_id": int(doc_id), "task": "suggestions_paperless"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "suggestions_vision"})
+        tasks = build_task_sequence(settings, doc_id, include_sync=include_sync)
         total += enqueue_task_sequence(settings, tasks)
     return total
 
@@ -191,17 +182,7 @@ def enqueue_full_sequence_front(
 ) -> int:
     total = 0
     for doc_id in doc_ids:
-        tasks: list[dict] = []
-        if include_sync:
-            tasks.append({"doc_id": int(doc_id), "task": "sync"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "vision_ocr"})
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_vision"})
-        else:
-            tasks.append({"doc_id": int(doc_id), "task": "embeddings_paperless"})
-        tasks.append({"doc_id": int(doc_id), "task": "suggestions_paperless"})
-        if settings.enable_vision_ocr:
-            tasks.append({"doc_id": int(doc_id), "task": "suggestions_vision"})
+        tasks = build_task_sequence(settings, doc_id, include_sync=include_sync)
         total += enqueue_task_sequence_front(settings, tasks)
     return total
 

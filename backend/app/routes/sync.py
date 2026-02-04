@@ -41,6 +41,7 @@ from app.api_models import (
 )
 from app.services.time_utils import estimate_eta_seconds
 from app.services.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.queue_tasks import build_task_sequence
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -150,15 +151,7 @@ def sync_documents(
     if embed and embed_queue:
         if settings.queue_enabled:
             for doc in embed_queue:
-                tasks = []
-                if settings.enable_vision_ocr:
-                    tasks.append({"doc_id": doc.id, "task": "vision_ocr", "force": bool(force_embed)})
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
-                else:
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                tasks = build_task_sequence(settings, doc.id, include_sync=False, force=bool(force_embed))
                 enqueue_task_sequence(settings, tasks)
             embed_state = get_or_create_state(db, "embeddings")
             embed_state.status = "running"
@@ -326,15 +319,7 @@ def sync_document(
         doc = db.get(Document, doc_id)
         if doc:
             if settings.queue_enabled:
-                tasks = []
-                if settings.enable_vision_ocr:
-                    tasks.append({"doc_id": doc.id, "task": "vision_ocr", "force": bool(force_embed)})
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
-                else:
-                    tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-                    tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
+                tasks = build_task_sequence(settings, doc.id, include_sync=False, force=bool(force_embed))
                 if priority:
                     enqueue_task_sequence_front(settings, tasks, force=True)
                 else:
