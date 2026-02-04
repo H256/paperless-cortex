@@ -14,12 +14,11 @@ from app.models import Document, DocumentEmbedding, DocumentPageText, SyncState,
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
-    embed_text,
-    ensure_qdrant_collection,
     make_point_id,
     search_points,
     upsert_points,
 )
+from app.services.embedding_init import ensure_embedding_collection
 from app.services.text_pages import get_page_text_layers, get_baseline_page_texts
 from app.services import paperless
 from app.services.page_text_store import upsert_page_texts
@@ -72,8 +71,7 @@ def ingest_embeddings(
         db.commit()
         return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
 
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    ensure_embedding_collection(settings)
 
     points = []
     embedded = 0
@@ -207,8 +205,7 @@ def ingest_documents(
         state.last_synced_at = datetime.now(timezone.utc).isoformat()
         db.commit()
         return {"ingested": 0, "documents_embedded": 0, "queued": len(documents)}
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    ensure_embedding_collection(settings)
     state = get_or_create_state(db, "embeddings")
     mark_running(state, total=len(documents), processed=0)
     db.commit()

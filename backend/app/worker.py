@@ -15,11 +15,10 @@ from app.services import paperless
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
-    embed_text,
-    ensure_qdrant_collection,
     make_point_id,
     upsert_points,
 )
+from app.services.embedding_init import ensure_embedding_collection
 from app.services.queue import (
     QUEUE_KEY,
     _get_client,
@@ -55,8 +54,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     hash_source = "\f".join(f"{page.source}:{page.text}" for page in page_texts) if page_texts else content_value
     content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
 
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    ensure_embedding_collection(settings)
     delete_points_for_doc(settings, doc.id)
     baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
     vision_chunks = (

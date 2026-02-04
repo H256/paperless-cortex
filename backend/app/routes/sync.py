@@ -24,8 +24,6 @@ from app.services import paperless
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
-    embed_text,
-    ensure_qdrant_collection,
     make_point_id,
     upsert_points,
 )
@@ -42,6 +40,7 @@ from app.api_models import (
 from app.services.time_utils import estimate_eta_seconds
 from app.services.sync_state import ensure_started, get_or_create_state, mark_running
 from app.services.queue_tasks import build_task_sequence
+from app.services.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -436,8 +435,7 @@ def _embed_documents(
         return 0
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
-    sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    ensure_embedding_collection(settings)
     points = []
     embedded = 0
     processed = 0
