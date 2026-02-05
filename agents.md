@@ -483,6 +483,7 @@ All model names must be configurable via environment variables.
 - Backend tests: added route-level tests for new documents modules.
 - Dev: documented .env settings with inline comments.
 - Fix: restore missing embed_text import in worker.
+- UX: show current document values under AI suggestions with note tooltip icon for summary.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

@@ -237,7 +237,16 @@
                 <div
                   class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
                 >
-                  <span>Summary</span>
+                  <div class="flex items-center gap-2">
+                    <span>Summary</span>
+                    <span
+                      v-if="currentNotePreview"
+                      class="inline-flex items-center text-slate-400"
+                      :title="currentNotePreview"
+                    >
+                      <Info class="h-3.5 w-3.5" />
+                    </span>
+                  </div>
                   <button
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
                     @click="applyToDocument('best_pick', 'note', bestPickSuggestion.data)"
@@ -293,6 +302,14 @@
                     <template v-else>
                       {{ fieldValue(bestPickSuggestion.data, field.key) }}
                     </template>
+                    <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Current:
+                      {{
+                        field.key === 'tags'
+                          ? currentTagNames || 'No tags'
+                          : currentFieldPreview(field.key) || '—'
+                      }}
+                    </div>
                   </div>
                   <button
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
@@ -355,7 +372,16 @@
                   >
                 </div>
                 <div v-if="paperlessSuggestion.data" class="space-y-2">
-                  <div class="text-xs text-slate-500 dark:text-slate-400">Summary</div>
+                  <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span>Summary</span>
+                    <span
+                      v-if="currentNotePreview"
+                      class="inline-flex items-center text-slate-400"
+                      :title="currentNotePreview"
+                    >
+                      <Info class="h-3.5 w-3.5" />
+                    </span>
+                  </div>
                   <div class="text-sm text-slate-900 dark:text-slate-100">
                     {{ paperlessSuggestion.data.summary }}
                   </div>
@@ -407,6 +433,14 @@
                       <template v-else>
                         {{ fieldValue(paperlessSuggestion.data, field.key) }}
                       </template>
+                      <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Current:
+                        {{
+                          field.key === 'tags'
+                            ? currentTagNames || 'No tags'
+                            : currentFieldPreview(field.key) || '—'
+                        }}
+                      </div>
                     </div>
                     <div class="flex items-center gap-2">
                       <button
@@ -508,7 +542,16 @@
                   >
                 </div>
                 <div v-if="visionSuggestion.data" class="space-y-2">
-                  <div class="text-xs text-slate-500 dark:text-slate-400">Summary</div>
+                  <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span>Summary</span>
+                    <span
+                      v-if="currentNotePreview"
+                      class="inline-flex items-center text-slate-400"
+                      :title="currentNotePreview"
+                    >
+                      <Info class="h-3.5 w-3.5" />
+                    </span>
+                  </div>
                   <div class="text-sm text-slate-900 dark:text-slate-100">
                     {{ visionSuggestion.data.summary }}
                   </div>
@@ -560,6 +603,14 @@
                       <template v-else>
                         {{ fieldValue(visionSuggestion.data, field.key) }}
                       </template>
+                      <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Current:
+                        {{
+                          field.key === 'tags'
+                            ? currentTagNames || 'No tags'
+                            : currentFieldPreview(field.key) || '—'
+                        }}
+                      </div>
                     </div>
                     <div class="flex items-center gap-2">
                       <button
@@ -722,7 +773,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next'
+import { ExternalLink, Info, RefreshCcw, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -925,6 +976,39 @@ const applyToDocument = async (source: string, field: string, data: SuggestionDa
   } catch (err: unknown) {
     suggestionsError.value = errorMessage(err, 'Failed to apply suggestion to document')
   }
+}
+
+const currentNotePreview = computed(() =>
+  (document.value?.notes || [])
+    .map((note) => note.note)
+    .filter(Boolean)
+    .join(' ')
+    .trim(),
+)
+
+const currentTagNames = computed(() =>
+  (document.value?.tags || [])
+    .map((tagId) => tags.value.find((tag) => tag.id === tagId)?.name ?? tagId)
+    .join(', '),
+)
+
+const currentCorrespondentName = computed(() => {
+  if (!document.value) return ''
+  return (
+    document.value.correspondent_name ??
+    correspondents.value.find((c) => c.id === document.value?.correspondent)?.name ??
+    document.value.correspondent ??
+    ''
+  )
+})
+
+const currentFieldPreview = (field: string) => {
+  if (!document.value) return ''
+  if (field === 'title') return document.value.title || ''
+  if (field === 'date') return formatDate(document.value.document_date) || ''
+  if (field === 'correspondent') return currentCorrespondentName.value || ''
+  if (field === 'tags') return currentTagNames.value || ''
+  return ''
 }
 
 const rows = computed(() => {
