@@ -337,7 +337,6 @@ def apply_suggestion_to_document(
         meta_parts: list[str] = []
         if model_name:
             meta_parts.append(f"Model:{model_name}")
-        meta_parts.append("Ctx:unknown")
         if processed_at:
             meta_parts.append(f"Created:{processed_at}")
         meta_line = ", ".join(meta_parts)
