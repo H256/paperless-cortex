@@ -16,6 +16,7 @@ from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
+    embed_text,
     make_point_id,
     upsert_points,
 )
