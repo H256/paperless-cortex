@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -326,6 +326,50 @@ def apply_suggestion_to_document(
     db: Session = Depends(get_db),
 ):
     logger = __import__("logging").getLogger(__name__)
+
+    def _format_ai_summary_note(
+        summary_text: str,
+        *,
+        model_name: str | None,
+        processed_at: str | None,
+    ) -> str:
+        summary = summary_text.strip()
+        meta_parts: list[str] = []
+        if model_name:
+            meta_parts.append(f"Model:{model_name}")
+        meta_parts.append("Ctx:unknown")
+        if processed_at:
+            meta_parts.append(f"Created:{processed_at}")
+        meta_line = ", ".join(meta_parts)
+        if meta_line:
+            return f"{summary}\n\n{meta_line}\nKI-Zusammenfassung"
+        return f"{summary}\n\nKI-Zusammenfassung"
+
+    def _find_suggestion_meta() -> tuple[str | None, str | None]:
+        suggestion_row = None
+        if payload.source:
+            suggestion_row = (
+                db.query(DocumentSuggestion)
+                .filter(
+                    DocumentSuggestion.doc_id == doc_id,
+                    DocumentSuggestion.source == payload.source,
+                )
+                .one_or_none()
+            )
+        if not suggestion_row:
+            suggestion_row = (
+                db.query(DocumentSuggestion)
+                .filter(DocumentSuggestion.doc_id == doc_id)
+                .order_by(
+                    DocumentSuggestion.processed_at.desc().nullslast(),
+                    DocumentSuggestion.source.asc(),
+                )
+                .first()
+            )
+        if not suggestion_row:
+            return None, None
+        return suggestion_row.model_name, suggestion_row.processed_at
+
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
@@ -389,10 +433,21 @@ def apply_suggestion_to_document(
     elif field == "note":
         summary = str(value).strip() if value is not None else ""
         if summary:
-            marker_text = f"AI_SUMMARY v1 –\n{summary}\n- /AI_SUMMARY -"
+            model_name, processed_at = _find_suggestion_meta()
+            marker_text = _format_ai_summary_note(
+                summary,
+                model_name=model_name,
+                processed_at=processed_at,
+            )
             existing_note = (
                 db.query(DocumentNote)
-                .filter(DocumentNote.document_id == doc_id, DocumentNote.note.like("AI_SUMMARY v1 –%"))
+                .filter(
+                    DocumentNote.document_id == doc_id,
+                    or_(
+                        DocumentNote.note.like("AI_SUMMARY v1 –%"),
+                        DocumentNote.note.like("%\nKI-Zusammenfassung"),
+                    ),
+                )
                 .order_by(DocumentNote.id.asc())
                 .first()
             )

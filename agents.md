@@ -484,6 +484,7 @@ All model names must be configurable via environment variables.
 - Dev: documented .env settings with inline comments.
 - Fix: restore missing embed_text import in worker.
 - UX: show current document values under AI suggestions with note tooltip icon for summary.
+- Backend: store AI summary note in readable format with model/created line and KI-Zusammenfassung footer.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
