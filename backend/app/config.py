@@ -39,6 +39,7 @@ class Settings:
     vision_ocr_max_pages: int
     vision_ocr_timeout_seconds: int
     vision_ocr_max_dim: int
+    vision_ocr_target_dim: int
     httpx_verify_tls: bool
     ocr_chat_base_url: str | None
     ocr_vision_base_url: str | None
@@ -98,6 +99,7 @@ def load_settings() -> Settings:
         vision_ocr_max_pages=int(os.getenv("VISION_OCR_MAX_PAGES", "0")),
         vision_ocr_timeout_seconds=int(os.getenv("VISION_OCR_TIMEOUT_SECONDS", "120")),
         vision_ocr_max_dim=int(os.getenv("VISION_OCR_MAX_DIM", "1024")),
+        vision_ocr_target_dim=int(os.getenv("VISION_OCR_TARGET_DIM", "0")),
         httpx_verify_tls=os.getenv("HTTPX_VERIFY_TLS", "1") == "1",
         ocr_chat_base_url=os.getenv("OCR_CHAT_BASE"),
         ocr_vision_base_url=os.getenv("OCR_VISION_BASE"),

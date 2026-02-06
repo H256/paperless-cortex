@@ -126,24 +126,15 @@ def merge_suggestions(
         val2 = base.get(field)
         return val2 if val2 is not None else ""
 
-    merged = {
-        "title": pick("title"),
-        "correspondent": pick("correspondent"),
-        "documentType": pick("documentType"),
-        "date": pick("date"),
-        "language": pick("language") or base.get("language") or "",
-        "summary": pick("summary"),
-        "tags": pick("tags") or [],
-        "entities": pick("entities") or [],
-        "risks": pick("risks") or [],
-    }
+    merged = {"title": pick("title"), "correspondent": pick("correspondent"), "documentType": pick("documentType"),
+              "date": pick("date"), "language": pick("language") or base.get("language") or "",
+              "summary": pick("summary"), "tags": pick("tags") or [], "entities": pick("entities") or [],
+              "risks": pick("risks") or [], "suggested_tags_existing": list(
+            {*(base.get("suggested_tags_existing") or []), *(alt.get("suggested_tags_existing") or [])}
+        ), "suggested_tags_new": list(
+            {*(base.get("suggested_tags_new") or []), *(alt.get("suggested_tags_new") or [])}
+        )}
     # combine tag hints if present
-    merged["suggested_tags_existing"] = list(
-        {*(base.get("suggested_tags_existing") or []), *(alt.get("suggested_tags_existing") or [])}
-    )
-    merged["suggested_tags_new"] = list(
-        {*(base.get("suggested_tags_new") or []), *(alt.get("suggested_tags_new") or [])}
-    )
     return merged
 
 

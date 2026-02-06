@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 import logging
+import math
 
 from app.config import Settings
 from app.services import llm_client
@@ -23,7 +24,8 @@ def load_prompt(settings: Settings) -> str:
         return settings.vision_ocr_prompt
     path = settings.vision_ocr_prompt_path
     if not path:
-        return DEFAULT_VISION_PROMPT
+        repo_root = Path(__file__).resolve().parents[3]
+        path = str(repo_root / "backend" / "app" / "prompts" / "vision_ocr.txt")
     if path in _prompt_cache:
         return _prompt_cache[path]
     prompt_path = Path(path)
@@ -43,10 +45,18 @@ def load_prompt(settings: Settings) -> str:
 class VisionPage:
     page_index: int
     image_bytes: bytes
+    width: int
+    height: int
 
 
 
-def _render_page_image(doc: "fitz.Document", page_index: int, max_dim: int) -> bytes:
+def _render_page_image(
+    doc: "fitz.Document",
+    page_index: int,
+    *,
+    max_dim: int,
+    target_dim: int,
+) -> tuple[bytes, int, int]:
     try:
         import fitz  # PyMuPDF
     except Exception as exc:  # pragma: no cover - optional dependency
@@ -55,17 +65,26 @@ def _render_page_image(doc: "fitz.Document", page_index: int, max_dim: int) -> b
     rect = page.rect
     width = float(rect.width)
     height = float(rect.height)
-    if max_dim <= 0:
+    long_side = max(width, height, 1.0)
+    if target_dim > 0:
+        scale = target_dim / long_side
+    elif max_dim <= 0:
         scale = 1.0
     else:
-        scale = min(max_dim / max(width, 1.0), max_dim / max(height, 1.0))
-        if scale > 1.0:
-            scale = 1.0
+        scale = min(max_dim / long_side, 1.0)
+    if max_dim > 0:
+        scale = min(scale, max_dim / long_side)
     pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
-    return pix.tobytes("png")
+    return pix.tobytes("png"), pix.width, pix.height
 
 
-def render_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim: int) -> list[VisionPage]:
+def render_pdf_pages(
+    pdf_bytes: bytes,
+    page_numbers: Iterable[int] | None,
+    *,
+    max_dim: int,
+    target_dim: int,
+) -> list[VisionPage]:
     try:
         import fitz  # PyMuPDF
     except Exception as exc:  # pragma: no cover - optional dependency
@@ -79,12 +98,30 @@ def render_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_d
     logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
     rendered: list[VisionPage] = []
     for page_index in page_indices:
-        png_bytes = _render_page_image(doc, page_index, max_dim=max_dim)
-        rendered.append(VisionPage(page_index=page_index, image_bytes=png_bytes))
+        png_bytes, width, height = _render_page_image(
+            doc,
+            page_index,
+            max_dim=max_dim,
+            target_dim=target_dim,
+        )
+        rendered.append(
+            VisionPage(
+                page_index=page_index,
+                image_bytes=png_bytes,
+                width=width,
+                height=height,
+            )
+        )
     return rendered
 
 
-def iter_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim: int) -> Iterable[VisionPage]:
+def iter_pdf_pages(
+    pdf_bytes: bytes,
+    page_numbers: Iterable[int] | None,
+    *,
+    max_dim: int,
+    target_dim: int,
+) -> Iterable[VisionPage]:
     try:
         import fitz  # PyMuPDF
     except Exception as exc:  # pragma: no cover - optional dependency
@@ -97,16 +134,42 @@ def iter_pdf_pages(pdf_bytes: bytes, page_numbers: Iterable[int] | None, max_dim
         page_indices = [max(0, p - 1) for p in page_numbers]
     logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
     for page_index in page_indices:
-        png_bytes = _render_page_image(doc, page_index, max_dim=max_dim)
-        yield VisionPage(page_index=page_index, image_bytes=png_bytes)
+        png_bytes, width, height = _render_page_image(
+            doc,
+            page_index,
+            max_dim=max_dim,
+            target_dim=target_dim,
+        )
+        yield VisionPage(
+            page_index=page_index,
+            image_bytes=png_bytes,
+            width=width,
+            height=height,
+        )
 
 
-def _vision_generate(settings: Settings, model: str, prompt: str, image_bytes: bytes) -> str:
+def _vision_generate(
+    settings: Settings,
+    model: str,
+    prompt: str,
+    image_bytes: bytes,
+    *,
+    page_number: int,
+    width: int,
+    height: int,
+) -> str:
     ensure_vision_llm_ready(settings, require_model=False)
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
+    tokens_w = math.ceil(width / 14) if width > 0 else 0
+    tokens_h = math.ceil(height / 14) if height > 0 else 0
+    image_tokens = tokens_w * tokens_h
     logger.info(
-        "LLM vision generate model=%s prompt_chars=%s image_bytes=%s",
+        "LLM vision generate model=%s page=%s dim=%sx%s tokens=%s prompt_chars=%s image_bytes=%s",
         model,
+        page_number,
+        width,
+        height,
+        image_tokens,
         len(prompt),
         len(image_bytes),
     )
@@ -141,12 +204,30 @@ def ocr_pdf_pages(
     prompt = load_prompt(settings)
     results: list[PageText] = []
     count = 0
-    for page in iter_pdf_pages(pdf_bytes, page_numbers, max_dim=settings.vision_ocr_max_dim):
+    for page in iter_pdf_pages(
+        pdf_bytes,
+        page_numbers,
+        max_dim=settings.vision_ocr_max_dim,
+        target_dim=settings.vision_ocr_target_dim,
+    ):
         if 0 < settings.vision_ocr_max_pages <= count:
             break
-        text = _vision_generate(settings, settings.vision_model, prompt, page.image_bytes)
+        text = _vision_generate(
+            settings,
+            settings.vision_model,
+            prompt,
+            page.image_bytes,
+            page_number=page.page_index + 1,
+            width=page.width,
+            height=page.height,
+        )
         results.append(PageText(page=page.page_index + 1, text=text, source="vision_ocr"))
         count += 1
-    logger.info("Vision OCR rendering count=%s max_dim=%s", count, settings.vision_ocr_max_dim)
+    logger.info(
+        "Vision OCR rendering count=%s max_dim=%s target_dim=%s",
+        count,
+        settings.vision_ocr_max_dim,
+        settings.vision_ocr_target_dim,
+    )
     logger.info("Vision OCR completed pages=%s", [p.page for p in results])
     return results
