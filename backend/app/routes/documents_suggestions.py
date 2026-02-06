@@ -14,6 +14,7 @@ from app.models import (
     Correspondent,
     Document,
     DocumentNote,
+    DocumentOcrScore,
     DocumentPageText,
     DocumentSuggestion,
     Tag,
@@ -22,7 +23,6 @@ from app.services import paperless
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.page_text_store import upsert_page_texts
 from app.services.ocr_scoring import ensure_document_ocr_score
-from app.services.documents import get_document_or_none
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
@@ -187,10 +187,35 @@ def get_document_suggestions(
         row.source: {"model": row.model_name, "processed_at": row.processed_at}
         for row in meta_rows
     }
+    score_rows = (
+        db.query(DocumentOcrScore)
+        .filter(DocumentOcrScore.doc_id == doc_id)
+        .all()
+    )
+    score_by_source = {
+        row.source: row.quality_score
+        for row in score_rows
+        if row.quality_score is not None
+    }
+    summary_source = None
+    if "paperless_ocr" in score_by_source and "vision_ocr" in score_by_source:
+        summary_source = (
+            "paperless_ocr"
+            if score_by_source["paperless_ocr"] <= score_by_source["vision_ocr"]
+            else "vision_ocr"
+        )
+    elif score_by_source:
+        summary_source = next(iter(score_by_source.keys()))
     best = merge_suggestions(
         suggestions_by_source.get("paperless_ocr"),
         suggestions_by_source.get("vision_ocr"),
     )
+    if best and summary_source:
+        summary_payload = suggestions_by_source.get(summary_source)
+        if isinstance(summary_payload, dict) and "error" not in summary_payload:
+            summary_value = summary_payload.get("summary")
+            if isinstance(summary_value, str) and summary_value.strip():
+                best["summary"] = summary_value
     if best:
         suggestions_by_source["best_pick"] = best
     return {
