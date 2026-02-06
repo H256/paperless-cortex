@@ -512,10 +512,12 @@ const suggestionMetaLine = (source: string) => {
   const meta = suggestionsMeta.value?.[source]
   if (!meta) return ''
   const model = (meta as { model?: string }).model || 'unknown'
+  const ocrModel = (meta as { ocr_model?: string | null }).ocr_model || ''
+  const modelLabel = ocrModel ? `${ocrModel} / ${model}` : model
   const processed = (meta as { processed_at?: string }).processed_at
     ? formatDateTime((meta as { processed_at?: string }).processed_at)
     : 'unknown'
-  return `Model: ${model} · Updated: ${processed}`
+  return `Model: ${modelLabel} · Updated: ${processed}`
 }
 
 const fieldValue = (data: SuggestionPayload, field: string) => {

@@ -153,8 +153,22 @@ def get_document_suggestions(
             .filter(DocumentSuggestion.doc_id == doc_id)
             .all()
         )
+        ocr_model = (
+            db.query(DocumentPageText.model_name)
+            .filter(
+                DocumentPageText.doc_id == doc_id,
+                DocumentPageText.source == "vision_ocr",
+            )
+            .order_by(DocumentPageText.processed_at.desc().nullslast())
+            .first()
+        )
+        ocr_model_name = ocr_model[0] if ocr_model else None
         suggestions_meta = {
-            row.source: {"model": row.model_name, "processed_at": row.processed_at}
+            row.source: {
+                "model": row.model_name,
+                "processed_at": row.processed_at,
+                "ocr_model": ocr_model_name if row.source == "vision_ocr" else None,
+            }
             for row in meta_rows
         }
         return {
@@ -183,8 +197,22 @@ def get_document_suggestions(
         .filter(DocumentSuggestion.doc_id == doc_id)
         .all()
     )
+    ocr_model = (
+        db.query(DocumentPageText.model_name)
+        .filter(
+            DocumentPageText.doc_id == doc_id,
+            DocumentPageText.source == "vision_ocr",
+        )
+        .order_by(DocumentPageText.processed_at.desc().nullslast())
+        .first()
+    )
+    ocr_model_name = ocr_model[0] if ocr_model else None
     suggestions_meta = {
-        row.source: {"model": row.model_name, "processed_at": row.processed_at}
+        row.source: {
+            "model": row.model_name,
+            "processed_at": row.processed_at,
+            "ocr_model": ocr_model_name if row.source == "vision_ocr" else None,
+        }
         for row in meta_rows
     }
     score_rows = (
