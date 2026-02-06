@@ -515,3 +515,4 @@ All model names must be configurable via environment variables.
 - DevOps: Added Dockerfile and compose variants for app-only and full stack deployment.
 - DevOps: Added worker-only compose variant.
 - DevOps: Added worker entrypoint guard for QUEUE_ENABLED and worker env template.
+- Feature: added stored OCR quality scores per source with API endpoint and detail page display; new OCR scoring settings documented in env templates.

@@ -42,6 +42,7 @@ from app.services.queue import (
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
 from app.services.page_text_store import upsert_page_texts
+from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
@@ -108,6 +109,9 @@ def _process_sync_only(settings, db: Session, doc_id: int) -> None:
     cache = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
+    doc = get_document_or_none(db, doc_id)
+    if doc:
+        ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
 
 
 def _process_doc(settings, db: Session, doc_id: int) -> None:
@@ -123,6 +127,7 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return
+    ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
 
     # Embeddings (with vision OCR)
     baseline_pages, vision_pages, _ = collect_page_texts(
@@ -131,6 +136,8 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         doc,
         force_vision=True,
     )
+    if vision_pages:
+        ensure_document_ocr_score(settings, db, doc, "vision_ocr")
     _embed_with_pages(settings, db, doc, baseline_pages, vision_pages)
 
     # Suggestions
@@ -182,6 +189,7 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
             .first()
         )
         if existing:
+            ensure_document_ocr_score(settings, db, doc, "vision_ocr")
             logger.info("Vision OCR skipped (cached) doc=%s", doc_id)
             return
     _, vision_pages, _ = collect_page_texts(
@@ -190,6 +198,8 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         doc,
         force_vision=True,
     )
+    if vision_pages:
+        ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=force)
     db.commit()
 
 def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:

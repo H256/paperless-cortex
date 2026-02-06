@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table, Text, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -119,6 +119,24 @@ class DocumentSuggestion(Base):
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(String(64))
     model_name: Mapped[str | None] = mapped_column(String(128))
+    processed_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
+class DocumentOcrScore(Base):
+    __tablename__ = "document_ocr_scores"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    content_hash: Mapped[str | None] = mapped_column(String(128))
+    quality_score: Mapped[float | None] = mapped_column(Float)
+    verdict: Mapped[str | None] = mapped_column(String(32))
+    components_json: Mapped[str | None] = mapped_column(Text)
+    noise_json: Mapped[str | None] = mapped_column(Text)
+    ppl_json: Mapped[str | None] = mapped_column(Text)
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[str | None] = mapped_column(String(64))
     processed_at: Mapped[str | None] = mapped_column(String(64))
 
     document: Mapped[Document] = relationship()

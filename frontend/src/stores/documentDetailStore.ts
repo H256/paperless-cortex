@@ -15,10 +15,11 @@ import {
   getSuggestions,
   getTags,
   getTextQuality,
+  getOcrScores,
   suggestFieldVariants,
   syncDocument,
 } from '../services/documents'
-import type {TextQualityMetrics} from "@/api/generated/model";
+import type { DocumentOcrScoreOut, TextQualityMetrics } from '@/api/generated/model'
 
 type SuggestionPayload = Record<string, unknown>
 type SuggestionsState = {
@@ -67,6 +68,9 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
     contentQuality: null as TextQualityMetrics | null,
     contentQualityLoading: false,
     contentQualityError: '',
+    ocrScores: [] as DocumentOcrScoreOut[],
+    ocrScoresLoading: false,
+    ocrScoresError: '',
     suggestions: null as SuggestionsState | null,
     suggestionsLoading: false,
     suggestionsError: '',
@@ -88,6 +92,9 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
         this.pageTextsError = ''
         this.contentQuality = null
         this.contentQualityError = ''
+        this.ocrScores = []
+        this.ocrScoresLoading = false
+        this.ocrScoresError = ''
         this.suggestions = null
         this.suggestionsError = ''
         this.suggestionVariants = {}
@@ -137,6 +144,18 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
         this.contentQualityError = errorMessage(err, 'Failed to load text quality')
       } finally {
         this.contentQualityLoading = false
+      }
+    },
+    async loadOcrScores(id: number, refresh = false) {
+      this.ocrScoresLoading = true
+      this.ocrScoresError = ''
+      try {
+        const data = await getOcrScores(id, refresh ? { refresh } : undefined)
+        this.ocrScores = data.scores ?? []
+      } catch (err: unknown) {
+        this.ocrScoresError = errorMessage(err, 'Failed to load OCR scores')
+      } finally {
+        this.ocrScoresLoading = false
       }
     },
     async loadSuggestions(id: number) {

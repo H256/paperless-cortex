@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Document, DocumentEmbedding, DocumentPageText, DocumentSuggestion
+from app.models import Document, DocumentEmbedding, DocumentOcrScore, DocumentPageText, DocumentSuggestion
 from app.services.queue import enqueue_task_sequence
 from app.services.embeddings import delete_points_for_doc
 from app.api_models import (
@@ -30,6 +30,7 @@ def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentSuggestion))
     db.execute(delete(DocumentPageText))
     db.execute(delete(DocumentEmbedding))
+    db.execute(delete(DocumentOcrScore))
     db.commit()
 
 
@@ -194,6 +195,10 @@ def delete_vision_ocr(
         query = query.filter(DocumentPageText.doc_id == doc_id)
     count = query.count()
     query.delete(synchronize_session=False)
+    score_query = db.query(DocumentOcrScore).filter(DocumentOcrScore.source == "vision_ocr")
+    if doc_id is not None:
+        score_query = score_query.filter(DocumentOcrScore.doc_id == doc_id)
+    score_query.delete(synchronize_session=False)
     db.commit()
     return {"deleted": count}
 

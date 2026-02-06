@@ -230,6 +230,22 @@ class DocumentTextQualityResponse(BaseModel):
     quality: TextQualityMetrics
 
 
+class DocumentOcrScoreOut(BaseModel):
+    source: str
+    verdict: Optional[str] = None
+    quality_score: Optional[float] = None
+    components: dict[str, float] = {}
+    noise: dict[str, float] = {}
+    ppl: dict[str, Any] = {}
+    model_name: Optional[str] = None
+    processed_at: Optional[str] = None
+
+
+class DocumentOcrScoresResponse(BaseModel):
+    doc_id: int
+    scores: list[DocumentOcrScoreOut] = []
+
+
 class SuggestionPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     raw: Optional[str] = None
