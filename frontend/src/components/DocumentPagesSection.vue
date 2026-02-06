@@ -73,42 +73,18 @@
       </div>
     </div>
 
-    <PdfViewer
-      class="mt-6"
-      :pdf-url="pdfUrl"
-      v-model:page="internalPage"
-      :highlights="pdfHighlights"
-      @update:page="emit('update:page', $event)"
-    />
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import PdfViewer from './PdfViewer.vue'
+import { ref } from 'vue'
 import type { PageText } from '../services/documents'
 
-const props = defineProps<{
+defineProps<{
   pageTexts: PageText[]
   pageTextsError: string
   aggregatedText: string
-  pdfUrl: string
-  pdfPage: number
-  pdfHighlights: number[][]
 }>()
-
-const emit = defineEmits<{
-  (e: 'update:page', value: number): void
-}>()
-
-const internalPage = ref(props.pdfPage)
-
-watch(
-  () => props.pdfPage,
-  (value) => {
-    internalPage.value = value
-  },
-)
 
 const expandedPages = ref<Set<string>>(new Set())
 

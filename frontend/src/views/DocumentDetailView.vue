@@ -123,9 +123,13 @@
         :page-texts="pageTexts"
         :page-texts-error="pageTextsError"
         :aggregated-text="aggregatedText"
+      />
+
+      <PdfViewer
+        class="mt-6"
         :pdf-url="pdfUrl"
-        :pdf-page="pdfPage"
-        :pdf-highlights="pdfHighlights"
+        v-model:page="pdfPage"
+        :highlights="pdfHighlights"
         @update:page="onPdfPageChange"
       />
 
@@ -143,6 +147,7 @@ import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
+import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
