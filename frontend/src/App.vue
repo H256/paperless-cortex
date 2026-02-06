@@ -230,6 +230,7 @@ const startStatusStream = () => {
       if (payload?.queue) queueStore.setStatus(payload.queue)
       if (payload?.sync) documentsStore.setSyncStatus(payload.sync)
       if (payload?.embeddings) documentsStore.setEmbedStatus(payload.embeddings)
+      if (payload?.stats) documentsStore.setStats(payload.stats)
     } catch {
       // ignore malformed payloads
     }

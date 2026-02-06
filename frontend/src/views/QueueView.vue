@@ -315,7 +315,6 @@ const itemDescription = (item: { doc_id?: number; task?: string; raw?: string })
 }
 
 const refresh = async () => {
-  await queueStore.refreshStatus()
   await queueStore.loadPeek()
 }
 
@@ -357,7 +356,7 @@ const removeItem = async (index: number) => {
 
 onMounted(async () => {
   await refresh()
-  poller = window.setInterval(refresh, 30000)
+  poller = window.setInterval(loadPeek, 30000)
 })
 
 let poller: number | null = null

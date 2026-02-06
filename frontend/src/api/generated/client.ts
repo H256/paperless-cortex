@@ -2556,6 +2556,48 @@ export const statusStatusGet = async ( options?: RequestInit): Promise<statusSta
 
 
 /**
+ * @summary Status Stream
+ */
+export type statusStreamStatusStreamGetResponse200 = {
+  data: unknown
+  status: 200
+}
+    
+export type statusStreamStatusStreamGetResponseSuccess = (statusStreamStatusStreamGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type statusStreamStatusStreamGetResponse = (statusStreamStatusStreamGetResponseSuccess)
+
+export const getStatusStreamStatusStreamGetUrl = () => {
+
+
+  
+
+  return `/api/status/stream`
+}
+
+export const statusStreamStatusStreamGet = async ( options?: RequestInit): Promise<statusStreamStatusStreamGetResponse> => {
+  
+  const res = await fetch(getStatusStreamStatusStreamGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: statusStreamStatusStreamGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as statusStreamStatusStreamGetResponse
+}
+
+
+
+/**
  * @summary Chat
  */
 export type chatChatPostResponse200 = {

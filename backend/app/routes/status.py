@@ -6,6 +6,7 @@ import time
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy import exists
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -15,7 +16,7 @@ from app.services import paperless
 from app.services import llm_client
 from app.api_models import StatusResponse
 from app.db import SessionLocal
-from app.models import SyncState
+from app.models import Document, DocumentEmbedding, DocumentPageText, DocumentSuggestion, SyncState
 from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/status", tags=["status"])
@@ -108,6 +109,34 @@ def _queue_status_payload(settings: Settings) -> dict[str, object]:
     return {"enabled": True, **stats, "paused": is_paused(settings)}
 
 
+def _document_stats_payload(db: Session) -> dict[str, object]:
+    total = db.query(Document).count()
+    embeddings = db.query(Document.id).filter(exists().where(DocumentEmbedding.doc_id == Document.id)).count()
+    vision = db.query(Document.id).filter(
+        exists().where(
+            (DocumentPageText.doc_id == Document.id) & (DocumentPageText.source == "vision_ocr")
+        )
+    ).count()
+    suggestions = db.query(Document.id).filter(exists().where(DocumentSuggestion.doc_id == Document.id)).count()
+    fully_processed = db.query(Document.id).filter(
+        exists().where(DocumentEmbedding.doc_id == Document.id),
+        exists().where(
+            (DocumentPageText.doc_id == Document.id) & (DocumentPageText.source == "vision_ocr")
+        ),
+        exists().where(DocumentSuggestion.doc_id == Document.id),
+    ).count()
+    unprocessed = max(0, total - fully_processed)
+    return {
+        "total": total,
+        "processed": embeddings,
+        "unprocessed": unprocessed,
+        "embeddings": embeddings,
+        "vision": vision,
+        "suggestions": suggestions,
+        "fully_processed": fully_processed,
+    }
+
+
 def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, object]:
     state = db.get(SyncState, "embeddings")
     if settings.queue_enabled:
@@ -155,6 +184,7 @@ async def status_stream(settings: Settings = Depends(get_settings)):
                     "queue": _queue_status_payload(settings),
                     "sync": _sync_state_payload(db, "documents"),
                     "embeddings": _embeddings_status_payload(settings, db),
+                    "stats": _document_stats_payload(db),
                     "timestamp": int(time.time()),
                 }
                 yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"

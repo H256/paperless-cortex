@@ -90,6 +90,9 @@ export const useDocumentsStore = defineStore('documents', {
     setEmbedStatus(status: EmbedStatus) {
       this.embedStatus = status
     },
+    setStats(stats: DocumentStats) {
+      this.stats = stats
+    },
     async load() {
       const { page, pageSize, ordering, selectedCorrespondent, selectedTag, dateFrom, dateTo } =
         this
