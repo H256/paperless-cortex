@@ -498,6 +498,7 @@ All model names must be configurable via environment variables.
 - Pages tab: add jump-to-PDF-page button for OCR entries.
 - Pages tab: simplify extracted text layout to single column.
 - Suggestions tab: restore layout with best pick full width + paperless/vision two-column row.
+- Fix: use bestPickPanel bindings inside suggestions layout.
 - Fix: bind props in DocumentPagesSection to avoid runtime undefined access.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.

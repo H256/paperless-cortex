@@ -41,7 +41,7 @@
 
           <div v-if="bestPickPanel.suggestion.data" class="space-y-2">
             <div
-              v-if="panel.showSummary"
+              v-if="bestPickPanel.showSummary"
               class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
             >
               <div class="flex items-center gap-2">
@@ -55,7 +55,7 @@
                 </span>
               </div>
               <button
-                v-if="panel.allowNoteSave"
+                v-if="bestPickPanel.allowNoteSave"
                 class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
                 :disabled="suggestionsLoading"
                 @click="openApplyDialog(bestPickPanel.sourceKey, 'note', bestPickPanel.suggestion.data)"
