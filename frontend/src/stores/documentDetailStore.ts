@@ -175,7 +175,8 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       this.suggestionVariantError = { ...this.suggestionVariantError, [key]: '' }
       try {
         const data = await suggestFieldVariants(id, { source, field, count: 3 }, true)
-        const variants = extractVariants(data)
+        const directVariants = (data as { variants?: unknown }).variants
+        const variants = Array.isArray(directVariants) ? directVariants : extractVariants(data)
         if (variants.length) {
           this.suggestionVariants = { ...this.suggestionVariants, [key]: variants }
         } else if (isQueued(data)) {
