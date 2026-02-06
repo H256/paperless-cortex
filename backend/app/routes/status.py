@@ -20,9 +20,14 @@ from app.models import Document, DocumentEmbedding, DocumentPageText, DocumentSu
 from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/status", tags=["status"])
+_model_cache: dict[str, object] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}
 
 
 def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, object]]]:
+    ttl = max(0, settings.status_llm_models_ttl_seconds)
+    now = time.time()
+    if ttl and (now - float(_model_cache["ts"])) < ttl:
+        return bool(_model_cache["ok"]), str(_model_cache["detail"]), list(_model_cache["models"])
     base_url = settings.llm_base_url
     if not base_url:
         return False, "LLM_BASE_URL not set", []
@@ -37,8 +42,11 @@ def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, object]
         models = payload.get("data") or []
         if not isinstance(models, list):
             return False, "Invalid models payload", []
-        return True, "ok", [m for m in models if isinstance(m, dict)]
+        data = [m for m in models if isinstance(m, dict)]
+        _model_cache.update({"ts": now, "ok": True, "detail": "ok", "models": data})
+        return True, "ok", data
     except Exception as exc:
+        _model_cache.update({"ts": now, "ok": False, "detail": exc.__class__.__name__, "models": []})
         return False, exc.__class__.__name__, []
 
 

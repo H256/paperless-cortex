@@ -52,6 +52,7 @@ class Settings:
     ocr_score_vision_timeout_seconds: int
     ocr_score_vision_max_tokens: int
     status_stream_interval_seconds: int
+    status_llm_models_ttl_seconds: int
 
 
 def load_settings() -> Settings:
@@ -110,4 +111,5 @@ def load_settings() -> Settings:
         ocr_score_vision_timeout_seconds=int(os.getenv("OCR_VISION_TIMEOUT_SEC", "180")),
         ocr_score_vision_max_tokens=int(os.getenv("OCR_VISION_MAX_TOKENS", "1200")),
         status_stream_interval_seconds=int(os.getenv("STATUS_STREAM_INTERVAL_SECONDS", "5")),
+        status_llm_models_ttl_seconds=int(os.getenv("STATUS_LLM_MODELS_TTL_SECONDS", "60")),
     )

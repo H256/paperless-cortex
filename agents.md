@@ -522,3 +522,4 @@ All model names must be configurable via environment variables.
 - Suggestions: allow saving summary as note from paperless/vision panels.
 - UX: added SSE status stream (queue/worker/sync/embeddings/health) to reduce polling.
 - UX: SSE stream now also pushes document stats to avoid stats polling.
+- Backend: cache LLM model list in status stream (TTL) to reduce /v1/models calls.
