@@ -40,6 +40,17 @@ class Settings:
     vision_ocr_timeout_seconds: int
     vision_ocr_max_dim: int
     httpx_verify_tls: bool
+    ocr_chat_base_url: str | None
+    ocr_vision_base_url: str | None
+    ocr_score_model: str | None
+    ocr_score_threshold_bad: float
+    ocr_score_threshold_borderline: float
+    ocr_score_enable_logprob_ppl: bool
+    ocr_score_ppl_max_prompt_chars: int
+    ocr_score_ppl_chunk_chars: int
+    ocr_score_ppl_timeout_seconds: int
+    ocr_score_vision_timeout_seconds: int
+    ocr_score_vision_max_tokens: int
 
 
 def load_settings() -> Settings:
@@ -86,4 +97,15 @@ def load_settings() -> Settings:
         vision_ocr_timeout_seconds=int(os.getenv("VISION_OCR_TIMEOUT_SECONDS", "120")),
         vision_ocr_max_dim=int(os.getenv("VISION_OCR_MAX_DIM", "1024")),
         httpx_verify_tls=os.getenv("HTTPX_VERIFY_TLS", "1") == "1",
+        ocr_chat_base_url=os.getenv("OCR_CHAT_BASE"),
+        ocr_vision_base_url=os.getenv("OCR_VISION_BASE"),
+        ocr_score_model=os.getenv("OCR_SCORE_MODEL"),
+        ocr_score_threshold_bad=float(os.getenv("OCR_THRESH_BAD", "55")),
+        ocr_score_threshold_borderline=float(os.getenv("OCR_THRESH_BORDERLINE", "32")),
+        ocr_score_enable_logprob_ppl=os.getenv("OCR_ENABLE_LOGPROB_PPL", "1") == "1",
+        ocr_score_ppl_max_prompt_chars=int(os.getenv("OCR_PPL_MAX_PROMPT_CHARS", "20000")),
+        ocr_score_ppl_chunk_chars=int(os.getenv("OCR_PPL_CHUNK_CHARS", "4000")),
+        ocr_score_ppl_timeout_seconds=int(os.getenv("OCR_PPL_TIMEOUT_SEC", "120")),
+        ocr_score_vision_timeout_seconds=int(os.getenv("OCR_VISION_TIMEOUT_SEC", "180")),
+        ocr_score_vision_max_tokens=int(os.getenv("OCR_VISION_MAX_TOKENS", "1200")),
     )

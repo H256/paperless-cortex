@@ -100,6 +100,9 @@
         :content="document?.content || ''"
         :content-quality="contentQuality"
         :content-quality-error="contentQualityError"
+        :ocr-scores="ocrScores"
+        :ocr-scores-loading="ocrScoresLoading"
+        :ocr-scores-error="ocrScoresError"
       />
 
       <DocumentSuggestionsSection
@@ -173,6 +176,9 @@ const {
   pageTextsError,
   contentQuality,
   contentQualityError,
+  ocrScores,
+  ocrScoresLoading,
+  ocrScoresError,
   suggestions,
   suggestionsLoading,
   suggestionsError,
@@ -392,6 +398,7 @@ const loadPageTexts = async (priority = false) => {
 
 const loadContentQuality = async (priority = false) => {
   await documentStore.loadContentQuality(id, priority)
+  await documentStore.loadOcrScores(id, priority)
 }
 
 const loadSuggestions = async () => {

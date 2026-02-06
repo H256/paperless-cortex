@@ -21,6 +21,7 @@ from app.models import (
 from app.services import paperless
 from app.services.queue import enqueue_docs_front
 from app.services.text_pages import get_baseline_page_texts, score_text_quality
+from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
@@ -30,9 +31,11 @@ from app.api_models import (
     DocumentSummary,
     DocumentsPageResponse,
     DocumentTextQualityResponse,
+    DocumentOcrScoresResponse,
     PageTextsResponse,
     PaperlessDocument,
 )
+import json
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -393,6 +396,47 @@ def get_document_text_quality(
             "metrics": quality.metrics,
         },
     }
+
+
+@router.get("/{doc_id}/ocr-scores", response_model=DocumentOcrScoresResponse)
+def get_document_ocr_scores(
+    doc_id: int,
+    source: str | None = None,
+    refresh: bool = False,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    doc = get_document_or_none(db, doc_id)
+    if not doc:
+        return {"doc_id": doc_id, "scores": []}
+    sources = [source] if source else ["paperless_ocr", "vision_ocr"]
+    scores = []
+    for src in sources:
+        row = ensure_document_ocr_score(settings, db, doc, src, force=refresh)
+        if not row:
+            continue
+        components = {}
+        noise = {}
+        ppl = {}
+        if row.components_json:
+            components = json.loads(row.components_json)
+        if row.noise_json:
+            noise = json.loads(row.noise_json)
+        if row.ppl_json:
+            ppl = json.loads(row.ppl_json)
+        scores.append(
+            {
+                "source": row.source,
+                "verdict": row.verdict,
+                "quality_score": row.quality_score,
+                "components": components,
+                "noise": noise,
+                "ppl": ppl,
+                "model_name": row.model_name,
+                "processed_at": row.processed_at,
+            }
+        )
+    return {"doc_id": doc_id, "scores": scores}
 
 
 @router.get("/{doc_id}/page-texts", response_model=PageTextsResponse)

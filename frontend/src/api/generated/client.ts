@@ -21,6 +21,7 @@ import type {
   DeleteVisionOcrResponse,
   DocumentDashboardResponse,
   DocumentLocalResponse,
+  DocumentOcrScoresResponse,
   DocumentStatsResponse,
   DocumentTextQualityResponse,
   DocumentTypeResponse,
@@ -28,6 +29,7 @@ import type {
   EmbeddingIngestResponse,
   EmbeddingSearchResponse,
   EmbeddingStatusResponse,
+  GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
@@ -368,6 +370,64 @@ export const getDocumentTextQualityDocumentsDocIdTextQualityGet = async (docId: 
   
   const data: getDocumentTextQualityDocumentsDocIdTextQualityGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentTextQualityDocumentsDocIdTextQualityGetResponse
+}
+
+
+
+/**
+ * @summary Get Document Ocr Scores
+ */
+export type getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse200 = {
+  data: DocumentOcrScoresResponse
+  status: 200
+}
+
+export type getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponseSuccess = (getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponseError = (getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse = (getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponseSuccess | getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponseError)
+
+export const getGetDocumentOcrScoresDocumentsDocIdOcrScoresGetUrl = (docId: number,
+    params?: GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/ocr-scores?${stringifiedParams}` : `/api/documents/${docId}/ocr-scores`
+}
+
+export const getDocumentOcrScoresDocumentsDocIdOcrScoresGet = async (docId: number,
+    params?: GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams, options?: RequestInit): Promise<getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse> => {
+  
+  const res = await fetch(getGetDocumentOcrScoresDocumentsDocIdOcrScoresGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse
 }
 
 

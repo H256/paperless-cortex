@@ -13,6 +13,7 @@ import {
   getDocumentTypeDocumentTypesDocTypeIdGet,
   getDocumentPageTextsDocumentsDocIdPageTextsGet,
   getDocumentTextQualityDocumentsDocIdTextQualityGet,
+  getDocumentOcrScoresDocumentsDocIdOcrScoresGet,
   getDocumentSuggestionsDocumentsDocIdSuggestionsGet,
   suggestFieldVariantsDocumentsDocIdSuggestionsFieldPost,
   getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGet,
@@ -40,12 +41,14 @@ import type {
   DocumentDashboardResponse,
   DocumentSummary,
   DocumentTextQualityResponse,
+  DocumentOcrScoresResponse,
   DocumentTypeResponse,
   DocumentsPageResponse,
   EmbeddingStatusResponse,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
+  GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
   ListDocumentsDocumentsGetParams,
   PageTextOut,
@@ -132,6 +135,11 @@ export const getTextQuality = (id: number, priority = false) =>
       priority,
     } as GetDocumentTextQualityDocumentsDocIdTextQualityGetParams),
   )
+
+export const getOcrScores = (
+  id: number,
+  params?: GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
+) => unwrap<DocumentOcrScoresResponse>(getDocumentOcrScoresDocumentsDocIdOcrScoresGet(id, params))
 
 export const getSuggestions = (
   id: number,

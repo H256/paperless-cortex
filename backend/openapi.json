@@ -326,6 +326,74 @@
         }
       }
     },
+    "/documents/{doc_id}/ocr-scores": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Ocr Scores",
+        "operationId": "get_document_ocr_scores_documents__doc_id__ocr_scores_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Refresh"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOcrScoresResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}/page-texts": {
       "get": {
         "tags": [
@@ -3107,6 +3175,106 @@
         },
         "type": "object",
         "title": "DocumentNoteOut"
+      },
+      "DocumentOcrScoreOut": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "quality_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Score"
+          },
+          "components": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Components",
+            "default": {}
+          },
+          "noise": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Noise",
+            "default": {}
+          },
+          "ppl": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Ppl",
+            "default": {}
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "processed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source"
+        ],
+        "title": "DocumentOcrScoreOut"
+      },
+      "DocumentOcrScoresResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentOcrScoreOut"
+            },
+            "type": "array",
+            "title": "Scores",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id"
+        ],
+        "title": "DocumentOcrScoresResponse"
       },
       "DocumentStatsResponse": {
         "properties": {

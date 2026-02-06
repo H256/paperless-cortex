@@ -94,7 +94,10 @@ Notes:
 
 3) **Quality scoring**  
    Each page is scored with heuristic metrics (length, alnum ratio, vowel ratio, word-likeness, etc.).  
-   Scores are logged and attached to the chunk payload as `quality_score`.
+   Scores are logged and attached to the chunk payload as `quality_score`.  
+   In addition, we store a per-document OCR score for paperless + vision sources:  
+   - **Score** = noise heuristics + optional logprob penalty (lower = better).  
+   - **Verdict** is derived from thresholds: good / borderline / bad.
 
 4) **Embeddings (dual-layer)**  
    For every page, chunks are created and embedded for both layers:  

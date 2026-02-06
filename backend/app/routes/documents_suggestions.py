@@ -21,6 +21,8 @@ from app.models import (
 from app.services import paperless
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.page_text_store import upsert_page_texts
+from app.services.ocr_scoring import ensure_document_ocr_score
+from app.services.documents import get_document_or_none
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
@@ -230,6 +232,9 @@ def suggest_field_variants(
             )
             if vision_generated:
                 upsert_page_texts(db, settings, doc_id, vision_generated, source_filter="vision_ocr")
+                doc = get_document_or_none(db, doc_id)
+                if doc:
+                    ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=True)
                 vision_pages = (
                     db.query(DocumentPageText)
                     .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
