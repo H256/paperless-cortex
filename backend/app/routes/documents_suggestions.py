@@ -253,7 +253,7 @@ def suggest_field_variants(
             payload_json = {}
         if isinstance(payload_json, dict):
             current = payload_json.get(payload.field)
-    if require_queue_enabled(settings):
+    if require_queue_enabled(settings) and not priority:
         task = {
             "doc_id": doc_id,
             "task": "suggest_field",
