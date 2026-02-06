@@ -69,7 +69,7 @@
               </div>
             </div>
           </div>
-          <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,360px)_1fr]">
+          <div class="mt-3">
             <textarea
               class="w-full min-h-[140px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               readonly
