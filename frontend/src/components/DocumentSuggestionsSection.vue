@@ -123,22 +123,11 @@
                   }}
                 </div>
               </div>
-              <div class="flex items-center gap-2" v-if="panel.allowActions">
-                <button
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                  :disabled="suggestionsLoading || isVariantLoading(panel.source, field.key)"
-                  @click="emit('suggestField', panel.source, field.key)"
-                >
-                  <span v-if="isVariantLoading(panel.source, field.key)" class="inline-flex items-center gap-2">
-                    <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                    Generating...
-                  </span>
-                  <span v-else>Suggest new</span>
-                </button>
+              <div class="flex items-center gap-2">
                 <button
                   class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
                   :disabled="suggestionsLoading"
-                  @click="openApplyDialog(panel.sourceKey, field.key, panel.suggestion.data)"
+                  @click="openApplyDialog(bestPickPanel.sourceKey, field.key, bestPickPanel.suggestion.data)"
                 >
                   Save
                 </button>
