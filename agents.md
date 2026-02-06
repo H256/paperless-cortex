@@ -516,3 +516,4 @@ All model names must be configurable via environment variables.
 - DevOps: Added worker-only compose variant.
 - DevOps: Added worker entrypoint guard for QUEUE_ENABLED and worker env template.
 - Feature: added stored OCR quality scores per source with API endpoint and detail page display; new OCR scoring settings documented in env templates.
+- UX: added OCR score explainer block in Text & Quality section.

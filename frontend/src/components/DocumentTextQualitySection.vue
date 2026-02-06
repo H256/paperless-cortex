@@ -66,6 +66,20 @@
           Lower is better
         </span>
       </div>
+      <div class="mt-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+        <div>
+          <span class="font-semibold">Score</span>: composite value per source (paperless/vision). Lower means cleaner OCR.
+        </div>
+        <div>
+          <span class="font-semibold">Heuristics</span>: penalties for OCR noise (weird chars, repeats, short words, odd line lengths).
+        </div>
+        <div>
+          <span class="font-semibold">Logprob penalty</span>: optional penalty based on prompt logprobs (pseudo‑perplexity).
+        </div>
+        <div>
+          <span class="font-semibold">Verdict</span>: mapped from the total score via thresholds (good / borderline / bad).
+        </div>
+      </div>
       <div v-if="ocrScoresError" class="mt-2 text-sm text-rose-600 dark:text-rose-300">
         {{ ocrScoresError }}
       </div>
