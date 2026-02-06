@@ -328,13 +328,23 @@
             >
               <div class="flex items-center justify-between">
                 <strong class="text-sm text-slate-900 dark:text-slate-100">Paperless OCR</strong>
-                <button
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                  :disabled="suggestionsLoading"
-                  @click="refreshSuggestions('paperless_ocr')"
-                >
-                  Refresh
-                </button>
+                <div class="flex items-center gap-2">
+                  <button
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    :disabled="suggestionsLoading"
+                    @click="refreshSuggestions('paperless_ocr')"
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    :disabled="suggestionsLoading"
+                    title="Generate alternative values for all suggestion fields."
+                    @click="generateAllVariants('paperless_ocr')"
+                  >
+                    Generate variants
+                  </button>
+                </div>
               </div>
               <div
                 v-if="suggestionMetaLine('paperless_ocr')"
@@ -470,7 +480,7 @@
                         }}</span>
                         <button
                           class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                          @click="applyVariant('paperless_ocr', field.key, variant)"
+                        @click="openVariantDialog('paperless_ocr', field.key, variant)"
                         >
                           Use
                         </button>
@@ -486,13 +496,23 @@
             >
               <div class="flex items-center justify-between">
                 <strong class="text-sm text-slate-900 dark:text-slate-100">Vision OCR</strong>
-                <button
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                  :disabled="suggestionsLoading"
-                  @click="refreshSuggestions('vision_ocr')"
-                >
-                  Refresh
-                </button>
+                <div class="flex items-center gap-2">
+                  <button
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    :disabled="suggestionsLoading"
+                    @click="refreshSuggestions('vision_ocr')"
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    :disabled="suggestionsLoading"
+                    title="Generate alternative values for all suggestion fields."
+                    @click="generateAllVariants('vision_ocr')"
+                  >
+                    Generate variants
+                  </button>
+                </div>
               </div>
               <div
                 v-if="suggestionMetaLine('vision_ocr')"
@@ -623,7 +643,7 @@
                         }}</span>
                         <button
                           class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                          @click="applyVariant('vision_ocr', field.key, variant)"
+                        @click="openVariantDialog('vision_ocr', field.key, variant)"
                         >
                           Use
                         </button>
@@ -722,6 +742,36 @@
         :highlights="pdfHighlights"
         @update:page="onPdfPageChange"
       />
+      <ChoiceDialog
+        :open="showVariantDialog"
+        title="Use suggestion variant"
+        :message="
+          variantDialog
+            ? `Selected value: ${typeof variantDialog.value === 'string'
+                ? variantDialog.value
+                : JSON.stringify(variantDialog.value)}`
+            : 'Do you want to update the document or only the suggestion value?'
+        "
+        primary-label="Update document"
+        secondary-label="Update suggestion"
+        cancel-label="Cancel"
+        @primary="confirmVariantUpdateDocument"
+        @secondary="confirmVariantUpdateSuggestion"
+        @cancel="closeVariantDialog"
+      />
+      <ConfirmDialog
+        :open="showApplyDialog"
+        title="Apply suggestion"
+        :message="
+          applyDialog
+            ? `Apply ${applyDialog.field} to document: ${applyDialog.label}?`
+            : 'Apply suggestion to document?'
+        "
+        confirm-label="Apply"
+        cancel-label="Cancel"
+        @confirm="confirmApplyToDocument"
+        @cancel="closeApplyDialog"
+      />
     </div>
   </section>
 </template>
@@ -733,6 +783,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
 import PdfViewer from '../components/PdfViewer.vue'
+import ChoiceDialog from '../components/ChoiceDialog.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
@@ -887,32 +939,62 @@ const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: strin
   await documentStore.suggestField(id, source, field)
 }
 
-const applyVariant = async (
-  source: 'paperless_ocr' | 'vision_ocr',
-  field: string,
-  value: unknown,
-) => {
-  const label = typeof value === 'string' ? value : JSON.stringify(value)
-  const ok = window.confirm(`Overwrite ${field} with: ${label}?`)
-  if (!ok) return
-  await documentStore.applyVariant(id, source, field, value)
+const generateAllVariants = async (source: 'paperless_ocr' | 'vision_ocr') => {
+  for (const field of suggestionFields) {
+    documentStore.suggestField(id, source, field.key)
+  }
 }
 
-const applyToDocument = async (source: string, field: string, data: SuggestionData | null) => {
-  if (!data) return
-  let value: unknown = data[field]
-  if (field === 'title') value = data.title || data.suggested_title || ''
-  if (field === 'date') value = data.date || data.suggested_document_date || ''
-  if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || ''
-  if (field === 'tags') value = data.tags || data.suggested_tags || []
-  if (field === 'note') value = data.summary || ''
-  if (field === 'tags') {
-    if (!Array.isArray(value) || value.length === 0) return
-  }
-  if (value === null || value === undefined || value === '') return
-  const label = typeof value === 'string' ? value : JSON.stringify(value)
-  const ok = window.confirm(`Apply ${field} to document: ${label}?`)
-  if (!ok) return
+const showVariantDialog = ref(false)
+const variantDialog = ref<{
+  source: 'paperless_ocr' | 'vision_ocr'
+  field: string
+  value: unknown
+} | null>(null)
+const showApplyDialog = ref(false)
+const applyDialog = ref<{ source: string; field: string; value: unknown; label: string } | null>(
+  null,
+)
+
+const openVariantDialog = (source: 'paperless_ocr' | 'vision_ocr', field: string, value: unknown) => {
+  variantDialog.value = { source, field, value }
+  showVariantDialog.value = true
+}
+
+const closeVariantDialog = () => {
+  showVariantDialog.value = false
+  variantDialog.value = null
+}
+
+const confirmVariantUpdateSuggestion = async () => {
+  if (!variantDialog.value) return
+  await documentStore.applyVariant(
+    id,
+    variantDialog.value.source,
+    variantDialog.value.field,
+    variantDialog.value.value,
+  )
+  closeVariantDialog()
+}
+
+const confirmVariantUpdateDocument = async () => {
+  if (!variantDialog.value) return
+  const { source, field, value } = variantDialog.value
+  await documentStore.applyVariant(id, source, field, value)
+  await documentStore.applyToDocument(id, { source, field, value })
+  await load()
+  await loadSuggestions()
+  closeVariantDialog()
+}
+
+const closeApplyDialog = () => {
+  showApplyDialog.value = false
+  applyDialog.value = null
+}
+
+const confirmApplyToDocument = async () => {
+  if (!applyDialog.value) return
+  const { source, field, value } = applyDialog.value
   try {
     const reloadSuggestions = Boolean(suggestions.value)
     const reloadPages = pageTexts.value.length > 0
@@ -930,7 +1012,26 @@ const applyToDocument = async (source: string, field: string, data: SuggestionDa
     }
   } catch (err: unknown) {
     suggestionsError.value = errorMessage(err, 'Failed to apply suggestion to document')
+  } finally {
+    closeApplyDialog()
   }
+}
+
+const applyToDocument = async (source: string, field: string, data: SuggestionData | null) => {
+  if (!data) return
+  let value: unknown = data[field]
+  if (field === 'title') value = data.title || data.suggested_title || ''
+  if (field === 'date') value = data.date || data.suggested_document_date || ''
+  if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || ''
+  if (field === 'tags') value = data.tags || data.suggested_tags || []
+  if (field === 'note') value = data.summary || ''
+  if (field === 'tags') {
+    if (!Array.isArray(value) || value.length === 0) return
+  }
+  if (value === null || value === undefined || value === '') return
+  const label = typeof value === 'string' ? value : JSON.stringify(value)
+  applyDialog.value = { source, field, value, label }
+  showApplyDialog.value = true
 }
 
 const currentNotePreview = computed(() =>

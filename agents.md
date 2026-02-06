@@ -490,6 +490,8 @@ All model names must be configurable via environment variables.
 - Frontend: accept list-style suggestion variants from API responses.
 - UX: improve variant text contrast in dark mode.
 - Frontend: prefer direct variants array in suggest-field responses.
+- UI: add reusable ConfirmDialog/ChoiceDialog and replace browser confirms.
+- Suggestions: generate variants for all fields and add choice dialog for applying variants.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
