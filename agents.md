@@ -497,6 +497,7 @@ All model names must be configurable via environment variables.
 - UI: move PDF viewer back to always-visible detail view; pages tab remains for OCR text.
 - Pages tab: add jump-to-PDF-page button for OCR entries.
 - Pages tab: simplify extracted text layout to single column.
+- Fix: bind props in DocumentPagesSection to avoid runtime undefined access.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

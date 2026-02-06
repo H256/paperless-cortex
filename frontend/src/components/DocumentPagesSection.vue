@@ -87,7 +87,7 @@
 import { ref } from 'vue'
 import type { PageText } from '../services/documents'
 
-defineProps<{
+const props = defineProps<{
   pageTexts: PageText[]
   pageTextsError: string
   aggregatedText: string
