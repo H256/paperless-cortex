@@ -518,3 +518,4 @@ All model names must be configurable via environment variables.
 - Feature: added stored OCR quality scores per source with API endpoint and detail page display; new OCR scoring settings documented in env templates.
 - UX: added OCR score explainer block in Text & Quality section.
 - Docs: clarified OCR scoring in README.
+- Suggestions: best-pick summary now prefers OCR source with better score.
