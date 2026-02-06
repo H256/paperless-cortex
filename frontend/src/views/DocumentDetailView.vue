@@ -123,6 +123,8 @@
         :page-texts="pageTexts"
         :page-texts-error="pageTextsError"
         :aggregated-text="aggregatedText"
+        :pdf-page="pdfPage"
+        @jump-to-page="onPdfPageChange"
       />
 
       <PdfViewer

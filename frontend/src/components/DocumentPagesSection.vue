@@ -38,6 +38,13 @@
         >
           <span>Page {{ page.page }} - Source: {{ page.source }}</span>
           <button
+            v-if="props.pdfPage !== page.page"
+            class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+            @click="emit('jumpToPage', page.page)"
+          >
+            Jump to PDF page
+          </button>
+          <button
             class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
             @click="togglePage(page)"
           >
@@ -84,6 +91,11 @@ defineProps<{
   pageTexts: PageText[]
   pageTextsError: string
   aggregatedText: string
+  pdfPage: number
+}>()
+
+const emit = defineEmits<{
+  (e: 'jumpToPage', value: number): void
 }>()
 
 const expandedPages = ref<Set<string>>(new Set())

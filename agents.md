@@ -495,6 +495,7 @@ All model names must be configurable via environment variables.
 - Suggestions: collapse variant lists and add loading/disable states for variant actions.
 - Refactor: split document detail view into metadata, text quality, suggestions, and pages components; restore page preview in pages tab.
 - UI: move PDF viewer back to always-visible detail view; pages tab remains for OCR text.
+- Pages tab: add jump-to-PDF-page button for OCR entries.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
