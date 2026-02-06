@@ -2351,6 +2351,25 @@
         }
       }
     },
+    "/status/stream": {
+      "get": {
+        "tags": [
+          "status"
+        ],
+        "summary": "Status Stream",
+        "operationId": "status_stream_status_stream_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/chat": {
       "post": {
         "tags": [

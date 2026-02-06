@@ -24,6 +24,9 @@ export const useQueueStore = defineStore('queue', {
     peekLoading: false,
   }),
   actions: {
+    setStatus(status: QueueStatus) {
+      this.status = status
+    },
     async refreshStatus() {
       try {
         this.loading = true

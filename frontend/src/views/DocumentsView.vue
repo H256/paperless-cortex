@@ -665,24 +665,6 @@ const paperlessBaseUrl = computed(
 const paperlessDocUrl = (id: number) =>
   paperlessBaseUrl.value ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${id}` : ''
 
-let pollHandle: number | null = null
-
-const startPolling = () => {
-  if (pollHandle !== null) return
-  pollHandle = window.setInterval(async () => {
-    await documentsStore.fetchSyncStatus()
-    await documentsStore.fetchEmbedStatus()
-    await queueStore.refreshStatus()
-    await documentsStore.fetchStats()
-    if (syncStatus.value.status !== 'running' && embedStatus.value.status !== 'running') {
-      if (pollHandle !== null) {
-        window.clearInterval(pollHandle)
-        pollHandle = null
-      }
-    }
-  }, 2000)
-}
-
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const isProcessing = computed(
   () => syncStatus.value.status === 'running' || embedStatus.value.status === 'running',
@@ -794,11 +776,9 @@ const processingEtaText = computed(() => {
 
 const load = async () => {
   await documentsStore.load()
-  await documentsStore.fetchStats()
 }
 
 const openPreview = async () => {
-  startPolling()
   await documentsStore.continueProcessingPreview(processParams())
 }
 
@@ -807,9 +787,7 @@ const closePreview = () => {
 }
 
 const startFromPreview = async () => {
-  startPolling()
   await documentsStore.startProcessingFromPreview(processParams())
-  await queueStore.refreshStatus()
   if (processStartResult.value) {
     toastStore.push(
       `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
@@ -823,9 +801,6 @@ const startFromPreview = async () => {
 const cancelProcessing = async () => {
   await documentsStore.cancelProcessing()
   await queueStore.clear()
-  await documentsStore.fetchSyncStatus()
-  await documentsStore.fetchEmbedStatus()
-  await documentsStore.fetchStats()
   await load()
 }
 
@@ -917,13 +892,7 @@ const formatDateTime = (value?: string | null) => {
 
 onMounted(async () => {
   await documentsStore.fetchMeta()
-  await documentsStore.fetchSyncStatus()
-  await documentsStore.fetchEmbedStatus()
-  await queueStore.refreshStatus()
-  await documentsStore.fetchStats()
-  await statusStore.refresh()
   await load()
-  startPolling()
 })
 
 watch(
