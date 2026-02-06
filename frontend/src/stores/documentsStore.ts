@@ -83,6 +83,13 @@ export const useDocumentsStore = defineStore('documents', {
     processStartResult: null as null | { enqueued?: number; tasks?: number },
   }),
   actions: {
+    setSyncStatus(status: SyncStatus) {
+      this.syncStatus = status
+      this.lastSynced = status.last_synced_at ?? this.lastSynced
+    },
+    setEmbedStatus(status: EmbedStatus) {
+      this.embedStatus = status
+    },
     async load() {
       const { page, pageSize, ordering, selectedCorrespondent, selectedTag, dateFrom, dateTo } =
         this

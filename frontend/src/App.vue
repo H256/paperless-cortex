@@ -150,10 +150,12 @@ import ToastHost from './components/ToastHost.vue'
 import { useQueueStore } from './stores/queueStore'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
+import { useDocumentsStore } from './stores/documentsStore'
 
 const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
+const documentsStore = useDocumentsStore()
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
@@ -163,8 +165,9 @@ const prefersDark = ref(mediaQuery.matches)
 const effectiveTheme = computed(() =>
   theme.value === 'system' ? (prefersDark.value ? 'dark' : 'light') : theme.value,
 )
-let queueIntervalId: number | null = null
-let statusIntervalId: number | null = null
+let statusStream: EventSource | null = null
+let statusStreamRetryId: number | null = null
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
   { to: '/documents', label: 'Documents', icon: FileText },
@@ -196,8 +199,7 @@ onMounted(() => {
   applyTheme(effectiveTheme.value)
   queueStore.refreshStatus()
   statusStore.refresh()
-  queueIntervalId = window.setInterval(queueStore.refreshStatus, 5000)
-  statusIntervalId = window.setInterval(statusStore.refresh, 7000)
+  startStatusStream()
   window.addEventListener('app-error', onErrorEvent as EventListener)
   mediaQuery.addEventListener('change', onMediaQueryChange)
 })
@@ -205,14 +207,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('app-error', onErrorEvent as EventListener)
   mediaQuery.removeEventListener('change', onMediaQueryChange)
-  if (queueIntervalId !== null) {
-    window.clearInterval(queueIntervalId)
-    queueIntervalId = null
-  }
-  if (statusIntervalId !== null) {
-    window.clearInterval(statusIntervalId)
-    statusIntervalId = null
-  }
+  stopStatusStream()
 })
 
 watch(theme, (value) => {
@@ -222,4 +217,37 @@ watch(theme, (value) => {
 watchEffect(() => {
   applyTheme(effectiveTheme.value)
 })
+
+const startStatusStream = () => {
+  stopStatusStream()
+  const url = `${apiBaseUrl}/status/stream`
+  statusStream = new EventSource(url)
+  statusStream.onmessage = (event) => {
+    if (!event?.data) return
+    try {
+      const payload = JSON.parse(event.data)
+      if (payload?.status) statusStore.applyStatus(payload.status)
+      if (payload?.queue) queueStore.setStatus(payload.queue)
+      if (payload?.sync) documentsStore.setSyncStatus(payload.sync)
+      if (payload?.embeddings) documentsStore.setEmbedStatus(payload.embeddings)
+    } catch {
+      // ignore malformed payloads
+    }
+  }
+  statusStream.onerror = () => {
+    stopStatusStream()
+    statusStreamRetryId = window.setTimeout(startStatusStream, 5000)
+  }
+}
+
+const stopStatusStream = () => {
+  if (statusStream) {
+    statusStream.close()
+    statusStream = null
+  }
+  if (statusStreamRetryId !== null) {
+    window.clearTimeout(statusStreamRetryId)
+    statusStreamRetryId = null
+  }
+}
 </script>

@@ -29,33 +29,36 @@ export const useStatusStore = defineStore('status', {
     },
   }),
   actions: {
+    applyStatus(data: HealthStatus) {
+      this.health = {
+        web: data.web?.status ?? 'DOWN',
+        worker: data.worker?.status ?? 'DOWN',
+        llm: data.llm?.status ?? 'DOWN',
+        llm_text: data.llm_text?.status ?? 'DOWN',
+        llm_embedding: data.llm_embedding?.status ?? 'DOWN',
+        llm_vision: data.llm_vision?.status ?? 'DOWN',
+        web_detail: data.web?.detail ?? 'ok',
+        worker_detail: data.worker?.detail ?? 'unknown',
+        llm_detail: data.llm?.detail ?? 'unknown',
+        llm_text_detail: data.llm_text?.detail ?? 'unknown',
+        llm_embedding_detail: data.llm_embedding?.detail ?? 'unknown',
+        llm_vision_detail: data.llm_vision?.detail ?? 'unknown',
+      }
+      this.paperlessBaseUrl = data.paperless_base_url || this.paperlessBaseUrl
+      this.runtime = {
+        paperless_base_url: data.paperless_base_url || '',
+        llm_base_url: data.llm_base_url || '',
+        qdrant_url: data.qdrant_url || '',
+        redis_host: data.redis_host || '',
+        text_model: data.text_model || '',
+        embedding_model: data.embedding_model || '',
+        vision_model: data.vision_model || '',
+      }
+    },
     async refresh() {
       try {
         const data: HealthStatus = await fetchHealthStatus()
-        this.health = {
-          web: data.web?.status ?? 'DOWN',
-          worker: data.worker?.status ?? 'DOWN',
-          llm: data.llm?.status ?? 'DOWN',
-          llm_text: data.llm_text?.status ?? 'DOWN',
-          llm_embedding: data.llm_embedding?.status ?? 'DOWN',
-          llm_vision: data.llm_vision?.status ?? 'DOWN',
-          web_detail: data.web?.detail ?? 'ok',
-          worker_detail: data.worker?.detail ?? 'unknown',
-          llm_detail: data.llm?.detail ?? 'unknown',
-          llm_text_detail: data.llm_text?.detail ?? 'unknown',
-          llm_embedding_detail: data.llm_embedding?.detail ?? 'unknown',
-          llm_vision_detail: data.llm_vision?.detail ?? 'unknown',
-        }
-        this.paperlessBaseUrl = data.paperless_base_url || this.paperlessBaseUrl
-        this.runtime = {
-          paperless_base_url: data.paperless_base_url || '',
-          llm_base_url: data.llm_base_url || '',
-          qdrant_url: data.qdrant_url || '',
-          redis_host: data.redis_host || '',
-          text_model: data.text_model || '',
-          embedding_model: data.embedding_model || '',
-          vision_model: data.vision_model || '',
-        }
+        this.applyStatus(data)
       } catch {
         this.health = {
           web: 'DOWN',

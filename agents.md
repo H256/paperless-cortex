@@ -520,3 +520,4 @@ All model names must be configurable via environment variables.
 - Docs: clarified OCR scoring in README.
 - Suggestions: best-pick summary now prefers OCR source with better score.
 - Suggestions: allow saving summary as note from paperless/vision panels.
+- UX: added SSE status stream (queue/worker/sync/embeddings/health) to reduce polling.
