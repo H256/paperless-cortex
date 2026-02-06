@@ -1,7 +1,7 @@
 <template>
   <section>
     <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
+  <div>
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           Operations
         </h2>
@@ -459,6 +459,15 @@
       </div>
     </div>
   </div>
+  <ConfirmDialog
+    :open="confirmDialogOpen"
+    :title="confirmDialogTitle"
+    :message="confirmDialogMessage"
+    confirm-label="Confirm"
+    cancel-label="Cancel"
+    @confirm="confirmDialogSubmit"
+    @cancel="closeConfirmDialog"
+  />
 </template>
 
 <script setup lang="ts">
@@ -470,6 +479,7 @@ import { clearIntelligence, syncCorrespondents, syncTags } from '../services/doc
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { useQueueStore } from '../stores/queueStore'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const documentsStore = useDocumentsStore()
 const queueStore = useQueueStore()
@@ -537,6 +547,30 @@ const tagsSyncLoading = ref(false)
 const correspondentsSyncResult = ref<{ count: number; upserted: number } | null>(null)
 const tagsSyncResult = ref<{ count: number; upserted: number } | null>(null)
 
+const confirmDialogOpen = ref(false)
+const confirmDialogTitle = ref('')
+const confirmDialogMessage = ref('')
+const confirmDialogAction = ref<null | (() => Promise<void>)>(null)
+
+const openConfirmDialog = (title: string, message: string, action: () => Promise<void>) => {
+  confirmDialogTitle.value = title
+  confirmDialogMessage.value = message
+  confirmDialogAction.value = action
+  confirmDialogOpen.value = true
+}
+
+const closeConfirmDialog = () => {
+  confirmDialogOpen.value = false
+  confirmDialogAction.value = null
+}
+
+const confirmDialogSubmit = async () => {
+  if (!confirmDialogAction.value) return
+  const action = confirmDialogAction.value
+  closeConfirmDialog()
+  await action()
+}
+
 const openReprocessModal = () => {
   showReprocessModal.value = true
 }
@@ -557,62 +591,70 @@ const confirmReprocessAll = async () => {
 }
 
 const confirmVision = async () => {
-  const ok = window.confirm(
+  openConfirmDialog(
+    'Remove Vision OCR',
     'Remove all vision OCR pages for every document? This cannot be undone.',
+    async () => {
+      visionLoading.value = true
+      visionResult.value = null
+      try {
+        const result = await documentsStore.removeVisionOcr()
+        visionResult.value = { deleted: result.deleted ?? 0 }
+        toastStore.push('Vision OCR removed', 'success', 'Completed')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to remove vision OCR'
+        toastStore.push(message, 'danger', 'Error')
+      } finally {
+        visionLoading.value = false
+      }
+    },
   )
-  if (!ok) return
-  visionLoading.value = true
-  visionResult.value = null
-  try {
-    const result = await documentsStore.removeVisionOcr()
-    visionResult.value = { deleted: result.deleted ?? 0 }
-    toastStore.push('Vision OCR removed', 'success', 'Completed')
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to remove vision OCR'
-    toastStore.push(message, 'danger', 'Error')
-  } finally {
-    visionLoading.value = false
-  }
 }
 
 const confirmSuggestions = async () => {
-  const ok = window.confirm('Remove all AI suggestions for every document? This cannot be undone.')
-  if (!ok) return
-  suggestionsLoading.value = true
-  suggestionsResult.value = null
-  try {
-    const result = await documentsStore.removeSuggestions()
-    suggestionsResult.value = { deleted: result.deleted ?? 0 }
-    toastStore.push('Suggestions removed', 'success', 'Completed')
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to remove suggestions'
-    toastStore.push(message, 'danger', 'Error')
-  } finally {
-    suggestionsLoading.value = false
-  }
+  openConfirmDialog(
+    'Remove AI suggestions',
+    'Remove all AI suggestions for every document? This cannot be undone.',
+    async () => {
+      suggestionsLoading.value = true
+      suggestionsResult.value = null
+      try {
+        const result = await documentsStore.removeSuggestions()
+        suggestionsResult.value = { deleted: result.deleted ?? 0 }
+        toastStore.push('Suggestions removed', 'success', 'Completed')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to remove suggestions'
+        toastStore.push(message, 'danger', 'Error')
+      } finally {
+        suggestionsLoading.value = false
+      }
+    },
+  )
 }
 
 const confirmEmbeddings = async () => {
-  const ok = window.confirm(
+  openConfirmDialog(
+    'Remove embeddings',
     'Remove all embeddings (paperless + vision) for every document? This cannot be undone.',
+    async () => {
+      embeddingsLoading.value = true
+      embeddingsResult.value = null
+      try {
+        const result = await documentsStore.removeEmbeddings()
+        embeddingsResult.value = {
+          deleted: result.deleted ?? 0,
+          qdrant_deleted: result.qdrant_deleted ?? 0,
+          qdrant_errors: result.qdrant_errors ?? 0,
+        }
+        toastStore.push('Embeddings removed', 'success', 'Completed')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to remove embeddings'
+        toastStore.push(message, 'danger', 'Error')
+      } finally {
+        embeddingsLoading.value = false
+      }
+    },
   )
-  if (!ok) return
-  embeddingsLoading.value = true
-  embeddingsResult.value = null
-  try {
-    const result = await documentsStore.removeEmbeddings()
-    embeddingsResult.value = {
-      deleted: result.deleted ?? 0,
-      qdrant_deleted: result.qdrant_deleted ?? 0,
-      qdrant_errors: result.qdrant_errors ?? 0,
-    }
-    toastStore.push('Embeddings removed', 'success', 'Completed')
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to remove embeddings'
-    toastStore.push(message, 'danger', 'Error')
-  } finally {
-    embeddingsLoading.value = false
-  }
 }
 
 const syncCorrespondentsNow = async () => {

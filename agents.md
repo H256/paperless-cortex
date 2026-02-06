@@ -485,6 +485,22 @@ All model names must be configurable via environment variables.
 - Fix: restore missing embed_text import in worker.
 - UX: show current document values under AI suggestions with note tooltip icon for summary.
 - Backend: store AI summary note in readable format with model/created line and KI-Zusammenfassung footer.
+- Backend: allow priority suggest-field variants to run synchronously (skip queue).
+- Backend: normalize suggest-field variants response to a list for API validation.
+- Frontend: accept list-style suggestion variants from API responses.
+- UX: improve variant text contrast in dark mode.
+- Frontend: prefer direct variants array in suggest-field responses.
+- UI: add reusable ConfirmDialog/ChoiceDialog and replace browser confirms.
+- Suggestions: generate variants for all fields and add choice dialog for applying variants.
+- Suggestions: collapse variant lists and add loading/disable states for variant actions.
+- Refactor: split document detail view into metadata, text quality, suggestions, and pages components; restore page preview in pages tab.
+- UI: move PDF viewer back to always-visible detail view; pages tab remains for OCR text.
+- Pages tab: add jump-to-PDF-page button for OCR entries.
+- Pages tab: simplify extracted text layout to single column.
+- Suggestions tab: restore layout with best pick full width + paperless/vision two-column row.
+- Fix: use bestPickPanel bindings inside suggestions layout.
+- Fix: remove stray panel references in best-pick actions.
+- Fix: bind props in DocumentPagesSection to avoid runtime undefined access.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

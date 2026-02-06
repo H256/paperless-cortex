@@ -93,672 +93,39 @@
         </button>
       </div>
 
-      <section
-        v-if="activeTab === 'meta'"
-        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Metadata</div>
-        <dl class="mt-3 grid gap-3 md:grid-cols-3">
-          <div
-            v-for="row in rows"
-            :key="row.label"
-            class="rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800"
-          >
-            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              {{ row.label }}
-            </dt>
-            <dd class="mt-1 text-sm text-slate-900 break-words dark:text-slate-100">
-              <template v-if="row.label === 'Notes'">
-                <details class="group">
-                  <summary class="cursor-pointer text-xs font-semibold text-slate-500">
-                    Show notes
-                  </summary>
-                  <div
-                    v-if="row.value"
-                    class="mt-2 whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100"
-                  >
-                    {{ row.value }}
-                  </div>
-                  <div v-else class="mt-2 text-xs text-slate-400">No notes</div>
-                </details>
-              </template>
-              <template v-else>
-                <span v-if="row.value !== null && row.value !== undefined && row.value !== ''">{{
-                  row.value
-                }}</span>
-                <span v-else class="text-xs text-slate-400">-</span>
-              </template>
-            </dd>
-          </div>
-        </dl>
-      </section>
+      <DocumentMetadataSection v-if="activeTab === 'meta'" :rows="rows" />
 
-      <section
+      <DocumentTextQualitySection
         v-if="activeTab === 'text'"
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Text layer</h3>
-          <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Baseline OCR</span>
-        </div>
-        <textarea
-          class="mt-4 w-full min-h-[260px] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          readonly
-          :value="document?.content || ''"
-        ></textarea>
+        :content="document?.content || ''"
+        :content-quality="contentQuality"
+        :content-quality-error="contentQualityError"
+      />
 
-        <div
-          class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-        >
-          <div class="flex items-center justify-between">
-            <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              Text quality (baseline)
-            </div>
-            <span
-              v-if="contentQuality"
-              class="rounded-full px-2 py-1 text-xs font-semibold"
-              :class="
-                contentQuality.score >= 80
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : contentQuality.score >= 60
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-rose-100 text-rose-700'
-              "
-            >
-              Score {{ contentQuality.score }}
-            </span>
-          </div>
-          <div v-if="contentQualityError" class="mt-2 text-sm text-rose-600 dark:text-rose-300">
-            {{ contentQualityError }}
-          </div>
-          <div v-else-if="!contentQuality" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            No quality metrics loaded.
-          </div>
-          <div v-else class="mt-3 text-xs text-slate-600 dark:text-slate-300">
-            <div v-if="contentQuality.reasons?.length" class="mt-1">
-              Reasons: {{ contentQuality.reasons.join(', ') }}
-            </div>
-            <details class="mt-3">
-              <summary class="cursor-pointer text-xs font-semibold text-slate-500">
-                Show metrics
-              </summary>
-              <div class="mt-2 grid gap-2 md:grid-cols-3">
-                <div
-                  v-for="(value, key) in contentQuality.metrics"
-                  :key="key"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
-                </div>
-              </div>
-            </details>
-          </div>
-        </div>
-      </section>
-
-      <section
+      <DocumentSuggestionsSection
         v-if="activeTab === 'suggestions'"
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">AI suggestions</h3>
-          <span class="text-xs text-slate-500 dark:text-slate-400"
-            >Paperless OCR ? Vision OCR ? Best pick</span
-          >
-        </div>
-        <div
-          v-if="suggestionsError"
-          class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-        >
-          {{ suggestionsError }}
-        </div>
-        <div v-else-if="!suggestions" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          No suggestions loaded.
-        </div>
-        <div v-else class="mt-4 space-y-4">
-          <div
-            class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-          >
-            <div class="flex items-center justify-between">
-              <strong class="text-sm text-slate-900 dark:text-slate-100">Best pick</strong>
-            </div>
-            <div v-if="!bestPickSuggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
-              <em>No data.</em>
-            </div>
-            <div v-else class="mt-3 space-y-3">
-              <div v-if="bestPickSuggestion.raw">
-                <div class="text-xs font-semibold text-slate-500">Raw output</div>
-                <pre
-                  class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >{{ bestPickSuggestion.raw }}</pre
-                >
-              </div>
-              <div v-if="bestPickSuggestion.data" class="space-y-2">
-                <div
-                  class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                >
-                  <div class="flex items-center gap-2">
-                    <span>Summary</span>
-                    <span
-                      v-if="currentNotePreview"
-                      class="inline-flex items-center text-slate-400"
-                      :title="currentNotePreview"
-                    >
-                      <Info class="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                  <button
-                    class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    @click="applyToDocument('best_pick', 'note', bestPickSuggestion.data)"
-                  >
-                    Save note
-                  </button>
-                </div>
-                <div class="text-sm text-slate-900 dark:text-slate-100">
-                  {{ bestPickSuggestion.data.summary }}
-                </div>
-                <div class="grid gap-2">
-                  <div
-                    class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                  >
-                    <span>Document type</span>
-                    <span class="text-slate-900 dark:text-slate-100">{{
-                      bestPickSuggestion.data.documentType
-                    }}</span>
-                  </div>
-                  <div
-                    class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                  >
-                    <span>Language</span>
-                    <span class="text-slate-900 dark:text-slate-100">{{
-                      bestPickSuggestion.data.language
-                    }}</span>
-                  </div>
-                </div>
-                <div
-                  v-for="field in suggestionFields"
-                  :key="`best-${field.key}`"
-                  class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
-                >
-                  <span class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
-                  <div class="text-sm text-slate-900 dark:text-slate-100">
-                    <template v-if="field.key === 'tags'">
-                      <div
-                        v-if="normalizedTags(bestPickSuggestion.data).length"
-                        class="flex flex-wrap gap-1.5"
-                      >
-                        <span
-                          v-for="tag in normalizedTags(bestPickSuggestion.data)"
-                          :key="`best-tag-${tag}`"
-                          class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                        >
-                          {{ tag }}
-                        </span>
-                      </div>
-                      <span v-else class="text-xs text-slate-400 dark:text-slate-500"
-                        >No tags suggested</span
-                      >
-                    </template>
-                    <template v-else>
-                      {{ fieldValue(bestPickSuggestion.data, field.key) }}
-                    </template>
-                    <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Current:
-                      {{
-                        field.key === 'tags'
-                          ? currentTagNames || 'No tags'
-                          : currentFieldPreview(field.key) || '—'
-                      }}
-                    </div>
-                  </div>
-                  <button
-                    class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    @click="applyToDocument('best_pick', field.key, bestPickSuggestion.data)"
-                  >
-                    Save
-                  </button>
-                </div>
-                <div
-                  v-if="
-                    (bestPickSuggestion.data.suggested_tags_existing || []).length ||
-                    (bestPickSuggestion.data.suggested_tags_new || []).length
-                  "
-                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  <div>
-                    Existing tags:
-                    {{ (bestPickSuggestion.data.suggested_tags_existing || []).join(', ') }}
-                  </div>
-                  <div>
-                    New tags: {{ (bestPickSuggestion.data.suggested_tags_new || []).join(', ') }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        :suggestions="suggestions"
+        :suggestions-error="suggestionsError"
+        :suggestions-loading="suggestionsLoading"
+        :suggestion-variants="suggestionVariants"
+        :suggestion-variant-loading="suggestionVariantLoading"
+        :suggestion-variant-error="suggestionVariantError"
+        :current-values="currentValues"
+        @refresh="refreshSuggestions"
+        @suggest-field="suggestField"
+        @apply-variant="applyVariantOnly"
+        @apply-variant-to-document="applyVariantToDocument"
+        @apply-to-document="applyToDocument"
+      />
 
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div
-              class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div class="flex items-center justify-between">
-                <strong class="text-sm text-slate-900 dark:text-slate-100">Paperless OCR</strong>
-                <button
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                  :disabled="suggestionsLoading"
-                  @click="refreshSuggestions('paperless_ocr')"
-                >
-                  Refresh
-                </button>
-              </div>
-              <div
-                v-if="suggestionMetaLine('paperless_ocr')"
-                class="mt-2 text-xs text-slate-500 dark:text-slate-400"
-              >
-                {{ suggestionMetaLine('paperless_ocr') }}
-              </div>
-              <div
-                v-if="!paperlessSuggestion"
-                class="mt-3 text-sm text-slate-500 dark:text-slate-400"
-              >
-                <em>No data.</em>
-              </div>
-              <div v-else class="mt-3 space-y-3">
-                <div v-if="paperlessSuggestion.raw">
-                  <div class="text-xs font-semibold text-slate-500">Raw output</div>
-                  <pre
-                    class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    >{{ paperlessSuggestion.raw }}</pre
-                  >
-                </div>
-                <div v-if="paperlessSuggestion.data" class="space-y-2">
-                  <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span>Summary</span>
-                    <span
-                      v-if="currentNotePreview"
-                      class="inline-flex items-center text-slate-400"
-                      :title="currentNotePreview"
-                    >
-                      <Info class="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                  <div class="text-sm text-slate-900 dark:text-slate-100">
-                    {{ paperlessSuggestion.data.summary }}
-                  </div>
-                  <div class="grid gap-2">
-                    <div
-                      class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                    >
-                      <span>Document type</span>
-                      <span class="text-slate-900 dark:text-slate-100">{{
-                        paperlessSuggestion.data.documentType ||
-                        paperlessSuggestion.data.suggested_document_type
-                      }}</span>
-                    </div>
-                    <div
-                      class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                    >
-                      <span>Language</span>
-                      <span class="text-slate-900 dark:text-slate-100">{{
-                        paperlessSuggestion.data.language
-                      }}</span>
-                    </div>
-                  </div>
-                  <div
-                    v-for="field in suggestionFields"
-                    :key="`paperless-${field.key}`"
-                    class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
-                  >
-                    <span class="text-xs text-slate-500 dark:text-slate-400">{{
-                      field.label
-                    }}</span>
-                    <div class="text-sm text-slate-900 dark:text-slate-100">
-                      <template v-if="field.key === 'tags'">
-                        <div
-                          v-if="normalizedTags(paperlessSuggestion.data).length"
-                          class="flex flex-wrap gap-1.5"
-                        >
-                          <span
-                            v-for="tag in normalizedTags(paperlessSuggestion.data)"
-                            :key="`paperless-tag-${tag}`"
-                            class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                          >
-                            {{ tag }}
-                          </span>
-                        </div>
-                        <span v-else class="text-xs text-slate-400 dark:text-slate-500"
-                          >No tags suggested</span
-                        >
-                      </template>
-                      <template v-else>
-                        {{ fieldValue(paperlessSuggestion.data, field.key) }}
-                      </template>
-                      <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Current:
-                        {{
-                          field.key === 'tags'
-                            ? currentTagNames || 'No tags'
-                            : currentFieldPreview(field.key) || '—'
-                        }}
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <button
-                        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                        :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
-                        @click="suggestField('paperless_ocr', field.key)"
-                      >
-                        Suggest new
-                      </button>
-                      <button
-                        class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                        @click="
-                          applyToDocument('paperless_ocr', field.key, paperlessSuggestion.data)
-                        "
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    v-if="
-                      (paperlessSuggestion.data.suggested_tags_existing || []).length ||
-                      (paperlessSuggestion.data.suggested_tags_new || []).length
-                    "
-                    class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    <div>
-                      Existing tags:
-                      {{ (paperlessSuggestion.data.suggested_tags_existing || []).join(', ') }}
-                    </div>
-                    <div>
-                      New tags: {{ (paperlessSuggestion.data.suggested_tags_new || []).join(', ') }}
-                    </div>
-                  </div>
-                  <div
-                    v-for="field in suggestionFields"
-                    :key="`paperless-variants-${field.key}`"
-                    class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <div
-                      v-if="suggestionVariantError[`paperless_ocr:${field.key}`]"
-                      class="text-xs text-rose-600"
-                    >
-                      {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
-                    </div>
-                    <div v-if="(suggestionVariants[`paperless_ocr:${field.key}`] || []).length">
-                      <div class="text-xs font-semibold text-slate-500">
-                        Variants for {{ field.label }}
-                      </div>
-                      <div
-                        v-for="variant in suggestionVariants[`paperless_ocr:${field.key}`]"
-                        :key="`${field.key}-${variant}`"
-                        class="mt-1 flex items-center justify-between gap-2 text-xs"
-                      >
-                        <span class="text-slate-700">{{
-                          Array.isArray(variant) ? variant.join(', ') : variant
-                        }}</span>
-                        <button
-                          class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                          @click="applyVariant('paperless_ocr', field.key, variant)"
-                        >
-                          Use
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div class="flex items-center justify-between">
-                <strong class="text-sm text-slate-900 dark:text-slate-100">Vision OCR</strong>
-                <button
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                  :disabled="suggestionsLoading"
-                  @click="refreshSuggestions('vision_ocr')"
-                >
-                  Refresh
-                </button>
-              </div>
-              <div
-                v-if="suggestionMetaLine('vision_ocr')"
-                class="mt-2 text-xs text-slate-500 dark:text-slate-400"
-              >
-                {{ suggestionMetaLine('vision_ocr') }}
-              </div>
-              <div v-if="!visionSuggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                <em>No data.</em>
-              </div>
-              <div v-else class="mt-3 space-y-3">
-                <div v-if="visionSuggestion.raw">
-                  <div class="text-xs font-semibold text-slate-500">Raw output</div>
-                  <pre
-                    class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    >{{ visionSuggestion.raw }}</pre
-                  >
-                </div>
-                <div v-if="visionSuggestion.data" class="space-y-2">
-                  <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span>Summary</span>
-                    <span
-                      v-if="currentNotePreview"
-                      class="inline-flex items-center text-slate-400"
-                      :title="currentNotePreview"
-                    >
-                      <Info class="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                  <div class="text-sm text-slate-900 dark:text-slate-100">
-                    {{ visionSuggestion.data.summary }}
-                  </div>
-                  <div class="grid gap-2">
-                    <div
-                      class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                    >
-                      <span>Document type</span>
-                      <span class="text-slate-900 dark:text-slate-100">{{
-                        visionSuggestion.data.documentType ||
-                        visionSuggestion.data.suggested_document_type
-                      }}</span>
-                    </div>
-                    <div
-                      class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-                    >
-                      <span>Language</span>
-                      <span class="text-slate-900 dark:text-slate-100">{{
-                        visionSuggestion.data.language
-                      }}</span>
-                    </div>
-                  </div>
-                  <div
-                    v-for="field in suggestionFields"
-                    :key="`vision-${field.key}`"
-                    class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
-                  >
-                    <span class="text-xs text-slate-500 dark:text-slate-400">{{
-                      field.label
-                    }}</span>
-                    <div class="text-sm text-slate-900 dark:text-slate-100">
-                      <template v-if="field.key === 'tags'">
-                        <div
-                          v-if="normalizedTags(visionSuggestion.data).length"
-                          class="flex flex-wrap gap-1.5"
-                        >
-                          <span
-                            v-for="tag in normalizedTags(visionSuggestion.data)"
-                            :key="`vision-tag-${tag}`"
-                            class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                          >
-                            {{ tag }}
-                          </span>
-                        </div>
-                        <span v-else class="text-xs text-slate-400 dark:text-slate-500"
-                          >No tags suggested</span
-                        >
-                      </template>
-                      <template v-else>
-                        {{ fieldValue(visionSuggestion.data, field.key) }}
-                      </template>
-                      <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Current:
-                        {{
-                          field.key === 'tags'
-                            ? currentTagNames || 'No tags'
-                            : currentFieldPreview(field.key) || '—'
-                        }}
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <button
-                        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                        :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
-                        @click="suggestField('vision_ocr', field.key)"
-                      >
-                        Suggest new
-                      </button>
-                      <button
-                        class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                        @click="applyToDocument('vision_ocr', field.key, visionSuggestion.data)"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    v-if="
-                      (visionSuggestion.data.suggested_tags_existing || []).length ||
-                      (visionSuggestion.data.suggested_tags_new || []).length
-                    "
-                    class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    <div>
-                      Existing tags:
-                      {{ (visionSuggestion.data.suggested_tags_existing || []).join(', ') }}
-                    </div>
-                    <div>
-                      New tags: {{ (visionSuggestion.data.suggested_tags_new || []).join(', ') }}
-                    </div>
-                  </div>
-                  <div
-                    v-for="field in suggestionFields"
-                    :key="`vision-variants-${field.key}`"
-                    class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <div
-                      v-if="suggestionVariantError[`vision_ocr:${field.key}`]"
-                      class="text-xs text-rose-600"
-                    >
-                      {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
-                    </div>
-                    <div v-if="(suggestionVariants[`vision_ocr:${field.key}`] || []).length">
-                      <div class="text-xs font-semibold text-slate-500">
-                        Variants for {{ field.label }}
-                      </div>
-                      <div
-                        v-for="variant in suggestionVariants[`vision_ocr:${field.key}`]"
-                        :key="`${field.key}-${variant}`"
-                        class="mt-1 flex items-center justify-between gap-2 text-xs"
-                      >
-                        <span class="text-slate-700">{{
-                          Array.isArray(variant) ? variant.join(', ') : variant
-                        }}</span>
-                        <button
-                          class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                          @click="applyVariant('vision_ocr', field.key, variant)"
-                        >
-                          Use
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
+      <DocumentPagesSection
         v-if="activeTab === 'pages'"
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Extracted page texts (debug)
-          </h3>
-          <span class="text-xs text-slate-500 dark:text-slate-400">Page-wise OCR</span>
-        </div>
-        <div class="mt-4">
-          <div
-            class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
-          >
-            Aggregated text context
-          </div>
-          <textarea
-            class="mt-2 w-full min-h-[180px] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            readonly
-            :value="aggregatedText"
-          ></textarea>
-        </div>
-        <div v-if="pageTextsError" class="mt-3 text-sm text-rose-600 dark:text-rose-300">
-          {{ pageTextsError }}
-        </div>
-        <div
-          v-else-if="pageTexts.length === 0"
-          class="mt-3 text-sm text-slate-500 dark:text-slate-400"
-        >
-          No extracted page text loaded.
-        </div>
-        <div v-else class="mt-4 space-y-4">
-          <div
-            v-for="page in pageTexts"
-            :key="page.page"
-            class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-          >
-            <div
-              class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400"
-            >
-              <span>Page {{ page.page }} - Source: {{ page.source }}</span>
-              <button
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                @click="togglePage(page)"
-              >
-                {{ isExpanded(page) ? 'Hide' : 'Show' }}
-              </button>
-            </div>
-            <div v-if="isExpanded(page)">
-              <div v-if="page.quality" class="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                <div class="font-semibold text-slate-700 dark:text-slate-200">
-                  Quality score: {{ page.quality.score }}
-                </div>
-                <div v-if="page.quality.reasons?.length" class="mt-1">
-                  Reasons: {{ page.quality.reasons.join(', ') }}
-                </div>
-                <div class="mt-3 grid gap-2 md:grid-cols-3">
-                  <div
-                    v-for="(value, key) in page.quality.metrics"
-                    :key="key"
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
-                  </div>
-                </div>
-              </div>
-              <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,360px)_1fr]">
-                <textarea
-                  class="w-full min-h-[140px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  readonly
-                  :value="page.text"
-                ></textarea>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        :page-texts="pageTexts"
+        :page-texts-error="pageTextsError"
+        :aggregated-text="aggregatedText"
+        :pdf-page="pdfPage"
+        @jump-to-page="onPdfPageChange"
+      />
 
       <PdfViewer
         class="mt-6"
@@ -767,22 +134,26 @@
         :highlights="pdfHighlights"
         @update:page="onPdfPageChange"
       />
+
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, Info, RefreshCcw, RefreshCw } from 'lucide-vue-next'
+import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
+import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
+import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
+import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
+import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
-import { PageText } from '../services/documents'
 
 const route = useRoute()
 const router = useRouter()
@@ -836,7 +207,6 @@ const parseBBox = (value: unknown): number[] | null => {
   if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return null
   return parts as number[]
 }
-const expandedPages = ref<Set<string>>(new Set())
 
 const paperlessBaseUrl = computed(
   () => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '',
@@ -847,45 +217,10 @@ const paperlessUrl = computed(() =>
     : '',
 )
 
-type SuggestionData = Record<string, unknown>
-
 const errorMessage = (err: unknown, fallback: string) => {
   if (err instanceof Error) return err.message || fallback
   if (typeof err === 'string') return err || fallback
   return fallback
-}
-
-const normalizeSuggestion = (input: unknown) => {
-  if (!input || (typeof input === 'object' && Object.keys(input).length === 0)) {
-    return null
-  }
-  const raw = (input as { raw?: string | null }).raw || null
-  const parsed = (input as { parsed?: SuggestionData }).parsed
-  const data = parsed || (raw ? null : (input as SuggestionData))
-  return { raw, data }
-}
-
-const paperlessSuggestion = computed(() => normalizeSuggestion(suggestions.value?.paperless_ocr))
-const visionSuggestion = computed(() => normalizeSuggestion(suggestions.value?.vision_ocr))
-const bestPickSuggestion = computed(() => normalizeSuggestion(suggestions.value?.best_pick))
-const suggestionsMeta = computed(
-  () =>
-    (suggestions.value as { suggestions_meta?: Record<string, unknown> } | null)
-      ?.suggestions_meta || {},
-)
-const suggestionFields = [
-  { key: 'title', label: 'Suggested title' },
-  { key: 'date', label: 'Suggested date' },
-  { key: 'correspondent', label: 'Suggested correspondent' },
-  { key: 'tags', label: 'Suggested tags' },
-]
-
-const suggestionMetaLine = (source: string) => {
-  const meta = suggestionsMeta.value?.[source]
-  if (!meta) return ''
-  const model = meta.model || 'unknown'
-  const processed = meta.processed_at ? formatDateTime(meta.processed_at) : 'unknown'
-  return `Model: ${model} · Updated: ${processed}`
 }
 
 const aggregatedText = computed(() => {
@@ -893,71 +228,30 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const fieldValue = (data: SuggestionData, field: string) => {
-  if (!data) return ''
-  const asString = (value: unknown) => (typeof value === 'string' ? value : '')
-  if (field === 'title') return asString(data.title) || asString(data.suggested_title)
-  if (field === 'date') return asString(data.date) || asString(data.suggested_document_date)
-  if (field === 'correspondent')
-    return asString(data.correspondent) || asString(data.suggested_correspondent)
-  if (field === 'tags') return (data.tags ?? data.suggested_tags) || ''
-  return data[field] ?? ''
-}
-
-const normalizedTags = (data: SuggestionData): string[] => {
-  const raw = fieldValue(data, 'tags')
-  if (!raw) return []
-  if (Array.isArray(raw)) return raw.map((tag) => String(tag)).filter(Boolean)
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim()
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(trimmed)
-        if (Array.isArray(parsed)) {
-          return parsed.map((tag) => String(tag)).filter(Boolean)
-        }
-      } catch {
-        // fall through to splitting
-      }
-    }
-    return trimmed
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-  }
-  return [String(raw)]
-}
-
 const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
   await documentStore.suggestField(id, source, field)
 }
 
-const applyVariant = async (
+const applyVariantOnly = async (
   source: 'paperless_ocr' | 'vision_ocr',
   field: string,
   value: unknown,
 ) => {
-  const label = typeof value === 'string' ? value : JSON.stringify(value)
-  const ok = window.confirm(`Overwrite ${field} with: ${label}?`)
-  if (!ok) return
   await documentStore.applyVariant(id, source, field, value)
 }
 
-const applyToDocument = async (source: string, field: string, data: SuggestionData | null) => {
-  if (!data) return
-  let value: unknown = data[field]
-  if (field === 'title') value = data.title || data.suggested_title || ''
-  if (field === 'date') value = data.date || data.suggested_document_date || ''
-  if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || ''
-  if (field === 'tags') value = data.tags || data.suggested_tags || []
-  if (field === 'note') value = data.summary || ''
-  if (field === 'tags') {
-    if (!Array.isArray(value) || value.length === 0) return
-  }
-  if (value === null || value === undefined || value === '') return
-  const label = typeof value === 'string' ? value : JSON.stringify(value)
-  const ok = window.confirm(`Apply ${field} to document: ${label}?`)
-  if (!ok) return
+const applyVariantToDocument = async (
+  source: 'paperless_ocr' | 'vision_ocr',
+  field: string,
+  value: unknown,
+) => {
+  await documentStore.applyVariant(id, source, field, value)
+  await documentStore.applyToDocument(id, { source, field, value })
+  await load()
+  await loadSuggestions()
+}
+
+const applyToDocument = async (source: string, field: string, value: unknown) => {
   try {
     const reloadSuggestions = Boolean(suggestions.value)
     const reloadPages = pageTexts.value.length > 0
@@ -1002,14 +296,13 @@ const currentCorrespondentName = computed(() => {
   )
 })
 
-const currentFieldPreview = (field: string) => {
-  if (!document.value) return ''
-  if (field === 'title') return document.value.title || ''
-  if (field === 'date') return formatDate(document.value.document_date) || ''
-  if (field === 'correspondent') return currentCorrespondentName.value || ''
-  if (field === 'tags') return currentTagNames.value || ''
-  return ''
-}
+const currentValues = computed(() => ({
+  title: document.value?.title || '',
+  date: formatDate(document.value?.document_date) || '',
+  correspondent: currentCorrespondentName.value || '',
+  tags: currentTagNames.value || '',
+  note: currentNotePreview.value || '',
+}))
 
 const rows = computed(() => {
   if (!document.value) return []
@@ -1095,7 +388,6 @@ const loadMeta = async () => {
 
 const loadPageTexts = async (priority = false) => {
   await documentStore.loadPageTexts(id, priority)
-  expandedPages.value = new Set(pageTexts.value.map(pageKey))
 }
 
 const loadContentQuality = async (priority = false) => {
@@ -1134,16 +426,6 @@ const runReprocess = async () => {
   }
 }
 
-const pageKey = (page: PageText) => `${page.page}:${page.source}`
-const isExpanded = (page: PageText) => expandedPages.value.has(pageKey(page))
-const togglePage = (page: PageText) => {
-  const key = pageKey(page)
-  if (expandedPages.value.has(key)) {
-    expandedPages.value.delete(key)
-  } else {
-    expandedPages.value.add(key)
-  }
-}
 
 onMounted(async () => {
   syncPdfFromQuery()

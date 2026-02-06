@@ -253,7 +253,7 @@ def suggest_field_variants(
             payload_json = {}
         if isinstance(payload_json, dict):
             current = payload_json.get(payload.field)
-    if require_queue_enabled(settings):
+    if require_queue_enabled(settings) and not priority:
         task = {
             "doc_id": doc_id,
             "task": "suggest_field",
@@ -265,7 +265,7 @@ def suggest_field_variants(
         enqueue_task_front(settings, task)
         return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "queued": True}
 
-    variants = generate_field_variants(
+    generated = generate_field_variants(
         settings,
         raw,
         text,
@@ -275,6 +275,9 @@ def suggest_field_variants(
         count=max(1, min(payload.count, 5)),
         current_value=current,
     )
+    variants = generated.get("variants") if isinstance(generated, dict) else generated
+    if not isinstance(variants, list):
+        variants = []
     audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")
     return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "variants": variants}
 
