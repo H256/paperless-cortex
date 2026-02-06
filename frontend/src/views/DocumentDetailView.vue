@@ -331,18 +331,22 @@
                 <div class="flex items-center gap-2">
                   <button
                     class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    :disabled="suggestionsLoading"
+                    :disabled="suggestionsLoading || isVariantBusy('paperless_ocr')"
                     @click="refreshSuggestions('paperless_ocr')"
                   >
                     Refresh
                   </button>
                   <button
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    :disabled="suggestionsLoading"
+                    :disabled="suggestionsLoading || isVariantBusy('paperless_ocr')"
                     title="Generate alternative values for all suggestion fields."
                     @click="generateAllVariants('paperless_ocr')"
                   >
-                    Generate variants
+                    <span v-if="isVariantBusy('paperless_ocr')" class="inline-flex items-center gap-2">
+                      <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                      Generating...
+                    </span>
+                    <span v-else>Generate variants</span>
                   </button>
                 </div>
               </div>
@@ -440,13 +444,21 @@
                     <div class="flex items-center gap-2">
                       <button
                         class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                        :disabled="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
+                        :disabled="suggestionsLoading || suggestionVariantLoading[`paperless_ocr:${field.key}`]"
                         @click="suggestField('paperless_ocr', field.key)"
                       >
-                        Suggest new
+                        <span
+                          v-if="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
+                          class="inline-flex items-center gap-2"
+                        >
+                          <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                          Generating...
+                        </span>
+                        <span v-else>Suggest new</span>
                       </button>
                       <button
                         class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                        :disabled="suggestionsLoading"
                         @click="
                           applyToDocument('paperless_ocr', field.key, paperlessSuggestion.data)
                         "
@@ -460,32 +472,50 @@
                     :key="`paperless-variants-${field.key}`"
                     class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
                   >
-                    <div
-                      v-if="suggestionVariantError[`paperless_ocr:${field.key}`]"
-                      class="text-xs text-rose-600"
+                    <details
+                      v-if="
+                        suggestionVariantError[`paperless_ocr:${field.key}`] ||
+                        suggestionVariantLoading[`paperless_ocr:${field.key}`] ||
+                        (suggestionVariants[`paperless_ocr:${field.key}`] || []).length
+                      "
+                      class="group"
                     >
-                      {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
-                    </div>
-                    <div v-if="(suggestionVariants[`paperless_ocr:${field.key}`] || []).length">
-                      <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                      <summary
+                        class="cursor-pointer text-xs font-semibold text-slate-500 dark:text-slate-300"
+                      >
                         Variants for {{ field.label }}
+                      </summary>
+                      <div
+                        v-if="suggestionVariantError[`paperless_ocr:${field.key}`]"
+                        class="mt-2 text-xs text-rose-600"
+                      >
+                        {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
                       </div>
                       <div
+                        v-else-if="suggestionVariantLoading[`paperless_ocr:${field.key}`]"
+                        class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                      >
+                        <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                        Generating variants...
+                      </div>
+                      <div
+                        v-else
                         v-for="variant in suggestionVariants[`paperless_ocr:${field.key}`]"
                         :key="`${field.key}-${variant}`"
-                        class="mt-1 flex items-center justify-between gap-2 text-xs"
+                        class="mt-2 flex items-center justify-between gap-2 text-xs"
                       >
                         <span class="text-slate-700 dark:text-slate-200">{{
                           Array.isArray(variant) ? variant.join(', ') : variant
                         }}</span>
                         <button
                           class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                        @click="openVariantDialog('paperless_ocr', field.key, variant)"
+                          :disabled="suggestionsLoading"
+                          @click="openVariantDialog('paperless_ocr', field.key, variant)"
                         >
                           Use
                         </button>
                       </div>
-                    </div>
+                    </details>
                   </div>
                 </div>
               </div>
@@ -499,18 +529,22 @@
                 <div class="flex items-center gap-2">
                   <button
                     class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    :disabled="suggestionsLoading"
+                    :disabled="suggestionsLoading || isVariantBusy('vision_ocr')"
                     @click="refreshSuggestions('vision_ocr')"
                   >
                     Refresh
                   </button>
                   <button
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    :disabled="suggestionsLoading"
+                    :disabled="suggestionsLoading || isVariantBusy('vision_ocr')"
                     title="Generate alternative values for all suggestion fields."
                     @click="generateAllVariants('vision_ocr')"
                   >
-                    Generate variants
+                    <span v-if="isVariantBusy('vision_ocr')" class="inline-flex items-center gap-2">
+                      <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                      Generating...
+                    </span>
+                    <span v-else>Generate variants</span>
                   </button>
                 </div>
               </div>
@@ -605,13 +639,21 @@
                     <div class="flex items-center gap-2">
                       <button
                         class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                        :disabled="suggestionVariantLoading[`vision_ocr:${field.key}`]"
+                        :disabled="suggestionsLoading || suggestionVariantLoading[`vision_ocr:${field.key}`]"
                         @click="suggestField('vision_ocr', field.key)"
                       >
-                        Suggest new
+                        <span
+                          v-if="suggestionVariantLoading[`vision_ocr:${field.key}`]"
+                          class="inline-flex items-center gap-2"
+                        >
+                          <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                          Generating...
+                        </span>
+                        <span v-else>Suggest new</span>
                       </button>
                       <button
                         class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                        :disabled="suggestionsLoading"
                         @click="applyToDocument('vision_ocr', field.key, visionSuggestion.data)"
                       >
                         Save
@@ -623,32 +665,50 @@
                     :key="`vision-variants-${field.key}`"
                     class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
                   >
-                    <div
-                      v-if="suggestionVariantError[`vision_ocr:${field.key}`]"
-                      class="text-xs text-rose-600"
+                    <details
+                      v-if="
+                        suggestionVariantError[`vision_ocr:${field.key}`] ||
+                        suggestionVariantLoading[`vision_ocr:${field.key}`] ||
+                        (suggestionVariants[`vision_ocr:${field.key}`] || []).length
+                      "
+                      class="group"
                     >
-                      {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
-                    </div>
-                    <div v-if="(suggestionVariants[`vision_ocr:${field.key}`] || []).length">
-                      <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                      <summary
+                        class="cursor-pointer text-xs font-semibold text-slate-500 dark:text-slate-300"
+                      >
                         Variants for {{ field.label }}
+                      </summary>
+                      <div
+                        v-if="suggestionVariantError[`vision_ocr:${field.key}`]"
+                        class="mt-2 text-xs text-rose-600"
+                      >
+                        {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
                       </div>
                       <div
+                        v-else-if="suggestionVariantLoading[`vision_ocr:${field.key}`]"
+                        class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                      >
+                        <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                        Generating variants...
+                      </div>
+                      <div
+                        v-else
                         v-for="variant in suggestionVariants[`vision_ocr:${field.key}`]"
                         :key="`${field.key}-${variant}`"
-                        class="mt-1 flex items-center justify-between gap-2 text-xs"
+                        class="mt-2 flex items-center justify-between gap-2 text-xs"
                       >
                         <span class="text-slate-700 dark:text-slate-200">{{
                           Array.isArray(variant) ? variant.join(', ') : variant
                         }}</span>
                         <button
                           class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                        @click="openVariantDialog('vision_ocr', field.key, variant)"
+                          :disabled="suggestionsLoading"
+                          @click="openVariantDialog('vision_ocr', field.key, variant)"
                         >
                           Use
                         </button>
                       </div>
-                    </div>
+                    </details>
                   </div>
                 </div>
               </div>
@@ -778,7 +838,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, Info, RefreshCcw, RefreshCw } from 'lucide-vue-next'
+import { ExternalLink, Info, Loader2, RefreshCcw, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -886,6 +946,11 @@ const suggestionFields = [
   { key: 'correspondent', label: 'Suggested correspondent' },
   { key: 'tags', label: 'Suggested tags' },
 ]
+
+const isVariantBusy = (source: 'paperless_ocr' | 'vision_ocr') =>
+  Object.entries(suggestionVariantLoading.value).some(
+    ([key, value]) => key.startsWith(`${source}:`) && value,
+  )
 
 const suggestionMetaLine = (source: string) => {
   const meta = suggestionsMeta.value?.[source]

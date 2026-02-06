@@ -492,6 +492,7 @@ All model names must be configurable via environment variables.
 - Frontend: prefer direct variants array in suggest-field responses.
 - UI: add reusable ConfirmDialog/ChoiceDialog and replace browser confirms.
 - Suggestions: generate variants for all fields and add choice dialog for applying variants.
+- Suggestions: collapse variant lists and add loading/disable states for variant actions.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.
