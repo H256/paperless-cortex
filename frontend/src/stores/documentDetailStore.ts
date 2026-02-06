@@ -38,6 +38,7 @@ const extractVariants = (data: unknown): unknown[] => {
   if (!data || typeof data !== 'object') return []
   const root = data as { variants?: unknown }
   const variantsContainer = root.variants
+  if (Array.isArray(variantsContainer)) return variantsContainer
   if (!variantsContainer || typeof variantsContainer !== 'object') return []
   const parsed = (variantsContainer as { parsed?: { variants?: unknown[] } }).parsed
   if (Array.isArray(parsed?.variants)) return parsed.variants
