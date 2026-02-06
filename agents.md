@@ -488,6 +488,7 @@ All model names must be configurable via environment variables.
 - Backend: allow priority suggest-field variants to run synchronously (skip queue).
 - Backend: normalize suggest-field variants response to a list for API validation.
 - Frontend: accept list-style suggestion variants from API responses.
+- UX: improve variant text contrast in dark mode.
 - Continue-processing: sync progress modal, enqueue summary toast, batch limit slider.
 - Missing-work logic: only enqueue missing items; vision embedding source tracked.
 - Operations page: destructive actions + wipe local data + runtime config + copy buttons.

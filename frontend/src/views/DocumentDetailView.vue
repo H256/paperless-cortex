@@ -318,21 +318,6 @@
                     Save
                   </button>
                 </div>
-                <div
-                  v-if="
-                    (bestPickSuggestion.data.suggested_tags_existing || []).length ||
-                    (bestPickSuggestion.data.suggested_tags_new || []).length
-                  "
-                  class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  <div>
-                    Existing tags:
-                    {{ (bestPickSuggestion.data.suggested_tags_existing || []).join(', ') }}
-                  </div>
-                  <div>
-                    New tags: {{ (bestPickSuggestion.data.suggested_tags_new || []).join(', ') }}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -461,21 +446,6 @@
                     </div>
                   </div>
                   <div
-                    v-if="
-                      (paperlessSuggestion.data.suggested_tags_existing || []).length ||
-                      (paperlessSuggestion.data.suggested_tags_new || []).length
-                    "
-                    class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    <div>
-                      Existing tags:
-                      {{ (paperlessSuggestion.data.suggested_tags_existing || []).join(', ') }}
-                    </div>
-                    <div>
-                      New tags: {{ (paperlessSuggestion.data.suggested_tags_new || []).join(', ') }}
-                    </div>
-                  </div>
-                  <div
                     v-for="field in suggestionFields"
                     :key="`paperless-variants-${field.key}`"
                     class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
@@ -487,7 +457,7 @@
                       {{ suggestionVariantError[`paperless_ocr:${field.key}`] }}
                     </div>
                     <div v-if="(suggestionVariants[`paperless_ocr:${field.key}`] || []).length">
-                      <div class="text-xs font-semibold text-slate-500">
+                      <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
                         Variants for {{ field.label }}
                       </div>
                       <div
@@ -495,7 +465,7 @@
                         :key="`${field.key}-${variant}`"
                         class="mt-1 flex items-center justify-between gap-2 text-xs"
                       >
-                        <span class="text-slate-700">{{
+                        <span class="text-slate-700 dark:text-slate-200">{{
                           Array.isArray(variant) ? variant.join(', ') : variant
                         }}</span>
                         <button
@@ -629,21 +599,6 @@
                     </div>
                   </div>
                   <div
-                    v-if="
-                      (visionSuggestion.data.suggested_tags_existing || []).length ||
-                      (visionSuggestion.data.suggested_tags_new || []).length
-                    "
-                    class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    <div>
-                      Existing tags:
-                      {{ (visionSuggestion.data.suggested_tags_existing || []).join(', ') }}
-                    </div>
-                    <div>
-                      New tags: {{ (visionSuggestion.data.suggested_tags_new || []).join(', ') }}
-                    </div>
-                  </div>
-                  <div
                     v-for="field in suggestionFields"
                     :key="`vision-variants-${field.key}`"
                     class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
@@ -655,7 +610,7 @@
                       {{ suggestionVariantError[`vision_ocr:${field.key}`] }}
                     </div>
                     <div v-if="(suggestionVariants[`vision_ocr:${field.key}`] || []).length">
-                      <div class="text-xs font-semibold text-slate-500">
+                      <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
                         Variants for {{ field.label }}
                       </div>
                       <div
@@ -663,7 +618,7 @@
                         :key="`${field.key}-${variant}`"
                         class="mt-1 flex items-center justify-between gap-2 text-xs"
                       >
-                        <span class="text-slate-700">{{
+                        <span class="text-slate-700 dark:text-slate-200">{{
                           Array.isArray(variant) ? variant.join(', ') : variant
                         }}</span>
                         <button
