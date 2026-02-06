@@ -519,3 +519,4 @@ All model names must be configurable via environment variables.
 - UX: added OCR score explainer block in Text & Quality section.
 - Docs: clarified OCR scoring in README.
 - Suggestions: best-pick summary now prefers OCR source with better score.
+- Suggestions: allow saving summary as note from paperless/vision panels.

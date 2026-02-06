@@ -205,15 +205,25 @@
             </div>
 
             <div v-if="panel.suggestion.data" class="space-y-2">
-              <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span>Summary</span>
-                <span
-                  v-if="currentValues.note"
-                  class="inline-flex items-center text-slate-400"
-                  :title="currentValues.note"
+              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-2">
+                  <span>Summary</span>
+                  <span
+                    v-if="currentValues.note"
+                    class="inline-flex items-center text-slate-400"
+                    :title="currentValues.note"
+                  >
+                    <Info class="h-3.5 w-3.5" />
+                  </span>
+                </div>
+                <button
+                  v-if="panel.allowNoteSave"
+                  class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  :disabled="suggestionsLoading"
+                  @click="openApplyDialog(panel.sourceKey, 'note', panel.suggestion.data)"
                 >
-                  <Info class="h-3.5 w-3.5" />
-                </span>
+                  Save note
+                </button>
               </div>
               <div class="text-sm text-slate-900 dark:text-slate-100">
                 {{ panel.suggestion.data.summary }}
@@ -477,7 +487,7 @@ const panels = computed(() => [
     source: 'paperless_ocr' as const,
     sourceKey: 'paperless_ocr',
     allowActions: true,
-    allowNoteSave: false,
+    allowNoteSave: true,
     showSummary: true,
     showMeta: true,
     suggestion: panelFor('paperless_ocr'),
@@ -488,7 +498,7 @@ const panels = computed(() => [
     source: 'vision_ocr' as const,
     sourceKey: 'vision_ocr',
     allowActions: true,
-    allowNoteSave: false,
+    allowNoteSave: true,
     showSummary: true,
     showMeta: true,
     suggestion: panelFor('vision_ocr'),
