@@ -141,7 +141,14 @@ def merge_suggestions(
 def _load_prompt(settings: Settings) -> str:
     path = settings.suggestions_prompt_path
     if path:
-        prompt_path = Path(path)
+        configured = Path(path)
+        if configured.is_file():
+            prompt_path = configured
+        else:
+            # Allow repo-root relative paths like "backend/app/prompts/suggestions.txt"
+            repo_root = Path(__file__).resolve().parents[3]
+            repo_relative = repo_root / configured
+            prompt_path = repo_relative if repo_relative.is_file() else configured
     else:
         prompt_path = DEFAULT_PROMPT_PATH
     key = str(prompt_path)
