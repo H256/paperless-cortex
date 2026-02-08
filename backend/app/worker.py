@@ -51,6 +51,7 @@ from app.schemas import DocumentIn
 import json
 
 logger = logging.getLogger(__name__)
+HEARTBEAT_INTERVAL_SECONDS = 5
 
 
 def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
@@ -383,13 +384,26 @@ def main() -> None:
                 return
             stop_event.wait(30)
 
-    refresher = threading.Thread(target=_lock_refresher, name="worker-lock-refresher", daemon=True)
-    refresher.start()
+    def _heartbeat_refresher() -> None:
+        while not stop_event.is_set():
+            try:
+                mark_worker_heartbeat(settings)
+            except Exception:
+                logger.warning("Worker heartbeat update failed", exc_info=True)
+            stop_event.wait(HEARTBEAT_INTERVAL_SECONDS)
+
+    lock_refresher = threading.Thread(target=_lock_refresher, name="worker-lock-refresher", daemon=True)
+    heartbeat_refresher = threading.Thread(
+        target=_heartbeat_refresher,
+        name="worker-heartbeat-refresher",
+        daemon=True,
+    )
+    lock_refresher.start()
+    heartbeat_refresher.start()
     try:
         while True:
             if lock_lost.is_set():
                 raise SystemExit("Worker lock lost; exiting")
-            mark_worker_heartbeat(settings)
             if is_paused(settings):
                 time.sleep(0.5)
                 continue
