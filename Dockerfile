@@ -7,7 +7,7 @@ RUN npm ci
 COPY frontend/ ./
 COPY backend/openapi.json /app/backend/openapi.json
 RUN ORVAL_API_URL=../backend/openapi.json npx orval --config orval.config.ts
-RUN npm run build
+RUN npm run build-only
 
 FROM python:3.13-slim AS backend
 ENV PYTHONDONTWRITEBYTECODE=1
