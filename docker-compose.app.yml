@@ -1,13 +1,24 @@
 version: "3.9"
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: cortex-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+
   cortex:
     build: .
     container_name: paperless-ngx-cortex
+    depends_on:
+      - redis
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
       - FRONTEND_DIST=/app/frontend/dist
+      - REDIS_HOST=redis:6379
     restart: unless-stopped
