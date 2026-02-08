@@ -368,8 +368,9 @@ def main() -> None:
     if not client:
         raise SystemExit("Redis not configured")
     worker_token = f"{socket.gethostname()}:{os.getpid()}:{int(time.time())}"
-    if not acquire_worker_lock(settings, worker_token):
-        raise SystemExit("Another worker is already running")
+    while not acquire_worker_lock(settings, worker_token):
+        logger.warning("Worker lock unavailable or Redis not ready; retrying in 5s")
+        time.sleep(5)
     logger.info("Worker started queue=%s", QUEUE_KEY)
     stop_event = threading.Event()
     lock_lost = threading.Event()
