@@ -1,4 +1,5 @@
 import { unwrap } from '../api/orval'
+import { request } from './http'
 import {
   getQueueStatusQueueStatusGet,
   peekQueuePeekGet,
@@ -25,6 +26,18 @@ import type {
 
 export type QueueStatus = QueueStatusResponse
 export type QueuePeekItem = QueuePeekItemModel
+export type QueueWorkerLockStatus = {
+  enabled: boolean
+  has_lock: boolean
+  owner?: string | null
+  ttl_seconds?: number | null
+}
+export type QueueWorkerLockReset = {
+  enabled: boolean
+  reset: boolean
+  had_lock: boolean
+  reason?: string | null
+}
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -50,3 +63,12 @@ export const moveQueueItemTop = (payload: QueueMoveEdgeRequest) =>
 
 export const moveQueueItemBottom = (payload: QueueMoveEdgeRequest) =>
   unwrap<QueueMoveResponse>(moveBottomQueueMoveBottomPost(payload))
+
+export const fetchWorkerLockStatus = () =>
+  request<QueueWorkerLockStatus>('/queue/worker-lock')
+
+export const resetWorkerLock = (force = false) =>
+  request<QueueWorkerLockReset>('/queue/worker-lock/reset', {
+    method: 'POST',
+    params: { force },
+  })

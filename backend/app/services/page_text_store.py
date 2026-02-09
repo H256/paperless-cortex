@@ -19,18 +19,22 @@ def upsert_page_texts(
     doc_id: int,
     pages: list[PageText],
     source_filter: str | None = None,
+    replace_pages: list[int] | None = None,
 ) -> None:
     if not pages:
         return
     sources = {page.source for page in pages}
     if source_filter:
         sources = {source_filter}
-    db.execute(
-        delete(DocumentPageText).where(
-            DocumentPageText.doc_id == doc_id,
-            DocumentPageText.source.in_(sources),
-        )
+    delete_query = delete(DocumentPageText).where(
+        DocumentPageText.doc_id == doc_id,
+        DocumentPageText.source.in_(sources),
     )
+    if replace_pages:
+        page_set = sorted({int(page) for page in replace_pages if int(page) > 0})
+        if page_set:
+            delete_query = delete_query.where(DocumentPageText.page.in_(page_set))
+    db.execute(delete_query)
     processed_at = datetime.now(timezone.utc).isoformat()
     created_at = processed_at
     for page in pages:

@@ -26,6 +26,14 @@ from app.routes.queue_guard import require_queue_enabled
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
+def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
+    expected = int(doc.page_count or 0)
+    if expected <= 0:
+        return bool(pages)
+    bounded = {page for page in pages if 1 <= page <= expected}
+    return len(bounded) == expected
+
+
 def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentSuggestion))
     db.execute(delete(DocumentPageText))
@@ -70,7 +78,9 @@ def process_missing(
         .all()
     )
     vision_latest: dict[int, datetime] = {}
+    vision_pages_by_doc: dict[int, set[int]] = {}
     for row in vision_rows:
+        vision_pages_by_doc.setdefault(int(row.doc_id), set()).add(int(row.page))
         created = parse_iso(row.created_at)
         if not created:
             continue
@@ -101,7 +111,12 @@ def process_missing(
         sugg_v = suggestions.get((doc.id, "vision_ocr"))
         sugg_p_at = parse_iso(sugg_p.created_at) if sugg_p else None
         sugg_v_at = parse_iso(sugg_v.created_at) if sugg_v else None
-        needs_vision = include_vision_ocr and (not vision_updated_at or (doc_modified and vision_updated_at < doc_modified))
+        has_complete_vision = _is_vision_complete(doc, vision_pages_by_doc.get(doc.id, set()))
+        needs_vision = include_vision_ocr and (
+            not has_complete_vision
+            or not vision_updated_at
+            or (doc_modified and vision_updated_at < doc_modified)
+        )
         needs_embeddings = include_embeddings and (
             not embedded_at
             or (doc_modified and embedded_at < doc_modified)

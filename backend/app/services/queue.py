@@ -439,6 +439,57 @@ def release_worker_lock(settings: Settings, token: str) -> None:
         return
 
 
+def worker_lock_status(settings: Settings) -> dict[str, object]:
+    client = _get_client(settings)
+    if not client:
+        return {"has_lock": False, "owner": None, "ttl_seconds": None}
+    try:
+        owner = client.get(WORKER_LOCK_KEY)
+        ttl_raw = client.ttl(WORKER_LOCK_KEY)
+    except Exception:
+        return {"has_lock": False, "owner": None, "ttl_seconds": None}
+    ttl_seconds: int | None
+    if ttl_raw is None or int(ttl_raw) < 0:
+        ttl_seconds = None
+    else:
+        ttl_seconds = int(ttl_raw)
+    return {
+        "has_lock": bool(owner),
+        "owner": owner,
+        "ttl_seconds": ttl_seconds,
+    }
+
+
+def reset_worker_lock(settings: Settings, force: bool = False) -> dict[str, object]:
+    client = _get_client(settings)
+    if not client:
+        return {"had_lock": False, "reset": False, "reason": "redis_unavailable"}
+    try:
+        had_lock = bool(client.exists(WORKER_LOCK_KEY))
+        if not force:
+            raw_heartbeat = client.get(WORKER_HEARTBEAT_KEY)
+            if raw_heartbeat:
+                try:
+                    heartbeat_at = int(raw_heartbeat)
+                    age = max(0, int(time.time()) - heartbeat_at)
+                    if age <= WORKER_HEARTBEAT_TTL:
+                        return {
+                            "had_lock": had_lock,
+                            "reset": False,
+                            "reason": "worker_active",
+                        }
+                except Exception:
+                    pass
+        deleted = int(client.delete(WORKER_LOCK_KEY))
+        return {
+            "had_lock": had_lock,
+            "reset": deleted > 0,
+            "reason": "ok" if deleted > 0 else "not_found",
+        }
+    except Exception:
+        return {"had_lock": False, "reset": False, "reason": "error"}
+
+
 def worker_status(settings: Settings) -> tuple[bool, str]:
     client = _get_client(settings)
     if not client:

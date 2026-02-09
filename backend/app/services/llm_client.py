@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Iterable
+from typing import Literal
 
 import httpx
 from openai import OpenAI
@@ -21,8 +22,22 @@ def base_url(settings: Settings) -> str:
     return _require(settings.llm_base_url, "LLM_BASE_URL")
 
 
-def sdk_base_url(settings: Settings) -> str:
-    return f"{base_url(settings)}/v1"
+def base_url_for_purpose(
+    settings: Settings,
+    purpose: Literal["text", "vision", "embedding"] = "text",
+) -> str:
+    if purpose == "vision":
+        return _require(settings.ocr_vision_base_url or settings.llm_base_url, "LLM_BASE_URL")
+    if purpose == "embedding":
+        return _require(settings.llm_base_url, "LLM_BASE_URL")
+    return _require(settings.ocr_chat_base_url or settings.llm_base_url, "LLM_BASE_URL")
+
+
+def sdk_base_url(
+    settings: Settings,
+    purpose: Literal["text", "vision", "embedding"] = "text",
+) -> str:
+    return f"{base_url_for_purpose(settings, purpose=purpose)}/v1"
 
 
 def client(settings: Settings, timeout: float | None) -> httpx.Client:
@@ -36,9 +51,17 @@ def headers(settings: Settings) -> dict[str, str]:
     return {}
 
 
-def _sdk_client(settings: Settings, timeout: float | None) -> OpenAI:
+def _sdk_client(
+    settings: Settings,
+    timeout: float | None,
+    purpose: Literal["text", "vision", "embedding"] = "text",
+) -> OpenAI:
     api_key = settings.llm_api_key or "no-key"
-    return OpenAI(base_url=sdk_base_url(settings), api_key=api_key, timeout=timeout)
+    return OpenAI(
+        base_url=sdk_base_url(settings, purpose=purpose),
+        api_key=api_key,
+        timeout=timeout,
+    )
 
 
 def chat_completion(
@@ -47,8 +70,9 @@ def chat_completion(
     model: str,
     messages: list[dict[str, object]],
     timeout: float | None,
+    purpose: Literal["text", "vision"] = "text",
 ) -> str:
-    client_sdk = _sdk_client(settings, timeout=timeout)
+    client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
     response = client_sdk.chat.completions.create(
         model=model,
         messages=messages,
@@ -70,8 +94,9 @@ def stream_chat_completion(
     model: str,
     messages: list[dict[str, object]],
     timeout: float | None,
+    purpose: Literal["text", "vision"] = "text",
 ) -> Iterable[str]:
-    client_sdk = _sdk_client(settings, timeout=timeout)
+    client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
     stream = client_sdk.chat.completions.create(
         model=model,
         messages=messages,
@@ -94,7 +119,7 @@ def embedding(
     text: str,
     timeout: float | None,
 ) -> list[float]:
-    client_sdk = _sdk_client(settings, timeout=timeout)
+    client_sdk = _sdk_client(settings, timeout=timeout, purpose="embedding")
     response = client_sdk.embeddings.create(model=model, input=text)
     data = response.data or []
     if not data:

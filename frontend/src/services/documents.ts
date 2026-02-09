@@ -87,6 +87,17 @@ export type DocumentStats = DocumentStatsResponse
 export type DocumentDashboard = DocumentDashboardResponse
 export type PageText = PageTextOut
 export type ProcessMissingParams = ProcessMissingDocumentsProcessMissingPostParams
+export type VisionProgress = {
+  expected_pages?: number | null
+  done_pages: number
+  missing_pages?: number | null
+  max_page?: number | null
+  is_complete: boolean
+  coverage_percent?: number | null
+}
+export type PageTextsWithProgress = PageTextsResponse & {
+  vision_progress?: VisionProgress | null
+}
 
 export const listDocuments = (params: ListDocumentsDocumentsGetParams) =>
   unwrap<DocumentsPageResponse>(listDocumentsDocumentsGet(params))
@@ -123,7 +134,7 @@ export const getDocumentType = (id: number) =>
   unwrap<DocumentType>(getDocumentTypeDocumentTypesDocTypeIdGet(id))
 
 export const getPageTexts = (id: number, priority = false) =>
-  unwrap<PageTextsResponse>(
+  unwrap<PageTextsWithProgress>(
     getDocumentPageTextsDocumentsDocIdPageTextsGet(id, {
       priority,
     } as GetDocumentPageTextsDocumentsDocIdPageTextsGetParams),
