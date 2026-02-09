@@ -3,6 +3,7 @@ import {
   type DocumentDetail,
   type DocumentType,
   type PageText,
+  type VisionProgress,
   type Tag,
   type Correspondent,
   applyFieldSuggestion,
@@ -63,6 +64,7 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
     correspondents: [] as Correspondent[],
     docTypes: [] as DocumentType[],
     pageTexts: [] as PageText[],
+    pageTextsVisionProgress: null as VisionProgress | null,
     pageTextsLoading: false,
     pageTextsError: '',
     contentQuality: null as TextQualityMetrics | null,
@@ -89,6 +91,7 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
           this.document = data
         }
         this.pageTexts = []
+        this.pageTextsVisionProgress = null
         this.pageTextsError = ''
         this.contentQuality = null
         this.contentQualityError = ''
@@ -128,8 +131,10 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       try {
         const data = await getPageTexts(id, priority)
         this.pageTexts = data.pages ?? []
+        this.pageTextsVisionProgress = data.vision_progress ?? null
       } catch (err: unknown) {
         this.pageTextsError = errorMessage(err, 'Failed to load page texts')
+        this.pageTextsVisionProgress = null
       } finally {
         this.pageTextsLoading = false
       }

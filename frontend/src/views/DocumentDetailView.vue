@@ -124,6 +124,7 @@
       <DocumentPagesSection
         v-if="activeTab === 'pages'"
         :page-texts="pageTexts"
+        :vision-progress="pageTextsVisionProgress"
         :page-texts-error="pageTextsError"
         :aggregated-text="aggregatedText"
         :pdf-page="pdfPage"
@@ -173,6 +174,7 @@ const {
   correspondents,
   docTypes,
   pageTexts,
+  pageTextsVisionProgress,
   pageTextsError,
   contentQuality,
   contentQualityError,

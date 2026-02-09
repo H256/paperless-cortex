@@ -775,7 +775,12 @@ const processingEtaText = computed(() => {
 })
 
 const load = async () => {
-  await documentsStore.load()
+  try {
+    await documentsStore.load()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load documents'
+    toastStore.push(message, 'danger', 'Error')
+  }
 }
 
 const openPreview = async () => {

@@ -4,9 +4,11 @@
   >
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-        Extracted page texts (debug)
+        Extracted page texts
       </h3>
-      <span class="text-xs text-slate-500 dark:text-slate-400">Page-wise OCR</span>
+      <span class="text-xs text-slate-500 dark:text-slate-400">
+        {{ visionStatusText }}
+      </span>
     </div>
     <div class="mt-4">
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -84,11 +86,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { PageText } from '../services/documents'
+import { computed, ref } from 'vue'
+import type { PageText, VisionProgress } from '../services/documents'
 
 const props = defineProps<{
   pageTexts: PageText[]
+  visionProgress: VisionProgress | null
   pageTextsError: string
   aggregatedText: string
   pdfPage: number
@@ -110,4 +113,20 @@ const togglePage = (page: PageText) => {
     expandedPages.value.add(key)
   }
 }
+
+const visionStatusText = computed(() => {
+  const progress = props.visionProgress
+  if (!progress) return 'Vision OCR progress unavailable'
+  const done = progress.done_pages ?? 0
+  const expected = progress.expected_pages
+  const missing = progress.missing_pages
+  const coverage = progress.coverage_percent
+  if (!expected || expected <= 0) {
+    return done > 0 ? `Vision OCR pages: ${done}` : 'Vision OCR not started'
+  }
+  const status = progress.is_complete ? 'complete' : 'incomplete'
+  const missingLabel = typeof missing === 'number' ? `, missing ${missing}` : ''
+  const coverageLabel = typeof coverage === 'number' ? ` (${coverage.toFixed(1)}%)` : ''
+  return `Vision OCR ${status}: ${done}/${expected}${missingLabel}${coverageLabel}`
+})
 </script>

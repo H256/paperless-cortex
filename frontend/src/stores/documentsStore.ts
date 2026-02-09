@@ -152,9 +152,17 @@ export const useDocumentsStore = defineStore('documents', {
       }
     },
     async fetchMeta() {
-      const [tagsResp, corrResp] = await Promise.all([getTags(), getCorrespondents()])
-      this.tags = tagsResp.results ?? []
-      this.correspondents = corrResp.results ?? []
+      const [tagsResp, corrResp] = await Promise.allSettled([getTags(), getCorrespondents()])
+      if (tagsResp.status === 'fulfilled') {
+        this.tags = tagsResp.value.results ?? []
+      } else {
+        this.tags = []
+      }
+      if (corrResp.status === 'fulfilled') {
+        this.correspondents = corrResp.value.results ?? []
+      } else {
+        this.correspondents = []
+      }
     },
     async sync() {
       this.syncing = true

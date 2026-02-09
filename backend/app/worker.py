@@ -46,12 +46,14 @@ from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services import vision_ocr
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
 import json
 
 logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
+VISION_OCR_BATCH_DEFAULT = 25
 
 
 def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
@@ -139,7 +141,14 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
     )
     if vision_pages:
         ensure_document_ocr_score(settings, db, doc, "vision_ocr")
-    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages)
+    _embed_with_pages(
+        settings,
+        db,
+        doc,
+        baseline_pages,
+        vision_pages,
+        "vision" if vision_pages else "paperless",
+    )
 
     # Suggestions
     tags = get_cached_tags(settings)
@@ -183,25 +192,111 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return
-    if not force:
-        existing = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-            .first()
-        )
-        if existing:
+    if not settings.enable_vision_ocr:
+        logger.info("Vision OCR disabled; skipping doc=%s", doc_id)
+        return
+    if not settings.vision_model:
+        logger.warning("VISION_MODEL not set; skipping vision OCR doc=%s", doc_id)
+        return
+
+    existing_pages = {
+        int(row.page)
+        for row in db.query(DocumentPageText.page)
+        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+        .all()
+    }
+    expected_pages = int(doc.page_count or 0)
+    if expected_pages > 0:
+        if force:
+            target_pages = list(range(1, expected_pages + 1))
+        else:
+            target_pages = [page for page in range(1, expected_pages + 1) if page not in existing_pages]
+            if not target_pages:
+                ensure_document_ocr_score(settings, db, doc, "vision_ocr")
+                logger.info("Vision OCR skipped (already complete) doc=%s pages=%s", doc_id, expected_pages)
+                return
+    else:
+        if not force and existing_pages:
             ensure_document_ocr_score(settings, db, doc, "vision_ocr")
-            logger.info("Vision OCR skipped (cached) doc=%s", doc_id)
+            logger.info("Vision OCR skipped (cached; unknown page_count) doc=%s", doc_id)
             return
-    _, vision_pages, _ = collect_page_texts(
-        settings,
-        db,
-        doc,
-        force_vision=True,
+        target_pages = None
+
+    pdf_bytes = fetch_pdf_bytes_for_doc(settings, doc)
+    try:
+        configured_batch_size = max(1, int(os.getenv("VISION_OCR_BATCH_PAGES", str(VISION_OCR_BATCH_DEFAULT))))
+    except ValueError:
+        configured_batch_size = VISION_OCR_BATCH_DEFAULT
+    if settings.vision_ocr_max_pages > 0:
+        batch_size = min(configured_batch_size, settings.vision_ocr_max_pages)
+    else:
+        batch_size = configured_batch_size
+
+    total_pages = len(target_pages) if target_pages is not None else int(doc.page_count or 0)
+    logger.info(
+        "Vision OCR start doc=%s expected_pages=%s existing_pages=%s remaining=%s batch_size=%s force=%s",
+        doc_id,
+        doc.page_count,
+        len(existing_pages),
+        total_pages if total_pages > 0 else "unknown",
+        batch_size,
+        force,
     )
-    if vision_pages:
+
+    processed_any = False
+    if target_pages is None:
+        generated = vision_ocr.ocr_pdf_pages(
+            settings,
+            pdf_bytes,
+            page_numbers=None,
+        )
+        if generated:
+            upsert_page_texts(
+                db,
+                settings,
+                doc_id,
+                generated,
+                source_filter="vision_ocr",
+                replace_pages=[page.page for page in generated],
+            )
+            processed_any = True
+    else:
+        processed = 0
+        for start in range(0, len(target_pages), batch_size):
+            if is_cancel_requested(settings):
+                logger.info(
+                    "Worker cancel requested; stop vision OCR doc=%s processed=%s/%s",
+                    doc_id,
+                    processed,
+                    len(target_pages),
+                )
+                break
+            batch_pages = target_pages[start : start + batch_size]
+            generated = vision_ocr.ocr_pdf_pages(
+                settings,
+                pdf_bytes,
+                page_numbers=batch_pages,
+            )
+            if generated:
+                upsert_page_texts(
+                    db,
+                    settings,
+                    doc_id,
+                    generated,
+                    source_filter="vision_ocr",
+                    replace_pages=[page.page for page in generated],
+                )
+                processed_any = True
+            processed += len(batch_pages)
+            logger.info(
+                "Vision OCR progress doc=%s processed=%s/%s",
+                doc_id,
+                processed,
+                len(target_pages),
+            )
+
+    if processed_any:
         ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=force)
-    db.commit()
 
 def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):

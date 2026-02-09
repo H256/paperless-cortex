@@ -18,6 +18,8 @@ from app.services.queue import (
     move_queue_item_to_top,
     move_queue_item_to_bottom,
     remove_queue_item,
+    worker_lock_status,
+    reset_worker_lock,
 )
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
@@ -29,6 +31,8 @@ from app.api_models import (
     QueuePauseResponse,
     QueueMoveResponse,
     QueueRemoveResponse,
+    QueueWorkerLockStatusResponse,
+    QueueWorkerLockResetResponse,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -145,3 +149,18 @@ def remove(payload: QueueRemoveRequest, settings: Settings = Depends(get_setting
         return queue_disabled_response(removed=False)
     removed = remove_queue_item(settings, payload.index)
     return {"enabled": True, "removed": removed}
+
+
+@router.get("/worker-lock", response_model=QueueWorkerLockStatusResponse)
+def get_worker_lock(settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return queue_disabled_response(has_lock=False, owner=None, ttl_seconds=None)
+    return {"enabled": True, **worker_lock_status(settings)}
+
+
+@router.post("/worker-lock/reset", response_model=QueueWorkerLockResetResponse)
+def reset_worker_lock_route(force: bool = False, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return queue_disabled_response(reset=False, had_lock=False, reason="queue_disabled")
+    result = reset_worker_lock(settings, force=force)
+    return {"enabled": True, **result}

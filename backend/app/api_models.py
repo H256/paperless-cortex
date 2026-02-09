@@ -77,6 +77,20 @@ class QueueRemoveResponse(BaseModel):
     removed: bool
 
 
+class QueueWorkerLockStatusResponse(BaseModel):
+    enabled: bool
+    has_lock: bool
+    owner: Optional[str] = None
+    ttl_seconds: Optional[int] = None
+
+
+class QueueWorkerLockResetResponse(BaseModel):
+    enabled: bool
+    reset: bool
+    had_lock: bool
+    reason: Optional[str] = None
+
+
 class ConnectionStatus(BaseModel):
     service: str
     status: str
@@ -294,6 +308,7 @@ class PageTextOut(BaseModel):
 class PageTextsResponse(BaseModel):
     doc_id: int
     pages: list[PageTextOut] = []
+    vision_progress: Optional[dict[str, Any]] = None
 
 
 class EmbeddingIngestResponse(BaseModel):

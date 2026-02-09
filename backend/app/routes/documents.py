@@ -492,10 +492,37 @@ def get_document_page_texts(
             }
         )
     pages.sort(key=lambda p: (p.get("page") or 0, str(p.get("source") or "")))
+    expected_pages_raw = raw.get("page_count")
+    expected_pages = int(expected_pages_raw) if isinstance(expected_pages_raw, int) and expected_pages_raw > 0 else None
+    vision_page_numbers = {
+        int(page.page)
+        for page in vision_pages
+        if getattr(page, "page", None) is not None and int(page.page) > 0
+    }
+    if expected_pages is not None:
+        bounded_done = {page for page in vision_page_numbers if 1 <= page <= expected_pages}
+        done_pages = len(bounded_done)
+        missing_pages = max(0, expected_pages - done_pages)
+        is_complete = done_pages >= expected_pages
+        coverage_percent = round((done_pages / expected_pages) * 100.0, 2) if expected_pages > 0 else None
+    else:
+        done_pages = len(vision_page_numbers)
+        missing_pages = None
+        is_complete = False
+        coverage_percent = None
+    max_page = max(vision_page_numbers) if vision_page_numbers else None
     logger.info("Page texts doc=%s pages=%s", doc_id, len(pages))
     return {
         "doc_id": doc_id,
         "pages": pages,
+        "vision_progress": {
+            "expected_pages": expected_pages,
+            "done_pages": done_pages,
+            "missing_pages": missing_pages,
+            "max_page": max_page,
+            "is_complete": is_complete,
+            "coverage_percent": coverage_percent,
+        },
     }
 
 
