@@ -38,6 +38,11 @@ export type QueueWorkerLockReset = {
   had_lock: boolean
   reason?: string | null
 }
+export type QueueRunningStatus = {
+  enabled: boolean
+  task?: QueuePeekItem | null
+  started_at?: number | null
+}
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -63,6 +68,9 @@ export const moveQueueItemTop = (payload: QueueMoveEdgeRequest) =>
 
 export const moveQueueItemBottom = (payload: QueueMoveEdgeRequest) =>
   unwrap<QueueMoveResponse>(moveBottomQueueMoveBottomPost(payload))
+
+export const fetchQueueRunning = () =>
+  request<QueueRunningStatus>('/queue/running')
 
 export const fetchWorkerLockStatus = () =>
   request<QueueWorkerLockStatus>('/queue/worker-lock')

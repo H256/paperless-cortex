@@ -128,6 +128,38 @@
     </section>
 
     <section
+      class="mt-6 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 shadow-sm dark:border-indigo-900/40 dark:bg-indigo-950/20"
+    >
+      <div class="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+        Running now
+      </div>
+      <div
+        v-if="queueStore.running.task?.doc_id"
+        class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100"
+      >
+        {{ itemTitle(queueStore.running.task) }}
+      </div>
+      <div
+        v-if="queueStore.running.task?.doc_id"
+        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+      >
+        {{ itemDescription(queueStore.running.task) }}
+      </div>
+      <div
+        v-if="queueStore.running.started_at"
+        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+      >
+        Started: {{ formatStartedAt(queueStore.running.started_at) }} ({{ formatRuntime(queueStore.running.started_at) }})
+      </div>
+      <div
+        v-else
+        class="mt-2 text-sm text-slate-500 dark:text-slate-400"
+      >
+        No task currently running.
+      </div>
+    </section>
+
+    <section
       class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -315,6 +347,7 @@ const itemDescription = (item: { doc_id?: number; task?: string; raw?: string })
 }
 
 const refresh = async () => {
+  await queueStore.refreshStatus()
   await queueStore.loadPeek()
 }
 
@@ -354,9 +387,22 @@ const removeItem = async (index: number) => {
   await queueStore.remove(index)
 }
 
+const formatStartedAt = (unixTs: number) => new Date(unixTs * 1000).toLocaleString()
+
+const formatRuntime = (unixTs: number) => {
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000) - unixTs)
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  if (mins <= 0) return `${secs}s`
+  if (mins < 60) return `${mins}m ${secs}s`
+  const hours = Math.floor(mins / 60)
+  const remMins = mins % 60
+  return `${hours}h ${remMins}m`
+}
+
 onMounted(async () => {
   await refresh()
-  poller = window.setInterval(loadPeek, 30000)
+  poller = window.setInterval(refresh, 30000)
 })
 
 let poller: number | null = null

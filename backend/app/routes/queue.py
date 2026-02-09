@@ -20,6 +20,7 @@ from app.services.queue import (
     remove_queue_item,
     worker_lock_status,
     reset_worker_lock,
+    get_running_task,
 )
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
@@ -33,6 +34,7 @@ from app.api_models import (
     QueueRemoveResponse,
     QueueWorkerLockStatusResponse,
     QueueWorkerLockResetResponse,
+    QueueRunningResponse,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -156,6 +158,13 @@ def get_worker_lock(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
         return queue_disabled_response(has_lock=False, owner=None, ttl_seconds=None)
     return {"enabled": True, **worker_lock_status(settings)}
+
+
+@router.get("/running", response_model=QueueRunningResponse)
+def get_running(settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return queue_disabled_response(task=None, started_at=None)
+    return {"enabled": True, **get_running_task(settings)}
 
 
 @router.post("/worker-lock/reset", response_model=QueueWorkerLockResetResponse)

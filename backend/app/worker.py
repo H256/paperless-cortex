@@ -38,6 +38,8 @@ from app.services.queue import (
     reset_stats,
     clear_queue,
     is_paused,
+    set_running_task,
+    clear_running_task,
 )
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
@@ -467,6 +469,7 @@ def main() -> None:
     while not acquire_worker_lock(settings, worker_token):
         logger.warning("Worker lock unavailable or Redis not ready; retrying in 5s")
         time.sleep(5)
+    clear_running_task(settings)
     logger.info("Worker started queue=%s", QUEUE_KEY)
     stop_event = threading.Event()
     lock_lost = threading.Event()
@@ -536,6 +539,8 @@ def main() -> None:
                 clear_cancel(settings)
                 time.sleep(0.5)
                 continue
+            running_task = task if isinstance(task, dict) else {"doc_id": doc_id, "task": "full"}
+            set_running_task(settings, running_task)
             mark_in_progress(settings)
             run_started = time.time()
             try:
@@ -544,6 +549,7 @@ def main() -> None:
             except Exception as exc:
                 logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
             finally:
+                clear_running_task(settings)
                 mark_done(settings)
                 record_last_run(settings, time.time() - run_started)
                 if client:

@@ -29,6 +29,7 @@ WORKER_HEARTBEAT_KEY = "paperless_intelligence:worker_heartbeat"
 WORKER_HEARTBEAT_TTL = 30
 WORKER_LOCK_KEY = "paperless_intelligence:worker_lock"
 WORKER_LOCK_TTL = 300
+RUNNING_TASK_KEY = "paperless_intelligence:queue_running_task"
 CANCEL_KEY = "paperless_intelligence:queue_cancel"
 CANCEL_TTL = 300
 PAUSE_KEY = "paperless_intelligence:queue_paused"
@@ -474,6 +475,58 @@ def worker_lock_status(settings: Settings) -> dict[str, object]:
         "owner": owner,
         "ttl_seconds": ttl_seconds,
     }
+
+
+def set_running_task(settings: Settings, task: dict) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    try:
+        payload = {
+            "task": task,
+            "started_at": int(time.time()),
+        }
+        client.set(RUNNING_TASK_KEY, __import__("json").dumps(payload))
+    except Exception:
+        return
+
+
+def clear_running_task(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    try:
+        client.delete(RUNNING_TASK_KEY)
+    except Exception:
+        return
+
+
+def get_running_task(settings: Settings) -> dict[str, object]:
+    client = _get_client(settings)
+    if not client:
+        return {"task": None, "started_at": None}
+    try:
+        raw = client.get(RUNNING_TASK_KEY)
+    except Exception:
+        return {"task": None, "started_at": None}
+    if not raw:
+        return {"task": None, "started_at": None}
+    try:
+        payload = __import__("json").loads(raw)
+    except Exception:
+        return {"task": None, "started_at": None}
+    if not isinstance(payload, dict):
+        return {"task": None, "started_at": None}
+    task = payload.get("task")
+    started_at = payload.get("started_at")
+    if not isinstance(task, dict):
+        task = None
+    if started_at is not None:
+        try:
+            started_at = int(started_at)
+        except Exception:
+            started_at = None
+    return {"task": task, "started_at": started_at}
 
 
 def reset_worker_lock(settings: Settings, force: bool = False) -> dict[str, object]:

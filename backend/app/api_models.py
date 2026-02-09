@@ -91,6 +91,12 @@ class QueueWorkerLockResetResponse(BaseModel):
     reason: Optional[str] = None
 
 
+class QueueRunningResponse(BaseModel):
+    enabled: bool
+    task: Optional[QueuePeekItem] = None
+    started_at: Optional[int] = None
+
+
 class ConnectionStatus(BaseModel):
     service: str
     status: str

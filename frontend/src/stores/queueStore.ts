@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
 import {
   type QueuePeekItem,
+  type QueueRunningStatus,
   type QueueStatus,
   clearQueue,
   fetchQueuePeek,
+  fetchQueueRunning,
   fetchQueueStatus,
   resetQueueStats,
   pauseQueue,
@@ -17,6 +19,7 @@ import {
 export const useQueueStore = defineStore('queue', {
   state: () => ({
     status: { enabled: false, length: null } as QueueStatus,
+    running: { enabled: false, task: null, started_at: null } as QueueRunningStatus,
     peekItems: [] as QueuePeekItem[],
     peekLimit: 20,
     error: '',
@@ -30,9 +33,12 @@ export const useQueueStore = defineStore('queue', {
     async refreshStatus() {
       try {
         this.loading = true
-        this.status = await fetchQueueStatus()
+        const [status, running] = await Promise.all([fetchQueueStatus(), fetchQueueRunning()])
+        this.status = status
+        this.running = running
       } catch {
         this.status = { enabled: false, length: null }
+        this.running = { enabled: false, task: null, started_at: null }
       } finally {
         this.loading = false
       }
