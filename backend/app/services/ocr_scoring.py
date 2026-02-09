@@ -115,7 +115,8 @@ def _final_verdict(settings: Settings, score: float) -> str:
 def try_prompt_logprob_ppl(settings: Settings, text: str, model: str | None) -> dict[str, Any]:
     if not settings.ocr_score_enable_logprob_ppl:
         return {"supported": False, "reason": "disabled"}
-    if not settings.ocr_chat_base_url:
+    chat_base_url = settings.ocr_chat_base_url or settings.llm_base_url
+    if not chat_base_url:
         return {"supported": False, "reason": "missing chat base url"}
     if not text or len(text) < 50:
         return {"supported": False, "reason": "text too short"}
@@ -131,7 +132,7 @@ def try_prompt_logprob_ppl(settings: Settings, text: str, model: str | None) -> 
     started = time.time()
     model_name = model or "default"
 
-    chat_base = settings.ocr_chat_base_url.rstrip("/")
+    chat_base = chat_base_url.rstrip("/")
     for chunk in chunks:
         payload: dict[str, Any] = {
             "model": model_name,

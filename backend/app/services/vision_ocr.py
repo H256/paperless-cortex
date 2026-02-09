@@ -184,6 +184,7 @@ def _vision_generate(
         model=model,
         messages=[{"role": "user", "content": content}],
         timeout=settings.vision_ocr_timeout_seconds,
+        purpose="vision",
     )
     if __import__("os").getenv("LLM_DEBUG") == "1":
         sample = text[:300]
