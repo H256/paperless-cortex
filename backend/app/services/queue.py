@@ -80,10 +80,18 @@ def _enqueue_task(settings: Settings, task: dict, *, front: bool) -> int:
     if is_new:
         client.incr(STATS_TOTAL)
     if front:
-        client.lrem(QUEUE_KEY, 0, payload)
-        client.lpush(QUEUE_KEY, payload)
-        logger.info("Prioritized task=%s", key)
-        return 1
+        if is_new:
+            client.lpush(QUEUE_KEY, payload)
+            logger.info("Prioritized new task=%s", key)
+            return 1
+        removed = int(client.lrem(QUEUE_KEY, 0, payload) or 0)
+        if removed > 0:
+            client.lpush(QUEUE_KEY, payload)
+            logger.info("Reprioritized queued task=%s", key)
+            return 1
+        # Task key exists in set but payload not in list -> likely currently running.
+        logger.info("Skip reprioritize running task=%s", key)
+        return 0
     if is_new:
         client.rpush(QUEUE_KEY, payload)
         logger.info("Enqueued task=%s", key)
@@ -128,14 +136,22 @@ def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool, forc
         payloads = [__import__("json").dumps(task) for task in batch]
         if front and force:
             pipe = client.pipeline()
-            for key, payload in zip(keys, payloads):
+            for key in keys:
                 pipe.sadd(QUEUE_SET, key)
-                pipe.lrem(QUEUE_KEY, 0, payload)
-                pipe.lpush(QUEUE_KEY, payload)
-            results = pipe.execute()
-            added_batch = sum(1 for idx in range(0, len(results), 3) if results[idx])
+            sadd_results = pipe.execute()
+            added_batch = sum(1 for result in sadd_results if result)
             if added_batch:
                 client.incrby(STATS_TOTAL, added_batch)
+            for idx, (key, payload) in enumerate(zip(keys, payloads)):
+                is_new = bool(sadd_results[idx])
+                if is_new:
+                    client.lpush(QUEUE_KEY, payload)
+                    continue
+                removed = int(client.lrem(QUEUE_KEY, 0, payload) or 0)
+                if removed > 0:
+                    client.lpush(QUEUE_KEY, payload)
+                else:
+                    logger.info("Skip reprioritize running task=%s", key)
             added += added_batch
             continue
 
