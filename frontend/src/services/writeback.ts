@@ -63,6 +63,13 @@ export type WritebackJobListResponse = {
   items: WritebackJobSummary[]
 }
 
+export type WritebackExecutePendingResponse = {
+  processed: number
+  completed: number
+  failed: number
+  job_ids: number[]
+}
+
 export const getWritebackDryRunPreview = (params: {
   page: number
   page_size: number
@@ -99,3 +106,9 @@ export const executeWritebackJob = (jobId: number, dryRun = true) =>
 
 export const listWritebackHistory = (limit = 100) =>
   request<WritebackJobListResponse>('/writeback/history', { params: { limit } })
+
+export const executePendingWritebackJobs = (dryRun = true, limit = 0) =>
+  request<WritebackExecutePendingResponse>('/writeback/jobs/execute-pending', {
+    method: 'POST',
+    body: { dry_run: dryRun, limit },
+  })

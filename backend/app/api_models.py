@@ -548,6 +548,11 @@ class WritebackJobExecuteRequest(BaseModel):
     dry_run: bool = True
 
 
+class WritebackExecutePendingRequest(BaseModel):
+    dry_run: bool = True
+    limit: int = 0
+
+
 class WritebackJobSummary(BaseModel):
     id: int
     status: str
@@ -572,3 +577,10 @@ class WritebackJobListResponse(BaseModel):
 
 class WritebackHistoryResponse(BaseModel):
     items: list[WritebackJobSummary] = []
+
+
+class WritebackExecutePendingResponse(BaseModel):
+    processed: int
+    completed: int
+    failed: int
+    job_ids: list[int] = []

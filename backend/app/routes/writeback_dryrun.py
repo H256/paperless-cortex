@@ -16,6 +16,8 @@ from app.api_models import (
     WritebackDryRunExecuteResponse,
     WritebackJobCreateRequest,
     WritebackJobDetail,
+    WritebackExecutePendingRequest,
+    WritebackExecutePendingResponse,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
     WritebackJobSummary,
@@ -244,6 +246,32 @@ def _job_summary(job: WritebackJob) -> WritebackJobSummary:
     )
 
 
+def _deserialize_doc_ids(job: WritebackJob) -> list[int]:
+    if not job.doc_ids_json:
+        return []
+    try:
+        return [int(item) for item in json.loads(job.doc_ids_json)]
+    except Exception:
+        return []
+
+
+def _deserialize_calls(job: WritebackJob) -> list[WritebackDryRunCall]:
+    if not job.calls_json:
+        return []
+    try:
+        return [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
+    except Exception:
+        return []
+
+
+def _job_detail(job: WritebackJob) -> WritebackJobDetail:
+    return WritebackJobDetail(
+        **_job_summary(job).model_dump(),
+        doc_ids=_deserialize_doc_ids(job),
+        calls=_deserialize_calls(job),
+    )
+
+
 def _execute_call(settings: Settings, call: WritebackDryRunCall) -> None:
     method = call.method.upper()
     if method == "PATCH":
@@ -267,6 +295,53 @@ def _execute_call(settings: Settings, call: WritebackDryRunCall) -> None:
         paperless.delete_document_note(settings, int(call.doc_id), note_id)
         return
     raise RuntimeError(f"Unsupported writeback method: {method}")
+
+
+def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_run: bool) -> WritebackJob:
+    job.started_at = _now_iso()
+    job.status = "running"
+    job.dry_run = bool(dry_run)
+    try:
+        db.commit()
+    except (OperationalError, ProgrammingError) as exc:
+        db.rollback()
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
+
+    calls = _deserialize_calls(job)
+    execution_error: str | None = None
+    try:
+        for call in calls:
+            logger.info(
+                "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
+                "DRY-RUN" if dry_run else "EXECUTE",
+                call.doc_id,
+                call.method,
+                call.path,
+                call.payload,
+            )
+            if not dry_run:
+                _execute_call(settings, call)
+    except Exception as exc:
+        execution_error = str(exc)
+
+    job.finished_at = _now_iso()
+    if execution_error:
+        job.status = "failed"
+        job.error = execution_error
+    else:
+        job.status = "completed"
+        job.error = None
+    try:
+        db.commit()
+        db.refresh(job)
+    except (OperationalError, ProgrammingError) as exc:
+        db.rollback()
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
+    return job
 
 
 @router.get("/dry-run/preview", response_model=WritebackDryRunPreviewResponse)
@@ -336,9 +411,19 @@ def create_writeback_job(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    doc_ids = [int(doc_id) for doc_id in request.doc_ids if int(doc_id) > 0]
+    doc_ids = sorted({int(doc_id) for doc_id in request.doc_ids if int(doc_id) > 0})
     if not doc_ids:
         raise HTTPException(status_code=400, detail="No valid doc_ids provided")
+    doc_ids_json = json.dumps(doc_ids)
+
+    existing = (
+        db.query(WritebackJob)
+        .filter(WritebackJob.status.in_(["pending", "running"]), WritebackJob.doc_ids_json == doc_ids_json)
+        .order_by(WritebackJob.id.desc())
+        .first()
+    )
+    if existing:
+        return _job_detail(existing)
 
     preview_items = _preview_for_doc_ids(settings, db, doc_ids)
     calls: list[WritebackDryRunCall] = []
@@ -355,7 +440,7 @@ def create_writeback_job(
         docs_selected=len(doc_ids),
         docs_changed=docs_changed,
         calls_count=len(calls),
-        doc_ids_json=json.dumps(doc_ids),
+        doc_ids_json=doc_ids_json,
         calls_json=json.dumps([call.model_dump() for call in calls]),
         created_at=_now_iso(),
     )
@@ -368,11 +453,7 @@ def create_writeback_job(
         if _missing_writeback_jobs_table(exc):
             _raise_missing_table_message()
         raise
-    return WritebackJobDetail(
-        **_job_summary(job).model_dump(),
-        doc_ids=doc_ids,
-        calls=calls,
-    )
+    return _job_detail(job)
 
 
 @router.get("/jobs", response_model=WritebackJobListResponse)
@@ -401,23 +482,7 @@ def get_writeback_job(job_id: int, db: Session = Depends(get_db)):
         raise
     if not job:
         raise HTTPException(status_code=404, detail="Writeback job not found")
-    doc_ids = []
-    calls: list[WritebackDryRunCall] = []
-    if job.doc_ids_json:
-        try:
-            doc_ids = [int(item) for item in json.loads(job.doc_ids_json)]
-        except Exception:
-            doc_ids = []
-    if job.calls_json:
-        try:
-            calls = [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
-        except Exception:
-            calls = []
-    return WritebackJobDetail(
-        **_job_summary(job).model_dump(),
-        doc_ids=doc_ids,
-        calls=calls,
-    )
+    return _job_detail(job)
 
 
 @router.post("/jobs/{job_id}/execute", response_model=WritebackJobDetail)
@@ -442,67 +507,8 @@ def execute_writeback_job(
             detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
         )
 
-    job.started_at = _now_iso()
-    job.status = "running"
-    job.dry_run = bool(request.dry_run)
-    try:
-        db.commit()
-    except (OperationalError, ProgrammingError) as exc:
-        db.rollback()
-        if _missing_writeback_jobs_table(exc):
-            _raise_missing_table_message()
-        raise
-
-    calls: list[WritebackDryRunCall] = []
-    if job.calls_json:
-        try:
-            calls = [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
-        except Exception:
-            calls = []
-
-    execution_error: str | None = None
-    try:
-        for call in calls:
-            logger.info(
-                "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
-                "DRY-RUN" if request.dry_run else "EXECUTE",
-                call.doc_id,
-                call.method,
-                call.path,
-                call.payload,
-            )
-            if not request.dry_run:
-                _execute_call(settings, call)
-    except Exception as exc:
-        execution_error = str(exc)
-
-    job.finished_at = _now_iso()
-    if execution_error:
-        job.status = "failed"
-        job.error = execution_error
-    else:
-        job.status = "completed"
-        job.error = None
-    try:
-        db.commit()
-        db.refresh(job)
-    except (OperationalError, ProgrammingError) as exc:
-        db.rollback()
-        if _missing_writeback_jobs_table(exc):
-            _raise_missing_table_message()
-        raise
-
-    doc_ids = []
-    if job.doc_ids_json:
-        try:
-            doc_ids = [int(item) for item in json.loads(job.doc_ids_json)]
-        except Exception:
-            doc_ids = []
-    return WritebackJobDetail(
-        **_job_summary(job).model_dump(),
-        doc_ids=doc_ids,
-        calls=calls,
-    )
+    job = _run_job_execution(settings, db, job, request.dry_run)
+    return _job_detail(job)
 
 
 @router.get("/history", response_model=WritebackHistoryResponse)
@@ -520,3 +526,40 @@ def writeback_history(db: Session = Depends(get_db), limit: int = 100):
             _raise_missing_table_message()
         raise
     return WritebackHistoryResponse(items=[_job_summary(row) for row in rows])
+
+
+@router.post("/jobs/execute-pending", response_model=WritebackExecutePendingResponse)
+def execute_pending_writeback_jobs(
+    request: WritebackExecutePendingRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    if not request.dry_run and not settings.writeback_execute_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
+        )
+
+    limit = max(0, int(request.limit or 0))
+    query = db.query(WritebackJob).filter(WritebackJob.status == "pending").order_by(WritebackJob.id.asc())
+    if limit > 0:
+        query = query.limit(limit)
+    pending_jobs = query.all()
+
+    completed = 0
+    failed = 0
+    processed_ids: list[int] = []
+    for job in pending_jobs:
+        processed_ids.append(int(job.id))
+        result = _run_job_execution(settings, db, job, request.dry_run)
+        if result.status == "completed":
+            completed += 1
+        else:
+            failed += 1
+
+    return WritebackExecutePendingResponse(
+        processed=len(processed_ids),
+        completed=completed,
+        failed=failed,
+        job_ids=processed_ids,
+    )

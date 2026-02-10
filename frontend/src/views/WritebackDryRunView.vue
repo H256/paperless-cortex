@@ -139,13 +139,23 @@
             Execute mode: {{ executeDryRunMode ? 'Dry-run' : 'Real writeback' }}
           </label>
         </div>
-        <button
-          class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-          :disabled="jobsLoading"
-          @click="loadJobs"
-        >
-          {{ jobsLoading ? 'Loading...' : 'Reload jobs' }}
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="rounded-lg px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+            :class="executeDryRunMode ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'"
+            :disabled="executeAllLoading || pendingCount === 0"
+            @click="runOrConfirmExecuteAll"
+          >
+            {{ executeAllLoading ? 'Running...' : executeDryRunMode ? 'Run all pending (dry-run)' : 'Run all pending (execute)' }}
+          </button>
+          <button
+            class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            :disabled="jobsLoading"
+            @click="loadJobs"
+          >
+            {{ jobsLoading ? 'Loading...' : 'Reload jobs' }}
+          </button>
+        </div>
       </div>
       <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table class="w-full text-xs">
@@ -230,6 +240,15 @@
       @confirm="confirmExecute"
       @cancel="cancelExecute"
     />
+    <ConfirmDialog
+      :open="confirmExecuteAllOpen"
+      title="Run all pending with real writeback?"
+      message="This executes all pending jobs against Paperless write endpoints."
+      confirm-label="Run all execute"
+      cancel-label="Cancel"
+      @confirm="confirmExecuteAll"
+      @cancel="cancelExecuteAll"
+    />
   </section>
 </template>
 
@@ -240,6 +259,7 @@ import { useToastStore } from '../stores/toastStore'
 import {
   createWritebackJob,
   executeWritebackJob,
+  executePendingWritebackJobs,
   getWritebackDryRunPreview,
   listWritebackHistory,
   listWritebackJobs,
@@ -265,11 +285,14 @@ const historyItems = ref<WritebackJobSummary[]>([])
 const jobsLoading = ref(false)
 const historyLoading = ref(false)
 const executeLoading = ref(false)
+const executeAllLoading = ref(false)
 const executeDryRunMode = ref(true)
 const confirmExecuteOpen = ref(false)
 const pendingExecuteJobId = ref<number | null>(null)
+const confirmExecuteAllOpen = ref(false)
 
 const selectedIds = computed(() => Array.from(selectedSet.value))
+const pendingCount = computed(() => jobs.value.filter((job) => job.status === 'pending').length)
 
 const rowsFor = (item: WritebackDryRunItem) => [
   item.title,
@@ -451,6 +474,42 @@ const confirmExecute = async () => {
 const cancelExecute = () => {
   confirmExecuteOpen.value = false
   pendingExecuteJobId.value = null
+}
+
+const executeAllPending = async (dryRun: boolean) => {
+  executeAllLoading.value = true
+  try {
+    const result = await executePendingWritebackJobs(dryRun, 0)
+    const tone = result.failed > 0 ? 'warning' : 'success'
+    toastStore.push(
+      `Processed ${result.processed} pending job(s): ${result.completed} completed, ${result.failed} failed.`,
+      tone,
+      'Writeback',
+      3000,
+    )
+    await Promise.all([loadJobs(), loadHistory()])
+  } catch (err: unknown) {
+    toastStore.push(err instanceof Error ? err.message : 'Run all pending failed', 'danger', 'Writeback', 3200)
+  } finally {
+    executeAllLoading.value = false
+  }
+}
+
+const runOrConfirmExecuteAll = () => {
+  if (executeDryRunMode.value) {
+    executeAllPending(true)
+    return
+  }
+  confirmExecuteAllOpen.value = true
+}
+
+const confirmExecuteAll = async () => {
+  confirmExecuteAllOpen.value = false
+  await executeAllPending(false)
+}
+
+const cancelExecuteAll = () => {
+  confirmExecuteAllOpen.value = false
 }
 
 const loadHistory = async () => {

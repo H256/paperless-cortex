@@ -89,3 +89,56 @@ def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
     assert executed["status"] == "completed"
     assert executed["dry_run"] is False
     assert calls["patch"] >= 1
+
+
+def test_writeback_job_create_deduplicates_pending(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(503, "Local title 503")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote title 503",
+            "document_date": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    first = api_client.post("/writeback/jobs", json={"doc_ids": [503]})
+    second = api_client.post("/writeback/jobs", json={"doc_ids": [503]})
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+
+
+def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(504, "Local title 504")
+    _insert_document(505, "Local title 505")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": f"Remote title {doc_id}",
+            "document_date": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    api_client.post("/writeback/jobs", json={"doc_ids": [504]})
+    api_client.post("/writeback/jobs", json={"doc_ids": [505]})
+
+    result = api_client.post("/writeback/jobs/execute-pending", json={"dry_run": True, "limit": 0})
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["processed"] >= 2
+    assert payload["completed"] >= 2
+    assert payload["failed"] == 0
