@@ -116,6 +116,7 @@
             <button
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               :disabled="docOpsLoading"
+              title="Bereinigt gespeicherte Seitentexte (z. B. Zeilenumbrüche/HTML-Rauschen) und aktualisiert die Clean-Felder."
               @click="runDocCleanup"
             >
               Cleanup page texts (this doc)
@@ -127,6 +128,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
+            title="Stößt Vision-OCR für Seiten dieses Dokuments erneut an."
             @click="enqueueDocTask('vision_ocr', true)"
           >
             Queue vision OCR
@@ -134,6 +136,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
+            title="Erstellt Embeddings aus Vision-OCR-Text und schreibt sie nach Qdrant."
             @click="enqueueDocTask('embeddings_vision')"
           >
             Queue embeddings (vision)
@@ -141,6 +144,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
+            title="Erzeugt strukturierte Page Notes aus Vision-OCR pro Seite."
             @click="enqueueDocTask('page_notes_vision')"
           >
             Queue page notes (vision)
@@ -148,6 +152,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
+            title="Aggregiert Page Notes abschnittsweise und erzeugt eine hierarchische Zusammenfassung."
             @click="enqueueDocTask('summary_hierarchical', false, 'vision_ocr')"
           >
             Queue hierarchical summary
@@ -155,6 +160,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
+            title="Erzeugt Suggestion-Felder aus dem Paperless-OCR-Text."
             @click="enqueueDocTask('suggestions_paperless')"
           >
             Queue suggestions (paperless)
@@ -162,6 +168,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
+            title="Erzeugt Suggestion-Felder aus dem Vision-OCR-Text."
             @click="enqueueDocTask('suggestions_vision')"
           >
             Queue suggestions (vision)
@@ -172,7 +179,8 @@
           <button
             class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
             :disabled="docOpsLoading"
-            @click="runResetAndReprocessDoc"
+            title="Löscht lokale Intelligence-Daten dieses Dokuments, synchronisiert neu aus Paperless und enqueued die Verarbeitung."
+            @click="openResetConfirm"
           >
             Reset document + sync + full reprocess
           </button>
@@ -194,6 +202,15 @@
         @update:page="onPdfPageChange"
       />
 
+      <ConfirmDialog
+        :open="resetConfirmOpen"
+        title="Reset document and reprocess?"
+        message="This removes local intelligence data for this document, syncs metadata/content from Paperless, and re-enqueues processing tasks."
+        confirm-label="Reset + Reprocess"
+        @confirm="confirmResetAndReprocessDoc"
+        @cancel="resetConfirmOpen = false"
+      />
+
     </div>
   </section>
 </template>
@@ -208,6 +225,7 @@ import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
@@ -259,6 +277,7 @@ const reloadingAll = ref(false)
 const docOpsLoading = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
+const resetConfirmOpen = ref(false)
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -532,6 +551,15 @@ const runResetAndReprocessDoc = async () => {
   } finally {
     docOpsLoading.value = false
   }
+}
+
+const openResetConfirm = () => {
+  resetConfirmOpen.value = true
+}
+
+const confirmResetAndReprocessDoc = async () => {
+  resetConfirmOpen.value = false
+  await runResetAndReprocessDoc()
 }
 
 
