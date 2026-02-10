@@ -194,6 +194,23 @@ class SuggestionAudit(Base):
     document: Mapped[Document] = relationship()
 
 
+class WritebackJob(Base):
+    __tablename__ = "writeback_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    dry_run: Mapped[bool] = mapped_column(Boolean, default=True)
+    docs_selected: Mapped[int] = mapped_column(Integer, default=0)
+    docs_changed: Mapped[int] = mapped_column(Integer, default=0)
+    calls_count: Mapped[int] = mapped_column(Integer, default=0)
+    doc_ids_json: Mapped[str | None] = mapped_column(Text)
+    calls_json: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+    started_at: Mapped[str | None] = mapped_column(String(64))
+    finished_at: Mapped[str | None] = mapped_column(String(64))
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

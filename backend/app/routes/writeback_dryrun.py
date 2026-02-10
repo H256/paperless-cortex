@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
+import json
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.api_models import (
+    WritebackHistoryResponse,
     WritebackDryRunCall,
     WritebackDryRunExecuteRequest,
     WritebackDryRunExecuteResponse,
+    WritebackJobCreateRequest,
+    WritebackJobDetail,
+    WritebackJobExecuteRequest,
+    WritebackJobListResponse,
+    WritebackJobSummary,
     WritebackDryRunItem,
     WritebackDryRunPreviewResponse,
     WritebackFieldDiff,
@@ -17,12 +25,16 @@ from app.api_models import (
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Correspondent, Document, DocumentNote, Tag
+from app.models import Correspondent, Document, Tag, WritebackJob
 from app.services import paperless
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/writeback", tags=["writeback"])
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _build_item(
@@ -151,6 +163,70 @@ def _preview_for_doc_ids(
     return items
 
 
+def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall]:
+    calls: list[WritebackDryRunCall] = []
+    if not item.changed:
+        return calls
+
+    payload: dict[str, Any] = {}
+    if item.title.changed:
+        payload["title"] = item.title.proposed
+    if item.document_date.changed:
+        payload["document_date"] = item.document_date.proposed
+    if item.correspondent.changed and isinstance(item.correspondent.proposed, dict):
+        payload["correspondent"] = item.correspondent.proposed.get("id")
+    if item.tags.changed and isinstance(item.tags.proposed, dict):
+        payload["tags"] = item.tags.proposed.get("ids") or []
+    if payload:
+        calls.append(
+            WritebackDryRunCall(
+                doc_id=item.doc_id,
+                method="PATCH",
+                path=f"/api/documents/{item.doc_id}/",
+                payload=payload,
+            )
+        )
+
+    if item.note.changed and isinstance(item.note.proposed, dict):
+        proposed_text = str(item.note.proposed.get("text") or "")
+        action = str(item.note.proposed.get("action") or "")
+        original_note = item.note.original if isinstance(item.note.original, dict) else {}
+        original_note_id = original_note.get("id")
+        if action == "replace" and original_note_id:
+            calls.append(
+                WritebackDryRunCall(
+                    doc_id=item.doc_id,
+                    method="DELETE",
+                    path=f"/api/documents/{item.doc_id}/notes/{int(original_note_id)}/",
+                    payload={},
+                )
+            )
+        calls.append(
+            WritebackDryRunCall(
+                doc_id=item.doc_id,
+                method="POST",
+                path=f"/api/documents/{item.doc_id}/notes/",
+                payload={"note": proposed_text},
+            )
+        )
+    return calls
+
+
+def _job_summary(job: WritebackJob) -> WritebackJobSummary:
+    return WritebackJobSummary(
+        id=job.id,
+        status=job.status,
+        dry_run=bool(job.dry_run),
+        docs_selected=int(job.docs_selected or 0),
+        docs_changed=int(job.docs_changed or 0),
+        calls_count=int(job.calls_count or 0),
+        created_at=job.created_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        error=job.error,
+    )
+
+
 @router.get("/dry-run/preview", response_model=WritebackDryRunPreviewResponse)
 def dry_run_preview(
     page: int = 1,
@@ -194,23 +270,9 @@ def dry_run_execute(
         if not item.changed:
             continue
         docs_changed += 1
-        payload: dict[str, Any] = {}
-        if item.title.changed:
-            payload["title"] = item.title.proposed
-        if item.document_date.changed:
-            payload["document_date"] = item.document_date.proposed
-        if item.correspondent.changed and isinstance(item.correspondent.proposed, dict):
-            payload["correspondent"] = item.correspondent.proposed.get("id")
-        if item.tags.changed and isinstance(item.tags.proposed, dict):
-            payload["tags"] = item.tags.proposed.get("ids") or []
-        if payload:
-            call = WritebackDryRunCall(
-                doc_id=item.doc_id,
-                method="PATCH",
-                path=f"/api/documents/{item.doc_id}/",
-                payload=payload,
-            )
-            calls.append(call)
+        item_calls = _build_calls_for_item(item)
+        calls.extend(item_calls)
+        for call in item_calls:
             logger.info(
                 "DRY-RUN writeback doc=%s method=%s path=%s payload=%s",
                 call.doc_id,
@@ -219,42 +281,153 @@ def dry_run_execute(
                 call.payload,
             )
 
-        if item.note.changed and isinstance(item.note.proposed, dict):
-            proposed_text = str(item.note.proposed.get("text") or "")
-            action = str(item.note.proposed.get("action") or "")
-            original_note = item.note.original if isinstance(item.note.original, dict) else {}
-            original_note_id = original_note.get("id")
-            if action == "replace" and original_note_id:
-                delete_call = WritebackDryRunCall(
-                    doc_id=item.doc_id,
-                    method="DELETE",
-                    path=f"/api/documents/{item.doc_id}/notes/{int(original_note_id)}/",
-                    payload={},
-                )
-                calls.append(delete_call)
-                logger.info(
-                    "DRY-RUN writeback doc=%s method=%s path=%s",
-                    delete_call.doc_id,
-                    delete_call.method,
-                    delete_call.path,
-                )
-            add_call = WritebackDryRunCall(
-                doc_id=item.doc_id,
-                method="POST",
-                path=f"/api/documents/{item.doc_id}/notes/",
-                payload={"note": proposed_text},
-            )
-            calls.append(add_call)
-            logger.info(
-                "DRY-RUN writeback doc=%s method=%s path=%s payload=%s",
-                add_call.doc_id,
-                add_call.method,
-                add_call.path,
-                add_call.payload,
-            )
-
     return WritebackDryRunExecuteResponse(
         docs_selected=len(request.doc_ids),
         docs_changed=docs_changed,
         calls=calls,
     )
+
+
+@router.post("/jobs", response_model=WritebackJobDetail)
+def create_writeback_job(
+    request: WritebackJobCreateRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    doc_ids = [int(doc_id) for doc_id in request.doc_ids if int(doc_id) > 0]
+    if not doc_ids:
+        raise HTTPException(status_code=400, detail="No valid doc_ids provided")
+
+    preview_items = _preview_for_doc_ids(settings, db, doc_ids)
+    calls: list[WritebackDryRunCall] = []
+    docs_changed = 0
+    for item in preview_items:
+        if not item.changed:
+            continue
+        docs_changed += 1
+        calls.extend(_build_calls_for_item(item))
+
+    job = WritebackJob(
+        status="pending",
+        dry_run=True,
+        docs_selected=len(doc_ids),
+        docs_changed=docs_changed,
+        calls_count=len(calls),
+        doc_ids_json=json.dumps(doc_ids),
+        calls_json=json.dumps([call.model_dump() for call in calls]),
+        created_at=_now_iso(),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return WritebackJobDetail(
+        **_job_summary(job).model_dump(),
+        doc_ids=doc_ids,
+        calls=calls,
+    )
+
+
+@router.get("/jobs", response_model=WritebackJobListResponse)
+def list_writeback_jobs(db: Session = Depends(get_db), limit: int = 100):
+    rows = (
+        db.query(WritebackJob)
+        .order_by(WritebackJob.id.desc())
+        .limit(max(1, min(limit, 500)))
+        .all()
+    )
+    return WritebackJobListResponse(items=[_job_summary(row) for row in rows])
+
+
+@router.get("/jobs/{job_id}", response_model=WritebackJobDetail)
+def get_writeback_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Writeback job not found")
+    doc_ids = []
+    calls: list[WritebackDryRunCall] = []
+    if job.doc_ids_json:
+        try:
+            doc_ids = [int(item) for item in json.loads(job.doc_ids_json)]
+        except Exception:
+            doc_ids = []
+    if job.calls_json:
+        try:
+            calls = [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
+        except Exception:
+            calls = []
+    return WritebackJobDetail(
+        **_job_summary(job).model_dump(),
+        doc_ids=doc_ids,
+        calls=calls,
+    )
+
+
+@router.post("/jobs/{job_id}/execute", response_model=WritebackJobDetail)
+def execute_writeback_job(
+    job_id: int,
+    request: WritebackJobExecuteRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Writeback job not found")
+
+    if not request.dry_run and not settings.writeback_execute_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
+        )
+
+    job.started_at = _now_iso()
+    job.status = "running"
+    job.dry_run = bool(request.dry_run)
+    db.commit()
+
+    calls: list[WritebackDryRunCall] = []
+    if job.calls_json:
+        try:
+            calls = [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
+        except Exception:
+            calls = []
+
+    # PoC behavior: always log planned calls; real remote execution can be added later.
+    for call in calls:
+        logger.info(
+            "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
+            "DRY-RUN" if request.dry_run else "EXECUTE",
+            call.doc_id,
+            call.method,
+            call.path,
+            call.payload,
+        )
+
+    job.status = "completed"
+    job.finished_at = _now_iso()
+    job.error = None
+    db.commit()
+    db.refresh(job)
+
+    doc_ids = []
+    if job.doc_ids_json:
+        try:
+            doc_ids = [int(item) for item in json.loads(job.doc_ids_json)]
+        except Exception:
+            doc_ids = []
+    return WritebackJobDetail(
+        **_job_summary(job).model_dump(),
+        doc_ids=doc_ids,
+        calls=calls,
+    )
+
+
+@router.get("/history", response_model=WritebackHistoryResponse)
+def writeback_history(db: Session = Depends(get_db), limit: int = 100):
+    rows = (
+        db.query(WritebackJob)
+        .filter(WritebackJob.status.in_(["completed", "failed"]))
+        .order_by(WritebackJob.id.desc())
+        .limit(max(1, min(limit, 500)))
+        .all()
+    )
+    return WritebackHistoryResponse(items=[_job_summary(row) for row in rows])

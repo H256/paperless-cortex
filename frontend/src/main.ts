@@ -23,7 +23,8 @@ const router = createRouter({
     { path: '/queue', component: QueueView },
     { path: '/chat', component: ChatView },
     { path: '/operations', component: MaintenanceView },
-    { path: '/writeback-dry-run', component: WritebackDryRunView },
+    { path: '/writeback', component: WritebackDryRunView },
+    { path: '/writeback-dry-run', redirect: '/writeback' },
   ],
 })
 

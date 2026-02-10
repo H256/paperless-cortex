@@ -142,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
+import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
@@ -177,6 +177,7 @@ const primaryNavItems: NavItem[] = [
 const secondaryNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
   { to: '/search', label: 'Search', icon: Search },
+  { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
   { to: '/operations', label: 'Operations', icon: Wrench },
 ]
 

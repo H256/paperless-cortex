@@ -538,3 +538,37 @@ class WritebackDryRunExecuteResponse(BaseModel):
     docs_selected: int
     docs_changed: int
     calls: list[WritebackDryRunCall] = []
+
+
+class WritebackJobCreateRequest(BaseModel):
+    doc_ids: list[int]
+
+
+class WritebackJobExecuteRequest(BaseModel):
+    dry_run: bool = True
+
+
+class WritebackJobSummary(BaseModel):
+    id: int
+    status: str
+    dry_run: bool
+    docs_selected: int
+    docs_changed: int
+    calls_count: int
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+class WritebackJobDetail(WritebackJobSummary):
+    doc_ids: list[int] = []
+    calls: list[WritebackDryRunCall] = []
+
+
+class WritebackJobListResponse(BaseModel):
+    items: list[WritebackJobSummary] = []
+
+
+class WritebackHistoryResponse(BaseModel):
+    items: list[WritebackJobSummary] = []

@@ -1,162 +1,252 @@
-﻿<template>
+<template>
   <section class="space-y-4">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-          Writeback Dry-Run (PoC)
-        </h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          Shows which Paperless API calls would run. No data is written.
-        </p>
-        <p
-          v-if="focusedDocId"
-          class="mt-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300"
-        >
-          Focused document: {{ focusedDocId }}
-        </p>
-      </div>
-      <div class="flex items-center gap-2">
-        <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-          <input type="checkbox" v-model="onlyChanged" />
-          Changed documents only
-        </label>
-        <button
-          class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-          :disabled="loading"
-          @click="loadPreview"
-        >
-          {{ loading ? 'Loading...' : 'Reload' }}
-        </button>
-      </div>
+    <div>
+      <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+        Writeback
+      </h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400">
+        Preview changes, queue writeback jobs, and review run history.
+      </p>
     </div>
 
     <div
-      v-if="loading"
-      class="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800 shadow-sm dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-200"
+      class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
     >
-      <div class="flex items-center gap-3">
-        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700 dark:border-indigo-700 dark:border-t-indigo-200"></span>
-        <div>
-          <div class="font-semibold">Loading writeback preview...</div>
-          <div class="text-xs opacity-80">Fetching local and Paperless values for comparison.</div>
+      <button
+        v-for="tab in tabs"
+        :key="tab"
+        class="rounded-lg px-3 py-1.5"
+        :class="
+          activeTab === tab
+            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+        "
+        @click="activeTab = tab"
+      >
+        {{ tab }}
+      </button>
+    </div>
+
+    <section v-if="activeTab === 'Preview'" class="space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="onlyChanged" />
+            Changed documents only
+          </label>
+          <button
+            class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            :disabled="previewLoading"
+            @click="loadPreview"
+          >
+            {{ previewLoading ? 'Loading...' : 'Reload preview' }}
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            @click="selectAllChanged"
+          >
+            Select all changed
+          </button>
+          <button
+            class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            @click="clearSelection"
+          >
+            Clear
+          </button>
+          <button
+            class="rounded-md bg-indigo-600 px-3 py-1 font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+            :disabled="queueLoading || selectedIds.length === 0"
+            @click="enqueueSelected"
+          >
+            {{ queueLoading ? 'Queueing...' : `Queue selected (${selectedIds.length})` }}
+          </button>
+          <button
+            class="rounded-md bg-emerald-600 px-3 py-1 font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+            :disabled="runLoading || selectedIds.length === 0"
+            @click="runDryRunNow"
+          >
+            {{ runLoading ? 'Running...' : `Run dry-run now (${selectedIds.length})` }}
+          </button>
         </div>
       </div>
-    </div>
 
-    <div class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-900">
-      <button
-        class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-        @click="selectAllChanged"
-      >
-        Select all changed
-      </button>
-      <button
-        class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-        @click="clearSelection"
-      >
-        Clear selection
-      </button>
-      <button
-        class="rounded-md bg-emerald-600 px-3 py-1 font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
-        :disabled="running || selectedIds.length === 0"
-        @click="runDryRun"
-      >
-        {{ running ? 'Running dry-run...' : `Dry-run for ${selectedIds.length} document(s)` }}
-      </button>
-    </div>
+      <div v-if="errorMessage" class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
+        {{ errorMessage }}
+      </div>
 
-    <div v-if="errorMessage" class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
-      {{ errorMessage }}
-    </div>
+      <div class="space-y-3" :class="previewLoading ? 'opacity-60' : ''">
+        <article
+          v-for="item in previewItems"
+          :key="item.doc_id"
+          class="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900"
+          :class="item.changed ? 'border-amber-300 dark:border-amber-700/50' : 'border-slate-200 dark:border-slate-800'"
+        >
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <input
+                type="checkbox"
+                :disabled="!item.changed"
+                :checked="selectedSet.has(item.doc_id)"
+                @change="toggleSelect(item.doc_id)"
+              />
+              Document {{ item.doc_id }}
+            </label>
+            <span
+              class="rounded-full px-2 py-1 text-[11px] font-semibold"
+              :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
+            >
+              {{ item.changed ? `changed: ${item.changed_fields.join(', ')}` : 'no changes' }}
+            </span>
+          </div>
 
-    <div class="space-y-3" :class="loading ? 'opacity-60' : ''">
-      <article
-        v-for="item in items"
-        :key="item.doc_id"
-        class="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900"
-        :class="item.changed ? 'border-amber-300 dark:border-amber-700/50' : 'border-slate-200 dark:border-slate-800'"
-      >
-        <div class="mb-3 flex items-center justify-between gap-3">
-          <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-            <input
-              type="checkbox"
-              :disabled="!item.changed"
-              :checked="selectedSet.has(item.doc_id)"
-              @change="toggleSelect(item.doc_id)"
-            />
-            Document {{ item.doc_id }}
-          </label>
-          <span
-            class="rounded-full px-2 py-1 text-[11px] font-semibold"
-            :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
-          >
-            {{ item.changed ? `changed: ${item.changed_fields.join(', ')}` : 'no changes' }}
-          </span>
-        </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full table-fixed text-xs">
+              <colgroup>
+                <col class="w-32" />
+                <col class="w-1/2" />
+                <col class="w-1/2" />
+              </colgroup>
+              <thead>
+                <tr class="text-left text-slate-500 dark:text-slate-400">
+                  <th class="px-2 py-1">Field</th>
+                  <th class="px-2 py-1">Original</th>
+                  <th class="px-2 py-1">New</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in rowsFor(item)" :key="row.field" :class="row.changed ? 'bg-amber-50/70 dark:bg-amber-900/10' : ''">
+                  <td class="px-2 py-1 font-semibold text-slate-700 dark:text-slate-300">{{ row.field }}</td>
+                  <td class="px-2 py-1 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{{ displayValue(row.field, row.original, row.changed, 'original') }}</td>
+                  <td class="px-2 py-1 whitespace-pre-wrap" :class="row.changed ? 'font-semibold text-amber-800 dark:text-amber-200' : 'text-slate-400 dark:text-slate-500'">
+                    {{ displayValue(row.field, row.proposed, row.changed, 'proposed') }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </section>
 
-        <div class="overflow-x-auto">
-          <table class="min-w-full table-fixed text-xs">
-            <colgroup>
-              <col class="w-32" />
-              <col class="w-1/2" />
-              <col class="w-1/2" />
-            </colgroup>
-            <thead>
-              <tr class="text-left text-slate-500 dark:text-slate-400">
-                <th class="px-2 py-1">Field</th>
-                <th class="px-2 py-1">Original</th>
-                <th class="px-2 py-1">New</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in rowsFor(item)" :key="row.field" :class="row.changed ? 'bg-amber-50/70 dark:bg-amber-900/10' : ''">
-                <td class="px-2 py-1 font-semibold text-slate-700 dark:text-slate-300">{{ row.field }}</td>
-                <td class="px-2 py-1 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{{ displayValue(row.field, row.original, row.changed, 'original') }}</td>
-                <td
-                  class="px-2 py-1 whitespace-pre-wrap"
-                  :class="row.changed ? 'font-semibold text-amber-800 dark:text-amber-200' : 'text-slate-400 dark:text-slate-500'"
+    <section v-if="activeTab === 'Queue'" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600 dark:text-slate-300">Pending and recent jobs</div>
+        <button
+          class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          :disabled="jobsLoading"
+          @click="loadJobs"
+        >
+          {{ jobsLoading ? 'Loading...' : 'Reload jobs' }}
+        </button>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <table class="w-full text-xs">
+          <thead class="bg-slate-50 text-left text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <tr>
+              <th class="px-3 py-2">Job</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Mode</th>
+              <th class="px-3 py-2">Docs</th>
+              <th class="px-3 py-2">Calls</th>
+              <th class="px-3 py-2">Created</th>
+              <th class="px-3 py-2">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="job in jobs" :key="job.id" class="border-t border-slate-100 dark:border-slate-800">
+              <td class="px-3 py-2 font-semibold">#{{ job.id }}</td>
+              <td class="px-3 py-2">{{ job.status }}</td>
+              <td class="px-3 py-2">{{ job.dry_run ? 'Dry-run' : 'Execute' }}</td>
+              <td class="px-3 py-2">{{ job.docs_changed }}/{{ job.docs_selected }}</td>
+              <td class="px-3 py-2">{{ job.calls_count }}</td>
+              <td class="px-3 py-2">{{ formatDateTime(job.created_at) }}</td>
+              <td class="px-3 py-2">
+                <button
+                  class="rounded-md bg-emerald-600 px-2 py-1 font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                  :disabled="executeLoading || job.status !== 'pending'"
+                  @click="executeJob(job.id)"
                 >
-                  {{ displayValue(row.field, row.proposed, row.changed, 'proposed') }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </div>
+                  Run dry-run
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-    <section
-      v-if="dryRunResult"
-      class="rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
-      <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Dry-Run Result</h3>
-      <p class="mt-1 text-slate-600 dark:text-slate-300">
-        Selected: {{ dryRunResult.docs_selected }}, changed: {{ dryRunResult.docs_changed }},
-        planned calls: {{ dryRunResult.calls.length }}
-      </p>
-      <pre class="mt-2 max-h-72 overflow-auto rounded bg-slate-100 p-3 text-[11px] dark:bg-slate-950">{{ JSON.stringify(dryRunResult.calls, null, 2) }}</pre>
+    <section v-if="activeTab === 'History'" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600 dark:text-slate-300">Completed runs</div>
+        <button
+          class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          :disabled="historyLoading"
+          @click="loadHistory"
+        >
+          {{ historyLoading ? 'Loading...' : 'Reload history' }}
+        </button>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <table class="w-full text-xs">
+          <thead class="bg-slate-50 text-left text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <tr>
+              <th class="px-3 py-2">Job</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Mode</th>
+              <th class="px-3 py-2">Docs</th>
+              <th class="px-3 py-2">Calls</th>
+              <th class="px-3 py-2">Finished</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="job in historyItems" :key="job.id" class="border-t border-slate-100 dark:border-slate-800">
+              <td class="px-3 py-2 font-semibold">#{{ job.id }}</td>
+              <td class="px-3 py-2">{{ job.status }}</td>
+              <td class="px-3 py-2">{{ job.dry_run ? 'Dry-run' : 'Execute' }}</td>
+              <td class="px-3 py-2">{{ job.docs_changed }}/{{ job.docs_selected }}</td>
+              <td class="px-3 py-2">{{ job.calls_count }}</td>
+              <td class="px-3 py-2">{{ formatDateTime(job.finished_at || job.created_at) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useToastStore } from '../stores/toastStore'
 import {
+  createWritebackJob,
+  executeWritebackJob,
   getWritebackDryRunPreview,
+  listWritebackHistory,
+  listWritebackJobs,
   runWritebackDryRun,
-  type WritebackDryRunExecuteResponse,
   type WritebackDryRunItem,
+  type WritebackJobSummary,
 } from '../services/writeback'
 
-const route = useRoute()
-const items = ref<WritebackDryRunItem[]>([])
-const loading = ref(false)
-const running = ref(false)
+const toastStore = useToastStore()
+const tabs = ['Preview', 'Queue', 'History'] as const
+const activeTab = ref<(typeof tabs)[number]>('Preview')
+
+const previewItems = ref<WritebackDryRunItem[]>([])
+const previewLoading = ref(false)
+const runLoading = ref(false)
+const queueLoading = ref(false)
 const onlyChanged = ref(true)
 const selectedSet = ref<Set<number>>(new Set())
 const errorMessage = ref('')
-const dryRunResult = ref<WritebackDryRunExecuteResponse | null>(null)
+
+const jobs = ref<WritebackJobSummary[]>([])
+const historyItems = ref<WritebackJobSummary[]>([])
+const jobsLoading = ref(false)
+const historyLoading = ref(false)
+const executeLoading = ref(false)
 
 const selectedIds = computed(() => Array.from(selectedSet.value))
 
@@ -226,59 +316,115 @@ const toggleSelect = (docId: number) => {
 }
 
 const selectAllChanged = () => {
-  selectedSet.value = new Set(items.value.filter((item) => item.changed).map((item) => item.doc_id))
+  selectedSet.value = new Set(previewItems.value.filter((item) => item.changed).map((item) => item.doc_id))
 }
 
 const clearSelection = () => {
   selectedSet.value = new Set()
 }
 
-const focusedDocId = computed(() => {
-  const raw = route.query.doc_id
-  const candidate = Array.isArray(raw) ? raw[0] : raw
-  const parsed = Number(candidate)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-})
-
 const loadPreview = async () => {
-  loading.value = true
+  previewLoading.value = true
   errorMessage.value = ''
-  dryRunResult.value = null
   try {
     const data = await getWritebackDryRunPreview({
       page: 1,
       page_size: 100,
       only_changed: onlyChanged.value,
-      doc_id: focusedDocId.value ?? undefined,
     })
-    items.value = data.items || []
+    previewItems.value = data.items || []
     selectAllChanged()
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : 'Preview could not be loaded'
   } finally {
-    loading.value = false
+    previewLoading.value = false
   }
 }
 
-const runDryRun = async () => {
-  running.value = true
-  errorMessage.value = ''
+const runDryRunNow = async () => {
+  runLoading.value = true
   try {
-    dryRunResult.value = await runWritebackDryRun(selectedIds.value)
+    const result = await runWritebackDryRun(selectedIds.value)
+    toastStore.push(
+      `Dry-run planned ${result.calls.length} call(s) for ${result.docs_changed} changed document(s).`,
+      'success',
+      'Writeback',
+      2400,
+    )
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Dry-run failed'
+    toastStore.push(err instanceof Error ? err.message : 'Dry-run failed', 'danger', 'Writeback', 2800)
   } finally {
-    running.value = false
+    runLoading.value = false
   }
 }
 
-onMounted(() => {
-  const onlyChangedRaw = route.query.only_changed
-  const onlyChangedValue = Array.isArray(onlyChangedRaw) ? onlyChangedRaw[0] : onlyChangedRaw
-  if (onlyChangedValue === '0' || onlyChangedValue === 'false') {
-    onlyChanged.value = false
+const enqueueSelected = async () => {
+  queueLoading.value = true
+  try {
+    const job = await createWritebackJob(selectedIds.value)
+    toastStore.push(
+      `Queued job #${job.id} (${job.calls_count} planned call(s)).`,
+      'success',
+      'Writeback',
+      2400,
+    )
+    await loadJobs()
+    activeTab.value = 'Queue'
+  } catch (err: unknown) {
+    toastStore.push(err instanceof Error ? err.message : 'Queueing failed', 'danger', 'Writeback', 2800)
+  } finally {
+    queueLoading.value = false
   }
-  loadPreview()
+}
+
+const loadJobs = async () => {
+  jobsLoading.value = true
+  try {
+    jobs.value = (await listWritebackJobs(150)).items || []
+  } finally {
+    jobsLoading.value = false
+  }
+}
+
+const executeJob = async (jobId: number) => {
+  executeLoading.value = true
+  try {
+    const job = await executeWritebackJob(jobId, true)
+    toastStore.push(
+      `Job #${job.id} completed (${job.calls_count} logged call(s)).`,
+      'success',
+      'Writeback',
+      2400,
+    )
+    await Promise.all([loadJobs(), loadHistory()])
+  } catch (err: unknown) {
+    toastStore.push(err instanceof Error ? err.message : 'Execution failed', 'danger', 'Writeback', 2800)
+  } finally {
+    executeLoading.value = false
+  }
+}
+
+const loadHistory = async () => {
+  historyLoading.value = true
+  try {
+    historyItems.value = (await listWritebackHistory(150)).items || []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '-'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat(navigator.language, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsed)
+}
+
+onMounted(async () => {
+  await Promise.all([loadPreview(), loadJobs(), loadHistory()])
 })
 </script>
 

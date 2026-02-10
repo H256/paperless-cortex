@@ -36,6 +36,33 @@ export type WritebackDryRunExecuteResponse = {
   }>
 }
 
+export type WritebackJobSummary = {
+  id: number
+  status: string
+  dry_run: boolean
+  docs_selected: number
+  docs_changed: number
+  calls_count: number
+  created_at?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  error?: string | null
+}
+
+export type WritebackJobDetail = WritebackJobSummary & {
+  doc_ids: number[]
+  calls: Array<{
+    doc_id: number
+    method: string
+    path: string
+    payload: Record<string, unknown>
+  }>
+}
+
+export type WritebackJobListResponse = {
+  items: WritebackJobSummary[]
+}
+
 export const getWritebackDryRunPreview = (params: {
   page: number
   page_size: number
@@ -51,3 +78,24 @@ export const runWritebackDryRun = (doc_ids: number[]) =>
     method: 'POST',
     body: { doc_ids },
   })
+
+export const createWritebackJob = (doc_ids: number[]) =>
+  request<WritebackJobDetail>('/writeback/jobs', {
+    method: 'POST',
+    body: { doc_ids },
+  })
+
+export const listWritebackJobs = (limit = 100) =>
+  request<WritebackJobListResponse>('/writeback/jobs', { params: { limit } })
+
+export const getWritebackJob = (jobId: number) =>
+  request<WritebackJobDetail>(`/writeback/jobs/${jobId}`)
+
+export const executeWritebackJob = (jobId: number, dryRun = true) =>
+  request<WritebackJobDetail>(`/writeback/jobs/${jobId}/execute`, {
+    method: 'POST',
+    body: { dry_run: dryRun },
+  })
+
+export const listWritebackHistory = (limit = 100) =>
+  request<WritebackJobListResponse>('/writeback/history', { params: { limit } })
