@@ -26,12 +26,21 @@
         v-for="row in rows"
         :key="row.label"
         class="rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800"
-        :class="row.label === 'Notes' ? 'md:col-span-4' : ''"
+        :class="[
+          row.label === 'Notes' ? 'md:col-span-4' : '',
+          row.className || '',
+        ]"
       >
-        <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <dt
+          class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+          :class="row.align === 'right' ? 'text-right' : ''"
+        >
           {{ row.label }}
         </dt>
-        <dd class="mt-1 text-sm text-slate-900 break-words dark:text-slate-100">
+        <dd
+          class="mt-1 text-sm text-slate-900 break-words dark:text-slate-100"
+          :class="row.align === 'right' ? 'text-right' : ''"
+        >
           <template v-if="row.label === 'Notes'">
             <details class="group">
               <summary class="cursor-pointer text-xs font-semibold text-slate-500">
@@ -65,6 +74,8 @@
 type MetadataRow = {
   label: string
   value: string | number | null | undefined
+  className?: string
+  align?: 'left' | 'right'
 }
 
 type StatusCard = {

@@ -453,8 +453,16 @@ const rows = computed(() => {
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
-    { label: 'Original filename', value: document.value.original_file_name },
-    { label: 'Timestamps', value: `Created: ${createdLabel}\nModified: ${modifiedLabel}` },
+    {
+      label: 'Original filename',
+      value: document.value.original_file_name,
+      className: 'md:col-span-2',
+    },
+    {
+      label: 'Timestamps',
+      value: `Created: ${createdLabel}\nModified: ${modifiedLabel}`,
+      align: 'right',
+    },
     { label: 'Notes', value: notes },
   ]
 })
