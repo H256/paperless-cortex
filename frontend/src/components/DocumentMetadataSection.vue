@@ -47,7 +47,10 @@
             </details>
           </template>
           <template v-else>
-            <span v-if="row.value !== null && row.value !== undefined && row.value !== ''">{{
+            <span
+              v-if="row.value !== null && row.value !== undefined && row.value !== ''"
+              class="whitespace-pre-line"
+            >{{
               row.value
             }}</span>
             <span v-else class="text-xs text-slate-400">-</span>

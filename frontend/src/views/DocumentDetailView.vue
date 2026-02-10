@@ -445,6 +445,8 @@ const rows = computed(() => {
     document.value.document_type_name ??
     docTypes.value.find((d) => d.id === document.value?.document_type)?.name ??
     document.value.document_type
+  const createdLabel = formatDateTime(document.value.created) || '-'
+  const modifiedLabel = formatDateTime(document.value.modified) || '-'
   return [
     { label: 'Title', value: document.value.title },
     { label: 'Document date', value: formatDate(document.value.document_date) },
@@ -452,8 +454,7 @@ const rows = computed(() => {
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
     { label: 'Original filename', value: document.value.original_file_name },
-    { label: 'Created', value: formatDateTime(document.value.created) },
-    { label: 'Modified', value: formatDateTime(document.value.modified) },
+    { label: 'Timestamps', value: `Created: ${createdLabel}\nModified: ${modifiedLabel}` },
     { label: 'Notes', value: notes },
   ]
 })
