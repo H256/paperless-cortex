@@ -121,6 +121,8 @@ class DocumentSummary(PaperlessDocument):
     correspondent_name: Optional[str] = None
     local_cached: Optional[bool] = None
     local_overrides: Optional[bool] = None
+    review_status: Optional[str] = None
+    reviewed_at: Optional[str] = None
     has_embeddings: Optional[bool] = None
     has_suggestions: Optional[bool] = None
     has_suggestions_paperless: Optional[bool] = None

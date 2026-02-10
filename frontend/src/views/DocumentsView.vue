@@ -92,7 +92,7 @@
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         Filters
       </div>
-      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-8">
+      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
           <select
@@ -156,6 +156,18 @@
             <option value="all">All</option>
             <option value="analyzed">Analyzed</option>
             <option value="not_analyzed">Not analyzed</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Review</label>
+          <select
+            v-model="selectedReviewStatus"
+            class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="all">All</option>
+            <option value="unreviewed">Unreviewed</option>
+            <option value="needs_review">Needs review</option>
+            <option value="reviewed">Reviewed</option>
           </select>
         </div>
         <div>
@@ -618,6 +630,7 @@ const {
   correspondents,
   selectedTag,
   selectedCorrespondent,
+  selectedReviewStatus,
   dateFrom,
   dateTo,
   syncing,
