@@ -71,13 +71,17 @@ def chat_completion(
     messages: list[dict[str, object]],
     timeout: float | None,
     purpose: Literal["text", "vision"] = "text",
+    max_tokens: int | None = None,
 ) -> str:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    response = client_sdk.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=False,
-    )
+    kwargs: dict[str, object] = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+    }
+    if max_tokens is not None:
+        kwargs["max_tokens"] = int(max_tokens)
+    response = client_sdk.chat.completions.create(**kwargs)
     choices = response.choices or []
     if not choices:
         raise RuntimeError("LLM response missing choices")
@@ -95,13 +99,17 @@ def stream_chat_completion(
     messages: list[dict[str, object]],
     timeout: float | None,
     purpose: Literal["text", "vision"] = "text",
+    max_tokens: int | None = None,
 ) -> Iterable[str]:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    stream = client_sdk.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=True,
-    )
+    kwargs: dict[str, object] = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+    }
+    if max_tokens is not None:
+        kwargs["max_tokens"] = int(max_tokens)
+    stream = client_sdk.chat.completions.create(**kwargs)
     for event in stream:
         choices = event.choices or []
         if not choices:

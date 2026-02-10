@@ -37,6 +37,13 @@ class Settings:
     suggestions_prompt_path: str | None
     suggestions_debug: bool
     suggestions_max_input_chars: int
+    large_doc_page_threshold: int
+    page_notes_timeout_seconds: int
+    page_notes_max_output_tokens: int
+    summary_section_pages: int
+    section_summary_timeout_seconds: int
+    global_summary_timeout_seconds: int
+    summary_max_output_tokens: int
     vision_ocr_min_chars: int
     vision_ocr_min_score: int
     vision_ocr_max_non_alnum_ratio: float
@@ -101,6 +108,13 @@ def load_settings() -> Settings:
         suggestions_prompt_path=os.getenv("SUGGESTIONS_PROMPT_PATH"),
         suggestions_debug=os.getenv("SUGGESTIONS_DEBUG", "0") == "1",
         suggestions_max_input_chars=max(500, int(os.getenv("SUGGESTIONS_MAX_INPUT_CHARS", "12000"))),
+        large_doc_page_threshold=max(1, int(os.getenv("LARGE_DOC_PAGE_THRESHOLD", "20"))),
+        page_notes_timeout_seconds=max(5, int(os.getenv("PAGE_NOTES_TIMEOUT_SECONDS", "45"))),
+        page_notes_max_output_tokens=max(64, int(os.getenv("PAGE_NOTES_MAX_OUTPUT_TOKENS", "300"))),
+        summary_section_pages=max(2, int(os.getenv("SUMMARY_SECTION_PAGES", "25"))),
+        section_summary_timeout_seconds=max(10, int(os.getenv("SECTION_SUMMARY_TIMEOUT_SECONDS", "90"))),
+        global_summary_timeout_seconds=max(10, int(os.getenv("GLOBAL_SUMMARY_TIMEOUT_SECONDS", "120"))),
+        summary_max_output_tokens=max(128, int(os.getenv("SUMMARY_MAX_OUTPUT_TOKENS", "900"))),
         vision_ocr_min_chars=int(os.getenv("VISION_OCR_MIN_CHARS", "40")),
         vision_ocr_min_score=int(os.getenv("VISION_OCR_MIN_SCORE", "60")),
         vision_ocr_max_non_alnum_ratio=float(
