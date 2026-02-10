@@ -26,13 +26,13 @@
         </IconButton>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-          :disabled="writebackRunning"
-          :class="writebackRunning ? 'cursor-not-allowed opacity-70' : ''"
-          title="Run writeback dry-run for this document"
-          @click="runWritebackDryRunForDocument"
+          :disabled="writebackRunning || !canWriteback"
+          :class="writebackRunning || !canWriteback ? 'cursor-not-allowed opacity-70' : ''"
+          :title="canWriteback ? 'Write local changes back to Paperless' : 'Writeback is only available when status is Needs review'"
+          @click="openWritebackConfirm"
         >
           <ClipboardCheck class="h-4 w-4" :class="writebackRunning ? 'animate-pulse' : ''" />
-          {{ writebackRunning ? 'Running dry-run...' : 'Run writeback dry-run' }}
+          {{ writebackRunning ? 'Writing back...' : 'Write back to Paperless' }}
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
@@ -183,8 +183,17 @@
         @cancel="resetConfirmOpen = false"
       />
       <ConfirmDialog
+        :open="writebackConfirmOpen"
+        title="Write changes to Paperless?"
+        message="This updates metadata and AI summary note in Paperless immediately for this document."
+        confirm-label="Write now"
+        cancel-label="Cancel"
+        @confirm="confirmWritebackNow"
+        @cancel="writebackConfirmOpen = false"
+      />
+      <ConfirmDialog
         :open="writebackErrorOpen"
-        title="Writeback dry-run failed"
+        title="Writeback failed"
         :message="writebackErrorMessage || 'Unknown error'"
         confirm-label="Close"
         cancel-label="Close"
@@ -214,7 +223,7 @@ import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 import type { DocumentOperationTaskPayload } from '../services/documents'
-import { runWritebackDryRun } from '../services/writeback'
+import { executeWritebackNow } from '../services/writeback'
 
 const route = useRoute()
 const router = useRouter()
@@ -314,8 +323,10 @@ const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
 const writebackRunning = ref(false)
+const writebackConfirmOpen = ref(false)
 const writebackErrorOpen = ref(false)
 const writebackErrorMessage = ref('')
+const canWriteback = computed(() => document.value?.review_status === 'needs_review')
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -499,36 +510,48 @@ const onPdfPageChange = (value: number) => {
   pdfHighlights.value = []
 }
 
-const runWritebackDryRunForDocument = async () => {
+const runWritebackNowForDocument = async () => {
   writebackRunning.value = true
   writebackErrorMessage.value = ''
   try {
-    const result = await runWritebackDryRun([id])
-    const calls = result.calls?.length ?? 0
+    const result = await executeWritebackNow([id])
+    const calls = result.calls_count ?? 0
     const changed = result.docs_changed ?? 0
-    if (calls > 0) {
+    if (calls > 0 && changed > 0) {
       toastStore.push(
-        `Dry-run planned ${calls} call(s) for ${changed} changed document(s).`,
+        `Writeback executed ${calls} call(s) for ${changed} changed document(s).`,
         'success',
-        'Writeback dry-run',
+        'Writeback',
         2200,
       )
+      await reloadAll()
     } else {
       toastStore.push(
-        'Dry-run found no changes for this document.',
+        'No writeback changes found for this document.',
         'info',
-        'Writeback dry-run',
+        'Writeback',
         2200,
       )
+      await load()
     }
   } catch (err: unknown) {
-    const message = errorMessage(err, 'Failed to run writeback dry-run')
-    toastStore.push(message, 'danger', 'Writeback dry-run', 2800)
+    const message = errorMessage(err, 'Failed to write back document')
+    toastStore.push(message, 'danger', 'Writeback', 2800)
     writebackErrorMessage.value = message
     writebackErrorOpen.value = true
   } finally {
     writebackRunning.value = false
   }
+}
+
+const openWritebackConfirm = () => {
+  if (!canWriteback.value || writebackRunning.value) return
+  writebackConfirmOpen.value = true
+}
+
+const confirmWritebackNow = async () => {
+  writebackConfirmOpen.value = false
+  await runWritebackNowForDocument()
 }
 
 const formatDate = (value?: string | null) => {

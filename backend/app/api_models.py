@@ -540,6 +540,18 @@ class WritebackDryRunExecuteResponse(BaseModel):
     calls: list[WritebackDryRunCall] = []
 
 
+class WritebackExecuteNowRequest(BaseModel):
+    doc_ids: list[int]
+
+
+class WritebackExecuteNowResponse(BaseModel):
+    docs_selected: int
+    docs_changed: int
+    calls_count: int
+    doc_ids: list[int] = []
+    calls: list[WritebackDryRunCall] = []
+
+
 class WritebackJobCreateRequest(BaseModel):
     doc_ids: list[int]
 

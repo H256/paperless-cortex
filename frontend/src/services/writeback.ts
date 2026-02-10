@@ -36,6 +36,19 @@ export type WritebackDryRunExecuteResponse = {
   }>
 }
 
+export type WritebackExecuteNowResponse = {
+  docs_selected: number
+  docs_changed: number
+  calls_count: number
+  doc_ids: number[]
+  calls: Array<{
+    doc_id: number
+    method: string
+    path: string
+    payload: Record<string, unknown>
+  }>
+}
+
 export type WritebackJobSummary = {
   id: number
   status: string
@@ -83,6 +96,12 @@ export const getWritebackDryRunPreview = (params: {
 
 export const runWritebackDryRun = (doc_ids: number[]) =>
   request<WritebackDryRunExecuteResponse>('/writeback/dry-run/execute', {
+    method: 'POST',
+    body: { doc_ids },
+  })
+
+export const executeWritebackNow = (doc_ids: number[]) =>
+  request<WritebackExecuteNowResponse>('/writeback/execute-now', {
     method: 'POST',
     body: { doc_ids },
   })

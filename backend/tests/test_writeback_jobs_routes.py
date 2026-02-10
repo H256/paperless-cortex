@@ -142,3 +142,39 @@ def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
     assert payload["processed"] >= 2
     assert payload["completed"] >= 2
     assert payload["failed"] == 0
+
+
+def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(506, "Local title 506")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote title 506",
+            "created": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    calls = {"patch": 0}
+
+    def _fake_patch(settings, doc_id, payload):
+        calls["patch"] += 1
+        return {"id": doc_id, **payload}
+
+    monkeypatch.setattr(paperless, "update_document", _fake_patch)
+    monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post("/writeback/execute-now", json={"doc_ids": [506]})
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["docs_selected"] == 1
+    assert payload["docs_changed"] == 1
+    assert payload["calls_count"] >= 1
+    assert calls["patch"] >= 1

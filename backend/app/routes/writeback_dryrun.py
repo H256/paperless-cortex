@@ -14,6 +14,8 @@ from app.api_models import (
     WritebackDryRunCall,
     WritebackDryRunExecuteRequest,
     WritebackDryRunExecuteResponse,
+    WritebackExecuteNowRequest,
+    WritebackExecuteNowResponse,
     WritebackJobCreateRequest,
     WritebackJobDetail,
     WritebackExecutePendingRequest,
@@ -359,6 +361,68 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
             _raise_missing_table_message()
         raise
     return job
+
+
+@router.post("/execute-now", response_model=WritebackExecuteNowResponse)
+def execute_writeback_now(
+    request: WritebackExecuteNowRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    if not settings.writeback_execute_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
+        )
+    doc_ids = sorted({int(doc_id) for doc_id in request.doc_ids if int(doc_id) > 0})
+    if not doc_ids:
+        raise HTTPException(status_code=400, detail="No valid doc_ids provided")
+
+    preview_items = _preview_for_doc_ids(settings, db, doc_ids)
+    calls: list[WritebackDryRunCall] = []
+    docs_changed = 0
+    executed_doc_ids: set[int] = set()
+    for item in preview_items:
+        if not item.changed:
+            continue
+        docs_changed += 1
+        item_calls = _build_calls_for_item(item)
+        calls.extend(item_calls)
+
+    for call in calls:
+        logger.info(
+            "WRITEBACK EXECUTE-NOW doc=%s method=%s path=%s payload=%s",
+            call.doc_id,
+            call.method,
+            call.path,
+            call.payload,
+        )
+        _execute_call(settings, call)
+        executed_doc_ids.add(int(call.doc_id))
+
+    if executed_doc_ids:
+        reviewed_at = _now_iso()
+        for doc_id in sorted(executed_doc_ids):
+            db.add(
+                SuggestionAudit(
+                    doc_id=int(doc_id),
+                    action="apply_to_document:writeback",
+                    source="writeback",
+                    field=None,
+                    old_value=None,
+                    new_value=None,
+                    created_at=reviewed_at,
+                )
+            )
+    db.commit()
+
+    return WritebackExecuteNowResponse(
+        docs_selected=len(doc_ids),
+        docs_changed=docs_changed,
+        calls_count=len(calls),
+        doc_ids=sorted(executed_doc_ids),
+        calls=calls,
+    )
 
 
 @router.get("/dry-run/preview", response_model=WritebackDryRunPreviewResponse)
