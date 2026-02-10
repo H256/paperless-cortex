@@ -99,8 +99,8 @@
             v-model="ordering"
             class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
-            <option value="-date">Date desc</option>
-            <option value="date">Date asc</option>
+            <option value="-date">Issue date desc</option>
+            <option value="date">Issue date asc</option>
             <option value="-title">Title desc</option>
             <option value="title">Title asc</option>
           </select>
@@ -235,7 +235,7 @@
                   type="button"
                   @click.stop="toggleSort('date')"
                 >
-                  Date
+                  Issue date
                   <ChevronDown
                     v-if="sortDir('date')"
                     class="h-3 w-3 text-slate-400"
@@ -931,4 +931,3 @@ watch(ordering, async () => {
   await load()
 })
 </script>
-

@@ -107,7 +107,7 @@
                 class="rounded-full px-2 py-1 text-[11px] font-semibold"
                 :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
               >
-                {{ item.changed ? `changed: ${item.changed_fields.join(', ')}` : 'no changes' }}
+                {{ item.changed ? `changed: ${item.changed_fields.map(fieldLabel).join(', ')}` : 'no changes' }}
               </span>
             </div>
           </div>
@@ -128,7 +128,7 @@
               </thead>
               <tbody>
                 <tr v-for="row in rowsFor(item)" :key="row.field" :class="row.changed ? 'bg-amber-50/70 dark:bg-amber-900/10' : ''">
-                  <td class="px-2 py-1 font-semibold text-slate-700 dark:text-slate-300">{{ row.field }}</td>
+                  <td class="px-2 py-1 font-semibold text-slate-700 dark:text-slate-300">{{ fieldLabel(row.field) }}</td>
                   <td class="px-2 py-1 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{{ displayValue(row.field, row.original, row.changed, 'original') }}</td>
                   <td class="px-2 py-1 whitespace-pre-wrap" :class="row.changed ? 'font-semibold text-amber-800 dark:text-amber-200' : 'text-slate-400 dark:text-slate-500'">
                     {{ displayValue(row.field, row.proposed, row.changed, 'proposed') }}
@@ -316,6 +316,15 @@ const rowsFor = (item: WritebackDryRunItem) => [
   item.tags,
   item.note,
 ]
+
+const fieldLabel = (field: string) => {
+  if (field === 'issue_date' || field === 'document_date') return 'Issue date'
+  if (field === 'correspondent') return 'Correspondent'
+  if (field === 'title') return 'Title'
+  if (field === 'tags') return 'Tags'
+  if (field === 'note') return 'Note'
+  return field
+}
 
 const noteText = (value: unknown) => {
   if (!value || typeof value !== 'object') return ''
