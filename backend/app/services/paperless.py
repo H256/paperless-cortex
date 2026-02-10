@@ -85,6 +85,27 @@ def list_tags(settings: Settings, page: int = 1, page_size: int = 50) -> dict[st
         return response.json()
 
 
+def list_all_tags(settings: Settings, page_size: int = 200) -> list[dict[str, Any]]:
+    page = 1
+    items: list[dict[str, Any]] = []
+    while True:
+        payload = list_tags(settings, page=page, page_size=page_size)
+        rows = payload.get("results") or []
+        items.extend([row for row in rows if isinstance(row, dict)])
+        if not payload.get("next"):
+            break
+        page += 1
+    return items
+
+
+def create_tag(settings: Settings, name: str) -> dict[str, Any]:
+    payload = {"name": str(name or "").strip()}
+    with client(settings) as http:
+        response = http.post("/tags/", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+
 def list_correspondents(
     settings: Settings, page: int = 1, page_size: int = 50
 ) -> dict[str, Any]:

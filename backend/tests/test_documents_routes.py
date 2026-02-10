@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import SuggestionAudit
+from app.models import Document, SuggestionAudit
 
 
 def _insert_suggestion_audit(
@@ -24,6 +24,20 @@ def _insert_suggestion_audit(
                 old_value="old",
                 new_value="new",
                 created_at=created_at,
+            )
+        )
+        db.commit()
+
+
+def _insert_local_document(doc_id: int, title: str, created: str):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            Document(
+                id=doc_id,
+                title=title,
+                created=created,
+                modified=created,
             )
         )
         db.commit()
@@ -121,4 +135,38 @@ def test_list_documents_review_status_needs_review(api_client, monkeypatch):
     assert payload["count"] == 1
     assert len(payload["results"]) == 1
     assert payload["results"][0]["id"] == 3
+    assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_list_documents_local_overrides_force_needs_review(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=4, title="Local override title", created="2026-02-10")
+    _insert_suggestion_audit(doc_id=4, created_at="2026-02-10T10:20:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 4,
+                    "title": "Remote title",
+                    "created": "2026-02-10",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True, "review_status": "needs_review"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert len(payload["results"]) == 1
+    assert payload["results"][0]["id"] == 4
     assert payload["results"][0]["review_status"] == "needs_review"

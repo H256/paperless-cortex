@@ -278,10 +278,43 @@ def _job_detail(job: WritebackJob) -> WritebackJobDetail:
     )
 
 
-def _execute_call(settings: Settings, call: WritebackDryRunCall) -> None:
+def _resolve_paperless_tag_ids(settings: Settings, db: Session, local_tag_ids: list[int]) -> list[int]:
+    if not local_tag_ids:
+        return []
+    local_tags = db.query(Tag).filter(Tag.id.in_(local_tag_ids)).all()
+    local_names = [str(tag.name or "").strip() for tag in local_tags if str(tag.name or "").strip()]
+    if not local_names:
+        return []
+    remote_tags = paperless.list_all_tags(settings)
+    remote_by_name = {
+        str(tag.get("name") or "").strip().lower(): int(tag.get("id"))
+        for tag in remote_tags
+        if isinstance(tag.get("id"), int) and str(tag.get("name") or "").strip()
+    }
+    resolved_ids: list[int] = []
+    for name in local_names:
+        key = name.lower()
+        existing_id = remote_by_name.get(key)
+        if existing_id is None:
+            created = paperless.create_tag(settings, name)
+            created_id = created.get("id")
+            if isinstance(created_id, int):
+                existing_id = created_id
+                remote_by_name[key] = created_id
+        if isinstance(existing_id, int):
+            resolved_ids.append(existing_id)
+    return sorted(set(resolved_ids))
+
+
+def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) -> None:
     method = call.method.upper()
     if method == "PATCH":
-        paperless.update_document(settings, int(call.doc_id), dict(call.payload or {}))
+        payload = dict(call.payload or {})
+        raw_tags = payload.get("tags")
+        if isinstance(raw_tags, list):
+            local_tag_ids = [int(tag_id) for tag_id in raw_tags if isinstance(tag_id, int)]
+            payload["tags"] = _resolve_paperless_tag_ids(settings, db, local_tag_ids)
+        paperless.update_document(settings, int(call.doc_id), payload)
         return
     if method == "POST":
         payload = dict(call.payload or {})
@@ -341,7 +374,7 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
                 call.payload,
             )
             if not dry_run:
-                _execute_call(settings, call)
+                _execute_call(settings, db, call)
         if not dry_run and executed_doc_ids:
             for doc_id in sorted(executed_doc_ids):
                 reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
@@ -550,7 +583,7 @@ def execute_writeback_direct_for_document(
             path=f"/api/documents/{doc_id}/",
             payload=patch_payload,
         )
-        _execute_call(settings, call)
+        _execute_call(settings, db, call)
         calls.append(call)
 
     if apply_local_note and note_original_id:
@@ -560,7 +593,7 @@ def execute_writeback_direct_for_document(
             path=f"/api/documents/{doc_id}/notes/{note_original_id}/",
             payload={},
         )
-        _execute_call(settings, del_call)
+        _execute_call(settings, db, del_call)
         calls.append(del_call)
     if apply_local_note and note_new_text:
         add_call = WritebackDryRunCall(
@@ -569,7 +602,7 @@ def execute_writeback_direct_for_document(
             path=f"/api/documents/{doc_id}/notes/",
             payload={"note": note_new_text},
         )
-        _execute_call(settings, add_call)
+        _execute_call(settings, db, add_call)
         calls.append(add_call)
 
     if calls or request.resolutions:
@@ -630,7 +663,7 @@ def execute_writeback_now(
             call.path,
             call.payload,
         )
-        _execute_call(settings, call)
+        _execute_call(settings, db, call)
         executed_doc_ids.add(int(call.doc_id))
 
     if executed_doc_ids:

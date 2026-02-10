@@ -164,19 +164,22 @@ def _apply_derived_fields_and_review_status(
         doc["local_cached"] = local_doc is not None
         local_overrides = False
         if local_doc:
+            local_issue_date = local_doc.document_date or local_doc.created
+            remote_issue_date = doc.get("created")
             local_tags = [tag.id for tag in local_doc.tags]
             paperless_tags = doc.get("tags") or []
             if set(local_tags) != set(paperless_tags):
                 local_overrides = True
             if local_doc.title and local_doc.title != doc.get("title"):
                 local_overrides = True
-            if local_doc.document_date and local_doc.document_date != doc.get("document_date"):
+            if local_issue_date and local_issue_date != remote_issue_date:
                 local_overrides = True
             if local_doc.correspondent_id and local_doc.correspondent_id != doc.get("correspondent"):
                 local_overrides = True
             if local_overrides:
                 doc["title"] = local_doc.title
                 doc["document_date"] = local_doc.document_date
+                doc["created"] = local_issue_date
                 doc["correspondent"] = local_doc.correspondent_id
                 doc["correspondent_name"] = local_doc.correspondent.name if local_doc.correspondent else None
                 doc["tags"] = local_tags
@@ -192,7 +195,9 @@ def _apply_derived_fields_and_review_status(
         reviewed_at_raw = reviewed_at_by_doc.get(doc_id)
         reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
         modified_dt = _parse_iso_datetime(doc.get("modified"))
-        if reviewed_at_dt is None:
+        if local_overrides:
+            derived_review_status = "needs_review"
+        elif reviewed_at_dt is None:
             derived_review_status = "unreviewed"
         elif modified_dt and modified_dt > reviewed_at_dt:
             derived_review_status = "needs_review"
@@ -476,12 +481,14 @@ def get_local_document(
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []
+    local_issue_date = doc.document_date or doc.created
+    remote_issue_date = remote_doc.get("created")
     local_overrides = False
     if set(local_tags) != set(remote_tags):
         local_overrides = True
     if doc.title and doc.title != remote_doc.get("title"):
         local_overrides = True
-    if doc.document_date and doc.document_date != remote_doc.get("document_date"):
+    if local_issue_date and local_issue_date != remote_issue_date:
         local_overrides = True
     if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
         local_overrides = True
@@ -502,7 +509,9 @@ def get_local_document(
         .scalar()
     )
     reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
-    if reviewed_at_dt is None:
+    if local_overrides:
+        review_status = "needs_review"
+    elif reviewed_at_dt is None:
         review_status = "unreviewed"
     elif remote_modified_dt and remote_modified_dt > reviewed_at_dt:
         review_status = "needs_review"
