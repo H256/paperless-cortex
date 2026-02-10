@@ -63,6 +63,7 @@ def _build_item(
     correspondents_by_id: dict[int, str],
     tags_by_id: dict[int, str],
 ) -> WritebackDryRunItem:
+    local_issue_date = local_doc.document_date or local_doc.created
     remote_notes = remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
     remote_note_id, remote_note_text = extract_ai_summary_note(remote_notes)
     local_note_id, local_note_text = extract_ai_summary_note(
@@ -76,7 +77,7 @@ def _build_item(
     changed_fields, payload = compare_document_fields(
         local_title=local_doc.title,
         remote_title=remote_doc.get("title"),
-        local_date=local_doc.document_date,
+        local_date=local_issue_date,
         remote_date=remote_doc.get("created"),
         local_correspondent_id=local_doc.correspondent_id,
         remote_correspondent_id=remote_doc.get("correspondent"),
@@ -123,7 +124,7 @@ def _build_item(
         document_date=WritebackFieldDiff(
             field="issue_date",
             original=remote_doc.get("created"),
-            proposed=local_doc.document_date,
+            proposed=local_issue_date,
             changed="issue_date" in changed_fields,
         ),
         correspondent=WritebackFieldDiff(
