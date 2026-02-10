@@ -167,5 +167,5 @@ def add_document_note(settings: Settings, doc_id: int, note: str) -> dict[str, A
 
 def delete_document_note(settings: Settings, doc_id: int, note_id: int) -> None:
     with client(settings) as http:
-        response = http.delete(f"/documents/{doc_id}/notes/{note_id}/")
+        response = http.delete(f"/documents/{doc_id}/notes/", params={"id": note_id})
         response.raise_for_status()

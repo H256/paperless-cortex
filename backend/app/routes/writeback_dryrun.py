@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import logging
 import json
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -241,7 +242,7 @@ def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall
                 WritebackDryRunCall(
                     doc_id=item.doc_id,
                     method="DELETE",
-                    path=f"/api/documents/{item.doc_id}/notes/{int(original_note_id)}/",
+                    path=f"/api/documents/{item.doc_id}/notes/?id={int(original_note_id)}",
                     payload={},
                 )
             )
@@ -373,11 +374,19 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
     if method == "DELETE":
         path = str(call.path or "")
         note_id: int | None = None
-        try:
-            segment = path.rstrip("/").split("/")[-1]
-            note_id = int(segment)
-        except Exception:
-            note_id = None
+        parsed = urlsplit(path)
+        query_id = parse_qs(parsed.query).get("id")
+        if query_id and query_id[0]:
+            try:
+                note_id = int(query_id[0])
+            except Exception:
+                note_id = None
+        if note_id is None:
+            try:
+                segment = parsed.path.rstrip("/").split("/")[-1]
+                note_id = int(segment)
+            except Exception:
+                note_id = None
         if note_id is None:
             raise RuntimeError(f"Cannot parse note id from path: {path}")
         paperless.delete_document_note(settings, int(call.doc_id), note_id)
@@ -679,7 +688,7 @@ def execute_writeback_direct_for_document(
         del_call = WritebackDryRunCall(
             doc_id=doc_id,
             method="DELETE",
-            path=f"/api/documents/{doc_id}/notes/{note_original_id}/",
+            path=f"/api/documents/{doc_id}/notes/?id={note_original_id}",
             payload={},
         )
         _execute_call(settings, db, del_call)
