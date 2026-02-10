@@ -516,6 +516,7 @@ const rows = computed(() => {
   const tagNames = (document.value.tags || [])
     .map((tagId) => tags.value.find((t) => t.id === tagId)?.name ?? tagId)
     .join(', ')
+  const pendingTagNames = (document.value.pending_tag_names || []).join(', ')
   const correspondentName =
     document.value.correspondent_name ??
     correspondents.value.find((c) => c.id === document.value?.correspondent)?.name ??
@@ -531,7 +532,7 @@ const rows = computed(() => {
     { label: 'Issue date', value: formatDate(document.value.document_date || document.value.created) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
-    { label: 'Tags', value: tagNames },
+    { label: 'Tags', value: tagNames, pendingValue: pendingTagNames || null },
     {
       label: 'Original filename',
       value: document.value.original_file_name,

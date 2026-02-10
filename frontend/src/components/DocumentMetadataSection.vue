@@ -63,6 +63,12 @@
               row.value
             }}</span>
             <span v-else class="text-xs text-slate-400">-</span>
+            <div
+              v-if="row.pendingValue"
+              class="mt-1 text-xs font-semibold text-rose-700 dark:text-rose-300"
+            >
+              Pending: {{ row.pendingValue }}
+            </div>
           </template>
         </dd>
       </div>
@@ -74,6 +80,7 @@
 type MetadataRow = {
   label: string
   value: string | number | null | undefined
+  pendingValue?: string | null
   className?: string
   align?: 'left' | 'right'
 }
