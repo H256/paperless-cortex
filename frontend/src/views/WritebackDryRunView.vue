@@ -181,6 +181,7 @@ const displayValue = (
     if (typeof value === 'string') return value
     const extracted = noteText(value)
     if (extracted) return extracted
+    if (typeof value === 'object' && value !== null) return '—'
   }
 
   if (typeof value === 'string') return value
