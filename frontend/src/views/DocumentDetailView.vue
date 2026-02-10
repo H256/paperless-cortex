@@ -26,10 +26,12 @@
         </IconButton>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+          :disabled="reloadingAll"
+          :class="reloadingAll ? 'cursor-not-allowed opacity-70' : ''"
           @click="reloadAll"
         >
-          <RefreshCw class="h-4 w-4" />
-          Reload
+          <RefreshCw class="h-4 w-4" :class="reloadingAll ? 'animate-spin' : ''" />
+          {{ reloadingAll ? 'Reloading...' : 'Reload' }}
         </button>
       </div>
     </div>
@@ -253,6 +255,7 @@ const tabs = [
   { key: 'operations', label: 'Operations' },
 ]
 const activeTab = ref('meta')
+const reloadingAll = ref(false)
 const docOpsLoading = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
@@ -454,11 +457,16 @@ const loadSuggestions = async () => {
 }
 
 const reloadAll = async () => {
-  await load()
-  await loadMeta()
-  await loadContentQuality()
-  await loadPageTexts()
-  await loadSuggestions()
+  reloadingAll.value = true
+  try {
+    await load()
+    await loadMeta()
+    await loadContentQuality()
+    await loadPageTexts()
+    await loadSuggestions()
+  } finally {
+    reloadingAll.value = false
+  }
 }
 
 const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
