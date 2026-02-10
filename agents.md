@@ -533,3 +533,4 @@ All model names must be configurable via environment variables.
 - Backend/UX: added triggerable text-cleanup flow (`cleanup_texts` worker task + `/documents/cleanup-texts` endpoint), plus per-document operations endpoints for task enqueue and full reset+sync+reprocess; wired into Maintenance and Document Detail Operations tab.
 - UX: removed legacy top-level reprocess controls in document detail; processing actions now live exclusively in the document `Operations` tab.
 - Cleanup: text normalization now strips HTML markup from OCR/VLM outputs and flattens HTML tables to plain text (`col1 | col2`) for cleaner embeddings/search/chat input.
+- Refactor/Hardening: page-notes extraction now prefers text-template parsing with deterministic fallback for empty/non-JSON model outputs; frontend document operations were de-duplicated via action config + shared operation runner; LLM debug logging now captures input snippets and streamlined debug checks.

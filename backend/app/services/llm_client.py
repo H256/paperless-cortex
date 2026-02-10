@@ -110,7 +110,8 @@ def chat_completion(
     json_mode: bool = False,
 ) -> str:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    if _llm_debug_enabled():
+    debug_enabled = _llm_debug_enabled()
+    if debug_enabled:
         logger.info(
             "LLM chat request model=%s purpose=%s timeout=%s max_tokens=%s msg_count=%s",
             model,
@@ -141,7 +142,7 @@ def chat_completion(
         if not json_mode:
             raise
         # Some OpenAI-compatible servers do not implement response_format.
-        if _llm_debug_enabled():
+        if debug_enabled:
             logger.warning("LLM json_mode unsupported; retrying without response_format model=%s", model)
         kwargs.pop("response_format", None)
         response = client_sdk.chat.completions.create(**kwargs)
@@ -153,7 +154,7 @@ def chat_completion(
     if content is None:
         raise RuntimeError("LLM response missing content")
     result = str(content).strip()
-    if _llm_debug_enabled():
+    if debug_enabled:
         logger.info("LLM chat response model=%s snippet=%s", model, _snippet(result))
     return result
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -16,6 +17,11 @@ from app.services.guard import ensure_text_llm_ready
 from app.services.text_cleaning import estimate_tokens
 
 logger = logging.getLogger(__name__)
+_PAGE_NOTES_CONTENT_KEYS = ("facts", "entities", "references", "key_numbers")
+_BULLET_PREFIX_RE = re.compile(r"^(?:[-*]|\u2022|\d+[.)])\s*")
+_NUMBER_TOKEN_RE = re.compile(
+    r"\b(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?(?:\s?(?:EUR|USD|CHF|%))?|\d{4}-\d{2}-\d{2})\b"
+)
 
 
 def _now_iso() -> str:
@@ -47,7 +53,11 @@ def _normalize_list(values: Any) -> list[str]:
     return cleaned
 
 
-def _coerce_page_notes_payload(page: int, payload: dict[str, Any], raw_fallback: str | None = None) -> dict[str, Any]:
+def _coerce_page_notes_payload(
+    page: int,
+    payload: dict[str, Any],
+    raw_fallback: str | None = None,
+) -> dict[str, Any]:
     result = {
         "page": int(page),
         "facts": _normalize_list(payload.get("facts")),
@@ -56,7 +66,7 @@ def _coerce_page_notes_payload(page: int, payload: dict[str, Any], raw_fallback:
         "key_numbers": _normalize_list(payload.get("key_numbers")),
         "uncertainties": _normalize_list(payload.get("uncertainties")),
     }
-    if raw_fallback and not any(result[key] for key in ("facts", "entities", "references", "key_numbers")):
+    if raw_fallback and not any(result[key] for key in _PAGE_NOTES_CONTENT_KEYS):
         compact = " ".join((raw_fallback or "").split())
         if compact:
             result["uncertainties"].append(f"fallback_raw_excerpt:{compact[:240]}")
@@ -67,7 +77,7 @@ def _best_effort_page_notes_from_text(page: int, raw_text: str) -> dict[str, Any
     lines = [line.strip(" -*\t") for line in (raw_text or "").splitlines()]
     lines = [line for line in lines if line]
     facts = [line for line in lines[:8] if len(line) > 3]
-    number_matches = re.findall(r"\b(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?(?:\s?(?:EUR|USD|CHF|%))?|\d{4}-\d{2}-\d{2})\b", raw_text or "")
+    number_matches = _NUMBER_TOKEN_RE.findall(raw_text or "")
     return {
         "page": int(page),
         "facts": facts[:8],
@@ -81,7 +91,7 @@ def _best_effort_page_notes_from_text(page: int, raw_text: str) -> dict[str, Any
 def _parse_page_notes_text(page: int, text: str) -> dict[str, Any]:
     section_aliases = {
         "facts": ("facts", "fakten"),
-        "entities": ("entities", "entitaeten", "entitäten"),
+        "entities": ("entities", "entitaeten"),
         "references": ("references", "referenzen", "belege"),
         "key_numbers": ("key numbers", "key_numbers", "zahlen", "kennzahlen"),
         "uncertainties": ("uncertainties", "unsicherheiten"),
@@ -108,14 +118,14 @@ def _parse_page_notes_text(page: int, text: str) -> dict[str, Any]:
         if resolved:
             current_key = resolved
             continue
-        bullet = re.sub(r"^(?:[-*•]|\d+[.)])\s*", "", line).strip()
+        bullet = _BULLET_PREFIX_RE.sub("", line).strip()
         if not bullet:
             continue
         if current_key:
             values[current_key].append(bullet)
 
     payload = _coerce_page_notes_payload(page, values, raw_fallback=text)
-    if any(payload[key] for key in ("facts", "entities", "references", "key_numbers")):
+    if any(payload[key] for key in _PAGE_NOTES_CONTENT_KEYS):
         return payload
     return _best_effort_page_notes_from_text(page, text)
 
@@ -192,7 +202,7 @@ def generate_page_notes(
         parsed = _extract_json_dict(raw)
         return _coerce_page_notes_payload(page, parsed, raw_fallback=raw)
     except Exception as exc:
-        if __import__("os").getenv("LLM_DEBUG") == "1":
+        if os.getenv("LLM_DEBUG") == "1":
             preview = str(raw or "").replace("\n", "\\n")
             if len(preview) > 500:
                 preview = preview[:500] + "...<truncated>"

@@ -126,52 +126,14 @@
 
         <div class="grid gap-2 md:grid-cols-2">
           <button
+            v-for="action in operationActions"
+            :key="action.task"
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
-            title="Stoesst Vision-OCR fuer Seiten dieses Dokuments erneut an."
-            @click="enqueueDocTask('vision_ocr', true)"
+            :title="action.tooltip"
+            @click="enqueueDocTask(action)"
           >
-            Queue vision OCR
-          </button>
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading"
-            title="Erstellt Embeddings aus Vision-OCR-Text und speichert sie in Qdrant."
-            @click="enqueueDocTask('embeddings_vision')"
-          >
-            Queue embeddings (vision)
-          </button>
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading"
-            title="Erzeugt strukturierte Page Notes aus Vision-OCR pro Seite."
-            @click="enqueueDocTask('page_notes_vision')"
-          >
-            Queue page notes (vision)
-          </button>
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading"
-            title="Aggregiert Page Notes abschnittsweise und erzeugt eine hierarchische Zusammenfassung."
-            @click="enqueueDocTask('summary_hierarchical', false, 'vision_ocr')"
-          >
-            Queue hierarchical summary
-          </button>
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading"
-            title="Erzeugt Suggestion-Felder aus dem Paperless-OCR-Text."
-            @click="enqueueDocTask('suggestions_paperless')"
-          >
-            Queue suggestions (paperless)
-          </button>
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading"
-            title="Erzeugt Suggestion-Felder aus dem Vision-OCR-Text."
-            @click="enqueueDocTask('suggestions_vision')"
-          >
-            Queue suggestions (vision)
+            {{ action.label }}
           </button>
         </div>
 
@@ -205,7 +167,7 @@
       <ConfirmDialog
         :open="resetConfirmOpen"
         title="Dokument zuruecksetzen und neu verarbeiten?"
-        message="This removes local intelligence data for this document, syncs metadata/content from Paperless, and re-enqueues processing tasks."
+        message="Dies loescht lokale Intelligence-Daten fuer dieses Dokument, synchronisiert Metadaten/Inhalt aus Paperless neu und reiht die Verarbeitung erneut ein."
         confirm-label="Reset + Reprocess"
         @confirm="confirmResetAndReprocessDoc"
         @cancel="resetConfirmOpen = false"
@@ -231,6 +193,7 @@ import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useStatusStore } from '../stores/statusStore'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
+import type { DocumentOperationTaskPayload } from '../services/documents'
 
 const route = useRoute()
 const router = useRouter()
@@ -271,6 +234,56 @@ const tabs = [
   { key: 'suggestions', label: 'Suggestions' },
   { key: 'pages', label: 'Pages' },
   { key: 'operations', label: 'Operations' },
+]
+type OperationAction = {
+  task: Extract<
+    DocumentOperationTaskPayload['task'],
+    | 'vision_ocr'
+    | 'embeddings_vision'
+    | 'page_notes_vision'
+    | 'summary_hierarchical'
+    | 'suggestions_paperless'
+    | 'suggestions_vision'
+  >
+  label: string
+  tooltip: string
+  force?: boolean
+  source?: 'paperless_ocr' | 'vision_ocr'
+}
+
+const operationActions: OperationAction[] = [
+  {
+    task: 'vision_ocr',
+    label: 'Queue vision OCR',
+    tooltip: 'Stoesst Vision-OCR fuer Seiten dieses Dokuments erneut an.',
+    force: true,
+  },
+  {
+    task: 'embeddings_vision',
+    label: 'Queue embeddings (vision)',
+    tooltip: 'Erstellt Embeddings aus Vision-OCR-Text und speichert sie in Qdrant.',
+  },
+  {
+    task: 'page_notes_vision',
+    label: 'Queue page notes (vision)',
+    tooltip: 'Erzeugt strukturierte Page Notes aus Vision-OCR pro Seite.',
+  },
+  {
+    task: 'summary_hierarchical',
+    label: 'Queue hierarchical summary',
+    tooltip: 'Aggregiert Page Notes abschnittsweise und erzeugt eine hierarchische Zusammenfassung.',
+    source: 'vision_ocr',
+  },
+  {
+    task: 'suggestions_paperless',
+    label: 'Queue suggestions (paperless)',
+    tooltip: 'Erzeugt Suggestion-Felder aus dem Paperless-OCR-Text.',
+  },
+  {
+    task: 'suggestions_vision',
+    label: 'Queue suggestions (vision)',
+    tooltip: 'Erzeugt Suggestion-Felder aus dem Vision-OCR-Text.',
+  },
 ]
 const activeTab = ref('meta')
 const reloadingAll = ref(false)
@@ -475,6 +488,17 @@ const loadSuggestions = async () => {
   await documentStore.loadSuggestions(id)
 }
 
+const withDocOperation = async (fn: () => Promise<void>) => {
+  docOpsLoading.value = true
+  docOpsMessage.value = ''
+  try {
+    await fn()
+    await queueStore.refreshStatus()
+  } finally {
+    docOpsLoading.value = false
+  }
+}
+
 const reloadAll = async () => {
   reloadingAll.value = true
   try {
@@ -492,65 +516,50 @@ const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
   await documentStore.refreshSuggestions(id, source)
 }
 
-const enqueueDocTask = async (
-  task:
-    | 'vision_ocr'
-    | 'embeddings_vision'
-    | 'page_notes_vision'
-    | 'summary_hierarchical'
-    | 'suggestions_paperless'
-    | 'suggestions_vision',
-  force = false,
-  source?: 'paperless_ocr' | 'vision_ocr',
-) => {
-  docOpsLoading.value = true
-  docOpsMessage.value = ''
-  try {
-    const result = await enqueueDocumentTask(id, { task, force, source })
-    docOpsMessage.value = result.enqueued
-      ? `Queued task ${task} for document ${id}.`
-      : `Task ${task} was not enqueued (possibly duplicate/running).`
-    await queueStore.refreshStatus()
-  } catch (err) {
-    docOpsMessage.value = errorMessage(err, `Failed to queue ${task}`)
-  } finally {
-    docOpsLoading.value = false
-  }
+const enqueueDocTask = async (action: OperationAction) => {
+  await withDocOperation(async () => {
+    try {
+      const result = await enqueueDocumentTask(id, {
+        task: action.task,
+        force: action.force ?? false,
+        source: action.source,
+      })
+      docOpsMessage.value = result.enqueued
+        ? `Queued task ${action.task} for document ${id}.`
+        : `Task ${action.task} was not enqueued (possibly duplicate/running).`
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, `Failed to queue ${action.task}`)
+    }
+  })
 }
 
 const runDocCleanup = async () => {
-  docOpsLoading.value = true
-  docOpsMessage.value = ''
-  try {
-    const result = await cleanupTexts({
-      doc_ids: [id],
-      clear_first: docCleanupClearFirst.value,
-      enqueue: true,
-    })
-    docOpsMessage.value = result.queued
-      ? `Queued cleanup for ${result.docs} document(s).`
-      : `Cleanup done: ${result.updated}/${result.processed} updated.`
-    await queueStore.refreshStatus()
-  } catch (err) {
-    docOpsMessage.value = errorMessage(err, 'Failed to queue cleanup')
-  } finally {
-    docOpsLoading.value = false
-  }
+  await withDocOperation(async () => {
+    try {
+      const result = await cleanupTexts({
+        doc_ids: [id],
+        clear_first: docCleanupClearFirst.value,
+        enqueue: true,
+      })
+      docOpsMessage.value = result.queued
+        ? `Queued cleanup for ${result.docs} document(s).`
+        : `Cleanup done: ${result.updated}/${result.processed} updated.`
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, 'Failed to queue cleanup')
+    }
+  })
 }
 
 const runResetAndReprocessDoc = async () => {
-  docOpsLoading.value = true
-  docOpsMessage.value = ''
-  try {
-    const result = await resetAndReprocessDocument(id, true)
-    docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
-    await load()
-    await queueStore.refreshStatus()
-  } catch (err) {
-    docOpsMessage.value = errorMessage(err, 'Failed to reset and reprocess document')
-  } finally {
-    docOpsLoading.value = false
-  }
+  await withDocOperation(async () => {
+    try {
+      const result = await resetAndReprocessDocument(id, true)
+      docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
+      await load()
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, 'Failed to reset and reprocess document')
+    }
+  })
 }
 
 const openResetConfirm = () => {
