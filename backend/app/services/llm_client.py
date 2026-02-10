@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Iterable
 from typing import Literal
 
@@ -10,6 +11,17 @@ from openai import OpenAI
 from app.config import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def _llm_debug_enabled() -> bool:
+    return os.getenv("LLM_DEBUG", "0") == "1"
+
+
+def _snippet(value: object, max_len: int = 500) -> str:
+    text = str(value or "").replace("\r", " ").replace("\n", "\\n")
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + "...<truncated>"
 
 
 def _require(value: str | None, env_name: str) -> str:
@@ -74,6 +86,15 @@ def chat_completion(
     max_tokens: int | None = None,
 ) -> str:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
+    if _llm_debug_enabled():
+        logger.info(
+            "LLM chat request model=%s purpose=%s timeout=%s max_tokens=%s msg_count=%s",
+            model,
+            purpose,
+            timeout,
+            max_tokens,
+            len(messages),
+        )
     kwargs: dict[str, object] = {
         "model": model,
         "messages": messages,
@@ -89,7 +110,10 @@ def chat_completion(
     content = message.content
     if content is None:
         raise RuntimeError("LLM response missing content")
-    return str(content).strip()
+    result = str(content).strip()
+    if _llm_debug_enabled():
+        logger.info("LLM chat response model=%s snippet=%s", model, _snippet(result))
+    return result
 
 
 def stream_chat_completion(

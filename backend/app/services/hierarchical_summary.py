@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +14,8 @@ from app.models import DocumentPageNote, DocumentSectionSummary
 from app.services import llm_client
 from app.services.guard import ensure_text_llm_ready
 from app.services.text_cleaning import estimate_tokens
+
+logger = logging.getLogger(__name__)
 
 
 def _now_iso() -> str:
@@ -162,7 +165,17 @@ def generate_page_notes(
     try:
         parsed = _extract_json_dict(raw)
         return _coerce_page_notes_payload(page, parsed, raw_fallback=raw)
-    except Exception:
+    except Exception as exc:
+        if __import__("os").getenv("LLM_DEBUG") == "1":
+            preview = str(raw or "").replace("\n", "\\n")
+            if len(preview) > 500:
+                preview = preview[:500] + "...<truncated>"
+            logger.warning(
+                "Page notes JSON parse failed page=%s error=%s raw_snippet=%s",
+                page,
+                exc,
+                preview,
+            )
         pass
     try:
         repaired = _repair_page_notes_json(
