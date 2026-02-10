@@ -87,8 +87,13 @@
             <tbody>
               <tr v-for="row in rowsFor(item)" :key="row.field" :class="row.changed ? 'bg-amber-50/70 dark:bg-amber-900/10' : ''">
                 <td class="px-2 py-1 font-semibold text-slate-700 dark:text-slate-300">{{ row.field }}</td>
-                <td class="px-2 py-1 text-slate-700 dark:text-slate-200">{{ pretty(row.original) }}</td>
-                <td class="px-2 py-1 text-slate-700 dark:text-slate-200">{{ pretty(row.proposed) }}</td>
+                <td class="px-2 py-1 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{{ displayValue(row.field, row.original, row.changed, 'original') }}</td>
+                <td
+                  class="px-2 py-1 whitespace-pre-wrap"
+                  :class="row.changed ? 'font-semibold text-amber-800 dark:text-amber-200' : 'text-slate-400 dark:text-slate-500'"
+                >
+                  {{ displayValue(row.field, row.proposed, row.changed, 'proposed') }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -137,8 +142,47 @@ const rowsFor = (item: WritebackDryRunItem) => [
   item.note,
 ]
 
-const pretty = (value: unknown) => {
+const noteText = (value: unknown) => {
+  if (!value || typeof value !== 'object') return ''
+  const text = (value as { text?: unknown }).text
+  return typeof text === 'string' ? text : ''
+}
+
+const displayValue = (
+  field: string,
+  value: unknown,
+  changed: boolean,
+  side: 'original' | 'proposed',
+) => {
+  if (side === 'proposed' && !changed) return ''
   if (value === null || value === undefined || value === '') return '—'
+
+  if (field === 'correspondent' && typeof value === 'object' && value !== null) {
+    const v = value as { name?: unknown; id?: unknown }
+    const name = typeof v.name === 'string' ? v.name : ''
+    const id = typeof v.id === 'number' ? v.id : null
+    if (name && id !== null) return `${name} (#${id})`
+    if (name) return name
+    if (id !== null) return `#${id}`
+    return '—'
+  }
+
+  if (field === 'tags' && typeof value === 'object' && value !== null) {
+    const v = value as { names?: unknown; ids?: unknown }
+    const names = Array.isArray(v.names)
+      ? v.names.map((entry) => String(entry).trim()).filter(Boolean)
+      : []
+    if (names.length) return names.join(', ')
+    const ids = Array.isArray(v.ids) ? v.ids.map((entry) => String(entry).trim()).filter(Boolean) : []
+    return ids.length ? ids.join(', ') : '—'
+  }
+
+  if (field === 'note') {
+    if (typeof value === 'string') return value
+    const extracted = noteText(value)
+    if (extracted) return extracted
+  }
+
   if (typeof value === 'string') return value
   try {
     return JSON.stringify(value)
