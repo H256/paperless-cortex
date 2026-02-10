@@ -24,6 +24,19 @@
       </div>
     </div>
 
+    <div
+      v-if="loading"
+      class="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800 shadow-sm dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-200"
+    >
+      <div class="flex items-center gap-3">
+        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700 dark:border-indigo-700 dark:border-t-indigo-200"></span>
+        <div>
+          <div class="font-semibold">Loading writeback preview...</div>
+          <div class="text-xs opacity-80">Fetching local and Paperless values for comparison.</div>
+        </div>
+      </div>
+    </div>
+
     <div class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-900">
       <button
         class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
@@ -50,7 +63,7 @@
       {{ errorMessage }}
     </div>
 
-    <div class="space-y-3">
+    <div class="space-y-3" :class="loading ? 'opacity-60' : ''">
       <article
         v-for="item in items"
         :key="item.doc_id"
