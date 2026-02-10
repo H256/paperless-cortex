@@ -381,6 +381,11 @@ const loadJobs = async () => {
   jobsLoading.value = true
   try {
     jobs.value = (await listWritebackJobs(150)).items || []
+    errorMessage.value = ''
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load writeback jobs'
+    errorMessage.value = message
+    toastStore.push(message, 'danger', 'Writeback', 3200)
   } finally {
     jobsLoading.value = false
   }
@@ -408,6 +413,11 @@ const loadHistory = async () => {
   historyLoading.value = true
   try {
     historyItems.value = (await listWritebackHistory(150)).items || []
+    errorMessage.value = ''
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load writeback history'
+    errorMessage.value = message
+    toastStore.push(message, 'danger', 'Writeback', 3200)
   } finally {
     historyLoading.value = false
   }
@@ -424,7 +434,6 @@ const formatDateTime = (value?: string | null) => {
 }
 
 onMounted(async () => {
-  await Promise.all([loadPreview(), loadJobs(), loadHistory()])
+  await Promise.allSettled([loadPreview(), loadJobs(), loadHistory()])
 })
 </script>
-

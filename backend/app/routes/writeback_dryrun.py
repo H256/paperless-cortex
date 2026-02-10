@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from app.api_models import (
@@ -35,6 +36,22 @@ router = APIRouter(prefix="/writeback", tags=["writeback"])
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _missing_writeback_jobs_table(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "writeback_jobs" in text and (
+        "no such table" in text
+        or "does not exist" in text
+        or "undefined table" in text
+    )
+
+
+def _raise_missing_table_message() -> None:
+    raise HTTPException(
+        status_code=503,
+        detail="Writeback jobs table is missing. Run database migrations (alembic upgrade head).",
+    )
 
 
 def _build_item(
@@ -317,9 +334,15 @@ def create_writeback_job(
         calls_json=json.dumps([call.model_dump() for call in calls]),
         created_at=_now_iso(),
     )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+    try:
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+    except (OperationalError, ProgrammingError) as exc:
+        db.rollback()
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
     return WritebackJobDetail(
         **_job_summary(job).model_dump(),
         doc_ids=doc_ids,
@@ -329,18 +352,28 @@ def create_writeback_job(
 
 @router.get("/jobs", response_model=WritebackJobListResponse)
 def list_writeback_jobs(db: Session = Depends(get_db), limit: int = 100):
-    rows = (
-        db.query(WritebackJob)
-        .order_by(WritebackJob.id.desc())
-        .limit(max(1, min(limit, 500)))
-        .all()
-    )
+    try:
+        rows = (
+            db.query(WritebackJob)
+            .order_by(WritebackJob.id.desc())
+            .limit(max(1, min(limit, 500)))
+            .all()
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
     return WritebackJobListResponse(items=[_job_summary(row) for row in rows])
 
 
 @router.get("/jobs/{job_id}", response_model=WritebackJobDetail)
 def get_writeback_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    try:
+        job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    except (OperationalError, ProgrammingError) as exc:
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
     if not job:
         raise HTTPException(status_code=404, detail="Writeback job not found")
     doc_ids = []
@@ -369,7 +402,12 @@ def execute_writeback_job(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    try:
+        job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    except (OperationalError, ProgrammingError) as exc:
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
     if not job:
         raise HTTPException(status_code=404, detail="Writeback job not found")
 
@@ -382,7 +420,13 @@ def execute_writeback_job(
     job.started_at = _now_iso()
     job.status = "running"
     job.dry_run = bool(request.dry_run)
-    db.commit()
+    try:
+        db.commit()
+    except (OperationalError, ProgrammingError) as exc:
+        db.rollback()
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
 
     calls: list[WritebackDryRunCall] = []
     if job.calls_json:
@@ -405,8 +449,14 @@ def execute_writeback_job(
     job.status = "completed"
     job.finished_at = _now_iso()
     job.error = None
-    db.commit()
-    db.refresh(job)
+    try:
+        db.commit()
+        db.refresh(job)
+    except (OperationalError, ProgrammingError) as exc:
+        db.rollback()
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
 
     doc_ids = []
     if job.doc_ids_json:
@@ -423,11 +473,16 @@ def execute_writeback_job(
 
 @router.get("/history", response_model=WritebackHistoryResponse)
 def writeback_history(db: Session = Depends(get_db), limit: int = 100):
-    rows = (
-        db.query(WritebackJob)
-        .filter(WritebackJob.status.in_(["completed", "failed"]))
-        .order_by(WritebackJob.id.desc())
-        .limit(max(1, min(limit, 500)))
-        .all()
-    )
+    try:
+        rows = (
+            db.query(WritebackJob)
+            .filter(WritebackJob.status.in_(["completed", "failed"]))
+            .order_by(WritebackJob.id.desc())
+            .limit(max(1, min(limit, 500)))
+            .all()
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
     return WritebackHistoryResponse(items=[_job_summary(row) for row in rows])
