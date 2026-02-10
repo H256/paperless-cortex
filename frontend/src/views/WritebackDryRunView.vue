@@ -89,7 +89,12 @@
         </div>
 
         <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
+          <table class="min-w-full table-fixed text-xs">
+            <colgroup>
+              <col class="w-32" />
+              <col class="w-1/2" />
+              <col class="w-1/2" />
+            </colgroup>
             <thead>
               <tr class="text-left text-slate-500 dark:text-slate-400">
                 <th class="px-2 py-1">Field</th>
