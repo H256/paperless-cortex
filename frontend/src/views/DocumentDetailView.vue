@@ -131,6 +131,98 @@
         @jump-to-page="onPdfPageChange"
       />
 
+      <section
+        v-if="activeTab === 'operations'"
+        class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Document operations</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Trigger single processing steps or fully reset and rebuild this document.
+            </p>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <label class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300">
+            <input type="checkbox" v-model="docCleanupClearFirst" />
+            Clear clean fields first
+          </label>
+          <div class="mt-2">
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              :disabled="docOpsLoading"
+              @click="runDocCleanup"
+            >
+              Cleanup page texts (this doc)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid gap-2 md:grid-cols-2">
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            @click="enqueueDocTask('vision_ocr', true)"
+          >
+            Queue vision OCR
+          </button>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            @click="enqueueDocTask('embeddings_vision')"
+          >
+            Queue embeddings (vision)
+          </button>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            @click="enqueueDocTask('page_notes_vision')"
+          >
+            Queue page notes (vision)
+          </button>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            @click="enqueueDocTask('summary_hierarchical', false, 'vision_ocr')"
+          >
+            Queue hierarchical summary
+          </button>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            @click="enqueueDocTask('suggestions_paperless')"
+          >
+            Queue suggestions (paperless)
+          </button>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            @click="enqueueDocTask('suggestions_vision')"
+          >
+            Queue suggestions (vision)
+          </button>
+        </div>
+
+        <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/50 dark:bg-rose-950/40">
+          <button
+            class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
+            :disabled="docOpsLoading"
+            @click="runResetAndReprocessDoc"
+          >
+            Reset document + sync + full reprocess
+          </button>
+          <p class="mt-2 text-xs text-rose-700 dark:text-rose-200">
+            Deletes local intelligence for this document, syncs from Paperless, then enqueues full processing.
+          </p>
+        </div>
+
+        <div v-if="docOpsMessage" class="text-xs text-slate-500 dark:text-slate-300">
+          {{ docOpsMessage }}
+        </div>
+      </section>
+
       <PdfViewer
         class="mt-6"
         :pdf-url="pdfUrl"
@@ -158,6 +250,7 @@ import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
+import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 
 const route = useRoute()
 const router = useRouter()
@@ -204,8 +297,12 @@ const tabs = [
   { key: 'text', label: 'Text & quality' },
   { key: 'suggestions', label: 'Suggestions' },
   { key: 'pages', label: 'Pages' },
+  { key: 'operations', label: 'Operations' },
 ]
 const activeTab = ref('meta')
+const docOpsLoading = ref(false)
+const docCleanupClearFirst = ref(false)
+const docOpsMessage = ref('')
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -432,6 +529,67 @@ const runReprocess = async () => {
     }
   } finally {
     processing.value = false
+  }
+}
+
+const enqueueDocTask = async (
+  task:
+    | 'vision_ocr'
+    | 'embeddings_vision'
+    | 'page_notes_vision'
+    | 'summary_hierarchical'
+    | 'suggestions_paperless'
+    | 'suggestions_vision',
+  force = false,
+  source?: 'paperless_ocr' | 'vision_ocr',
+) => {
+  docOpsLoading.value = true
+  docOpsMessage.value = ''
+  try {
+    const result = await enqueueDocumentTask(id, { task, force, source })
+    docOpsMessage.value = result.enqueued
+      ? `Queued task ${task} for document ${id}.`
+      : `Task ${task} was not enqueued (possibly duplicate/running).`
+    await queueStore.refreshStatus()
+  } catch (err) {
+    docOpsMessage.value = errorMessage(err, `Failed to queue ${task}`)
+  } finally {
+    docOpsLoading.value = false
+  }
+}
+
+const runDocCleanup = async () => {
+  docOpsLoading.value = true
+  docOpsMessage.value = ''
+  try {
+    const result = await cleanupTexts({
+      doc_ids: [id],
+      clear_first: docCleanupClearFirst.value,
+      enqueue: true,
+    })
+    docOpsMessage.value = result.queued
+      ? `Queued cleanup for ${result.docs} document(s).`
+      : `Cleanup done: ${result.updated}/${result.processed} updated.`
+    await queueStore.refreshStatus()
+  } catch (err) {
+    docOpsMessage.value = errorMessage(err, 'Failed to queue cleanup')
+  } finally {
+    docOpsLoading.value = false
+  }
+}
+
+const runResetAndReprocessDoc = async () => {
+  docOpsLoading.value = true
+  docOpsMessage.value = ''
+  try {
+    const result = await resetAndReprocessDocument(id, true)
+    docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
+    await load()
+    await queueStore.refreshStatus()
+  } catch (err) {
+    docOpsMessage.value = errorMessage(err, 'Failed to reset and reprocess document')
+  } finally {
+    docOpsLoading.value = false
   }
 }
 

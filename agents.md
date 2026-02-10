@@ -530,3 +530,4 @@ All model names must be configurable via environment variables.
 - Tests: added unit coverage for OCR text cleanup and token-budget-based section grouping.
 - Tests: stabilized backend test fixture on Windows by using unique temp SQLite files per test run (avoids file-lock collisions).
 - Ops: tuned worker/env safe rollout defaults for large-document stability (smaller embedding batches, stricter summary budgets, lower suggestions context cap) and documented Arcane initial profile in the execution blueprint.
+- Backend/UX: added triggerable text-cleanup flow (`cleanup_texts` worker task + `/documents/cleanup-texts` endpoint), plus per-document operations endpoints for task enqueue and full reset+sync+reprocess; wired into Maintenance and Document Detail Operations tab.

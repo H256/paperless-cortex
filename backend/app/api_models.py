@@ -439,6 +439,28 @@ class DeleteVisionOcrResponse(BaseModel):
     deleted: int
 
 
+class CleanupTextsResponse(BaseModel):
+    queued: bool = False
+    docs: int = 0
+    enqueued: int = 0
+    processed: int = 0
+    updated: int = 0
+
+
+class DocumentOperationEnqueueResponse(BaseModel):
+    enabled: bool
+    enqueued: int
+    task: str
+    doc_id: int
+
+
+class DocumentResetReprocessResponse(BaseModel):
+    doc_id: int
+    synced: bool
+    reset: bool
+    enqueued: int
+
+
 class ChatCitation(BaseModel):
     id: int
     doc_id: Optional[int] = None

@@ -16,6 +16,7 @@ TASK_TYPES = [
     "vision_ocr",
     "embeddings_paperless",
     "embeddings_vision",
+    "cleanup_texts",
     "page_notes_paperless",
     "page_notes_vision",
     "summary_hierarchical",

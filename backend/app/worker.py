@@ -45,6 +45,7 @@ from app.services.queue import (
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
 from app.services.page_text_store import upsert_page_texts
+from app.services.page_text_store import reclean_page_texts
 from app.services.page_types import PageText
 from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
@@ -466,6 +467,26 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=force)
 
 
+def _process_cleanup_texts(
+    settings,
+    db: Session,
+    doc_id: int,
+    *,
+    source: str | None = None,
+    clear_first: bool = False,
+) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort cleanup texts doc=%s", doc_id)
+        return
+    reclean_page_texts(
+        db,
+        settings,
+        doc_id=doc_id,
+        source=source,
+        clear_first=clear_first,
+    )
+
+
 def _process_page_notes(settings, db: Session, doc_id: int, source: str) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort page notes doc=%s source=%s", doc_id, source)
@@ -796,6 +817,13 @@ def _dispatch_task(settings, db: Session, task_type: str, doc_id: int, task: dic
         "sync": lambda: _process_sync_only(settings, db, doc_id),
         "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id),
         "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id),
+        "cleanup_texts": lambda: _process_cleanup_texts(
+            settings,
+            db,
+            doc_id,
+            source=str((task or {}).get("source")) if (task or {}).get("source") else None,
+            clear_first=bool((task or {}).get("clear_first")),
+        ),
         "page_notes_paperless": lambda: _process_page_notes(settings, db, doc_id, "paperless_ocr"),
         "page_notes_vision": lambda: _process_page_notes(settings, db, doc_id, "vision_ocr"),
         "summary_hierarchical": lambda: _process_summary_hierarchical(
