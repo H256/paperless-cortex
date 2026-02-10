@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section>
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
@@ -11,16 +11,16 @@
         <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
-          title="View document in Paperless"
-          aria-label="View document in Paperless"
+          title="Dokument in Paperless oeffnen"
+          aria-label="Dokument in Paperless oeffnen"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <IconButton
           v-else
           disabled
-          title="Set VITE_PAPERLESS_BASE_URL to enable"
-          aria-label="Paperless link unavailable"
+          title="VITE_PAPERLESS_BASE_URL setzen, um Link zu aktivieren"
+          aria-label="Paperless-Link nicht verfuegbar"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
@@ -116,7 +116,7 @@
             <button
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               :disabled="docOpsLoading"
-              title="Bereinigt gespeicherte Seitentexte (z. B. Zeilenumbrüche/HTML-Rauschen) und aktualisiert die Clean-Felder."
+              title="Bereinigt gespeicherte Seitentexte (z. B. Zeilenumbrueche oder HTML-Rauschen) und aktualisiert die Clean-Felder."
               @click="runDocCleanup"
             >
               Cleanup page texts (this doc)
@@ -128,7 +128,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
-            title="Stößt Vision-OCR für Seiten dieses Dokuments erneut an."
+            title="Stoesst Vision-OCR fuer Seiten dieses Dokuments erneut an."
             @click="enqueueDocTask('vision_ocr', true)"
           >
             Queue vision OCR
@@ -136,7 +136,7 @@
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             :disabled="docOpsLoading"
-            title="Erstellt Embeddings aus Vision-OCR-Text und schreibt sie nach Qdrant."
+            title="Erstellt Embeddings aus Vision-OCR-Text und speichert sie in Qdrant."
             @click="enqueueDocTask('embeddings_vision')"
           >
             Queue embeddings (vision)
@@ -179,7 +179,7 @@
           <button
             class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
             :disabled="docOpsLoading"
-            title="Löscht lokale Intelligence-Daten dieses Dokuments, synchronisiert neu aus Paperless und enqueued die Verarbeitung."
+            title="Loescht lokale Intelligence-Daten dieses Dokuments, synchronisiert neu aus Paperless und enqueued die Verarbeitung."
             @click="openResetConfirm"
           >
             Reset document + sync + full reprocess
@@ -204,7 +204,7 @@
 
       <ConfirmDialog
         :open="resetConfirmOpen"
-        title="Reset document and reprocess?"
+        title="Dokument zuruecksetzen und neu verarbeiten?"
         message="This removes local intelligence data for this document, syncs metadata/content from Paperless, and re-enqueues processing tasks."
         confirm-label="Reset + Reprocess"
         @confirm="confirmResetAndReprocessDoc"
@@ -576,3 +576,4 @@ watch(
 )
 
 </script>
+
