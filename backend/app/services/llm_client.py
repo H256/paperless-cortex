@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Iterable
 from typing import Literal
 
@@ -10,6 +11,39 @@ from openai import OpenAI
 from app.config import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def _llm_debug_enabled() -> bool:
+    return os.getenv("LLM_DEBUG", "0") == "1"
+
+
+def _snippet(value: object, max_len: int = 500) -> str:
+    text = str(value or "").replace("\r", " ").replace("\n", "\\n")
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + "...<truncated>"
+
+
+def _message_content_preview(content: object) -> str:
+    if isinstance(content, str):
+        return _snippet(content)
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content[:5]:
+            if isinstance(item, dict):
+                item_type = str(item.get("type") or "")
+                if item_type == "text":
+                    parts.append(f"text:{_snippet(item.get('text') or '', 180)}")
+                elif item_type == "input_text":
+                    parts.append(f"input_text:{_snippet(item.get('text') or '', 180)}")
+                elif item_type:
+                    parts.append(item_type)
+                else:
+                    parts.append(_snippet(item, 120))
+            else:
+                parts.append(_snippet(item, 120))
+        return _snippet(" | ".join(parts), 500)
+    return _snippet(content)
 
 
 def _require(value: str | None, env_name: str) -> str:
@@ -71,13 +105,47 @@ def chat_completion(
     messages: list[dict[str, object]],
     timeout: float | None,
     purpose: Literal["text", "vision"] = "text",
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+    json_mode: bool = False,
 ) -> str:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    response = client_sdk.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=False,
-    )
+    debug_enabled = _llm_debug_enabled()
+    if debug_enabled:
+        logger.info(
+            "LLM chat request model=%s purpose=%s timeout=%s max_tokens=%s msg_count=%s",
+            model,
+            purpose,
+            timeout,
+            max_tokens,
+            len(messages),
+        )
+        for idx, message in enumerate(messages[:4]):
+            role = str(message.get("role") or "unknown")
+            preview = _message_content_preview(message.get("content"))
+            logger.info("LLM chat request message[%s] role=%s snippet=%s", idx, role, preview)
+    kwargs: dict[str, object] = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+    }
+    if max_tokens is not None:
+        kwargs["max_tokens"] = int(max_tokens)
+    if temperature is not None:
+        kwargs["temperature"] = float(temperature)
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = client_sdk.chat.completions.create(**kwargs)
+    except Exception:
+        if not json_mode:
+            raise
+        # Some OpenAI-compatible servers do not implement response_format.
+        if debug_enabled:
+            logger.warning("LLM json_mode unsupported; retrying without response_format model=%s", model)
+        kwargs.pop("response_format", None)
+        response = client_sdk.chat.completions.create(**kwargs)
     choices = response.choices or []
     if not choices:
         raise RuntimeError("LLM response missing choices")
@@ -85,7 +153,10 @@ def chat_completion(
     content = message.content
     if content is None:
         raise RuntimeError("LLM response missing content")
-    return str(content).strip()
+    result = str(content).strip()
+    if debug_enabled:
+        logger.info("LLM chat response model=%s snippet=%s", model, _snippet(result))
+    return result
 
 
 def stream_chat_completion(
@@ -95,13 +166,17 @@ def stream_chat_completion(
     messages: list[dict[str, object]],
     timeout: float | None,
     purpose: Literal["text", "vision"] = "text",
+    max_tokens: int | None = None,
 ) -> Iterable[str]:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    stream = client_sdk.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=True,
-    )
+    kwargs: dict[str, object] = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+    }
+    if max_tokens is not None:
+        kwargs["max_tokens"] = int(max_tokens)
+    stream = client_sdk.chat.completions.create(**kwargs)
     for event in stream:
         choices = event.choices or []
         if not choices:
@@ -128,3 +203,28 @@ def embedding(
     if not isinstance(embedding, list):
         raise RuntimeError("Invalid embedding response")
     return embedding
+
+
+def embedding_many(
+    settings: Settings,
+    *,
+    model: str,
+    texts: list[str],
+    timeout: float | None,
+) -> list[list[float]]:
+    if not texts:
+        return []
+    client_sdk = _sdk_client(settings, timeout=timeout, purpose="embedding")
+    response = client_sdk.embeddings.create(model=model, input=texts)
+    data = response.data or []
+    if len(data) != len(texts):
+        raise RuntimeError(
+            f"Invalid embedding response length: expected {len(texts)}, got {len(data)}"
+        )
+    vectors: list[list[float]] = []
+    for item in data:
+        embedding = item.embedding
+        if not isinstance(embedding, list):
+            raise RuntimeError("Invalid embedding response")
+        vectors.append(embedding)
+    return vectors

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section>
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
@@ -11,67 +11,30 @@
         <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
-          title="View document in Paperless"
-          aria-label="View document in Paperless"
+          title="Dokument in Paperless oeffnen"
+          aria-label="Dokument in Paperless oeffnen"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <IconButton
           v-else
           disabled
-          title="Set VITE_PAPERLESS_BASE_URL to enable"
-          aria-label="Paperless link unavailable"
+          title="VITE_PAPERLESS_BASE_URL setzen, um Link zu aktivieren"
+          aria-label="Paperless-Link nicht verfuegbar"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-          @click="load"
+          :disabled="reloadingAll"
+          :class="reloadingAll ? 'cursor-not-allowed opacity-70' : ''"
+          @click="reloadAll"
         >
-          <RefreshCw class="h-4 w-4" />
-          Reload
+          <RefreshCw class="h-4 w-4" :class="reloadingAll ? 'animate-spin' : ''" />
+          {{ reloadingAll ? 'Reloading...' : 'Reload' }}
         </button>
       </div>
     </div>
-
-    <section
-      class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
-      <div class="flex flex-wrap items-center gap-3">
-        <div
-          class="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300"
-        >
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doResync" />
-            Resync
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doReembed" :disabled="!doResync" />
-            Re-embed
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doQuality" />
-            Analyze quality
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doPages" />
-            Load extracted pages
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doSuggestions" />
-            Generate suggestions
-          </label>
-        </div>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-          :disabled="processing"
-          @click="runReprocess"
-        >
-          <RefreshCcw class="h-4 w-4" />
-          {{ processing ? 'Processing...' : 'Re-process' }}
-        </button>
-      </div>
-    </section>
 
     <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-4">
@@ -131,6 +94,68 @@
         @jump-to-page="onPdfPageChange"
       />
 
+      <section
+        v-if="activeTab === 'operations'"
+        class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Document operations</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Trigger single processing steps or fully reset and rebuild this document.
+            </p>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <label class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300">
+            <input type="checkbox" v-model="docCleanupClearFirst" />
+            Clear clean fields first
+          </label>
+          <div class="mt-2">
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              :disabled="docOpsLoading"
+              title="Bereinigt gespeicherte Seitentexte (z. B. Zeilenumbrueche oder HTML-Rauschen) und aktualisiert die Clean-Felder."
+              @click="runDocCleanup"
+            >
+              Cleanup page texts (this doc)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid gap-2 md:grid-cols-2">
+          <button
+            v-for="action in operationActions"
+            :key="action.task"
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading"
+            :title="action.tooltip"
+            @click="enqueueDocTask(action)"
+          >
+            {{ action.label }}
+          </button>
+        </div>
+
+        <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/50 dark:bg-rose-950/40">
+          <button
+            class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
+            :disabled="docOpsLoading"
+            title="Loescht lokale Intelligence-Daten dieses Dokuments, synchronisiert neu aus Paperless und enqueued die Verarbeitung."
+            @click="openResetConfirm"
+          >
+            Reset document + sync + full reprocess
+          </button>
+          <p class="mt-2 text-xs text-rose-700 dark:text-rose-200">
+            Deletes local intelligence for this document, syncs from Paperless, then enqueues full processing.
+          </p>
+        </div>
+
+        <div v-if="docOpsMessage" class="text-xs text-slate-500 dark:text-slate-300">
+          {{ docOpsMessage }}
+        </div>
+      </section>
+
       <PdfViewer
         class="mt-6"
         :pdf-url="pdfUrl"
@@ -139,13 +164,22 @@
         @update:page="onPdfPageChange"
       />
 
+      <ConfirmDialog
+        :open="resetConfirmOpen"
+        title="Dokument zuruecksetzen und neu verarbeiten?"
+        message="Dies loescht lokale Intelligence-Daten fuer dieses Dokument, synchronisiert Metadaten/Inhalt aus Paperless neu und reiht die Verarbeitung erneut ein."
+        confirm-label="Reset + Reprocess"
+        @confirm="confirmResetAndReprocessDoc"
+        @cancel="resetConfirmOpen = false"
+      />
+
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next'
+import { ExternalLink, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -153,11 +187,13 @@ import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
-import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
+import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
+import type { DocumentOperationTaskPayload } from '../services/documents'
 
 const route = useRoute()
 const router = useRouter()
@@ -165,7 +201,6 @@ const id = Number(route.params.id)
 
 const documentStore = useDocumentDetailStore()
 const queueStore = useQueueStore()
-const toastStore = useToastStore()
 const statusStore = useStatusStore()
 const {
   document,
@@ -189,12 +224,6 @@ const {
   suggestionVariantError,
 } = storeToRefs(documentStore)
 
-const processing = ref(false)
-const doResync = ref(true)
-const doReembed = ref(true)
-const doQuality = ref(true)
-const doPages = ref(true)
-const doSuggestions = ref(true)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
@@ -204,8 +233,64 @@ const tabs = [
   { key: 'text', label: 'Text & quality' },
   { key: 'suggestions', label: 'Suggestions' },
   { key: 'pages', label: 'Pages' },
+  { key: 'operations', label: 'Operations' },
+]
+type OperationAction = {
+  task: Extract<
+    DocumentOperationTaskPayload['task'],
+    | 'vision_ocr'
+    | 'embeddings_vision'
+    | 'page_notes_vision'
+    | 'summary_hierarchical'
+    | 'suggestions_paperless'
+    | 'suggestions_vision'
+  >
+  label: string
+  tooltip: string
+  force?: boolean
+  source?: 'paperless_ocr' | 'vision_ocr'
+}
+
+const operationActions: OperationAction[] = [
+  {
+    task: 'vision_ocr',
+    label: 'Queue vision OCR',
+    tooltip: 'Stoesst Vision-OCR fuer Seiten dieses Dokuments erneut an.',
+    force: true,
+  },
+  {
+    task: 'embeddings_vision',
+    label: 'Queue embeddings (vision)',
+    tooltip: 'Erstellt Embeddings aus Vision-OCR-Text und speichert sie in Qdrant.',
+  },
+  {
+    task: 'page_notes_vision',
+    label: 'Queue page notes (vision)',
+    tooltip: 'Erzeugt strukturierte Page Notes aus Vision-OCR pro Seite.',
+  },
+  {
+    task: 'summary_hierarchical',
+    label: 'Queue hierarchical summary',
+    tooltip: 'Aggregiert Page Notes abschnittsweise und erzeugt eine hierarchische Zusammenfassung.',
+    source: 'vision_ocr',
+  },
+  {
+    task: 'suggestions_paperless',
+    label: 'Queue suggestions (paperless)',
+    tooltip: 'Erzeugt Suggestion-Felder aus dem Paperless-OCR-Text.',
+  },
+  {
+    task: 'suggestions_vision',
+    label: 'Queue suggestions (vision)',
+    tooltip: 'Erzeugt Suggestion-Felder aus dem Vision-OCR-Text.',
+  },
 ]
 const activeTab = ref('meta')
+const reloadingAll = ref(false)
+const docOpsLoading = ref(false)
+const docCleanupClearFirst = ref(false)
+const docOpsMessage = ref('')
+const resetConfirmOpen = ref(false)
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -386,10 +471,6 @@ const load = async () => {
   await documentStore.loadDocument(id)
 }
 
-const resync = async () => {
-  await documentStore.resync(id, doReembed.value)
-}
-
 const loadMeta = async () => {
   await documentStore.loadMeta()
 }
@@ -407,48 +488,93 @@ const loadSuggestions = async () => {
   await documentStore.loadSuggestions(id)
 }
 
+const withDocOperation = async (fn: () => Promise<void>) => {
+  docOpsLoading.value = true
+  docOpsMessage.value = ''
+  try {
+    await fn()
+    await queueStore.refreshStatus()
+  } finally {
+    docOpsLoading.value = false
+  }
+}
+
+const reloadAll = async () => {
+  reloadingAll.value = true
+  try {
+    await load()
+    await loadMeta()
+    await loadContentQuality()
+    await loadPageTexts()
+    await loadSuggestions()
+  } finally {
+    reloadingAll.value = false
+  }
+}
+
 const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
   await documentStore.refreshSuggestions(id, source)
 }
 
-const runReprocess = async () => {
-  processing.value = true
-  try {
-    if (doResync.value) {
-      await resync()
-      await queueStore.refreshStatus()
-      if (queueStore.status.enabled) {
-        toastStore.push(`Document ${id} queued for processing.`, 'info', 'Queued')
-      }
+const enqueueDocTask = async (action: OperationAction) => {
+  await withDocOperation(async () => {
+    try {
+      const result = await enqueueDocumentTask(id, {
+        task: action.task,
+        force: action.force ?? false,
+        source: action.source,
+      })
+      docOpsMessage.value = result.enqueued
+        ? `Queued task ${action.task} for document ${id}.`
+        : `Task ${action.task} was not enqueued (possibly duplicate/running).`
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, `Failed to queue ${action.task}`)
     }
-    if (doQuality.value) {
-      await loadContentQuality(true)
+  })
+}
+
+const runDocCleanup = async () => {
+  await withDocOperation(async () => {
+    try {
+      const result = await cleanupTexts({
+        doc_ids: [id],
+        clear_first: docCleanupClearFirst.value,
+        enqueue: true,
+      })
+      docOpsMessage.value = result.queued
+        ? `Queued cleanup for ${result.docs} document(s).`
+        : `Cleanup done: ${result.updated}/${result.processed} updated.`
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, 'Failed to queue cleanup')
     }
-    if (doPages.value) {
-      await loadPageTexts(true)
+  })
+}
+
+const runResetAndReprocessDoc = async () => {
+  await withDocOperation(async () => {
+    try {
+      const result = await resetAndReprocessDocument(id, true)
+      docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
+      await load()
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, 'Failed to reset and reprocess document')
     }
-    if (doSuggestions.value) {
-      await loadSuggestions()
-    }
-  } finally {
-    processing.value = false
-  }
+  })
+}
+
+const openResetConfirm = () => {
+  resetConfirmOpen.value = true
+}
+
+const confirmResetAndReprocessDoc = async () => {
+  resetConfirmOpen.value = false
+  await runResetAndReprocessDoc()
 }
 
 
 onMounted(async () => {
   syncPdfFromQuery()
-  await load()
-  await loadMeta()
-  if (doQuality.value) {
-    await loadContentQuality()
-  }
-  if (doPages.value) {
-    await loadPageTexts()
-  }
-  if (doSuggestions.value) {
-    await loadSuggestions()
-  }
+  await reloadAll()
 })
 
 watch(
@@ -458,9 +584,5 @@ watch(
   },
 )
 
-watch(doPages, async (value) => {
-  if (value && pageTexts.value.length === 0) {
-    await loadPageTexts()
-  }
-})
 </script>
+

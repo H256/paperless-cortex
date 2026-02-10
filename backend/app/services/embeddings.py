@@ -30,7 +30,7 @@ def embed_text(settings: Settings, text: str) -> list[float]:
         settings,
         model=settings.embedding_model,
         text=text,
-        timeout=60,
+        timeout=settings.embedding_request_timeout_seconds,
     )
     if settings.llm_base_url and settings.embedding_model:
         if __import__("os").getenv("LLM_DEBUG") == "1":
@@ -42,6 +42,34 @@ def embed_text(settings: Settings, text: str) -> list[float]:
                 sample,
             )
     return embedding
+
+
+def embed_texts(settings: Settings, texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
+    if not settings.embedding_model:
+        raise RuntimeError("EMBEDDING_MODEL not set")
+    ensure_embedding_llm_ready(settings)
+    logger.info(
+        "LLM embeddings batch model=%s items=%s total_chars=%s",
+        settings.embedding_model,
+        len(texts),
+        sum(len(t) for t in texts),
+    )
+    try:
+        return llm_client.embedding_many(
+            settings,
+            model=settings.embedding_model,
+            texts=texts,
+            timeout=settings.embedding_request_timeout_seconds,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Batch embeddings failed; fallback to single requests items=%s error=%s",
+            len(texts),
+            exc,
+        )
+        return [embed_text(settings, text) for text in texts]
 
 
 def semantic_chunks(text: str, max_chars: int = 1200, overlap: int = 200) -> list[str]:

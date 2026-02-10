@@ -3,18 +3,35 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Document, DocumentEmbedding, DocumentOcrScore, DocumentPageText, DocumentSuggestion
-from app.services.queue import enqueue_task_sequence
+from app.models import (
+    Document,
+    DocumentEmbedding,
+    DocumentOcrScore,
+    DocumentPageNote,
+    DocumentPageText,
+    DocumentSectionSummary,
+    DocumentSuggestion,
+)
+from app.services.queue import enqueue_task, enqueue_task_sequence
 from app.services.embeddings import delete_points_for_doc
+from app.services.page_text_store import reclean_page_texts
+from app.services.queue_tasks import build_task_sequence
+from app.services import paperless
+from app.schemas import DocumentIn
+from app.routes.sync import _upsert_document
 from app.api_models import (
     ClearIntelligenceResponse,
+    CleanupTextsResponse,
     DeleteEmbeddingsResponse,
+    DocumentOperationEnqueueResponse,
+    DocumentResetReprocessResponse,
     DeleteSuggestionsResponse,
     DeleteVisionOcrResponse,
     ProcessMissingResponse,
@@ -24,6 +41,33 @@ from app.routes.documents_common import parse_iso, should_skip_doc
 from app.routes.queue_guard import require_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+ALLOWED_DOC_TASKS = {
+    "sync",
+    "vision_ocr",
+    "cleanup_texts",
+    "embeddings_paperless",
+    "embeddings_vision",
+    "page_notes_paperless",
+    "page_notes_vision",
+    "summary_hierarchical",
+    "suggestions_paperless",
+    "suggestions_vision",
+}
+
+
+class DocumentTaskRequest(BaseModel):
+    task: str
+    source: str | None = None
+    force: bool = False
+    clear_first: bool = False
+
+
+class CleanupTextsRequest(BaseModel):
+    doc_ids: list[int] | None = None
+    source: str | None = None
+    clear_first: bool = False
+    enqueue: bool = True
 
 
 def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
@@ -39,6 +83,20 @@ def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentPageText))
     db.execute(delete(DocumentEmbedding))
     db.execute(delete(DocumentOcrScore))
+    db.execute(delete(DocumentPageNote))
+    db.execute(delete(DocumentSectionSummary))
+    db.commit()
+
+
+def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
+    db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentPageText).filter(DocumentPageText.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentOcrScore).filter(DocumentOcrScore.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentPageNote).filter(DocumentPageNote.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentSectionSummary).filter(DocumentSectionSummary.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
     db.commit()
 
 
@@ -248,3 +306,108 @@ def delete_embeddings(
     db.query(DocumentEmbedding).delete(synchronize_session=False)
     db.commit()
     return {"deleted": 1}
+
+
+@router.post("/cleanup-texts", response_model=CleanupTextsResponse)
+def cleanup_texts(
+    payload: CleanupTextsRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    if payload.source and payload.source not in ("paperless_ocr", "vision_ocr", "pdf_text"):
+        raise HTTPException(status_code=400, detail="Invalid source")
+    doc_ids = [int(doc_id) for doc_id in (payload.doc_ids or []) if int(doc_id) > 0]
+    if payload.enqueue:
+        if not require_queue_enabled(settings):
+            return {"queued": False, "docs": len(doc_ids), "enqueued": 0, "processed": 0, "updated": 0}
+        if not doc_ids:
+            doc_ids = [int(row.id) for row in db.query(Document.id).all()]
+        tasks: list[dict] = []
+        for doc_id in doc_ids:
+            task: dict[str, object] = {"doc_id": doc_id, "task": "cleanup_texts", "clear_first": payload.clear_first}
+            if payload.source:
+                task["source"] = payload.source
+            tasks.append(task)
+        enqueued = enqueue_task_sequence(settings, tasks)
+        return {"queued": True, "docs": len(doc_ids), "enqueued": enqueued, "processed": 0, "updated": 0}
+
+    if doc_ids:
+        processed_total = 0
+        updated_total = 0
+        for doc_id in doc_ids:
+            result = reclean_page_texts(
+                db,
+                settings,
+                doc_id=doc_id,
+                source=payload.source,
+                clear_first=payload.clear_first,
+            )
+            processed_total += result["processed"]
+            updated_total += result["updated"]
+        return {
+            "queued": False,
+            "docs": len(doc_ids),
+            "enqueued": 0,
+            "processed": processed_total,
+            "updated": updated_total,
+        }
+
+    result = reclean_page_texts(
+        db,
+        settings,
+        doc_id=None,
+        source=payload.source,
+        clear_first=payload.clear_first,
+    )
+    docs_count = db.query(DocumentPageText.doc_id).distinct().count()
+    return {
+        "queued": False,
+        "docs": docs_count,
+        "enqueued": 0,
+        "processed": result["processed"],
+        "updated": result["updated"],
+    }
+
+
+@router.post("/{doc_id}/operations/enqueue-task", response_model=DocumentOperationEnqueueResponse)
+def enqueue_document_task(
+    doc_id: int,
+    payload: DocumentTaskRequest,
+    settings: Settings = Depends(get_settings),
+):
+    if payload.task not in ALLOWED_DOC_TASKS:
+        raise HTTPException(status_code=400, detail="Invalid task")
+    if not require_queue_enabled(settings):
+        return {"enabled": False, "enqueued": 0, "task": payload.task, "doc_id": doc_id}
+    task: dict[str, object] = {"doc_id": int(doc_id), "task": payload.task}
+    if payload.source:
+        task["source"] = payload.source
+    if payload.force:
+        task["force"] = True
+    if payload.clear_first:
+        task["clear_first"] = True
+    enqueued = enqueue_task(settings, task)
+    return {"enabled": True, "enqueued": enqueued, "task": payload.task, "doc_id": doc_id}
+
+
+@router.post("/{doc_id}/operations/reset-and-reprocess", response_model=DocumentResetReprocessResponse)
+def reset_and_reprocess_document(
+    doc_id: int,
+    enqueue: bool = True,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    _clear_doc_intelligence(db, doc_id)
+    delete_points_for_doc(settings, doc_id)
+
+    raw = paperless.get_document(settings, doc_id)
+    data = DocumentIn.model_validate(raw)
+    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    _upsert_document(db, settings, data, cache)
+    db.commit()
+
+    enqueued = 0
+    if enqueue and require_queue_enabled(settings):
+        tasks = build_task_sequence(settings, doc_id, include_sync=False, force=True)
+        enqueued = enqueue_task_sequence(settings, tasks)
+    return {"doc_id": doc_id, "synced": True, "reset": True, "enqueued": enqueued}

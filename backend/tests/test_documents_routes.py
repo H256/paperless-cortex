@@ -30,3 +30,14 @@ def test_get_document_suggestions_empty(api_client, monkeypatch):
     assert payload["doc_id"] == 123
     assert payload["suggestions"] == {}
     assert payload["suggestions_meta"] == {}
+
+
+def test_cleanup_texts_queue_disabled(api_client):
+    response = api_client.post(
+        "/documents/cleanup-texts",
+        json={"enqueue": True, "clear_first": True},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["queued"] is False
+    assert payload["enqueued"] == 0

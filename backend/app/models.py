@@ -103,6 +103,11 @@ class DocumentPageText(Base):
     page: Mapped[int] = mapped_column(Integer, primary_key=True)
     source: Mapped[str] = mapped_column(String(32), primary_key=True)
     text: Mapped[str | None] = mapped_column(Text)
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    clean_text: Mapped[str | None] = mapped_column(Text)
+    token_estimate_raw: Mapped[int | None] = mapped_column(Integer)
+    token_estimate_clean: Mapped[int | None] = mapped_column(Integer)
+    cleaned_at: Mapped[str | None] = mapped_column(String(64))
     quality_score: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[str | None] = mapped_column(String(64))
     model_name: Mapped[str | None] = mapped_column(String(128))
@@ -119,6 +124,38 @@ class DocumentSuggestion(Base):
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(String(64))
     model_name: Mapped[str | None] = mapped_column(String(128))
+    processed_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
+class DocumentPageNote(Base):
+    __tablename__ = "document_page_notes"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    page: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    notes_json: Mapped[str | None] = mapped_column(Text)
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str | None] = mapped_column(String(32))
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+    processed_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
+class DocumentSectionSummary(Base):
+    __tablename__ = "document_section_summaries"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    section_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    summary_json: Mapped[str | None] = mapped_column(Text)
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str | None] = mapped_column(String(32))
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String(64))
     processed_at: Mapped[str | None] = mapped_column(String(64))
 
     document: Mapped[Document] = relationship()

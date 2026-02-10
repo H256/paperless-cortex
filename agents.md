@@ -523,3 +523,14 @@ All model names must be configurable via environment variables.
 - UX: added SSE status stream (queue/worker/sync/embeddings/health) to reduce polling.
 - UX: SSE stream now also pushes document stats to avoid stats polling.
 - Backend: cache LLM model list in status stream (TTL) to reduce /v1/models calls.
+- Docs: added execution blueprint for large-document worker processing in `docs/execution-blueprint-large-doc-worker.md` (page-first ingestion, token budgets, hierarchical summaries, stable suggestions contract).
+- Backend: worker now supports page-level notes generation (`page_notes_paperless` / `page_notes_vision`) and hierarchical section/global summaries (`summary_hierarchical`) for large documents.
+- Backend: added persistent tables for `document_page_notes` and `document_section_summaries` with dedicated migration.
+- Backend: hierarchical section aggregation now uses token-estimate budgets (not only fixed page counts) and suggestions for large docs can use distilled page-note context.
+- Tests: added unit coverage for OCR text cleanup and token-budget-based section grouping.
+- Tests: stabilized backend test fixture on Windows by using unique temp SQLite files per test run (avoids file-lock collisions).
+- Ops: tuned worker/env safe rollout defaults for large-document stability (smaller embedding batches, stricter summary budgets, lower suggestions context cap) and documented Arcane initial profile in the execution blueprint.
+- Backend/UX: added triggerable text-cleanup flow (`cleanup_texts` worker task + `/documents/cleanup-texts` endpoint), plus per-document operations endpoints for task enqueue and full reset+sync+reprocess; wired into Maintenance and Document Detail Operations tab.
+- UX: removed legacy top-level reprocess controls in document detail; processing actions now live exclusively in the document `Operations` tab.
+- Cleanup: text normalization now strips HTML markup from OCR/VLM outputs and flattens HTML tables to plain text (`col1 | col2`) for cleaner embeddings/search/chat input.
+- Refactor/Hardening: page-notes extraction now prefers text-template parsing with deterministic fallback for empty/non-JSON model outputs; frontend document operations were de-duplicated via action config + shared operation runner; LLM debug logging now captures input snippets and streamlined debug checks.

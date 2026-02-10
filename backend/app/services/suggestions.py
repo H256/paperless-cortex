@@ -12,7 +12,6 @@ from app.services.guard import ensure_text_llm_ready
 
 logger = logging.getLogger(__name__)
 
-MAX_INPUT_CHARS = 12000
 DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "suggestions.txt"
 _prompt_cache: dict[str, str] = {}
 
@@ -199,7 +198,7 @@ def generate_suggestions(
         "document_type": document.get("document_type"),
         "tags": document.get("tags"),
     }
-    trimmed = _truncate(text, MAX_INPUT_CHARS)
+    trimmed = _truncate(text, settings.suggestions_max_input_chars)
     prompt_template = _load_prompt(settings)
     prompt = (
         prompt_template.replace("{metadata}", json.dumps(doc_meta, ensure_ascii=False))
@@ -270,7 +269,7 @@ def generate_field_variants(
         "document_type": document.get("document_type"),
         "tags": document.get("tags"),
     }
-    trimmed = _truncate(text, MAX_INPUT_CHARS)
+    trimmed = _truncate(text, settings.suggestions_max_input_chars)
     prompt_template = _load_field_prompt(field)
     prompt = (
         prompt_template.replace("{metadata}", json.dumps(doc_meta, ensure_ascii=False))

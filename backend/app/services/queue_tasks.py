@@ -19,9 +19,13 @@ def build_task_sequence(
     if use_vision:
         tasks.append({"doc_id": normalized_id, "task": "vision_ocr", "force": force})
         tasks.append({"doc_id": normalized_id, "task": "embeddings_vision"})
+        tasks.append({"doc_id": normalized_id, "task": "page_notes_vision"})
+        tasks.append({"doc_id": normalized_id, "task": "summary_hierarchical", "source": "vision_ocr"})
         tasks.append({"doc_id": normalized_id, "task": "suggestions_paperless"})
         tasks.append({"doc_id": normalized_id, "task": "suggestions_vision"})
     else:
         tasks.append({"doc_id": normalized_id, "task": "embeddings_paperless"})
+        tasks.append({"doc_id": normalized_id, "task": "page_notes_paperless"})
+        tasks.append({"doc_id": normalized_id, "task": "summary_hierarchical", "source": "paperless_ocr"})
         tasks.append({"doc_id": normalized_id, "task": "suggestions_paperless"})
     return tasks

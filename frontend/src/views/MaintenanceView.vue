@@ -155,6 +155,35 @@
           </div>
         </div>
       </div>
+
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Cleanup page texts</h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Rebuilds `clean_text` + token estimates for all stored page texts.
+        </p>
+        <label class="mt-3 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <input type="checkbox" v-model="cleanupClearFirst" />
+          Clear current clean fields first
+        </label>
+        <div class="mt-4 flex items-center gap-3">
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="cleanupLoading"
+            @click="confirmCleanupTexts"
+          >
+            <span v-if="cleanupLoading" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Enqueuing...
+            </span>
+            <span v-else>Run cleanup</span>
+          </button>
+          <div v-if="cleanupResult" class="text-xs text-slate-500 dark:text-slate-400">
+            {{ cleanupResult.queued ? `Queued ${cleanupResult.enqueued} docs` : `Updated ${cleanupResult.updated}/${cleanupResult.processed}` }}
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="mt-6 grid gap-4 md:grid-cols-2">
@@ -546,7 +575,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RefreshCcw, Loader2 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useDocumentsStore } from '../stores/documentsStore'
-import { clearIntelligence, syncCorrespondents, syncTags } from '../services/documents'
+import { cleanupTexts, clearIntelligence, syncCorrespondents, syncTags } from '../services/documents'
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { useQueueStore } from '../stores/queueStore'
@@ -627,6 +656,15 @@ const workerLockLoading = ref(false)
 const workerLockResetLoading = ref(false)
 const workerLockStatus = ref<QueueWorkerLockStatus | null>(null)
 const workerLockResetResult = ref<QueueWorkerLockReset | null>(null)
+const cleanupLoading = ref(false)
+const cleanupClearFirst = ref(false)
+const cleanupResult = ref<{
+  queued: boolean
+  docs: number
+  enqueued: number
+  processed: number
+  updated: number
+} | null>(null)
 
 const confirmDialogOpen = ref(false)
 const confirmDialogTitle = ref('')
@@ -740,6 +778,30 @@ const confirmEmbeddings = async () => {
         toastStore.push(message, 'danger', 'Error')
       } finally {
         embeddingsLoading.value = false
+      }
+    },
+  )
+}
+
+const confirmCleanupTexts = async () => {
+  openConfirmDialog(
+    'Cleanup page texts',
+    'Recompute cleaned text/token fields for all stored pages?',
+    async () => {
+      cleanupLoading.value = true
+      cleanupResult.value = null
+      try {
+        const result = await cleanupTexts({
+          clear_first: cleanupClearFirst.value,
+          enqueue: true,
+        })
+        cleanupResult.value = result
+        toastStore.push('Cleanup queued', 'success', 'Completed')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to run cleanup'
+        toastStore.push(message, 'danger', 'Error')
+      } finally {
+        cleanupLoading.value = false
       }
     },
   )

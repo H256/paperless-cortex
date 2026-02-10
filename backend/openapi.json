@@ -784,6 +784,151 @@
         }
       }
     },
+    "/documents/cleanup-texts": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Cleanup Texts",
+        "operationId": "cleanup_texts_documents_cleanup_texts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanupTextsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupTextsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/operations/enqueue-task": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Enqueue Document Task",
+        "operationId": "enqueue_document_task_documents__doc_id__operations_enqueue_task_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOperationEnqueueResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/operations/reset-and-reprocess": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Reset And Reprocess Document",
+        "operationId": "reset_and_reprocess_document_documents__doc_id__operations_reset_and_reprocess_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "enqueue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Enqueue"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResetReprocessResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}/suggestions": {
       "get": {
         "tags": [
@@ -2330,6 +2475,91 @@
         }
       }
     },
+    "/queue/worker-lock": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Worker Lock",
+        "operationId": "get_worker_lock_queue_worker_lock_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueWorkerLockStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/running": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Running",
+        "operationId": "get_running_queue_running_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueRunningResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/worker-lock/reset": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Reset Worker Lock Route",
+        "operationId": "reset_worker_lock_route_queue_worker_lock_reset_post",
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueWorkerLockResetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "tags": [
@@ -2724,6 +2954,78 @@
           "answer"
         ],
         "title": "ChatResponse"
+      },
+      "CleanupTextsRequest": {
+        "properties": {
+          "doc_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Ids"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "clear_first": {
+            "type": "boolean",
+            "title": "Clear First",
+            "default": false
+          },
+          "enqueue": {
+            "type": "boolean",
+            "title": "Enqueue",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "CleanupTextsRequest"
+      },
+      "CleanupTextsResponse": {
+        "properties": {
+          "queued": {
+            "type": "boolean",
+            "title": "Queued",
+            "default": false
+          },
+          "docs": {
+            "type": "integer",
+            "title": "Docs",
+            "default": 0
+          },
+          "enqueued": {
+            "type": "integer",
+            "title": "Enqueued",
+            "default": 0
+          },
+          "processed": {
+            "type": "integer",
+            "title": "Processed",
+            "default": 0
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "CleanupTextsResponse"
       },
       "ClearIntelligenceResponse": {
         "properties": {
@@ -3295,6 +3597,62 @@
         ],
         "title": "DocumentOcrScoresResponse"
       },
+      "DocumentOperationEnqueueResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "enqueued": {
+            "type": "integer",
+            "title": "Enqueued"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "enqueued",
+          "task",
+          "doc_id"
+        ],
+        "title": "DocumentOperationEnqueueResponse"
+      },
+      "DocumentResetReprocessResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "synced": {
+            "type": "boolean",
+            "title": "Synced"
+          },
+          "reset": {
+            "type": "boolean",
+            "title": "Reset"
+          },
+          "enqueued": {
+            "type": "integer",
+            "title": "Enqueued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "synced",
+          "reset",
+          "enqueued"
+        ],
+        "title": "DocumentResetReprocessResponse"
+      },
       "DocumentStatsResponse": {
         "properties": {
           "total": {
@@ -3528,6 +3886,40 @@
         "additionalProperties": true,
         "type": "object",
         "title": "DocumentSummary"
+      },
+      "DocumentTaskRequest": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          },
+          "clear_first": {
+            "type": "boolean",
+            "title": "Clear First",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "task"
+        ],
+        "title": "DocumentTaskRequest"
       },
       "DocumentTextQualityResponse": {
         "properties": {
@@ -4106,6 +4498,18 @@
             "type": "array",
             "title": "Pages",
             "default": []
+          },
+          "vision_progress": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vision Progress"
           }
         },
         "type": "object",
@@ -4551,6 +4955,40 @@
         ],
         "title": "QueueResetResponse"
       },
+      "QueueRunningResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueuePeekItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "QueueRunningResponse"
+      },
       "QueueStatusResponse": {
         "properties": {
           "enabled": {
@@ -4640,6 +5078,80 @@
           "enabled"
         ],
         "title": "QueueStatusResponse"
+      },
+      "QueueWorkerLockResetResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "reset": {
+            "type": "boolean",
+            "title": "Reset"
+          },
+          "had_lock": {
+            "type": "boolean",
+            "title": "Had Lock"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "reset",
+          "had_lock"
+        ],
+        "title": "QueueWorkerLockResetResponse"
+      },
+      "QueueWorkerLockStatusResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "has_lock": {
+            "type": "boolean",
+            "title": "Has Lock"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "ttl_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "has_lock"
+        ],
+        "title": "QueueWorkerLockStatusResponse"
       },
       "ResetIntelligenceResponse": {
         "properties": {

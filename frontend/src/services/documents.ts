@@ -1,4 +1,5 @@
 import { unwrap } from '../api/orval'
+import { request } from './http'
 import {
   listDocumentsDocumentsGet,
   getDocumentStatsDocumentsStatsGet,
@@ -207,3 +208,64 @@ export const syncTags = () => unwrap<SyncSimpleResponse>(syncTagsSyncTagsPost())
 
 export const syncCorrespondents = () =>
   unwrap<SyncSimpleResponse>(syncCorrespondentsSyncCorrespondentsPost())
+
+export type CleanupTextsPayload = {
+  doc_ids?: number[]
+  source?: 'paperless_ocr' | 'vision_ocr' | 'pdf_text'
+  clear_first?: boolean
+  enqueue?: boolean
+}
+
+export type CleanupTextsResult = {
+  queued: boolean
+  docs: number
+  enqueued: number
+  processed: number
+  updated: number
+}
+
+export type DocumentOperationTaskPayload = {
+  task:
+    | 'sync'
+    | 'vision_ocr'
+    | 'cleanup_texts'
+    | 'embeddings_paperless'
+    | 'embeddings_vision'
+    | 'page_notes_paperless'
+    | 'page_notes_vision'
+    | 'summary_hierarchical'
+    | 'suggestions_paperless'
+    | 'suggestions_vision'
+  source?: 'paperless_ocr' | 'vision_ocr'
+  force?: boolean
+  clear_first?: boolean
+}
+
+export type DocumentOperationTaskResult = {
+  enabled: boolean
+  enqueued: number
+  task: string
+  doc_id: number
+}
+
+export type DocumentResetReprocessResult = {
+  doc_id: number
+  synced: boolean
+  reset: boolean
+  enqueued: number
+}
+
+export const cleanupTexts = (payload: CleanupTextsPayload) =>
+  request<CleanupTextsResult>('/documents/cleanup-texts', { method: 'POST', body: payload })
+
+export const enqueueDocumentTask = (id: number, payload: DocumentOperationTaskPayload) =>
+  request<DocumentOperationTaskResult>(`/documents/${id}/operations/enqueue-task`, {
+    method: 'POST',
+    body: payload,
+  })
+
+export const resetAndReprocessDocument = (id: number, enqueue = true) =>
+  request<DocumentResetReprocessResult>(`/documents/${id}/operations/reset-and-reprocess`, {
+    method: 'POST',
+    params: { enqueue },
+  })
