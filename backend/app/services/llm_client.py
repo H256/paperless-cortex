@@ -24,6 +24,28 @@ def _snippet(value: object, max_len: int = 500) -> str:
     return text[:max_len] + "...<truncated>"
 
 
+def _message_content_preview(content: object) -> str:
+    if isinstance(content, str):
+        return _snippet(content)
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content[:5]:
+            if isinstance(item, dict):
+                item_type = str(item.get("type") or "")
+                if item_type == "text":
+                    parts.append(f"text:{_snippet(item.get('text') or '', 180)}")
+                elif item_type == "input_text":
+                    parts.append(f"input_text:{_snippet(item.get('text') or '', 180)}")
+                elif item_type:
+                    parts.append(item_type)
+                else:
+                    parts.append(_snippet(item, 120))
+            else:
+                parts.append(_snippet(item, 120))
+        return _snippet(" | ".join(parts), 500)
+    return _snippet(content)
+
+
 def _require(value: str | None, env_name: str) -> str:
     if not value:
         raise RuntimeError(f"{env_name} not set")
@@ -97,6 +119,10 @@ def chat_completion(
             max_tokens,
             len(messages),
         )
+        for idx, message in enumerate(messages[:4]):
+            role = str(message.get("role") or "unknown")
+            preview = _message_content_preview(message.get("content"))
+            logger.info("LLM chat request message[%s] role=%s snippet=%s", idx, role, preview)
     kwargs: dict[str, object] = {
         "model": model,
         "messages": messages,
