@@ -211,6 +211,16 @@ class WritebackJob(Base):
     finished_at: Mapped[str | None] = mapped_column(String(64))
 
 
+class DocumentPendingTag(Base):
+    __tablename__ = "document_pending_tags"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True, index=True)
+    names_json: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

@@ -128,6 +128,7 @@ class DocumentSummary(PaperlessDocument):
     has_suggestions_paperless: Optional[bool] = None
     has_suggestions_vision: Optional[bool] = None
     has_vision_pages: Optional[bool] = None
+    pending_tag_names: list[str] = []
 
 
 class DocumentNoteOut(BaseModel):
@@ -154,6 +155,7 @@ class DocumentLocalResponse(BaseModel):
     review_status: Optional[str] = None
     reviewed_at: Optional[str] = None
     paperless_modified: Optional[str] = None
+    pending_tag_names: list[str] = []
 
 
 class DocumentsPageResponse(BaseModel):

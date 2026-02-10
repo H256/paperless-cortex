@@ -13,6 +13,7 @@ from app.models import (
     Correspondent,
     Document,
     DocumentEmbedding,
+    DocumentPendingTag,
     DocumentPageText,
     DocumentSuggestion,
     DocumentType,
@@ -154,6 +155,21 @@ def _apply_derived_fields_and_review_status(
         .all()
     )
     reviewed_at_by_doc = {int(row.doc_id): row.reviewed_at for row in reviewed_rows}
+    pending_tag_rows = (
+        db.query(DocumentPendingTag.doc_id, DocumentPendingTag.names_json)
+        .filter(DocumentPendingTag.doc_id.in_(doc_ids))
+        .all()
+    )
+    pending_tags_by_doc: dict[int, list[str]] = {}
+    for row in pending_tag_rows:
+        names: list[str] = []
+        raw = row.names_json or ""
+        if raw:
+            try:
+                names = [str(name).strip() for name in json.loads(raw) if str(name).strip()]
+            except Exception:
+                names = []
+        pending_tags_by_doc[int(row.doc_id)] = names
 
     filtered_results: list[dict] = []
     for doc in results:
@@ -161,6 +177,7 @@ def _apply_derived_fields_and_review_status(
         if doc_id is None:
             continue
         local_doc = local_by_id.get(doc_id)
+        pending_tag_names = pending_tags_by_doc.get(int(doc_id), [])
         doc["local_cached"] = local_doc is not None
         local_overrides = False
         if local_doc:
@@ -176,6 +193,8 @@ def _apply_derived_fields_and_review_status(
                 local_overrides = True
             if local_doc.correspondent_id and local_doc.correspondent_id != doc.get("correspondent"):
                 local_overrides = True
+            if pending_tag_names:
+                local_overrides = True
             if local_overrides:
                 doc["title"] = local_doc.title
                 doc["document_date"] = local_doc.document_date
@@ -183,6 +202,7 @@ def _apply_derived_fields_and_review_status(
                 doc["correspondent"] = local_doc.correspondent_id
                 doc["correspondent_name"] = local_doc.correspondent.name if local_doc.correspondent else None
                 doc["tags"] = local_tags
+        doc["pending_tag_names"] = pending_tag_names
         doc["local_overrides"] = local_overrides
         doc["has_embeddings"] = doc_id in embed_ids
         doc.update(analysis_by_doc.get(doc_id, {}))
@@ -478,6 +498,17 @@ def get_local_document(
     if not doc:
         return {"status": "missing"}
     remote_doc = paperless.get_document(settings, doc_id)
+    pending_row = (
+        db.query(DocumentPendingTag)
+        .filter(DocumentPendingTag.doc_id == doc_id)
+        .one_or_none()
+    )
+    pending_tag_names: list[str] = []
+    if pending_row and pending_row.names_json:
+        try:
+            pending_tag_names = [str(name).strip() for name in json.loads(pending_row.names_json) if str(name).strip()]
+        except Exception:
+            pending_tag_names = []
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []
@@ -491,6 +522,8 @@ def get_local_document(
     if local_issue_date and local_issue_date != remote_issue_date:
         local_overrides = True
     if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
+        local_overrides = True
+    if pending_tag_names:
         local_overrides = True
 
     local_modified_dt = _parse_iso_datetime(doc.modified)
@@ -537,6 +570,7 @@ def get_local_document(
         "review_status": review_status,
         "reviewed_at": reviewed_at_raw,
         "paperless_modified": remote_modified_raw,
+        "pending_tag_names": pending_tag_names,
     }
 
 

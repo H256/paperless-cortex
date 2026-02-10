@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document, SuggestionAudit
+from app.models import Document, DocumentPendingTag, SuggestionAudit
 
 
 def _insert_suggestion_audit(
@@ -38,6 +38,19 @@ def _insert_local_document(doc_id: int, title: str, created: str):
                 title=title,
                 created=created,
                 modified=created,
+            )
+        )
+        db.commit()
+
+
+def _insert_pending_tags(doc_id: int, names: list[str]):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentPendingTag(
+                doc_id=doc_id,
+                names_json=__import__("json").dumps(names, ensure_ascii=False),
+                updated_at="2026-02-10T10:10:00+00:00",
             )
         )
         db.commit()
@@ -169,4 +182,38 @@ def test_list_documents_local_overrides_force_needs_review(api_client, monkeypat
     assert payload["count"] == 1
     assert len(payload["results"]) == 1
     assert payload["results"][0]["id"] == 4
+    assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=5, title="Doc 5", created="2026-02-10")
+    _insert_pending_tags(doc_id=5, names=["BrandNewTag"])
+    _insert_suggestion_audit(doc_id=5, created_at="2026-02-10T10:20:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 5,
+                    "title": "Doc 5",
+                    "created": "2026-02-10",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True, "review_status": "needs_review"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["results"][0]["id"] == 5
     assert payload["results"][0]["review_status"] == "needs_review"

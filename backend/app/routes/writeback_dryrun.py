@@ -33,7 +33,7 @@ from app.api_models import (
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Correspondent, Document, DocumentNote, SuggestionAudit, Tag, WritebackJob
+from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
@@ -67,6 +67,7 @@ def _build_item(
     remote_doc: dict[str, Any],
     correspondents_by_id: dict[int, str],
     tags_by_id: dict[int, str],
+    pending_tag_names: list[str] | None = None,
 ) -> WritebackDryRunItem:
     local_issue_date = local_doc.document_date or local_doc.created
     remote_notes = remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
@@ -88,6 +89,7 @@ def _build_item(
         remote_correspondent_id=remote_doc.get("correspondent"),
         local_tags=local_tags,
         remote_tags=remote_tags,
+        local_pending_tag_names=pending_tag_names or [],
         local_ai_note=local_note_text,
         remote_ai_note=remote_note_text,
     )
@@ -141,7 +143,7 @@ def _build_item(
         tags=WritebackFieldDiff(
             field="tags",
             original={"ids": remote_tags, "names": remote_tag_names},
-            proposed={"ids": local_tags, "names": local_tag_names},
+            proposed={"ids": local_tags, "names": local_tag_names, "pending_names": pending_tag_names or []},
             changed="tags" in changed_fields,
         ),
         note=note_diff,
@@ -170,6 +172,21 @@ def _preview_for_doc_ids(
         for row in db.query(Correspondent).all()
     }
     tags_by_id = {row.id: (row.name or "") for row in db.query(Tag).all()}
+    pending_rows = (
+        db.query(DocumentPendingTag)
+        .filter(DocumentPendingTag.doc_id.in_(list(local_by_id.keys())))
+        .all()
+    )
+    pending_by_doc: dict[int, list[str]] = {}
+    for row in pending_rows:
+        names: list[str] = []
+        raw = row.names_json or ""
+        if raw:
+            try:
+                names = [str(name).strip() for name in json.loads(raw) if str(name).strip()]
+            except Exception:
+                names = []
+        pending_by_doc[int(row.doc_id)] = names
 
     items: list[WritebackDryRunItem] = []
     for doc_id in doc_ids:
@@ -183,6 +200,7 @@ def _preview_for_doc_ids(
                 remote_doc=remote_doc,
                 correspondents_by_id=correspondents_by_id,
                 tags_by_id=tags_by_id,
+                pending_tag_names=pending_by_doc.get(int(doc_id), []),
             )
         )
     return items
@@ -202,6 +220,7 @@ def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall
         payload["correspondent"] = item.correspondent.proposed.get("id")
     if item.tags.changed and isinstance(item.tags.proposed, dict):
         payload["tags"] = item.tags.proposed.get("ids") or []
+        payload["pending_tag_names"] = item.tags.proposed.get("pending_names") or []
     if payload:
         calls.append(
             WritebackDryRunCall(
@@ -278,11 +297,20 @@ def _job_detail(job: WritebackJob) -> WritebackJobDetail:
     )
 
 
-def _resolve_paperless_tag_ids(settings: Settings, db: Session, local_tag_ids: list[int]) -> list[int]:
+def _resolve_paperless_tag_ids(
+    settings: Settings,
+    db: Session,
+    local_tag_ids: list[int],
+    pending_tag_names: list[str] | None = None,
+) -> list[int]:
     if not local_tag_ids:
         return []
     local_tags = db.query(Tag).filter(Tag.id.in_(local_tag_ids)).all()
     local_names = [str(tag.name or "").strip() for tag in local_tags if str(tag.name or "").strip()]
+    for name in (pending_tag_names or []):
+        clean = str(name or "").strip()
+        if clean and clean not in local_names:
+            local_names.append(clean)
     if not local_names:
         return []
     remote_tags = paperless.list_all_tags(settings)
@@ -303,6 +331,11 @@ def _resolve_paperless_tag_ids(settings: Settings, db: Session, local_tag_ids: l
                 remote_by_name[key] = created_id
         if isinstance(existing_id, int):
             resolved_ids.append(existing_id)
+            local_tag = db.query(Tag).filter(Tag.id == existing_id).one_or_none()
+            if not local_tag:
+                db.add(Tag(id=existing_id, name=name))
+            elif (local_tag.name or "").strip() != name:
+                local_tag.name = name
     return sorted(set(resolved_ids))
 
 
@@ -313,7 +346,9 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
         raw_tags = payload.get("tags")
         if isinstance(raw_tags, list):
             local_tag_ids = [int(tag_id) for tag_id in raw_tags if isinstance(tag_id, int)]
-            payload["tags"] = _resolve_paperless_tag_ids(settings, db, local_tag_ids)
+            pending_names_raw = payload.pop("pending_tag_names", [])
+            pending_names = [str(name).strip() for name in pending_names_raw if str(name).strip()] if isinstance(pending_names_raw, list) else []
+            payload["tags"] = _resolve_paperless_tag_ids(settings, db, local_tag_ids, pending_names)
         paperless.update_document(settings, int(call.doc_id), payload)
         return
     if method == "POST":
@@ -375,6 +410,14 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
             )
             if not dry_run:
                 _execute_call(settings, db, call)
+                if call.method.upper() == "PATCH" and isinstance(call.payload, dict) and "tags" in call.payload:
+                    pending_row = (
+                        db.query(DocumentPendingTag)
+                        .filter(DocumentPendingTag.doc_id == int(call.doc_id))
+                        .one_or_none()
+                    )
+                    if pending_row:
+                        db.delete(pending_row)
         if not dry_run and executed_doc_ids:
             for doc_id in sorted(executed_doc_ids):
                 reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
@@ -449,6 +492,13 @@ def _sync_local_field_from_paperless(
         existing_tags = db.query(Tag).filter(Tag.id.in_(remote_tag_ids)).all()
         by_id = {tag.id: tag for tag in existing_tags}
         local_doc.tags = [by_id[tag_id] for tag_id in remote_tag_ids if tag_id in by_id]
+        pending_row = (
+            db.query(DocumentPendingTag)
+            .filter(DocumentPendingTag.doc_id == int(local_doc.id))
+            .one_or_none()
+        )
+        if pending_row:
+            db.delete(pending_row)
         return
     if field == "note":
         remote_note_id, remote_note_text = extract_ai_summary_note(
@@ -585,6 +635,14 @@ def execute_writeback_direct_for_document(
         )
         _execute_call(settings, db, call)
         calls.append(call)
+        if "tags" in patch_payload:
+            pending_row = (
+                db.query(DocumentPendingTag)
+                .filter(DocumentPendingTag.doc_id == int(doc_id))
+                .one_or_none()
+            )
+            if pending_row:
+                db.delete(pending_row)
 
     if apply_local_note and note_original_id:
         del_call = WritebackDryRunCall(
