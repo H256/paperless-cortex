@@ -216,11 +216,11 @@ def get_dashboard(db: Session = Depends(get_db)):
     )
     unassigned_count = db.query(Document.id).filter(Document.correspondent_id.is_(None)).count()
     correspondents = [
-        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        {"id": row[0], "name": row[1] or "Untitled", "count": row[2]}
         for row in correspondents_rows
     ]
     if unassigned_count:
-        correspondents.append({"id": None, "name": "Ohne Korrespondent", "count": unassigned_count})
+        correspondents.append({"id": None, "name": "Unassigned correspondent", "count": unassigned_count})
     correspondents.sort(key=lambda item: item["count"], reverse=True)
     top_correspondents = correspondents[:8]
 
@@ -236,9 +236,9 @@ def get_dashboard(db: Session = Depends(get_db)):
         .filter(~exists().where(document_tags.c.document_id == Document.id))
         .count()
     )
-    tags = [{"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]} for row in tag_rows]
+    tags = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in tag_rows]
     if untagged_count:
-        tags.append({"id": None, "name": "Ohne Tags", "count": untagged_count})
+        tags.append({"id": None, "name": "No tags", "count": untagged_count})
     tags.sort(key=lambda item: item["count"], reverse=True)
     top_tags = tags[:8]
 
@@ -251,11 +251,11 @@ def get_dashboard(db: Session = Depends(get_db)):
     )
     type_unknown = db.query(Document.id).filter(Document.document_type_id.is_(None)).count()
     document_types = [
-        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        {"id": row[0], "name": row[1] or "Untitled", "count": row[2]}
         for row in type_rows
     ]
     if type_unknown:
-        document_types.append({"id": None, "name": "Ohne Typ", "count": type_unknown})
+        document_types.append({"id": None, "name": "No document type", "count": type_unknown})
     document_types.sort(key=lambda item: item["count"], reverse=True)
 
     unprocessed_by_correspondent: dict[int | None, int] = {}
@@ -271,7 +271,7 @@ def get_dashboard(db: Session = Depends(get_db)):
             unprocessed_by_correspondent[correspondent_id] = unprocessed_by_correspondent.get(correspondent_id, 0) + 1
 
         raw_date = document_date or created or ""
-        month = raw_date[:7] if len(raw_date) >= 7 else "Unbekannt"
+        month = raw_date[:7] if len(raw_date) >= 7 else "Unknown"
         bucket = monthly.get(month)
         if bucket is None:
             bucket = {"total": 0, "processed": 0, "unprocessed": 0}
@@ -286,7 +286,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     unprocessed_corr_list = [
         {
             "id": corr_id,
-            "name": correspondents_map.get(corr_id) or ("Ohne Korrespondent" if corr_id is None else "Unbenannt"),
+            "name": correspondents_map.get(corr_id) or ("Unassigned correspondent" if corr_id is None else "Untitled"),
             "count": count,
         }
         for corr_id, count in unprocessed_by_correspondent.items()
@@ -296,7 +296,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     monthly_processing = [
         {"label": month, **counts} for month, counts in sorted(monthly.items(), key=lambda item: item[0])
     ]
-    if monthly_processing and monthly_processing[0]["label"] == "Unbekannt":
+    if monthly_processing and monthly_processing[0]["label"] == "Unknown":
         monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
 
     buckets = {
@@ -307,11 +307,11 @@ def get_dashboard(db: Session = Depends(get_db)):
         "11-20": 0,
         "21-50": 0,
         "51+": 0,
-        "Unbekannt": 0,
+        "Unknown": 0,
     }
     for (page_count,) in db.query(Document.page_count).all():
         if page_count is None or page_count < 1:
-            buckets["Unbekannt"] += 1
+            buckets["Unknown"] += 1
         elif page_count == 1:
             buckets["1"] += 1
         elif page_count <= 3:

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section>
     <div class="flex items-center justify-between">
       <div>
@@ -373,7 +373,7 @@
           {{ etaText }}
         </div>
         <div class="mt-1 text-[11px] text-indigo-600/80 dark:text-indigo-200/70">
-          Sync läuft… Start ist verfügbar, sobald der Sync abgeschlossen ist.
+          Sync is running. Start is available as soon as sync is complete.
         </div>
       </div>
       <div
@@ -569,7 +569,7 @@
               <Loader2 class="h-4 w-4 animate-spin" />
               Enqueuing...
             </span>
-            <span v-else-if="isSyncingNow">Syncing…</span>
+            <span v-else-if="isSyncingNow">Syncingâ€¦</span>
             <span v-else>Start processing</span>
           </button>
         </template>
@@ -918,3 +918,4 @@ watch(ordering, async () => {
   await load()
 })
 </script>
+

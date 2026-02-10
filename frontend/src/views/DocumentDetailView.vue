@@ -11,16 +11,16 @@
         <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
-          title="Dokument in Paperless oeffnen"
-          aria-label="Dokument in Paperless oeffnen"
+          title="Open document in Paperless"
+          aria-label="Open document in Paperless"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <IconButton
           v-else
           disabled
-          title="VITE_PAPERLESS_BASE_URL setzen, um Link zu aktivieren"
-          aria-label="Paperless-Link nicht verfuegbar"
+          title="Set VITE_PAPERLESS_BASE_URL to enable link"
+          aria-label="Paperless link unavailable"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
@@ -116,7 +116,7 @@
             <button
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               :disabled="docOpsLoading"
-              title="Bereinigt gespeicherte Seitentexte (z. B. Zeilenumbrueche oder HTML-Rauschen) und aktualisiert die Clean-Felder."
+              title="Cleans stored page texts (e.g., line wraps or HTML noise) and updates clean fields."
               @click="runDocCleanup"
             >
               Cleanup page texts (this doc)
@@ -141,7 +141,7 @@
           <button
             class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
             :disabled="docOpsLoading"
-            title="Loescht lokale Intelligence-Daten dieses Dokuments, synchronisiert neu aus Paperless und enqueued die Verarbeitung."
+            title="Deletes local intelligence data for this document, resyncs from Paperless, and enqueues processing."
             @click="openResetConfirm"
           >
             Reset document + sync + full reprocess
@@ -166,8 +166,8 @@
 
       <ConfirmDialog
         :open="resetConfirmOpen"
-        title="Dokument zuruecksetzen und neu verarbeiten?"
-        message="Dies loescht lokale Intelligence-Daten fuer dieses Dokument, synchronisiert Metadaten/Inhalt aus Paperless neu und reiht die Verarbeitung erneut ein."
+        title="Reset document and reprocess?"
+        message="This deletes local intelligence data for this document, resyncs metadata/content from Paperless, and re-enqueues processing."
         confirm-label="Reset + Reprocess"
         @confirm="confirmResetAndReprocessDoc"
         @cancel="resetConfirmOpen = false"
@@ -255,7 +255,7 @@ const operationActions: OperationAction[] = [
   {
     task: 'vision_ocr',
     label: 'Queue vision OCR',
-    tooltip: 'Stoesst Vision-OCR fuer Seiten dieses Dokuments erneut an.',
+    tooltip: 'Triggers vision OCR again for pages of this document.',
     force: true,
   },
   {
@@ -266,23 +266,23 @@ const operationActions: OperationAction[] = [
   {
     task: 'page_notes_vision',
     label: 'Queue page notes (vision)',
-    tooltip: 'Erzeugt strukturierte Page Notes aus Vision-OCR pro Seite.',
+    tooltip: 'Generates structured page notes from vision OCR per page.',
   },
   {
     task: 'summary_hierarchical',
     label: 'Queue hierarchical summary',
-    tooltip: 'Aggregiert Page Notes abschnittsweise und erzeugt eine hierarchische Zusammenfassung.',
+    tooltip: 'Aggregates page notes by section and builds a hierarchical summary.',
     source: 'vision_ocr',
   },
   {
     task: 'suggestions_paperless',
     label: 'Queue suggestions (paperless)',
-    tooltip: 'Erzeugt Suggestion-Felder aus dem Paperless-OCR-Text.',
+    tooltip: 'Generates suggestion fields from Paperless OCR text.',
   },
   {
     task: 'suggestions_vision',
     label: 'Queue suggestions (vision)',
-    tooltip: 'Erzeugt Suggestion-Felder aus dem Vision-OCR-Text.',
+    tooltip: 'Generates suggestion fields from vision OCR text.',
   },
 ]
 const activeTab = ref('meta')
