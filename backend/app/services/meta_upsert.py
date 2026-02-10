@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.models import Correspondent, DocumentType, Tag
+from app.models import Correspondent, DocumentType, Tag, document_tags
 from app.schemas import CorrespondentIn, DocumentTypeIn, TagIn
 
 
@@ -26,6 +27,16 @@ def upsert_tags(db: Session, rows: list[dict]) -> int:
         tag.is_insensitive = data.is_insensitive
         upserted += 1
     return upserted
+
+
+def prune_missing_tags(db: Session, valid_tag_ids: set[int]) -> int:
+    if valid_tag_ids:
+        db.execute(delete(document_tags).where(~document_tags.c.tag_id.in_(valid_tag_ids)))
+        result = db.execute(delete(Tag).where(~Tag.id.in_(valid_tag_ids)))
+    else:
+        db.execute(delete(document_tags))
+        result = db.execute(delete(Tag))
+    return int(result.rowcount or 0)
 
 
 def upsert_correspondents(db: Session, rows: list[dict]) -> int:

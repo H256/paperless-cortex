@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.services import paperless
 from app.services.pagination import load_all_pages
-from app.services.meta_upsert import upsert_correspondents, upsert_tags
+from app.services.meta_upsert import prune_missing_tags, upsert_correspondents, upsert_tags
 from app.services.meta_upsert import upsert_document_types
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,11 @@ logger = logging.getLogger(__name__)
 def sync_tags_all(settings: Settings, db: Session, page_size: int = 200) -> tuple[int, int]:
     results = load_all_pages(lambda **kw: paperless.list_tags(settings, **kw), page_size)
     upserted = upsert_tags(db, results)
+    valid_ids = {int(raw.get("id")) for raw in results if isinstance(raw.get("id"), int)}
+    pruned = prune_missing_tags(db, valid_ids)
     db.commit()
+    if pruned:
+        logger.info("Tag cache pruned removed=%s", pruned)
     return len(results), upserted
 
 
