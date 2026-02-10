@@ -5,6 +5,7 @@ import os
 import socket
 import threading
 import time
+from collections.abc import Iterable
 
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,7 @@ from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
-    embed_text,
+    embed_texts,
     make_point_id,
     upsert_points,
 )
@@ -44,11 +45,13 @@ from app.services.queue import (
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
 from app.services.page_text_store import upsert_page_texts
+from app.services.page_types import PageText
 from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services import vision_ocr
+from app.services.text_cleaning import clean_ocr_text
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
 import json
@@ -58,40 +61,121 @@ HEARTBEAT_INTERVAL_SECONDS = 5
 VISION_OCR_BATCH_DEFAULT = 25
 
 
+def _page_text_value(page: object) -> str:
+    clean_text = getattr(page, "clean_text", None)
+    if isinstance(clean_text, str) and clean_text.strip():
+        return clean_text
+    raw_text = getattr(page, "text", None)
+    if isinstance(raw_text, str):
+        return clean_ocr_text(raw_text)
+    return ""
+
+
+def _join_page_texts_limited(pages: Iterable[object], max_chars: int) -> str:
+    if max_chars <= 0:
+        return "\n\n".join(_page_text_value(page) for page in pages).strip()
+    parts: list[str] = []
+    total = 0
+    for page in pages:
+        text = _page_text_value(page).strip()
+        if not text:
+            continue
+        sep_len = 2 if parts else 0
+        remaining = max_chars - total - sep_len
+        if remaining <= 0:
+            break
+        if len(text) > remaining:
+            parts.append(text[:remaining])
+            total = max_chars
+            break
+        parts.append(text)
+        total += sep_len + len(text)
+    return "\n\n".join(parts).strip()
+
+
 def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
-    content_value = doc.content or ""
+    content_value = clean_ocr_text(doc.content or "")
     page_texts = (baseline_pages or []) + (vision_pages or [])
-    hash_source = "\f".join(f"{page.source}:{page.text}" for page in page_texts) if page_texts else content_value
+    hash_source = (
+        "\f".join(f"{page.source}:{_page_text_value(page)}" for page in page_texts)
+        if page_texts
+        else content_value
+    )
     content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
 
     ensure_embedding_collection(settings)
     delete_points_for_doc(settings, doc.id)
-    baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
+    normalized_baseline_pages = []
+    for page in baseline_pages or []:
+        normalized_baseline_pages.append(
+            PageText(
+                page=page.page,
+                text=_page_text_value(page),
+                source=page.source,
+                quality_score=getattr(page, "quality_score", None),
+                words=getattr(page, "words", None),
+            )
+        )
+    normalized_vision_pages = []
+    for page in vision_pages or []:
+        normalized_vision_pages.append(
+            PageText(
+                page=page.page,
+                text=_page_text_value(page),
+                source=page.source,
+                quality_score=getattr(page, "quality_score", None),
+                words=getattr(page, "words", None),
+            )
+        )
+    baseline_chunks = chunk_document_with_pages(settings, content_value, normalized_baseline_pages or None)
     vision_chunks = (
-        chunk_document_with_pages(settings, content_value, vision_pages or None) if vision_pages else []
+        chunk_document_with_pages(settings, content_value, normalized_vision_pages or None)
+        if normalized_vision_pages
+        else []
     )
     chunks = baseline_chunks + vision_chunks
-    points = []
-    for idx, chunk in enumerate(chunks):
-        chunk_text_value = str(chunk["text"])
-        vector = embed_text(settings, chunk_text_value)
-        points.append(
-            {
-                "id": make_point_id(doc.id, idx),
-                "vector": vector,
-                "payload": {
-                    "doc_id": doc.id,
-                    "chunk": idx,
-                    "text": chunk_text_value,
-                    "page": chunk.get("page"),
-                    "source": chunk.get("source"),
-                    "quality_score": chunk.get("quality_score"),
-                    "bbox": chunk.get("bbox"),
-                },
-            }
+    max_chunks = max(0, int(settings.embedding_max_chunks_per_doc))
+    if max_chunks > 0 and len(chunks) > max_chunks:
+        logger.warning(
+            "Embedding chunks capped doc=%s chunks=%s cap=%s",
+            doc.id,
+            len(chunks),
+            max_chunks,
         )
-    if points:
-        upsert_points(settings, points)
+        chunks = chunks[:max_chunks]
+
+    batch_size = max(1, int(settings.embedding_batch_size))
+    for start in range(0, len(chunks), batch_size):
+        chunk_batch = chunks[start : start + batch_size]
+        texts = [str(chunk["text"]) for chunk in chunk_batch]
+        vectors = embed_texts(settings, texts)
+        points = []
+        for offset, (chunk, vector) in enumerate(zip(chunk_batch, vectors)):
+            chunk_idx = start + offset
+            chunk_text_value = texts[offset]
+            points.append(
+                {
+                    "id": make_point_id(doc.id, chunk_idx),
+                    "vector": vector,
+                    "payload": {
+                        "doc_id": doc.id,
+                        "chunk": chunk_idx,
+                        "text": chunk_text_value,
+                        "page": chunk.get("page"),
+                        "source": chunk.get("source"),
+                        "quality_score": chunk.get("quality_score"),
+                        "bbox": chunk.get("bbox"),
+                    },
+                }
+            )
+        if points:
+            upsert_points(settings, points)
+        logger.info(
+            "Embedding progress doc=%s chunks=%s/%s",
+            doc.id,
+            min(start + len(chunk_batch), len(chunks)),
+            len(chunks),
+        )
 
     existing = db.get(DocumentEmbedding, doc.id)
     if not existing:
@@ -171,7 +255,10 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         model_name=settings.text_model,
     )
     if vision_pages:
-        vision_text = "\n\n".join(page.text or "" for page in vision_pages)
+        vision_text = _join_page_texts_limited(
+            vision_pages,
+            max_chars=settings.worker_suggestions_max_chars,
+        )
         vision_suggestions = generate_normalized_suggestions(
             settings,
             raw,
@@ -225,10 +312,7 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         target_pages = None
 
     pdf_bytes = fetch_pdf_bytes_for_doc(settings, doc)
-    try:
-        configured_batch_size = max(1, int(os.getenv("VISION_OCR_BATCH_PAGES", str(VISION_OCR_BATCH_DEFAULT))))
-    except ValueError:
-        configured_batch_size = VISION_OCR_BATCH_DEFAULT
+    configured_batch_size = max(1, int(settings.vision_ocr_batch_pages or VISION_OCR_BATCH_DEFAULT))
     if settings.vision_ocr_max_pages > 0:
         batch_size = min(configured_batch_size, settings.vision_ocr_max_pages)
     else:
@@ -372,7 +456,10 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         .all()
     )
     if vision_pages:
-        vision_text = "\n\n".join(page.text or "" for page in vision_pages).strip()
+        vision_text = _join_page_texts_limited(
+            vision_pages,
+            max_chars=settings.worker_suggestions_max_chars,
+        )
         if vision_text:
             vision_suggestions = generate_normalized_suggestions(
                 settings,
@@ -408,10 +495,10 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
             .order_by(DocumentPageText.page.asc())
             .all()
         )
-        text = "\n\n".join(page.text or "" for page in vision_pages)
+        text = _join_page_texts_limited(vision_pages, max_chars=settings.worker_suggestions_max_chars)
     else:
         doc = get_document_or_none(db, doc_id)
-        text = doc.content if doc else ""
+        text = clean_ocr_text(doc.content) if doc and doc.content else ""
     variants = generate_field_variants(
         settings,
         raw,

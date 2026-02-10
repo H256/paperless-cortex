@@ -20,6 +20,9 @@ class Settings:
     llm_api_key: str | None
     text_model: str | None
     embedding_model: str | None
+    embedding_batch_size: int
+    embedding_request_timeout_seconds: int
+    embedding_max_chunks_per_doc: int
     qdrant_collection: str | None
     embed_on_sync: bool
     chunk_mode: str
@@ -33,6 +36,7 @@ class Settings:
     vision_ocr_prompt_path: str | None
     suggestions_prompt_path: str | None
     suggestions_debug: bool
+    suggestions_max_input_chars: int
     vision_ocr_min_chars: int
     vision_ocr_min_score: int
     vision_ocr_max_non_alnum_ratio: float
@@ -40,6 +44,7 @@ class Settings:
     vision_ocr_timeout_seconds: int
     vision_ocr_max_dim: int
     vision_ocr_target_dim: int
+    vision_ocr_batch_pages: int
     httpx_verify_tls: bool
     ocr_chat_base_url: str | None
     ocr_vision_base_url: str | None
@@ -54,6 +59,7 @@ class Settings:
     ocr_score_vision_max_tokens: int
     status_stream_interval_seconds: int
     status_llm_models_ttl_seconds: int
+    worker_suggestions_max_chars: int
 
 
 def load_settings() -> Settings:
@@ -76,6 +82,9 @@ def load_settings() -> Settings:
         llm_api_key=os.getenv("LLM_API_KEY"),
         text_model=os.getenv("TEXT_MODEL"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
+        embedding_batch_size=max(1, int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))),
+        embedding_request_timeout_seconds=max(1, int(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "60"))),
+        embedding_max_chunks_per_doc=max(0, int(os.getenv("EMBEDDING_MAX_CHUNKS_PER_DOC", "0"))),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "paperless_chunks"),
         embed_on_sync=os.getenv("EMBED_ON_SYNC", "0") == "1",
         chunk_mode=os.getenv("CHUNK_MODE", "heuristic"),
@@ -91,6 +100,7 @@ def load_settings() -> Settings:
         vision_ocr_prompt_path=os.getenv("VISION_OCR_PROMPT_PATH"),
         suggestions_prompt_path=os.getenv("SUGGESTIONS_PROMPT_PATH"),
         suggestions_debug=os.getenv("SUGGESTIONS_DEBUG", "0") == "1",
+        suggestions_max_input_chars=max(500, int(os.getenv("SUGGESTIONS_MAX_INPUT_CHARS", "12000"))),
         vision_ocr_min_chars=int(os.getenv("VISION_OCR_MIN_CHARS", "40")),
         vision_ocr_min_score=int(os.getenv("VISION_OCR_MIN_SCORE", "60")),
         vision_ocr_max_non_alnum_ratio=float(
@@ -100,6 +110,7 @@ def load_settings() -> Settings:
         vision_ocr_timeout_seconds=int(os.getenv("VISION_OCR_TIMEOUT_SECONDS", "120")),
         vision_ocr_max_dim=int(os.getenv("VISION_OCR_MAX_DIM", "1024")),
         vision_ocr_target_dim=int(os.getenv("VISION_OCR_TARGET_DIM", "0")),
+        vision_ocr_batch_pages=max(1, int(os.getenv("VISION_OCR_BATCH_PAGES", "1"))),
         httpx_verify_tls=os.getenv("HTTPX_VERIFY_TLS", "1") == "1",
         ocr_chat_base_url=os.getenv("OCR_CHAT_BASE"),
         ocr_vision_base_url=os.getenv("OCR_VISION_BASE"),
@@ -114,4 +125,5 @@ def load_settings() -> Settings:
         ocr_score_vision_max_tokens=int(os.getenv("OCR_VISION_MAX_TOKENS", "1200")),
         status_stream_interval_seconds=int(os.getenv("STATUS_STREAM_INTERVAL_SECONDS", "5")),
         status_llm_models_ttl_seconds=int(os.getenv("STATUS_LLM_MODELS_TTL_SECONDS", "60")),
+        worker_suggestions_max_chars=max(500, int(os.getenv("WORKER_SUGGESTIONS_MAX_CHARS", "12000"))),
     )

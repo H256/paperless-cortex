@@ -9,6 +9,7 @@ from app.models import DocumentPageText
 from app.services.page_types import PageText
 from app.services.text_pages import score_text_quality
 from app.config import Settings
+from app.services.text_cleaning import clean_ocr_text, estimate_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +41,20 @@ def upsert_page_texts(
     for page in pages:
         if source_filter and page.source != source_filter:
             continue
-        quality = score_text_quality(page.text, settings)
+        raw_text = page.text or ""
+        clean_text = clean_ocr_text(raw_text)
+        quality = score_text_quality(clean_text or raw_text, settings)
         db.add(
             DocumentPageText(
                 doc_id=doc_id,
                 page=page.page,
                 source=page.source,
-                text=page.text,
+                text=raw_text,
+                raw_text=raw_text,
+                clean_text=clean_text,
+                token_estimate_raw=estimate_tokens(raw_text),
+                token_estimate_clean=estimate_tokens(clean_text),
+                cleaned_at=processed_at,
                 quality_score=quality.score,
                 created_at=created_at,
                 model_name=settings.vision_model,

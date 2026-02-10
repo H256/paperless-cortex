@@ -128,3 +128,28 @@ def embedding(
     if not isinstance(embedding, list):
         raise RuntimeError("Invalid embedding response")
     return embedding
+
+
+def embedding_many(
+    settings: Settings,
+    *,
+    model: str,
+    texts: list[str],
+    timeout: float | None,
+) -> list[list[float]]:
+    if not texts:
+        return []
+    client_sdk = _sdk_client(settings, timeout=timeout, purpose="embedding")
+    response = client_sdk.embeddings.create(model=model, input=texts)
+    data = response.data or []
+    if len(data) != len(texts):
+        raise RuntimeError(
+            f"Invalid embedding response length: expected {len(texts)}, got {len(data)}"
+        )
+    vectors: list[list[float]] = []
+    for item in data:
+        embedding = item.embedding
+        if not isinstance(embedding, list):
+            raise RuntimeError("Invalid embedding response")
+        vectors.append(embedding)
+    return vectors

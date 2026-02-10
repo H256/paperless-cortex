@@ -523,3 +523,4 @@ All model names must be configurable via environment variables.
 - UX: added SSE status stream (queue/worker/sync/embeddings/health) to reduce polling.
 - UX: SSE stream now also pushes document stats to avoid stats polling.
 - Backend: cache LLM model list in status stream (TTL) to reduce /v1/models calls.
+- Docs: added execution blueprint for large-document worker processing in `docs/execution-blueprint-large-doc-worker.md` (page-first ingestion, token budgets, hierarchical summaries, stable suggestions contract).
