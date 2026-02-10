@@ -40,6 +40,7 @@ export const getWritebackDryRunPreview = (params: {
   page: number
   page_size: number
   only_changed?: boolean
+  doc_id?: number
 }) =>
   request<WritebackDryRunPreviewResponse>('/writeback/dry-run/preview', {
     params,

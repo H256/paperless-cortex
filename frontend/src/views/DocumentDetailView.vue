@@ -25,6 +25,14 @@
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <button
+          class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+          title="Open writeback dry-run focused on this document"
+          @click="openWritebackDryRun"
+        >
+          <ClipboardCheck class="h-4 w-4" />
+          Writeback dry-run
+        </button>
+        <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
           :disabled="reloadingAll"
           :class="reloadingAll ? 'cursor-not-allowed opacity-70' : ''"
@@ -179,7 +187,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, RefreshCw } from 'lucide-vue-next'
+import { ClipboardCheck, ExternalLink, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -448,6 +456,16 @@ const onPdfPageChange = (value: number) => {
   delete nextQuery.bbox
   router.replace({ query: nextQuery })
   pdfHighlights.value = []
+}
+
+const openWritebackDryRun = () => {
+  router.push({
+    path: '/writeback-dry-run',
+    query: {
+      doc_id: String(id),
+      only_changed: '1',
+    },
+  })
 }
 
 const formatDate = (value?: string | null) => {

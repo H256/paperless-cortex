@@ -156,17 +156,24 @@ def dry_run_preview(
     page: int = 1,
     page_size: int = 20,
     only_changed: bool = True,
+    doc_id: int | None = None,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    payload = paperless.list_documents(settings, page=page, page_size=page_size)
-    results = payload.get("results") or []
-    doc_ids = [int(doc["id"]) for doc in results if isinstance(doc.get("id"), int)]
+    if doc_id is not None and doc_id > 0:
+        doc_ids = [int(doc_id)]
+        total_count = 1
+    else:
+        payload = paperless.list_documents(settings, page=page, page_size=page_size)
+        results = payload.get("results") or []
+        doc_ids = [int(doc["id"]) for doc in results if isinstance(doc.get("id"), int)]
+        total_count = int(payload.get("count") or 0)
+
     items = _preview_for_doc_ids(settings, db, doc_ids)
     if only_changed:
         items = [item for item in items if item.changed]
     return WritebackDryRunPreviewResponse(
-        count=int(payload.get("count") or 0),
+        count=total_count,
         page=page,
         page_size=page_size,
         items=items,

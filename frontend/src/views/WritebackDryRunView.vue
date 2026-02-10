@@ -8,6 +8,12 @@
         <p class="text-sm text-slate-500 dark:text-slate-400">
           Shows which Paperless API calls would run. No data is written.
         </p>
+        <p
+          v-if="focusedDocId"
+          class="mt-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300"
+        >
+          Focused document: {{ focusedDocId }}
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
@@ -135,6 +141,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   getWritebackDryRunPreview,
   runWritebackDryRun,
@@ -142,6 +149,7 @@ import {
   type WritebackDryRunItem,
 } from '../services/writeback'
 
+const route = useRoute()
 const items = ref<WritebackDryRunItem[]>([])
 const loading = ref(false)
 const running = ref(false)
@@ -225,6 +233,13 @@ const clearSelection = () => {
   selectedSet.value = new Set()
 }
 
+const focusedDocId = computed(() => {
+  const raw = route.query.doc_id
+  const candidate = Array.isArray(raw) ? raw[0] : raw
+  const parsed = Number(candidate)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+})
+
 const loadPreview = async () => {
   loading.value = true
   errorMessage.value = ''
@@ -234,6 +249,7 @@ const loadPreview = async () => {
       page: 1,
       page_size: 100,
       only_changed: onlyChanged.value,
+      doc_id: focusedDocId.value ?? undefined,
     })
     items.value = data.items || []
     selectAllChanged()
@@ -256,6 +272,13 @@ const runDryRun = async () => {
   }
 }
 
-onMounted(loadPreview)
+onMounted(() => {
+  const onlyChangedRaw = route.query.only_changed
+  const onlyChangedValue = Array.isArray(onlyChangedRaw) ? onlyChangedRaw[0] : onlyChangedRaw
+  if (onlyChangedValue === '0' || onlyChangedValue === 'false') {
+    onlyChanged.value = false
+  }
+  loadPreview()
+})
 </script>
 
