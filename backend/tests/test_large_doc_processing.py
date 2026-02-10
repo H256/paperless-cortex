@@ -30,3 +30,10 @@ def test_group_notes_into_sections_respects_token_budget():
 def test_estimate_tokens_non_empty():
     assert estimate_tokens("abcde" * 10) > 0
 
+
+def test_clean_ocr_text_strips_html_and_flattens_table():
+    raw = "<table><tr><td>Datum</td><td>2024-01-01</td></tr><tr><td>Betrag</td><td>19,99 EUR</td></tr></table>"
+    cleaned = clean_ocr_text(raw)
+    assert "<table>" not in cleaned
+    assert "Datum | 2024-01-01" in cleaned
+    assert "Betrag | 19,99 EUR" in cleaned

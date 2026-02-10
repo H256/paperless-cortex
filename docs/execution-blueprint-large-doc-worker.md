@@ -116,6 +116,15 @@ Validation:
 - `orjson`: fast JSON serialization for notes/summaries payloads.
 - Optional: `regex` only if advanced patterns are required.
 
+## Cleanup Policy (Implemented)
+- Keep `raw_text` unchanged for audit/debug.
+- Build `clean_text` as retrieval/summarization source.
+- If OCR/VLM output contains HTML markup:
+  - strip all HTML tags from `clean_text`
+  - remove `script/style` blocks
+  - convert tables into plain text rows with column separators (`A | B | C`)
+- This reduces embedding/chat noise while preserving table facts.
+
 ## Observability & Acceptance
 ## Metrics
 - Pages ingested/minute

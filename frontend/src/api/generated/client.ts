@@ -10,6 +10,8 @@ import type {
   ApplySuggestionToDocument,
   ChatRequest,
   ChatResponse,
+  CleanupTextsRequest,
+  CleanupTextsResponse,
   ClearIntelligenceResponse,
   CorrespondentResponse,
   CorrespondentsPageResponse,
@@ -22,7 +24,10 @@ import type {
   DocumentDashboardResponse,
   DocumentLocalResponse,
   DocumentOcrScoresResponse,
+  DocumentOperationEnqueueResponse,
+  DocumentResetReprocessResponse,
   DocumentStatsResponse,
+  DocumentTaskRequest,
   DocumentTextQualityResponse,
   DocumentTypeResponse,
   DocumentsPageResponse,
@@ -56,8 +61,13 @@ import type {
   QueueRemoveRequest,
   QueueRemoveResponse,
   QueueResetResponse,
+  QueueRunningResponse,
   QueueStatusResponse,
+  QueueWorkerLockResetResponse,
+  QueueWorkerLockStatusResponse,
+  ResetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostParams,
   ResetIntelligenceResponse,
+  ResetWorkerLockRouteQueueWorkerLockResetPostParams,
   SearchEmbeddingsSearchGetParams,
   StatusResponse,
   SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,
@@ -843,6 +853,165 @@ export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async (params?: Del
   
   const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
+}
+
+
+
+/**
+ * @summary Cleanup Texts
+ */
+export type cleanupTextsDocumentsCleanupTextsPostResponse200 = {
+  data: CleanupTextsResponse
+  status: 200
+}
+
+export type cleanupTextsDocumentsCleanupTextsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type cleanupTextsDocumentsCleanupTextsPostResponseSuccess = (cleanupTextsDocumentsCleanupTextsPostResponse200) & {
+  headers: Headers;
+};
+export type cleanupTextsDocumentsCleanupTextsPostResponseError = (cleanupTextsDocumentsCleanupTextsPostResponse422) & {
+  headers: Headers;
+};
+
+export type cleanupTextsDocumentsCleanupTextsPostResponse = (cleanupTextsDocumentsCleanupTextsPostResponseSuccess | cleanupTextsDocumentsCleanupTextsPostResponseError)
+
+export const getCleanupTextsDocumentsCleanupTextsPostUrl = () => {
+
+
+  
+
+  return `/api/documents/cleanup-texts`
+}
+
+export const cleanupTextsDocumentsCleanupTextsPost = async (cleanupTextsRequest: CleanupTextsRequest, options?: RequestInit): Promise<cleanupTextsDocumentsCleanupTextsPostResponse> => {
+  
+  const res = await fetch(getCleanupTextsDocumentsCleanupTextsPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cleanupTextsRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: cleanupTextsDocumentsCleanupTextsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as cleanupTextsDocumentsCleanupTextsPostResponse
+}
+
+
+
+/**
+ * @summary Enqueue Document Task
+ */
+export type enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse200 = {
+  data: DocumentOperationEnqueueResponse
+  status: 200
+}
+
+export type enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponseSuccess = (enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse200) & {
+  headers: Headers;
+};
+export type enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponseError = (enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse422) & {
+  headers: Headers;
+};
+
+export type enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse = (enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponseSuccess | enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponseError)
+
+export const getEnqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/documents/${docId}/operations/enqueue-task`
+}
+
+export const enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPost = async (docId: number,
+    documentTaskRequest: DocumentTaskRequest, options?: RequestInit): Promise<enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse> => {
+  
+  const res = await fetch(getEnqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostUrl(docId),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      documentTaskRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse
+}
+
+
+
+/**
+ * @summary Reset And Reprocess Document
+ */
+export type resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse200 = {
+  data: DocumentResetReprocessResponse
+  status: 200
+}
+
+export type resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponseSuccess = (resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse200) & {
+  headers: Headers;
+};
+export type resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponseError = (resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse422) & {
+  headers: Headers;
+};
+
+export type resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse = (resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponseSuccess | resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponseError)
+
+export const getResetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostUrl = (docId: number,
+    params?: ResetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/operations/reset-and-reprocess?${stringifiedParams}` : `/api/documents/${docId}/operations/reset-and-reprocess`
+}
+
+export const resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPost = async (docId: number,
+    params?: ResetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostParams, options?: RequestInit): Promise<resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse> => {
+  
+  const res = await fetch(getResetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostUrl(docId,params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse
 }
 
 
@@ -2509,6 +2678,146 @@ export const removeQueueRemovePost = async (queueRemoveRequest: QueueRemoveReque
   
   const data: removeQueueRemovePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as removeQueueRemovePostResponse
+}
+
+
+
+/**
+ * @summary Get Worker Lock
+ */
+export type getWorkerLockQueueWorkerLockGetResponse200 = {
+  data: QueueWorkerLockStatusResponse
+  status: 200
+}
+    
+export type getWorkerLockQueueWorkerLockGetResponseSuccess = (getWorkerLockQueueWorkerLockGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getWorkerLockQueueWorkerLockGetResponse = (getWorkerLockQueueWorkerLockGetResponseSuccess)
+
+export const getGetWorkerLockQueueWorkerLockGetUrl = () => {
+
+
+  
+
+  return `/api/queue/worker-lock`
+}
+
+export const getWorkerLockQueueWorkerLockGet = async ( options?: RequestInit): Promise<getWorkerLockQueueWorkerLockGetResponse> => {
+  
+  const res = await fetch(getGetWorkerLockQueueWorkerLockGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getWorkerLockQueueWorkerLockGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getWorkerLockQueueWorkerLockGetResponse
+}
+
+
+
+/**
+ * @summary Get Running
+ */
+export type getRunningQueueRunningGetResponse200 = {
+  data: QueueRunningResponse
+  status: 200
+}
+    
+export type getRunningQueueRunningGetResponseSuccess = (getRunningQueueRunningGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getRunningQueueRunningGetResponse = (getRunningQueueRunningGetResponseSuccess)
+
+export const getGetRunningQueueRunningGetUrl = () => {
+
+
+  
+
+  return `/api/queue/running`
+}
+
+export const getRunningQueueRunningGet = async ( options?: RequestInit): Promise<getRunningQueueRunningGetResponse> => {
+  
+  const res = await fetch(getGetRunningQueueRunningGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getRunningQueueRunningGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getRunningQueueRunningGetResponse
+}
+
+
+
+/**
+ * @summary Reset Worker Lock Route
+ */
+export type resetWorkerLockRouteQueueWorkerLockResetPostResponse200 = {
+  data: QueueWorkerLockResetResponse
+  status: 200
+}
+
+export type resetWorkerLockRouteQueueWorkerLockResetPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type resetWorkerLockRouteQueueWorkerLockResetPostResponseSuccess = (resetWorkerLockRouteQueueWorkerLockResetPostResponse200) & {
+  headers: Headers;
+};
+export type resetWorkerLockRouteQueueWorkerLockResetPostResponseError = (resetWorkerLockRouteQueueWorkerLockResetPostResponse422) & {
+  headers: Headers;
+};
+
+export type resetWorkerLockRouteQueueWorkerLockResetPostResponse = (resetWorkerLockRouteQueueWorkerLockResetPostResponseSuccess | resetWorkerLockRouteQueueWorkerLockResetPostResponseError)
+
+export const getResetWorkerLockRouteQueueWorkerLockResetPostUrl = (params?: ResetWorkerLockRouteQueueWorkerLockResetPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue/worker-lock/reset?${stringifiedParams}` : `/api/queue/worker-lock/reset`
+}
+
+export const resetWorkerLockRouteQueueWorkerLockResetPost = async (params?: ResetWorkerLockRouteQueueWorkerLockResetPostParams, options?: RequestInit): Promise<resetWorkerLockRouteQueueWorkerLockResetPostResponse> => {
+  
+  const res = await fetch(getResetWorkerLockRouteQueueWorkerLockResetPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: resetWorkerLockRouteQueueWorkerLockResetPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as resetWorkerLockRouteQueueWorkerLockResetPostResponse
 }
 
 

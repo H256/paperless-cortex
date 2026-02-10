@@ -5,8 +5,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PageTextOut } from './pageTextOut';
+import type { PageTextsResponseVisionProgress } from './pageTextsResponseVisionProgress';
 
 export interface PageTextsResponse {
   doc_id: number;
   pages?: PageTextOut[];
+  vision_progress?: PageTextsResponseVisionProgress;
 }
