@@ -128,3 +128,23 @@ def get_tag(settings: Settings, tag_id: int) -> dict[str, Any]:
         response = http.get(f"/tags/{tag_id}/")
         response.raise_for_status()
         return response.json()
+
+
+def update_document(settings: Settings, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    with client(settings) as http:
+        response = http.patch(f"/documents/{doc_id}/", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+
+def add_document_note(settings: Settings, doc_id: int, note: str) -> dict[str, Any]:
+    with client(settings) as http:
+        response = http.post(f"/documents/{doc_id}/notes/", json={"note": note})
+        response.raise_for_status()
+        return response.json()
+
+
+def delete_document_note(settings: Settings, doc_id: int, note_id: int) -> None:
+    with client(settings) as http:
+        response = http.delete(f"/documents/{doc_id}/notes/{note_id}/")
+        response.raise_for_status()

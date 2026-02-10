@@ -244,6 +244,31 @@ def _job_summary(job: WritebackJob) -> WritebackJobSummary:
     )
 
 
+def _execute_call(settings: Settings, call: WritebackDryRunCall) -> None:
+    method = call.method.upper()
+    if method == "PATCH":
+        paperless.update_document(settings, int(call.doc_id), dict(call.payload or {}))
+        return
+    if method == "POST":
+        payload = dict(call.payload or {})
+        note = str(payload.get("note") or "")
+        paperless.add_document_note(settings, int(call.doc_id), note)
+        return
+    if method == "DELETE":
+        path = str(call.path or "")
+        note_id: int | None = None
+        try:
+            segment = path.rstrip("/").split("/")[-1]
+            note_id = int(segment)
+        except Exception:
+            note_id = None
+        if note_id is None:
+            raise RuntimeError(f"Cannot parse note id from path: {path}")
+        paperless.delete_document_note(settings, int(call.doc_id), note_id)
+        return
+    raise RuntimeError(f"Unsupported writeback method: {method}")
+
+
 @router.get("/dry-run/preview", response_model=WritebackDryRunPreviewResponse)
 def dry_run_preview(
     page: int = 1,
@@ -435,20 +460,29 @@ def execute_writeback_job(
         except Exception:
             calls = []
 
-    # PoC behavior: always log planned calls; real remote execution can be added later.
-    for call in calls:
-        logger.info(
-            "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
-            "DRY-RUN" if request.dry_run else "EXECUTE",
-            call.doc_id,
-            call.method,
-            call.path,
-            call.payload,
-        )
+    execution_error: str | None = None
+    try:
+        for call in calls:
+            logger.info(
+                "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
+                "DRY-RUN" if request.dry_run else "EXECUTE",
+                call.doc_id,
+                call.method,
+                call.path,
+                call.payload,
+            )
+            if not request.dry_run:
+                _execute_call(settings, call)
+    except Exception as exc:
+        execution_error = str(exc)
 
-    job.status = "completed"
     job.finished_at = _now_iso()
-    job.error = None
+    if execution_error:
+        job.status = "failed"
+        job.error = execution_error
+    else:
+        job.status = "completed"
+        job.error = None
     try:
         db.commit()
         db.refresh(job)

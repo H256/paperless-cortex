@@ -132,7 +132,13 @@
 
     <section v-if="activeTab === 'Queue'" class="space-y-4">
       <div class="flex items-center justify-between">
-        <div class="text-sm text-slate-600 dark:text-slate-300">Pending and recent jobs</div>
+        <div class="space-y-1">
+          <div class="text-sm text-slate-600 dark:text-slate-300">Pending and recent jobs</div>
+          <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="executeDryRunMode" />
+            Execute mode: {{ executeDryRunMode ? 'Dry-run' : 'Real writeback' }}
+          </label>
+        </div>
         <button
           class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
           :disabled="jobsLoading"
@@ -164,11 +170,12 @@
               <td class="px-3 py-2">{{ formatDateTime(job.created_at) }}</td>
               <td class="px-3 py-2">
                 <button
-                  class="rounded-md bg-emerald-600 px-2 py-1 font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                  class="rounded-md px-2 py-1 font-semibold text-white disabled:opacity-60"
+                  :class="executeDryRunMode ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'"
                   :disabled="executeLoading || job.status !== 'pending'"
-                  @click="executeJob(job.id)"
+                  @click="runOrConfirmExecute(job.id)"
                 >
-                  Run dry-run
+                  {{ executeDryRunMode ? 'Run dry-run' : 'Run execute' }}
                 </button>
               </td>
             </tr>
@@ -213,11 +220,22 @@
         </table>
       </div>
     </section>
+
+    <ConfirmDialog
+      :open="confirmExecuteOpen"
+      title="Run real writeback?"
+      message="This will call Paperless write endpoints for this job. Dry-run stays available if you cancel."
+      confirm-label="Run execute"
+      cancel-label="Cancel"
+      @confirm="confirmExecute"
+      @cancel="cancelExecute"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useToastStore } from '../stores/toastStore'
 import {
   createWritebackJob,
@@ -247,6 +265,9 @@ const historyItems = ref<WritebackJobSummary[]>([])
 const jobsLoading = ref(false)
 const historyLoading = ref(false)
 const executeLoading = ref(false)
+const executeDryRunMode = ref(true)
+const confirmExecuteOpen = ref(false)
+const pendingExecuteJobId = ref<number | null>(null)
 
 const selectedIds = computed(() => Array.from(selectedSet.value))
 
@@ -391,13 +412,14 @@ const loadJobs = async () => {
   }
 }
 
-const executeJob = async (jobId: number) => {
+const executeJob = async (jobId: number, dryRun: boolean) => {
   executeLoading.value = true
   try {
-    const job = await executeWritebackJob(jobId, true)
+    const job = await executeWritebackJob(jobId, dryRun)
+    const failed = job.status === 'failed'
     toastStore.push(
-      `Job #${job.id} completed (${job.calls_count} logged call(s)).`,
-      'success',
+      `Job #${job.id} ${job.status} (${job.calls_count} call(s)).`,
+      failed ? 'danger' : 'success',
       'Writeback',
       2400,
     )
@@ -407,6 +429,28 @@ const executeJob = async (jobId: number) => {
   } finally {
     executeLoading.value = false
   }
+}
+
+const runOrConfirmExecute = (jobId: number) => {
+  if (executeDryRunMode.value) {
+    executeJob(jobId, true)
+    return
+  }
+  pendingExecuteJobId.value = jobId
+  confirmExecuteOpen.value = true
+}
+
+const confirmExecute = async () => {
+  const jobId = pendingExecuteJobId.value
+  confirmExecuteOpen.value = false
+  pendingExecuteJobId.value = null
+  if (!jobId) return
+  await executeJob(jobId, false)
+}
+
+const cancelExecute = () => {
+  confirmExecuteOpen.value = false
+  pendingExecuteJobId.value = null
 }
 
 const loadHistory = async () => {
