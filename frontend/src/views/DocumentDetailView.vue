@@ -66,11 +66,7 @@
         </button>
       </div>
 
-      <DocumentMetadataSection
-        v-if="activeTab === 'meta'"
-        :rows="rows"
-        :status-cards="metadataStatusCards"
-      />
+      <DocumentMetadataSection v-if="activeTab === 'meta'" :rows="rows" />
 
       <DocumentTextQualitySection
         v-if="activeTab === 'text'"
@@ -435,30 +431,6 @@ const toTitle = (value: string | null | undefined) => {
     .join(' ')
 }
 
-const metadataStatusCards = computed(() => {
-  const syncStatusRaw = String(document.value?.sync_status || '')
-  const reviewStatusRaw = String(document.value?.review_status || '')
-  const syncTone = syncStatusRaw === 'synced' ? 'good' : syncStatusRaw === 'stale' ? 'warn' : 'neutral'
-  const reviewTone =
-    reviewStatusRaw === 'reviewed' ? 'good' : reviewStatusRaw === 'needs_review' ? 'warn' : 'neutral'
-  const reviewedAt = formatDateTime(document.value?.reviewed_at)
-  const paperlessModified = formatDateTime(document.value?.paperless_modified)
-  return [
-    {
-      label: 'Sync status',
-      value: toTitle(syncStatusRaw),
-      subtext: paperlessModified ? `Paperless modified: ${paperlessModified}` : null,
-      tone: syncTone as 'neutral' | 'good' | 'warn',
-    },
-    {
-      label: 'Review status',
-      value: toTitle(reviewStatusRaw),
-      subtext: reviewedAt ? `Last reviewed: ${reviewedAt}` : 'No review marker yet',
-      tone: reviewTone as 'neutral' | 'good' | 'warn',
-    },
-  ]
-})
-
 const rows = computed(() => {
   if (!document.value) return []
   const notes = (document.value.notes || []).map((n) => n.note).join(' ')
@@ -473,17 +445,29 @@ const rows = computed(() => {
     document.value.document_type_name ??
     docTypes.value.find((d) => d.id === document.value?.document_type)?.name ??
     document.value.document_type
+  const syncStatusRaw = String(document.value.sync_status || '')
+  const reviewStatusRaw = String(document.value.review_status || '')
+  const paperlessModified = formatDateTime(document.value.paperless_modified)
+  const reviewedAt = formatDateTime(document.value.reviewed_at)
+  const syncStatusLabel = paperlessModified
+    ? `${toTitle(syncStatusRaw)} (Paperless modified: ${paperlessModified})`
+    : toTitle(syncStatusRaw)
+  const reviewStatusLabel = reviewedAt
+    ? `${toTitle(reviewStatusRaw)} (Last reviewed: ${reviewedAt})`
+    : `${toTitle(reviewStatusRaw)} (No review marker yet)`
   return [
     { label: 'ID', value: document.value.id },
+    { label: 'Sync status', value: syncStatusLabel },
+    { label: 'Review status', value: reviewStatusLabel },
     { label: 'Title', value: document.value.title },
     { label: 'Document date', value: formatDate(document.value.document_date) },
-    { label: 'Created', value: formatDateTime(document.value.created) },
-    { label: 'Modified', value: formatDateTime(document.value.modified) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
-    { label: 'Original filename', value: document.value.original_file_name },
     { label: 'Notes', value: notes },
+    { label: 'Original filename', value: document.value.original_file_name },
+    { label: 'Created', value: formatDateTime(document.value.created) },
+    { label: 'Modified', value: formatDateTime(document.value.modified) },
   ]
 })
 
