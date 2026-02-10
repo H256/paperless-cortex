@@ -13,7 +13,6 @@
           <div
             class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
           >
-            <span class="hidden sm:inline">Theme</span>
             <div
               class="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
@@ -27,9 +26,9 @@
                 "
                 @click="theme = 'light'"
                 aria-label="Light theme"
+                title="Light"
               >
                 <Sun class="h-4 w-4" />
-                <span class="hidden sm:inline">Light</span>
               </button>
               <button
                 type="button"
@@ -41,9 +40,9 @@
                 "
                 @click="theme = 'system'"
                 aria-label="System theme"
+                title="System"
               >
                 <Laptop class="h-4 w-4" />
-                <span class="hidden sm:inline">System</span>
               </button>
               <button
                 type="button"
@@ -55,9 +54,9 @@
                 "
                 @click="theme = 'dark'"
                 aria-label="Dark theme"
+                title="Dark"
               >
                 <Moon class="h-4 w-4" />
-                <span class="hidden sm:inline">Dark</span>
               </button>
             </div>
           </div>
