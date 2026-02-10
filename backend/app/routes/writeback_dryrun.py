@@ -303,8 +303,6 @@ def _resolve_paperless_tag_ids(
     local_tag_ids: list[int],
     pending_tag_names: list[str] | None = None,
 ) -> list[int]:
-    if not local_tag_ids:
-        return []
     local_tags = db.query(Tag).filter(Tag.id.in_(local_tag_ids)).all()
     local_names = [str(tag.name or "").strip() for tag in local_tags if str(tag.name or "").strip()]
     for name in (pending_tag_names or []):
@@ -540,12 +538,28 @@ def execute_writeback_direct_for_document(
         raise HTTPException(status_code=404, detail="Local document not found")
     correspondents_by_id = {row.id: (row.name or "") for row in db.query(Correspondent).all()}
     tags_by_id = {row.id: (row.name or "") for row in db.query(Tag).all()}
+    pending_row = (
+        db.query(DocumentPendingTag)
+        .filter(DocumentPendingTag.doc_id == int(doc_id))
+        .one_or_none()
+    )
+    pending_tag_names: list[str] = []
+    if pending_row and pending_row.names_json:
+        try:
+            pending_tag_names = [
+                str(name).strip()
+                for name in json.loads(pending_row.names_json)
+                if str(name).strip()
+            ]
+        except Exception:
+            pending_tag_names = []
     remote_doc = paperless.get_document(settings, doc_id)
     item = _build_item(
         local_doc=local_doc,
         remote_doc=remote_doc,
         correspondents_by_id=correspondents_by_id,
         tags_by_id=tags_by_id,
+        pending_tag_names=pending_tag_names,
     )
     if not item.changed:
         reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
@@ -620,6 +634,7 @@ def execute_writeback_direct_for_document(
             patch_payload["correspondent"] = item.correspondent.proposed.get("id")
         elif normalized_field == "tags" and isinstance(item.tags.proposed, dict):
             patch_payload["tags"] = item.tags.proposed.get("ids") or []
+            patch_payload["pending_tag_names"] = item.tags.proposed.get("pending_names") or []
         elif normalized_field == "note" and isinstance(item.note.proposed, dict):
             apply_local_note = True
             original = item.note.original if isinstance(item.note.original, dict) else {}

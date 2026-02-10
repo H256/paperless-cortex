@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document, Tag
+from app.models import Document, DocumentPendingTag, Tag
 
 
 def _insert_document(doc_id: int, title: str):
@@ -19,6 +19,19 @@ def _insert_tag(tag_id: int, name: str):
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Tag(id=tag_id, name=name))
+        db.commit()
+
+
+def _insert_pending_tags(doc_id: int, names: list[str]):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentPendingTag(
+                doc_id=doc_id,
+                names_json=__import__("json").dumps(names, ensure_ascii=False),
+                updated_at="2026-02-10T10:10:00+00:00",
+            )
+        )
         db.commit()
 
 
@@ -261,3 +274,43 @@ def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkey
     assert result.status_code == 200
     assert patch_payloads
     assert patch_payloads[0].get("tags") == [777]
+
+
+def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(509, "Doc 509")
+    _insert_pending_tags(509, ["BrandNew"])
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Doc 509",
+            "created": "2026-02-01",
+            "modified": "2026-02-10T10:00:00Z",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(paperless, "list_all_tags", lambda settings: [])
+    monkeypatch.setattr(paperless, "create_tag", lambda settings, name: {"id": 778, "name": name})
+    patch_payloads: list[dict] = []
+    monkeypatch.setattr(
+        paperless,
+        "update_document",
+        lambda settings, doc_id, payload: patch_payloads.append(payload) or {"id": doc_id, **payload},
+    )
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post(
+        "/writeback/documents/509/execute-direct",
+        json={"known_paperless_modified": "2026-02-10T10:00:00Z", "resolutions": {}},
+    )
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["status"] == "completed"
+    assert payload["calls_count"] >= 1
+    assert patch_payloads
+    assert patch_payloads[0].get("tags") == [778]
