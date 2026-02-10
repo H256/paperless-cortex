@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,6 +21,9 @@ def _now_iso() -> str:
 
 def _extract_json_dict(text: str) -> dict[str, Any]:
     raw = (text or "").strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
+        raw = re.sub(r"\s*```$", "", raw)
     if raw.startswith("{") and raw.endswith("}"):
         return json.loads(raw)
     start = raw.find("{")
@@ -27,6 +31,72 @@ def _extract_json_dict(text: str) -> dict[str, Any]:
     if start != -1 and end != -1 and end > start:
         return json.loads(raw[start : end + 1])
     raise ValueError("No JSON object found in response")
+
+
+def _normalize_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    cleaned: list[str] = []
+    for item in values:
+        text = str(item).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def _coerce_page_notes_payload(page: int, payload: dict[str, Any], raw_fallback: str | None = None) -> dict[str, Any]:
+    result = {
+        "page": int(page),
+        "facts": _normalize_list(payload.get("facts")),
+        "entities": _normalize_list(payload.get("entities")),
+        "references": _normalize_list(payload.get("references")),
+        "key_numbers": _normalize_list(payload.get("key_numbers")),
+        "uncertainties": _normalize_list(payload.get("uncertainties")),
+    }
+    if raw_fallback and not any(result[key] for key in ("facts", "entities", "references", "key_numbers")):
+        compact = " ".join((raw_fallback or "").split())
+        if compact:
+            result["uncertainties"].append(f"fallback_raw_excerpt:{compact[:240]}")
+    return result
+
+
+def _best_effort_page_notes_from_text(page: int, raw_text: str) -> dict[str, Any]:
+    lines = [line.strip(" -*\t") for line in (raw_text or "").splitlines()]
+    lines = [line for line in lines if line]
+    facts = [line for line in lines[:8] if len(line) > 3]
+    return {
+        "page": int(page),
+        "facts": facts[:8],
+        "entities": [],
+        "references": [],
+        "key_numbers": [],
+        "uncertainties": ["model_returned_non_json"],
+    }
+
+
+def _repair_page_notes_json(
+    settings: Settings,
+    *,
+    page: int,
+    raw_text: str,
+) -> dict[str, Any] | None:
+    repair_prompt = (
+        "Convert the following model output into valid JSON only.\n"
+        "Return one JSON object with this schema exactly:\n"
+        '{ "page": <int>, "facts": [string], "entities": [string], "references": [string], "key_numbers": [string], "uncertainties": [string] }\n'
+        f"Set page to {int(page)}.\n"
+        "Do not include markdown or explanations.\n"
+        f"Input:\n{raw_text}\n"
+    )
+    repaired_raw = llm_client.chat_completion(
+        settings,
+        model=settings.text_model or "",
+        messages=[{"role": "user", "content": repair_prompt}],
+        timeout=max(5, int(settings.page_notes_timeout_seconds / 2)),
+        max_tokens=settings.page_notes_max_output_tokens,
+    )
+    repaired_payload = _extract_json_dict(repaired_raw)
+    return _coerce_page_notes_payload(page, repaired_payload, raw_fallback=raw_text)
 
 
 def _truncate_for_tokens(text: str, max_input_tokens: int) -> str:
@@ -89,9 +159,22 @@ def generate_page_notes(
         timeout=settings.page_notes_timeout_seconds,
         max_tokens=settings.page_notes_max_output_tokens,
     )
-    parsed = _extract_json_dict(raw)
-    parsed["page"] = int(page)
-    return parsed
+    try:
+        parsed = _extract_json_dict(raw)
+        return _coerce_page_notes_payload(page, parsed, raw_fallback=raw)
+    except Exception:
+        pass
+    try:
+        repaired = _repair_page_notes_json(
+            settings,
+            page=page,
+            raw_text=raw,
+        )
+        if repaired:
+            return repaired
+    except Exception:
+        pass
+    return _best_effort_page_notes_from_text(page, raw)
 
 
 def generate_section_summary(
