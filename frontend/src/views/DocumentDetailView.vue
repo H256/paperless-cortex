@@ -630,7 +630,6 @@ const runWritebackNowForDocument = async (
         'Writeback',
         2200,
       )
-      await reloadAll()
     } else {
       toastStore.push(
         'No writeback changes found for this document.',
@@ -638,8 +637,8 @@ const runWritebackNowForDocument = async (
         'Writeback',
         2200,
       )
-      await load()
     }
+    await reloadAll()
   } catch (err: unknown) {
     const message = errorMessage(err, 'Failed to write back document')
     toastStore.push(message, 'danger', 'Writeback', 2800)
