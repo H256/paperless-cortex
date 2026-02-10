@@ -416,7 +416,7 @@ const currentCorrespondentName = computed(() => {
 
 const currentValues = computed(() => ({
   title: document.value?.title || '',
-  date: formatDate(document.value?.document_date) || '',
+  date: formatDate(document.value?.document_date || document.value?.created) || '',
   correspondent: currentCorrespondentName.value || '',
   tags: currentTagNames.value || '',
   note: currentNotePreview.value || '',
@@ -449,7 +449,7 @@ const rows = computed(() => {
   const modifiedLabel = formatDateTime(document.value.modified) || '-'
   return [
     { label: 'Title', value: document.value.title },
-    { label: 'Document date', value: formatDate(document.value.document_date) },
+    { label: 'Issue date', value: formatDate(document.value.document_date || document.value.created) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
@@ -666,4 +666,3 @@ watch(
 )
 
 </script>
-

@@ -77,8 +77,8 @@ def compare_document_fields(
         changed.append("title")
         payload["title"] = normalize_scalar(local_title) or None
     if normalize_scalar(local_date) != normalize_scalar(remote_date):
-        changed.append("document_date")
-        payload["document_date"] = normalize_scalar(local_date) or None
+        changed.append("issue_date")
+        payload["created"] = normalize_scalar(local_date) or None
     if (local_correspondent_id or None) != (remote_correspondent_id or None):
         changed.append("correspondent")
         payload["correspondent"] = local_correspondent_id

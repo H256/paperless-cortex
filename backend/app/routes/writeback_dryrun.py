@@ -77,7 +77,7 @@ def _build_item(
         local_title=local_doc.title,
         remote_title=remote_doc.get("title"),
         local_date=local_doc.document_date,
-        remote_date=remote_doc.get("document_date"),
+        remote_date=remote_doc.get("created"),
         local_correspondent_id=local_doc.correspondent_id,
         remote_correspondent_id=remote_doc.get("correspondent"),
         local_tags=local_tags,
@@ -121,10 +121,10 @@ def _build_item(
             changed="title" in changed_fields,
         ),
         document_date=WritebackFieldDiff(
-            field="document_date",
-            original=remote_doc.get("document_date"),
+            field="issue_date",
+            original=remote_doc.get("created"),
             proposed=local_doc.document_date,
-            changed="document_date" in changed_fields,
+            changed="issue_date" in changed_fields,
         ),
         correspondent=WritebackFieldDiff(
             field="correspondent",
@@ -191,7 +191,7 @@ def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall
     if item.title.changed:
         payload["title"] = item.title.proposed
     if item.document_date.changed:
-        payload["document_date"] = item.document_date.proposed
+        payload["created"] = item.document_date.proposed
     if item.correspondent.changed and isinstance(item.correspondent.proposed, dict):
         payload["correspondent"] = item.correspondent.proposed.get("id")
     if item.tags.changed and isinstance(item.tags.proposed, dict):
