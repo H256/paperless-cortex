@@ -341,13 +341,29 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
     method = call.method.upper()
     if method == "PATCH":
         payload = dict(call.payload or {})
+        had_tags = False
         raw_tags = payload.get("tags")
         if isinstance(raw_tags, list):
+            had_tags = True
             local_tag_ids = [int(tag_id) for tag_id in raw_tags if isinstance(tag_id, int)]
             pending_names_raw = payload.pop("pending_tag_names", [])
             pending_names = [str(name).strip() for name in pending_names_raw if str(name).strip()] if isinstance(pending_names_raw, list) else []
             payload["tags"] = _resolve_paperless_tag_ids(settings, db, local_tag_ids, pending_names)
+            db.flush()
         paperless.update_document(settings, int(call.doc_id), payload)
+        if had_tags:
+            local_doc = (
+                db.query(Document)
+                .options(joinedload(Document.tags))
+                .filter(Document.id == int(call.doc_id))
+                .one_or_none()
+            )
+            if local_doc:
+                resolved_ids = payload.get("tags") if isinstance(payload.get("tags"), list) else []
+                resolved_ids_int = [int(tag_id) for tag_id in resolved_ids if isinstance(tag_id, int)]
+                existing_tags = db.query(Tag).filter(Tag.id.in_(resolved_ids_int)).all() if resolved_ids_int else []
+                by_id = {tag.id: tag for tag in existing_tags}
+                local_doc.tags = [by_id[tag_id] for tag_id in resolved_ids_int if tag_id in by_id]
         return
     if method == "POST":
         payload = dict(call.payload or {})

@@ -278,6 +278,9 @@ def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkey
 
 def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch):
     from app.services import paperless
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from app.models import Document
 
     _insert_document(509, "Doc 509")
     _insert_pending_tags(509, ["BrandNew"])
@@ -314,3 +317,9 @@ def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch
     assert payload["calls_count"] >= 1
     assert patch_payloads
     assert patch_payloads[0].get("tags") == [778]
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.query(Document).filter(Document.id == 509).one()
+        assert [tag.id for tag in doc.tags] == [778]
+        pending = db.query(DocumentPendingTag).filter(DocumentPendingTag.doc_id == 509).one_or_none()
+        assert pending is None
