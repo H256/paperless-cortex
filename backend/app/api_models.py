@@ -149,6 +149,11 @@ class DocumentLocalResponse(BaseModel):
     notes: list[DocumentNoteOut] = []
     original_file_name: Optional[str] = None
     status: Optional[str] = None
+    local_overrides: Optional[bool] = None
+    sync_status: Optional[str] = None
+    review_status: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    paperless_modified: Optional[str] = None
 
 
 class DocumentsPageResponse(BaseModel):

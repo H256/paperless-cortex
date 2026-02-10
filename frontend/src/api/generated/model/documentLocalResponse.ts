@@ -21,4 +21,9 @@ export interface DocumentLocalResponse {
   notes?: DocumentNoteOut[];
   original_file_name?: string | null;
   status?: string | null;
+  sync_status?: string | null;
+  review_status?: string | null;
+  reviewed_at?: string | null;
+  paperless_modified?: string | null;
+  local_overrides?: boolean | null;
 }

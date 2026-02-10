@@ -66,7 +66,11 @@
         </button>
       </div>
 
-      <DocumentMetadataSection v-if="activeTab === 'meta'" :rows="rows" />
+      <DocumentMetadataSection
+        v-if="activeTab === 'meta'"
+        :rows="rows"
+        :status-cards="metadataStatusCards"
+      />
 
       <DocumentTextQualitySection
         v-if="activeTab === 'text'"
@@ -421,6 +425,39 @@ const currentValues = computed(() => ({
   tags: currentTagNames.value || '',
   note: currentNotePreview.value || '',
 }))
+
+const toTitle = (value: string | null | undefined) => {
+  if (!value) return 'Unknown'
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+const metadataStatusCards = computed(() => {
+  const syncStatusRaw = String(document.value?.sync_status || '')
+  const reviewStatusRaw = String(document.value?.review_status || '')
+  const syncTone = syncStatusRaw === 'synced' ? 'good' : syncStatusRaw === 'stale' ? 'warn' : 'neutral'
+  const reviewTone =
+    reviewStatusRaw === 'reviewed' ? 'good' : reviewStatusRaw === 'needs_review' ? 'warn' : 'neutral'
+  const reviewedAt = formatDateTime(document.value?.reviewed_at)
+  const paperlessModified = formatDateTime(document.value?.paperless_modified)
+  return [
+    {
+      label: 'Sync status',
+      value: toTitle(syncStatusRaw),
+      subtext: paperlessModified ? `Paperless modified: ${paperlessModified}` : null,
+      tone: syncTone as 'neutral' | 'good' | 'warn',
+    },
+    {
+      label: 'Review status',
+      value: toTitle(reviewStatusRaw),
+      subtext: reviewedAt ? `Last reviewed: ${reviewedAt}` : 'No review marker yet',
+      tone: reviewTone as 'neutral' | 'good' | 'warn',
+    },
+  ]
+})
 
 const rows = computed(() => {
   if (!document.value) return []

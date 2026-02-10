@@ -464,10 +464,51 @@ def get_document(doc_id: int, settings: Settings = Depends(get_settings)):
 
 
 @router.get("/{doc_id}/local", response_model=DocumentLocalResponse)
-def get_local_document(doc_id: int, db: Session = Depends(get_db)):
+def get_local_document(
+    doc_id: int,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
+    remote_doc = paperless.get_document(settings, doc_id)
+
+    local_tags = [tag.id for tag in doc.tags]
+    remote_tags = remote_doc.get("tags") or []
+    local_overrides = False
+    if set(local_tags) != set(remote_tags):
+        local_overrides = True
+    if doc.title and doc.title != remote_doc.get("title"):
+        local_overrides = True
+    if doc.document_date and doc.document_date != remote_doc.get("document_date"):
+        local_overrides = True
+    if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
+        local_overrides = True
+
+    local_modified_dt = _parse_iso_datetime(doc.modified)
+    remote_modified_raw = remote_doc.get("modified")
+    remote_modified_dt = _parse_iso_datetime(remote_modified_raw)
+    sync_status = "synced"
+    if local_modified_dt and remote_modified_dt and remote_modified_dt > local_modified_dt:
+        sync_status = "stale"
+
+    reviewed_at_raw = (
+        db.query(func.max(SuggestionAudit.created_at))
+        .filter(
+            SuggestionAudit.doc_id == doc_id,
+            SuggestionAudit.action.like("apply_to_document:%"),
+        )
+        .scalar()
+    )
+    reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
+    if reviewed_at_dt is None:
+        review_status = "unreviewed"
+    elif remote_modified_dt and remote_modified_dt > reviewed_at_dt:
+        review_status = "needs_review"
+    else:
+        review_status = "reviewed"
+
     return {
         "id": doc.id,
         "title": doc.title,
@@ -479,9 +520,14 @@ def get_local_document(doc_id: int, db: Session = Depends(get_db)):
         "correspondent_name": doc.correspondent.name if doc.correspondent else None,
         "document_type": doc.document_type_id,
         "document_type_name": doc.document_type.name if doc.document_type else None,
-        "tags": [tag.id for tag in doc.tags],
+        "tags": local_tags,
         "notes": [{"note": note.note} for note in doc.notes],
         "original_file_name": doc.original_file_name,
+        "local_overrides": local_overrides,
+        "sync_status": sync_status,
+        "review_status": review_status,
+        "reviewed_at": reviewed_at_raw,
+        "paperless_modified": remote_modified_raw,
     }
 
 
