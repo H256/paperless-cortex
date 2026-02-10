@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.routes import documents, documents_actions, documents_suggestions, embeddings, meta, sync, queue, status, chat
+from app.routes import documents, documents_actions, documents_suggestions, embeddings, meta, sync, queue, status, chat, writeback_dryrun
 from app.config import load_settings
 from app.services.meta_cache import refresh_cache
 from app.services.meta_sync import sync_correspondents_all, sync_tags_all
@@ -37,6 +37,7 @@ api.include_router(embeddings.router)
 api.include_router(queue.router)
 api.include_router(status.router)
 api.include_router(chat.router)
+api.include_router(writeback_dryrun.router)
 
 app.mount("/api", api)
 

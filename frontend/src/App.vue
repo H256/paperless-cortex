@@ -142,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
+import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench, ClipboardCheck } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import AppNav from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
@@ -175,6 +175,7 @@ const navItems = [
   { to: '/chat', label: 'Chat', icon: MessageCircle },
   { to: '/queue', label: 'Queue', icon: List },
   { to: '/operations', label: 'Operations', icon: Wrench },
+  { to: '/writeback-dry-run', label: 'Writeback PoC', icon: ClipboardCheck },
 ]
 
 const applyTheme = (value: string) => {

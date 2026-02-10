@@ -9,6 +9,7 @@ import QueueView from './views/QueueView.vue'
 import SearchView from './views/SearchView.vue'
 import ChatView from './views/ChatView.vue'
 import MaintenanceView from './views/MaintenanceView.vue'
+import WritebackDryRunView from './views/WritebackDryRunView.vue'
 import './index.css'
 
 const router = createRouter({
@@ -22,6 +23,7 @@ const router = createRouter({
     { path: '/queue', component: QueueView },
     { path: '/chat', component: ChatView },
     { path: '/operations', component: MaintenanceView },
+    { path: '/writeback-dry-run', component: WritebackDryRunView },
   ],
 })
 

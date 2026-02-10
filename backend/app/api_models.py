@@ -489,3 +489,45 @@ class ChatRequest(BaseModel):
     source: Optional[str] = None
     min_quality: Optional[int] = None
     history: Optional[list[ChatHistoryItem]] = None
+
+
+class WritebackFieldDiff(BaseModel):
+    field: str
+    original: Any = None
+    proposed: Any = None
+    changed: bool
+
+
+class WritebackDryRunItem(BaseModel):
+    doc_id: int
+    changed: bool
+    changed_fields: list[str] = []
+    title: WritebackFieldDiff
+    document_date: WritebackFieldDiff
+    correspondent: WritebackFieldDiff
+    tags: WritebackFieldDiff
+    note: WritebackFieldDiff
+
+
+class WritebackDryRunPreviewResponse(BaseModel):
+    count: int
+    page: int
+    page_size: int
+    items: list[WritebackDryRunItem] = []
+
+
+class WritebackDryRunExecuteRequest(BaseModel):
+    doc_ids: list[int]
+
+
+class WritebackDryRunCall(BaseModel):
+    doc_id: int
+    method: str
+    path: str
+    payload: dict[str, Any] = {}
+
+
+class WritebackDryRunExecuteResponse(BaseModel):
+    docs_selected: int
+    docs_changed: int
+    calls: list[WritebackDryRunCall] = []
