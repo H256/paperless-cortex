@@ -303,6 +303,17 @@ def _execute_call(settings: Settings, call: WritebackDryRunCall) -> None:
     raise RuntimeError(f"Unsupported writeback method: {method}")
 
 
+def _reviewed_timestamp_for_doc(settings: Settings, doc_id: int) -> str:
+    try:
+        remote_doc = paperless.get_document(settings, int(doc_id))
+        modified = str(remote_doc.get("modified") or "").strip()
+        if modified:
+            return modified
+    except Exception:
+        logger.warning("Failed to fetch paperless modified for reviewed_at doc=%s", doc_id)
+    return _now_iso()
+
+
 def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_run: bool) -> WritebackJob:
     job.started_at = _now_iso()
     job.status = "running"
@@ -332,8 +343,8 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
             if not dry_run:
                 _execute_call(settings, call)
         if not dry_run and executed_doc_ids:
-            reviewed_at = _now_iso()
             for doc_id in sorted(executed_doc_ids):
+                reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
                 db.add(
                     SuggestionAudit(
                         doc_id=int(doc_id),
@@ -549,6 +560,7 @@ def execute_writeback_direct_for_document(
         calls.append(add_call)
 
     if calls or request.resolutions:
+        reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
         db.add(
             SuggestionAudit(
                 doc_id=int(doc_id),
@@ -557,7 +569,7 @@ def execute_writeback_direct_for_document(
                 field=None,
                 old_value=None,
                 new_value=None,
-                created_at=_now_iso(),
+                created_at=reviewed_at,
             )
         )
     db.commit()
