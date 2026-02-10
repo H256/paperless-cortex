@@ -78,31 +78,46 @@ def _best_effort_page_notes_from_text(page: int, raw_text: str) -> dict[str, Any
     }
 
 
-def _repair_page_notes_json(
-    settings: Settings,
-    *,
-    page: int,
-    raw_text: str,
-) -> dict[str, Any] | None:
-    repair_prompt = (
-        "Convert the following model output into valid JSON only.\n"
-        "Return one JSON object with this schema exactly:\n"
-        '{ "page": <int>, "facts": [string], "entities": [string], "references": [string], "key_numbers": [string], "uncertainties": [string] }\n'
-        f"Set page to {int(page)}.\n"
-        "Do not include markdown or explanations.\n"
-        f"Input:\n{raw_text}\n"
-    )
-    repaired_raw = llm_client.chat_completion(
-        settings,
-        model=settings.text_model or "",
-        messages=[{"role": "user", "content": repair_prompt}],
-        timeout=max(5, int(settings.page_notes_timeout_seconds / 2)),
-        max_tokens=settings.page_notes_max_output_tokens,
-        temperature=0.0,
-        json_mode=True,
-    )
-    repaired_payload = _extract_json_dict(repaired_raw)
-    return _coerce_page_notes_payload(page, repaired_payload, raw_fallback=raw_text)
+def _parse_page_notes_text(page: int, text: str) -> dict[str, Any]:
+    section_aliases = {
+        "facts": ("facts", "fakten"),
+        "entities": ("entities", "entitaeten", "entitäten"),
+        "references": ("references", "referenzen", "belege"),
+        "key_numbers": ("key numbers", "key_numbers", "zahlen", "kennzahlen"),
+        "uncertainties": ("uncertainties", "unsicherheiten"),
+    }
+    heading_to_key: dict[str, str] = {}
+    for key, aliases in section_aliases.items():
+        for alias in aliases:
+            heading_to_key[alias] = key
+
+    values: dict[str, list[str]] = {
+        "facts": [],
+        "entities": [],
+        "references": [],
+        "key_numbers": [],
+        "uncertainties": [],
+    }
+    current_key: str | None = None
+    for raw_line in (text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        heading = line.rstrip(":").strip().lower()
+        resolved = heading_to_key.get(heading)
+        if resolved:
+            current_key = resolved
+            continue
+        bullet = re.sub(r"^(?:[-*•]|\d+[.)])\s*", "", line).strip()
+        if not bullet:
+            continue
+        if current_key:
+            values[current_key].append(bullet)
+
+    payload = _coerce_page_notes_payload(page, values, raw_fallback=text)
+    if any(payload[key] for key in ("facts", "entities", "references", "key_numbers")):
+        return payload
+    return _best_effort_page_notes_from_text(page, text)
 
 
 def _truncate_for_tokens(text: str, max_input_tokens: int) -> str:
@@ -117,9 +132,13 @@ def _truncate_for_tokens(text: str, max_input_tokens: int) -> str:
 def _page_notes_prompt(page: int, text: str) -> str:
     return (
         "Extract structured page notes from OCR text.\n"
-        "Return only valid JSON.\n"
-        "Schema:\n"
-        '{ "page": <int>, "facts": [string], "entities": [string], "references": [string], "key_numbers": [string], "uncertainties": [string] }\n'
+        "Return plain text with exactly these headings:\n"
+        "Facts:\n"
+        "Entities:\n"
+        "References:\n"
+        "Key numbers:\n"
+        "Uncertainties:\n"
+        "Use bullet points under each heading.\n"
         "Rules:\n"
         "- Keep facts concise and literal.\n"
         "- Include dates, amounts, ids in key_numbers if present.\n"
@@ -165,8 +184,10 @@ def generate_page_notes(
         timeout=settings.page_notes_timeout_seconds,
         max_tokens=settings.page_notes_max_output_tokens,
         temperature=0.0,
-        json_mode=True,
+        json_mode=False,
     )
+    if not str(raw or "").strip():
+        return _best_effort_page_notes_from_text(page, cleaned)
     try:
         parsed = _extract_json_dict(raw)
         return _coerce_page_notes_payload(page, parsed, raw_fallback=raw)
@@ -181,19 +202,7 @@ def generate_page_notes(
                 exc,
                 preview,
             )
-        pass
-    try:
-        repaired = _repair_page_notes_json(
-            settings,
-            page=page,
-            raw_text=raw,
-        )
-        if repaired:
-            return repaired
-    except Exception:
-        pass
-    fallback_source = raw if str(raw or "").strip() else cleaned
-    return _best_effort_page_notes_from_text(page, fallback_source)
+        return _parse_page_notes_text(page, raw)
 
 
 def generate_section_summary(
