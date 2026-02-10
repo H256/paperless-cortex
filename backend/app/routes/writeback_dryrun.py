@@ -465,6 +465,19 @@ def execute_writeback_direct_for_document(
         tags_by_id=tags_by_id,
     )
     if not item.changed:
+        reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
+        db.add(
+            SuggestionAudit(
+                doc_id=int(doc_id),
+                action="apply_to_document:writeback",
+                source="writeback",
+                field=None,
+                old_value=None,
+                new_value=None,
+                created_at=reviewed_at,
+            )
+        )
+        db.commit()
         return WritebackDirectExecuteResponse(
             status="no_changes",
             docs_changed=0,
