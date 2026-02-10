@@ -9,11 +9,10 @@
           <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
         <div class="flex items-center gap-4">
-          <AppNav :items="navItems" />
+          <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />
           <div
             class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
           >
-            <span class="hidden sm:inline">Theme</span>
             <div
               class="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
@@ -27,9 +26,9 @@
                 "
                 @click="theme = 'light'"
                 aria-label="Light theme"
+                title="Light"
               >
                 <Sun class="h-4 w-4" />
-                <span class="hidden sm:inline">Light</span>
               </button>
               <button
                 type="button"
@@ -41,9 +40,9 @@
                 "
                 @click="theme = 'system'"
                 aria-label="System theme"
+                title="System"
               >
                 <Laptop class="h-4 w-4" />
-                <span class="hidden sm:inline">System</span>
               </button>
               <button
                 type="button"
@@ -55,9 +54,9 @@
                 "
                 @click="theme = 'dark'"
                 aria-label="Dark theme"
+                title="Dark"
               >
                 <Moon class="h-4 w-4" />
-                <span class="hidden sm:inline">Dark</span>
               </button>
             </div>
           </div>
@@ -142,9 +141,9 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
+import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import AppNav from './components/AppNav.vue'
+import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
 import ToastHost from './components/ToastHost.vue'
 import { useQueueStore } from './stores/queueStore'
@@ -168,12 +167,16 @@ const effectiveTheme = computed(() =>
 let statusStream: EventSource | null = null
 let statusStreamRetryId: number | null = null
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+const primaryNavItems: NavItem[] = [
   { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/search', label: 'Search', icon: Search },
   { to: '/chat', label: 'Chat', icon: MessageCircle },
   { to: '/queue', label: 'Queue', icon: List },
+]
+
+const secondaryNavItems: NavItem[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+  { to: '/search', label: 'Search', icon: Search },
+  { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
   { to: '/operations', label: 'Operations', icon: Wrench },
 ]
 

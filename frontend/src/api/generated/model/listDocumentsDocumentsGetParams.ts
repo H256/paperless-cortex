@@ -14,4 +14,5 @@ tags__id?: number | null;
 document_date__gte?: string | null;
 document_date__lte?: string | null;
 include_derived?: boolean;
+review_status?: 'all' | 'unreviewed' | 'reviewed' | 'needs_review';
 };

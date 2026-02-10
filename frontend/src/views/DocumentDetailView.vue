@@ -5,25 +5,35 @@
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           {{ document?.title || `Document ${id}` }}
         </h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Document ID: {{ id }}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">{{ headerMetaLine }}</p>
       </div>
       <div class="flex items-center gap-2">
         <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
-          title="Dokument in Paperless oeffnen"
-          aria-label="Dokument in Paperless oeffnen"
+          title="Open document in Paperless"
+          aria-label="Open document in Paperless"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <IconButton
           v-else
           disabled
-          title="VITE_PAPERLESS_BASE_URL setzen, um Link zu aktivieren"
-          aria-label="Paperless-Link nicht verfuegbar"
+          title="Set VITE_PAPERLESS_BASE_URL to enable link"
+          aria-label="Paperless link unavailable"
         >
           <ExternalLink class="h-5 w-5" />
         </IconButton>
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+          :disabled="writebackRunning"
+          :class="writebackRunning ? 'cursor-not-allowed opacity-70' : ''"
+          title="Run writeback dry-run for this document"
+          @click="runWritebackDryRunForDocument"
+        >
+          <ClipboardCheck class="h-4 w-4" :class="writebackRunning ? 'animate-pulse' : ''" />
+          {{ writebackRunning ? 'Running dry-run...' : 'Run writeback dry-run' }}
+        </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
           :disabled="reloadingAll"
@@ -116,7 +126,7 @@
             <button
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               :disabled="docOpsLoading"
-              title="Bereinigt gespeicherte Seitentexte (z. B. Zeilenumbrueche oder HTML-Rauschen) und aktualisiert die Clean-Felder."
+              title="Cleans stored page texts (e.g., line wraps or HTML noise) and updates clean fields."
               @click="runDocCleanup"
             >
               Cleanup page texts (this doc)
@@ -141,7 +151,7 @@
           <button
             class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
             :disabled="docOpsLoading"
-            title="Loescht lokale Intelligence-Daten dieses Dokuments, synchronisiert neu aus Paperless und enqueued die Verarbeitung."
+            title="Deletes local intelligence data for this document, resyncs from Paperless, and enqueues processing."
             @click="openResetConfirm"
           >
             Reset document + sync + full reprocess
@@ -166,11 +176,20 @@
 
       <ConfirmDialog
         :open="resetConfirmOpen"
-        title="Dokument zuruecksetzen und neu verarbeiten?"
-        message="Dies loescht lokale Intelligence-Daten fuer dieses Dokument, synchronisiert Metadaten/Inhalt aus Paperless neu und reiht die Verarbeitung erneut ein."
+        title="Reset document and reprocess?"
+        message="This deletes local intelligence data for this document, resyncs metadata/content from Paperless, and re-enqueues processing."
         confirm-label="Reset + Reprocess"
         @confirm="confirmResetAndReprocessDoc"
         @cancel="resetConfirmOpen = false"
+      />
+      <ConfirmDialog
+        :open="writebackErrorOpen"
+        title="Writeback dry-run failed"
+        :message="writebackErrorMessage || 'Unknown error'"
+        confirm-label="Close"
+        cancel-label="Close"
+        @confirm="writebackErrorOpen = false"
+        @cancel="writebackErrorOpen = false"
       />
 
     </div>
@@ -179,7 +198,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, RefreshCw } from 'lucide-vue-next'
+import { ClipboardCheck, ExternalLink, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -192,8 +211,10 @@ import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useStatusStore } from '../stores/statusStore'
+import { useToastStore } from '../stores/toastStore'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 import type { DocumentOperationTaskPayload } from '../services/documents'
+import { runWritebackDryRun } from '../services/writeback'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,6 +223,7 @@ const id = Number(route.params.id)
 const documentStore = useDocumentDetailStore()
 const queueStore = useQueueStore()
 const statusStore = useStatusStore()
+const toastStore = useToastStore()
 const {
   document,
   loading,
@@ -255,7 +277,7 @@ const operationActions: OperationAction[] = [
   {
     task: 'vision_ocr',
     label: 'Queue vision OCR',
-    tooltip: 'Stoesst Vision-OCR fuer Seiten dieses Dokuments erneut an.',
+    tooltip: 'Triggers vision OCR again for pages of this document.',
     force: true,
   },
   {
@@ -266,23 +288,23 @@ const operationActions: OperationAction[] = [
   {
     task: 'page_notes_vision',
     label: 'Queue page notes (vision)',
-    tooltip: 'Erzeugt strukturierte Page Notes aus Vision-OCR pro Seite.',
+    tooltip: 'Generates structured page notes from vision OCR per page.',
   },
   {
     task: 'summary_hierarchical',
     label: 'Queue hierarchical summary',
-    tooltip: 'Aggregiert Page Notes abschnittsweise und erzeugt eine hierarchische Zusammenfassung.',
+    tooltip: 'Aggregates page notes by section and builds a hierarchical summary.',
     source: 'vision_ocr',
   },
   {
     task: 'suggestions_paperless',
     label: 'Queue suggestions (paperless)',
-    tooltip: 'Erzeugt Suggestion-Felder aus dem Paperless-OCR-Text.',
+    tooltip: 'Generates suggestion fields from Paperless OCR text.',
   },
   {
     task: 'suggestions_vision',
     label: 'Queue suggestions (vision)',
-    tooltip: 'Erzeugt Suggestion-Felder aus dem Vision-OCR-Text.',
+    tooltip: 'Generates suggestion fields from vision OCR text.',
   },
 ]
 const activeTab = ref('meta')
@@ -291,6 +313,9 @@ const docOpsLoading = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
+const writebackRunning = ref(false)
+const writebackErrorOpen = ref(false)
+const writebackErrorMessage = ref('')
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -397,6 +422,15 @@ const currentValues = computed(() => ({
   note: currentNotePreview.value || '',
 }))
 
+const toTitle = (value: string | null | undefined) => {
+  if (!value) return 'Unknown'
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 const rows = computed(() => {
   if (!document.value) return []
   const notes = (document.value.notes || []).map((n) => n.note).join(' ')
@@ -411,18 +445,33 @@ const rows = computed(() => {
     document.value.document_type_name ??
     docTypes.value.find((d) => d.id === document.value?.document_type)?.name ??
     document.value.document_type
+  const createdLabel = formatDateTime(document.value.created) || '-'
+  const modifiedLabel = formatDateTime(document.value.modified) || '-'
   return [
-    { label: 'ID', value: document.value.id },
     { label: 'Title', value: document.value.title },
     { label: 'Document date', value: formatDate(document.value.document_date) },
-    { label: 'Created', value: formatDateTime(document.value.created) },
-    { label: 'Modified', value: formatDateTime(document.value.modified) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
-    { label: 'Original filename', value: document.value.original_file_name },
+    {
+      label: 'Original filename',
+      value: document.value.original_file_name,
+      className: 'md:col-span-2',
+    },
+    {
+      label: 'Timestamps',
+      value: `Created: ${createdLabel}\nModified: ${modifiedLabel}`,
+    },
     { label: 'Notes', value: notes },
   ]
+})
+
+const headerMetaLine = computed(() => {
+  const syncAt = formatDateTime(document.value?.modified)
+  const reviewStatus = toTitle(document.value?.review_status || '')
+  const reviewedAt = formatDateTime(document.value?.reviewed_at)
+  const reviewPart = reviewedAt ? `${reviewStatus} (${reviewedAt})` : reviewStatus
+  return `Document ID: ${id}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
 
 const syncPdfFromQuery = () => {
@@ -448,6 +497,38 @@ const onPdfPageChange = (value: number) => {
   delete nextQuery.bbox
   router.replace({ query: nextQuery })
   pdfHighlights.value = []
+}
+
+const runWritebackDryRunForDocument = async () => {
+  writebackRunning.value = true
+  writebackErrorMessage.value = ''
+  try {
+    const result = await runWritebackDryRun([id])
+    const calls = result.calls?.length ?? 0
+    const changed = result.docs_changed ?? 0
+    if (calls > 0) {
+      toastStore.push(
+        `Dry-run planned ${calls} call(s) for ${changed} changed document(s).`,
+        'success',
+        'Writeback dry-run',
+        2200,
+      )
+    } else {
+      toastStore.push(
+        'Dry-run found no changes for this document.',
+        'info',
+        'Writeback dry-run',
+        2200,
+      )
+    }
+  } catch (err: unknown) {
+    const message = errorMessage(err, 'Failed to run writeback dry-run')
+    toastStore.push(message, 'danger', 'Writeback dry-run', 2800)
+    writebackErrorMessage.value = message
+    writebackErrorOpen.value = true
+  } finally {
+    writebackRunning.value = false
+  }
 }
 
 const formatDate = (value?: string | null) => {

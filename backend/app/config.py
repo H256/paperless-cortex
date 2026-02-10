@@ -69,6 +69,7 @@ class Settings:
     status_stream_interval_seconds: int
     status_llm_models_ttl_seconds: int
     worker_suggestions_max_chars: int
+    writeback_execute_enabled: bool
 
 
 def load_settings() -> Settings:
@@ -144,4 +145,5 @@ def load_settings() -> Settings:
         status_stream_interval_seconds=int(os.getenv("STATUS_STREAM_INTERVAL_SECONDS", "5")),
         status_llm_models_ttl_seconds=int(os.getenv("STATUS_LLM_MODELS_TTL_SECONDS", "60")),
         worker_suggestions_max_chars=max(500, int(os.getenv("WORKER_SUGGESTIONS_MAX_CHARS", "12000"))),
+        writeback_execute_enabled=os.getenv("WRITEBACK_EXECUTE_ENABLED", "0") == "1",
     )

@@ -18,6 +18,8 @@ export interface DocumentSummary {
   correspondent_name?: string | null;
   local_cached?: boolean | null;
   local_overrides?: boolean | null;
+  review_status?: string | null;
+  reviewed_at?: string | null;
   has_embeddings?: boolean | null;
   has_suggestions?: boolean | null;
   has_suggestions_paperless?: boolean | null;

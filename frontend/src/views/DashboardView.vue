@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section>
     <div>
       <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -266,7 +266,7 @@
               <div
                 class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
               >
-                Erweitert
+                Extended
               </div>
               <div class="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
                 Deep dive on processing and structure
@@ -284,7 +284,7 @@
                 "
                 @click="monthlyRange = '12'"
               >
-                12 Monate
+                12 months
               </button>
               <button
                 class="rounded-full px-3 py-1 transition"
@@ -295,7 +295,7 @@
                 "
                 @click="monthlyRange = '24'"
               >
-                24 Monate
+                24 months
               </button>
               <button
                 class="rounded-full px-3 py-1 transition"
@@ -306,7 +306,7 @@
                 "
                 @click="monthlyRange = 'all'"
               >
-                Alle
+                All
               </button>
             </div>
           </div>
@@ -549,3 +549,4 @@ const load = async () => {
 
 onMounted(load)
 </script>
+

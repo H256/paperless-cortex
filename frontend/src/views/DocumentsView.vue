@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section>
     <div class="flex items-center justify-between">
       <div>
@@ -92,7 +92,7 @@
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         Filters
       </div>
-      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-8">
+      <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
         <div>
           <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
           <select
@@ -156,6 +156,18 @@
             <option value="all">All</option>
             <option value="analyzed">Analyzed</option>
             <option value="not_analyzed">Not analyzed</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Review</label>
+          <select
+            v-model="selectedReviewStatus"
+            class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="all">All</option>
+            <option value="unreviewed">Unreviewed</option>
+            <option value="needs_review">Needs review</option>
+            <option value="reviewed">Reviewed</option>
           </select>
         </div>
         <div>
@@ -373,7 +385,7 @@
           {{ etaText }}
         </div>
         <div class="mt-1 text-[11px] text-indigo-600/80 dark:text-indigo-200/70">
-          Sync läuft… Start ist verfügbar, sobald der Sync abgeschlossen ist.
+          Sync is running. Start is available as soon as sync is complete.
         </div>
       </div>
       <div
@@ -569,7 +581,7 @@
               <Loader2 class="h-4 w-4 animate-spin" />
               Enqueuing...
             </span>
-            <span v-else-if="isSyncingNow">Syncing…</span>
+            <span v-else-if="isSyncingNow">Syncingâ€¦</span>
             <span v-else>Start processing</span>
           </button>
         </template>
@@ -618,6 +630,7 @@ const {
   correspondents,
   selectedTag,
   selectedCorrespondent,
+  selectedReviewStatus,
   dateFrom,
   dateTo,
   syncing,
@@ -918,3 +931,4 @@ watch(ordering, async () => {
   await load()
 })
 </script>
+

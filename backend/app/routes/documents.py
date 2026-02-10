@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import and_, case, exists, func
+from sqlalchemy import and_, exists, func
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -11,10 +13,10 @@ from app.models import (
     Correspondent,
     Document,
     DocumentEmbedding,
-    DocumentNote,
     DocumentPageText,
     DocumentSuggestion,
     DocumentType,
+    SuggestionAudit,
     Tag,
     document_tags,
 )
@@ -28,7 +30,6 @@ from app.api_models import (
     DocumentLocalResponse,
     DocumentStatsResponse,
     DocumentDashboardResponse,
-    DocumentSummary,
     DocumentsPageResponse,
     DocumentTextQualityResponse,
     DocumentOcrScoresResponse,
@@ -40,35 +41,90 @@ import json
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("/", response_model=DocumentsPageResponse)
-def list_documents(
-    page: int = 1,
-    page_size: int = 20,
-    ordering: str | None = None,
-    correspondent__id: int | None = None,
-    tags__id: int | None = None,
-    document_date__gte: str | None = None,
-    document_date__lte: str | None = None,
-    include_derived: bool = False,
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
-):
-    payload = paperless.list_documents(
-        settings,
-        page=page,
-        page_size=page_size,
-        ordering=ordering,
-        correspondent__id=correspondent__id,
-        tags__id=tags__id,
-        document_date__gte=document_date__gte,
-        document_date__lte=document_date__lte,
-    )
-    if not include_derived:
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    if candidate.endswith("Z"):
+        candidate = f"{candidate[:-1]}+00:00"
+    try:
+        return datetime.fromisoformat(candidate)
+    except ValueError:
+        return None
+
+
+def _normalize_review_status(value: str | None) -> str:
+    if value in {"all", "unreviewed", "reviewed", "needs_review"}:
+        return value
+    return "all"
+
+
+def _list_documents_from_paperless(
+    settings: Settings,
+    page: int,
+    page_size: int,
+    ordering: str | None,
+    correspondent__id: int | None,
+    tags__id: int | None,
+    document_date__gte: str | None,
+    document_date__lte: str | None,
+    review_status: str,
+) -> dict:
+    if review_status == "all":
+        return paperless.list_documents(
+            settings,
+            page=page,
+            page_size=page_size,
+            ordering=ordering,
+            correspondent__id=correspondent__id,
+            tags__id=tags__id,
+            document_date__gte=document_date__gte,
+            document_date__lte=document_date__lte,
+        )
+
+    all_results: list[dict] = []
+    current_page = 1
+    fetch_size = max(page_size, 200)
+    while True:
+        payload = paperless.list_documents(
+            settings,
+            page=current_page,
+            page_size=fetch_size,
+            ordering=ordering,
+            correspondent__id=correspondent__id,
+            tags__id=tags__id,
+            document_date__gte=document_date__gte,
+            document_date__lte=document_date__lte,
+        )
+        all_results.extend(payload.get("results", []) or [])
+        if not payload.get("next"):
+            break
+        current_page += 1
+    return {"count": len(all_results), "next": None, "previous": None, "results": all_results}
+
+
+def _apply_derived_fields_and_review_status(
+    payload: dict,
+    db: Session,
+    include_derived: bool,
+    review_status: str,
+    page: int,
+    page_size: int,
+) -> dict:
+    if not include_derived and review_status == "all":
         return payload
+
     results = payload.get("results", []) or []
     doc_ids = [doc.get("id") for doc in results if doc.get("id") is not None]
     if not doc_ids:
+        payload["results"] = []
+        payload["count"] = 0
+        payload["next"] = None
+        payload["previous"] = None
         return payload
+
     analysis_by_doc = {
         row.id: {
             "analysis_model": row.analysis_model,
@@ -78,21 +134,10 @@ def list_documents(
         .filter(Document.id.in_(doc_ids))
         .all()
     }
-    local_docs = (
-        db.query(Document)
-        .filter(Document.id.in_(doc_ids))
-        .all()
-    )
+    local_docs = db.query(Document).filter(Document.id.in_(doc_ids)).all()
     local_by_id = {doc.id: doc for doc in local_docs}
-    embed_ids = {
-        row.doc_id
-        for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
-    }
-    suggestion_rows = (
-        db.query(DocumentSuggestion)
-        .filter(DocumentSuggestion.doc_id.in_(doc_ids))
-        .all()
-    )
+    embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
+    suggestion_rows = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id.in_(doc_ids)).all()
     suggestions_by_doc: dict[int, set[str]] = {}
     for row in suggestion_rows:
         suggestions_by_doc.setdefault(row.doc_id, set()).add(row.source)
@@ -102,6 +147,15 @@ def list_documents(
         .filter(DocumentPageText.doc_id.in_(doc_ids), DocumentPageText.source == "vision_ocr")
         .all()
     }
+    reviewed_rows = (
+        db.query(SuggestionAudit.doc_id, func.max(SuggestionAudit.created_at).label("reviewed_at"))
+        .filter(SuggestionAudit.doc_id.in_(doc_ids), SuggestionAudit.action.like("apply_to_document:%"))
+        .group_by(SuggestionAudit.doc_id)
+        .all()
+    )
+    reviewed_at_by_doc = {int(row.doc_id): row.reviewed_at for row in reviewed_rows}
+
+    filtered_results: list[dict] = []
     for doc in results:
         doc_id = doc.get("id")
         if doc_id is None:
@@ -134,7 +188,69 @@ def list_documents(
         doc["has_suggestions_paperless"] = "paperless_ocr" in sources
         doc["has_suggestions_vision"] = "vision_ocr" in sources
         doc["has_vision_pages"] = doc_id in vision_pages
+
+        reviewed_at_raw = reviewed_at_by_doc.get(doc_id)
+        reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
+        modified_dt = _parse_iso_datetime(doc.get("modified"))
+        if reviewed_at_dt is None:
+            derived_review_status = "unreviewed"
+        elif modified_dt and modified_dt > reviewed_at_dt:
+            derived_review_status = "needs_review"
+        else:
+            derived_review_status = "reviewed"
+        doc["reviewed_at"] = reviewed_at_raw
+        doc["review_status"] = derived_review_status
+        if review_status == "all" or review_status == derived_review_status:
+            filtered_results.append(doc)
+
+    if review_status == "all":
+        payload["results"] = filtered_results
+        return payload
+
+    total = len(filtered_results)
+    start = max(0, (max(1, page) - 1) * max(1, page_size))
+    end = start + max(1, page_size)
+    payload["count"] = total
+    payload["results"] = filtered_results[start:end]
+    payload["next"] = None if end >= total else "filtered"
+    payload["previous"] = None if start <= 0 else "filtered"
     return payload
+
+
+@router.get("/", response_model=DocumentsPageResponse)
+def list_documents(
+    page: int = 1,
+    page_size: int = 20,
+    ordering: str | None = None,
+    correspondent__id: int | None = None,
+    tags__id: int | None = None,
+    document_date__gte: str | None = None,
+    document_date__lte: str | None = None,
+    include_derived: bool = False,
+    review_status: str = "all",
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    normalized_review_status = _normalize_review_status(review_status)
+    payload = _list_documents_from_paperless(
+        settings,
+        page=page,
+        page_size=page_size,
+        ordering=ordering,
+        correspondent__id=correspondent__id,
+        tags__id=tags__id,
+        document_date__gte=document_date__gte,
+        document_date__lte=document_date__lte,
+        review_status=normalized_review_status,
+    )
+    return _apply_derived_fields_and_review_status(
+        payload=payload,
+        db=db,
+        include_derived=include_derived,
+        review_status=normalized_review_status,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/stats", response_model=DocumentStatsResponse)
@@ -216,11 +332,11 @@ def get_dashboard(db: Session = Depends(get_db)):
     )
     unassigned_count = db.query(Document.id).filter(Document.correspondent_id.is_(None)).count()
     correspondents = [
-        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        {"id": row[0], "name": row[1] or "Untitled", "count": row[2]}
         for row in correspondents_rows
     ]
     if unassigned_count:
-        correspondents.append({"id": None, "name": "Ohne Korrespondent", "count": unassigned_count})
+        correspondents.append({"id": None, "name": "Unassigned correspondent", "count": unassigned_count})
     correspondents.sort(key=lambda item: item["count"], reverse=True)
     top_correspondents = correspondents[:8]
 
@@ -236,9 +352,9 @@ def get_dashboard(db: Session = Depends(get_db)):
         .filter(~exists().where(document_tags.c.document_id == Document.id))
         .count()
     )
-    tags = [{"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]} for row in tag_rows]
+    tags = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in tag_rows]
     if untagged_count:
-        tags.append({"id": None, "name": "Ohne Tags", "count": untagged_count})
+        tags.append({"id": None, "name": "No tags", "count": untagged_count})
     tags.sort(key=lambda item: item["count"], reverse=True)
     top_tags = tags[:8]
 
@@ -251,11 +367,11 @@ def get_dashboard(db: Session = Depends(get_db)):
     )
     type_unknown = db.query(Document.id).filter(Document.document_type_id.is_(None)).count()
     document_types = [
-        {"id": row[0], "name": row[1] or "Unbenannt", "count": row[2]}
+        {"id": row[0], "name": row[1] or "Untitled", "count": row[2]}
         for row in type_rows
     ]
     if type_unknown:
-        document_types.append({"id": None, "name": "Ohne Typ", "count": type_unknown})
+        document_types.append({"id": None, "name": "No document type", "count": type_unknown})
     document_types.sort(key=lambda item: item["count"], reverse=True)
 
     unprocessed_by_correspondent: dict[int | None, int] = {}
@@ -271,7 +387,7 @@ def get_dashboard(db: Session = Depends(get_db)):
             unprocessed_by_correspondent[correspondent_id] = unprocessed_by_correspondent.get(correspondent_id, 0) + 1
 
         raw_date = document_date or created or ""
-        month = raw_date[:7] if len(raw_date) >= 7 else "Unbekannt"
+        month = raw_date[:7] if len(raw_date) >= 7 else "Unknown"
         bucket = monthly.get(month)
         if bucket is None:
             bucket = {"total": 0, "processed": 0, "unprocessed": 0}
@@ -286,7 +402,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     unprocessed_corr_list = [
         {
             "id": corr_id,
-            "name": correspondents_map.get(corr_id) or ("Ohne Korrespondent" if corr_id is None else "Unbenannt"),
+            "name": correspondents_map.get(corr_id) or ("Unassigned correspondent" if corr_id is None else "Untitled"),
             "count": count,
         }
         for corr_id, count in unprocessed_by_correspondent.items()
@@ -296,7 +412,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     monthly_processing = [
         {"label": month, **counts} for month, counts in sorted(monthly.items(), key=lambda item: item[0])
     ]
-    if monthly_processing and monthly_processing[0]["label"] == "Unbekannt":
+    if monthly_processing and monthly_processing[0]["label"] == "Unknown":
         monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
 
     buckets = {
@@ -307,11 +423,11 @@ def get_dashboard(db: Session = Depends(get_db)):
         "11-20": 0,
         "21-50": 0,
         "51+": 0,
-        "Unbekannt": 0,
+        "Unknown": 0,
     }
     for (page_count,) in db.query(Document.page_count).all():
         if page_count is None or page_count < 1:
-            buckets["Unbekannt"] += 1
+            buckets["Unknown"] += 1
         elif page_count == 1:
             buckets["1"] += 1
         elif page_count <= 3:
@@ -348,10 +464,51 @@ def get_document(doc_id: int, settings: Settings = Depends(get_settings)):
 
 
 @router.get("/{doc_id}/local", response_model=DocumentLocalResponse)
-def get_local_document(doc_id: int, db: Session = Depends(get_db)):
+def get_local_document(
+    doc_id: int,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
+    remote_doc = paperless.get_document(settings, doc_id)
+
+    local_tags = [tag.id for tag in doc.tags]
+    remote_tags = remote_doc.get("tags") or []
+    local_overrides = False
+    if set(local_tags) != set(remote_tags):
+        local_overrides = True
+    if doc.title and doc.title != remote_doc.get("title"):
+        local_overrides = True
+    if doc.document_date and doc.document_date != remote_doc.get("document_date"):
+        local_overrides = True
+    if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
+        local_overrides = True
+
+    local_modified_dt = _parse_iso_datetime(doc.modified)
+    remote_modified_raw = remote_doc.get("modified")
+    remote_modified_dt = _parse_iso_datetime(remote_modified_raw)
+    sync_status = "synced"
+    if local_modified_dt and remote_modified_dt and remote_modified_dt > local_modified_dt:
+        sync_status = "stale"
+
+    reviewed_at_raw = (
+        db.query(func.max(SuggestionAudit.created_at))
+        .filter(
+            SuggestionAudit.doc_id == doc_id,
+            SuggestionAudit.action.like("apply_to_document:%"),
+        )
+        .scalar()
+    )
+    reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
+    if reviewed_at_dt is None:
+        review_status = "unreviewed"
+    elif remote_modified_dt and remote_modified_dt > reviewed_at_dt:
+        review_status = "needs_review"
+    else:
+        review_status = "reviewed"
+
     return {
         "id": doc.id,
         "title": doc.title,
@@ -363,9 +520,14 @@ def get_local_document(doc_id: int, db: Session = Depends(get_db)):
         "correspondent_name": doc.correspondent.name if doc.correspondent else None,
         "document_type": doc.document_type_id,
         "document_type_name": doc.document_type.name if doc.document_type else None,
-        "tags": [tag.id for tag in doc.tags],
+        "tags": local_tags,
         "notes": [{"note": note.note} for note in doc.notes],
         "original_file_name": doc.original_file_name,
+        "local_overrides": local_overrides,
+        "sync_status": sync_status,
+        "review_status": review_status,
+        "reviewed_at": reviewed_at_raw,
+        "paperless_modified": remote_modified_raw,
     }
 
 

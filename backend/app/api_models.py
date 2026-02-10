@@ -121,6 +121,8 @@ class DocumentSummary(PaperlessDocument):
     correspondent_name: Optional[str] = None
     local_cached: Optional[bool] = None
     local_overrides: Optional[bool] = None
+    review_status: Optional[str] = None
+    reviewed_at: Optional[str] = None
     has_embeddings: Optional[bool] = None
     has_suggestions: Optional[bool] = None
     has_suggestions_paperless: Optional[bool] = None
@@ -147,6 +149,11 @@ class DocumentLocalResponse(BaseModel):
     notes: list[DocumentNoteOut] = []
     original_file_name: Optional[str] = None
     status: Optional[str] = None
+    local_overrides: Optional[bool] = None
+    sync_status: Optional[str] = None
+    review_status: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    paperless_modified: Optional[str] = None
 
 
 class DocumentsPageResponse(BaseModel):
@@ -489,3 +496,92 @@ class ChatRequest(BaseModel):
     source: Optional[str] = None
     min_quality: Optional[int] = None
     history: Optional[list[ChatHistoryItem]] = None
+
+
+class WritebackFieldDiff(BaseModel):
+    field: str
+    original: Any = None
+    proposed: Any = None
+    changed: bool
+
+
+class WritebackDryRunItem(BaseModel):
+    doc_id: int
+    changed: bool
+    changed_fields: list[str] = []
+    title: WritebackFieldDiff
+    document_date: WritebackFieldDiff
+    correspondent: WritebackFieldDiff
+    tags: WritebackFieldDiff
+    note: WritebackFieldDiff
+
+
+class WritebackDryRunPreviewResponse(BaseModel):
+    count: int
+    page: int
+    page_size: int
+    items: list[WritebackDryRunItem] = []
+
+
+class WritebackDryRunExecuteRequest(BaseModel):
+    doc_ids: list[int]
+
+
+class WritebackDryRunCall(BaseModel):
+    doc_id: int
+    method: str
+    path: str
+    payload: dict[str, Any] = {}
+
+
+class WritebackDryRunExecuteResponse(BaseModel):
+    docs_selected: int
+    docs_changed: int
+    calls: list[WritebackDryRunCall] = []
+
+
+class WritebackJobCreateRequest(BaseModel):
+    doc_ids: list[int]
+
+
+class WritebackJobExecuteRequest(BaseModel):
+    dry_run: bool = True
+
+
+class WritebackExecutePendingRequest(BaseModel):
+    dry_run: bool = True
+    limit: int = 0
+
+
+class WritebackJobSummary(BaseModel):
+    id: int
+    status: str
+    dry_run: bool
+    docs_selected: int
+    docs_changed: int
+    calls_count: int
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+class WritebackJobDetail(WritebackJobSummary):
+    doc_ids: list[int] = []
+    calls: list[WritebackDryRunCall] = []
+
+
+class WritebackJobListResponse(BaseModel):
+    items: list[WritebackJobSummary] = []
+
+
+class WritebackHistoryResponse(BaseModel):
+    items: list[WritebackJobSummary] = []
+
+
+class WritebackExecutePendingResponse(BaseModel):
+    processed: int
+    completed: int
+    failed: int
+    job_ids: list[int] = []
+    doc_ids: list[int] = []

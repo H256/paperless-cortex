@@ -39,6 +39,7 @@ export const useDocumentsStore = defineStore('documents', {
     correspondents: [] as Correspondent[],
     selectedTag: '',
     selectedCorrespondent: '',
+    selectedReviewStatus: 'all' as 'all' | 'unreviewed' | 'reviewed' | 'needs_review',
     dateFrom: '',
     dateTo: '',
     syncing: false,
@@ -94,7 +95,16 @@ export const useDocumentsStore = defineStore('documents', {
       this.stats = stats
     },
     async load() {
-      const { page, pageSize, ordering, selectedCorrespondent, selectedTag, dateFrom, dateTo } =
+      const {
+        page,
+        pageSize,
+        ordering,
+        selectedCorrespondent,
+        selectedTag,
+        selectedReviewStatus,
+        dateFrom,
+        dateTo,
+      } =
         this
       const data = await listDocuments({
         page,
@@ -105,6 +115,7 @@ export const useDocumentsStore = defineStore('documents', {
         document_date__gte: dateFrom || undefined,
         document_date__lte: dateTo || undefined,
         include_derived: true,
+        review_status: selectedReviewStatus,
       })
       this.documents = data.results ?? []
       this.totalCount = data.count ?? this.documents.length
