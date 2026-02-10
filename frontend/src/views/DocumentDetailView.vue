@@ -26,13 +26,13 @@
         </IconButton>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-          :disabled="writebackRunning"
-          :class="writebackRunning ? 'cursor-not-allowed opacity-70' : ''"
-          title="Run writeback dry-run for this document"
-          @click="runWritebackDryRunForDocument"
+          :disabled="writebackRunning || !canWriteback"
+          :class="writebackRunning || !canWriteback ? 'cursor-not-allowed opacity-70' : ''"
+          :title="canWriteback ? 'Write local changes back to Paperless' : 'Writeback is only available when status is Needs review'"
+          @click="openWritebackConfirm"
         >
           <ClipboardCheck class="h-4 w-4" :class="writebackRunning ? 'animate-pulse' : ''" />
-          {{ writebackRunning ? 'Running dry-run...' : 'Run writeback dry-run' }}
+          {{ writebackRunning ? 'Writing back...' : 'Write back to Paperless' }}
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
@@ -183,8 +183,82 @@
         @cancel="resetConfirmOpen = false"
       />
       <ConfirmDialog
+        :open="writebackConfirmOpen"
+        title="Write changes to Paperless?"
+        message="This updates metadata and AI summary note in Paperless immediately for this document."
+        confirm-label="Write now"
+        cancel-label="Cancel"
+        @confirm="confirmWritebackNow"
+        @cancel="writebackConfirmOpen = false"
+      />
+      <div
+        v-if="writebackConflictOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4"
+      >
+        <div
+          class="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        >
+          <div class="text-base font-semibold text-slate-900 dark:text-slate-100">
+            Resolve writeback conflicts
+          </div>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Paperless changed since this document was loaded. Choose how each field should be handled.
+          </p>
+          <div class="mt-4 space-y-3">
+            <div
+              v-for="conflict in writebackConflicts"
+              :key="conflict.field"
+              class="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+            >
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {{ conflictFieldLabel(conflict.field) }}
+              </div>
+              <div class="mt-2 grid gap-3 md:grid-cols-2">
+                <div>
+                  <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Paperless</div>
+                  <div class="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    {{ conflictValue(conflict.paperless) }}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Local</div>
+                  <div class="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    {{ conflictValue(conflict.local) }}
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3">
+                <select
+                  v-model="writebackResolutions[conflict.field]"
+                  class="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="skip">Skip</option>
+                  <option value="use_paperless">Use Paperless (sync local)</option>
+                  <option value="use_local">Use Local (writeback)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+              @click="cancelWritebackConflict"
+            >
+              Cancel
+            </button>
+            <button
+              class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+              :disabled="writebackRunning"
+              @click="applyWritebackConflictResolutions"
+            >
+              Apply decisions
+            </button>
+          </div>
+        </div>
+      </div>
+      <ConfirmDialog
         :open="writebackErrorOpen"
-        title="Writeback dry-run failed"
+        title="Writeback failed"
         :message="writebackErrorMessage || 'Unknown error'"
         confirm-label="Close"
         cancel-label="Close"
@@ -214,7 +288,7 @@ import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 import type { DocumentOperationTaskPayload } from '../services/documents'
-import { runWritebackDryRun } from '../services/writeback'
+import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 
 const route = useRoute()
 const router = useRouter()
@@ -314,8 +388,13 @@ const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
 const writebackRunning = ref(false)
+const writebackConfirmOpen = ref(false)
+const writebackConflictOpen = ref(false)
+const writebackConflicts = ref<WritebackConflictField[]>([])
+const writebackResolutions = ref<Record<string, 'skip' | 'use_paperless' | 'use_local'>>({})
 const writebackErrorOpen = ref(false)
 const writebackErrorMessage = ref('')
+const canWriteback = computed(() => document.value?.review_status === 'needs_review')
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -437,6 +516,7 @@ const rows = computed(() => {
   const tagNames = (document.value.tags || [])
     .map((tagId) => tags.value.find((t) => t.id === tagId)?.name ?? tagId)
     .join(', ')
+  const pendingTagNames = (document.value.pending_tag_names || []).join(', ')
   const correspondentName =
     document.value.correspondent_name ??
     correspondents.value.find((c) => c.id === document.value?.correspondent)?.name ??
@@ -452,7 +532,7 @@ const rows = computed(() => {
     { label: 'Issue date', value: formatDate(document.value.document_date || document.value.created) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
-    { label: 'Tags', value: tagNames },
+    { label: 'Tags', value: tagNames, pendingValue: pendingTagNames || null },
     {
       label: 'Original filename',
       value: document.value.original_file_name,
@@ -499,36 +579,98 @@ const onPdfPageChange = (value: number) => {
   pdfHighlights.value = []
 }
 
-const runWritebackDryRunForDocument = async () => {
+const conflictFieldLabel = (field: string) => {
+  if (field === 'issue_date' || field === 'document_date') return 'Issue date'
+  if (field === 'title') return 'Title'
+  if (field === 'correspondent') return 'Correspondent'
+  if (field === 'tags') return 'Tags'
+  if (field === 'note') return 'Note'
+  return field
+}
+
+const conflictValue = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+const runWritebackNowForDocument = async (
+  resolutions?: Record<string, 'skip' | 'use_paperless' | 'use_local'>,
+) => {
   writebackRunning.value = true
   writebackErrorMessage.value = ''
   try {
-    const result = await runWritebackDryRun([id])
-    const calls = result.calls?.length ?? 0
-    const changed = result.docs_changed ?? 0
-    if (calls > 0) {
+    const result = await executeWritebackDirectForDocument(id, {
+      known_paperless_modified: document.value?.paperless_modified ?? null,
+      resolutions: resolutions ?? {},
+    })
+    if (result.status === 'conflicts') {
+      writebackConflicts.value = result.conflicts || []
+      writebackResolutions.value = Object.fromEntries(
+        writebackConflicts.value.map((conflict) => [conflict.field, 'skip']),
+      ) as Record<string, 'skip' | 'use_paperless' | 'use_local'>
+      writebackConflictOpen.value = true
       toastStore.push(
-        `Dry-run planned ${calls} call(s) for ${changed} changed document(s).`,
+        'Conflicts detected. Choose per field how to proceed.',
+        'warning',
+        'Writeback',
+        3000,
+      )
+      return
+    }
+    const calls = result.calls_count ?? 0
+    const changed = result.docs_changed ?? 0
+    if (calls > 0 && changed > 0) {
+      toastStore.push(
+        `Writeback executed ${calls} call(s) for ${changed} changed document(s).`,
         'success',
-        'Writeback dry-run',
+        'Writeback',
         2200,
       )
     } else {
       toastStore.push(
-        'Dry-run found no changes for this document.',
+        'No writeback changes found for this document.',
         'info',
-        'Writeback dry-run',
+        'Writeback',
         2200,
       )
     }
+    await reloadAll()
   } catch (err: unknown) {
-    const message = errorMessage(err, 'Failed to run writeback dry-run')
-    toastStore.push(message, 'danger', 'Writeback dry-run', 2800)
+    const message = errorMessage(err, 'Failed to write back document')
+    toastStore.push(message, 'danger', 'Writeback', 2800)
     writebackErrorMessage.value = message
     writebackErrorOpen.value = true
   } finally {
     writebackRunning.value = false
   }
+}
+
+const openWritebackConfirm = () => {
+  if (!canWriteback.value || writebackRunning.value) return
+  writebackConfirmOpen.value = true
+}
+
+const confirmWritebackNow = async () => {
+  writebackConfirmOpen.value = false
+  await runWritebackNowForDocument()
+}
+
+const cancelWritebackConflict = () => {
+  writebackConflictOpen.value = false
+  writebackConflicts.value = []
+  writebackResolutions.value = {}
+}
+
+const applyWritebackConflictResolutions = async () => {
+  writebackConflictOpen.value = false
+  await runWritebackNowForDocument({ ...writebackResolutions.value })
+  writebackConflicts.value = []
+  writebackResolutions.value = {}
 }
 
 const formatDate = (value?: string | null) => {

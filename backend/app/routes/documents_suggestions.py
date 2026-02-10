@@ -15,6 +15,7 @@ from app.models import (
     Document,
     DocumentNote,
     DocumentOcrScore,
+    DocumentPendingTag,
     DocumentPageText,
     DocumentSuggestion,
     Tag,
@@ -62,6 +63,10 @@ class ApplySuggestionToDocument(BaseModel):
     source: str | None = None
     field: str
     value: object
+
+
+def _utc_now_iso() -> str:
+    return __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
 
 
 @router.get("/{doc_id}/suggestions", response_model=SuggestionsResponse)
@@ -473,6 +478,17 @@ def apply_suggestion_to_document(
             updated = True
     elif field == "tags":
         old_value = [tag.name for tag in doc.tags]
+        pending_row = (
+            db.query(DocumentPendingTag)
+            .filter(DocumentPendingTag.doc_id == doc_id)
+            .one_or_none()
+        )
+        old_pending: list[str] = []
+        if pending_row and pending_row.names_json:
+            try:
+                old_pending = [str(name).strip() for name in json.loads(pending_row.names_json) if str(name).strip()]
+            except Exception:
+                old_pending = []
         tag_names: list[str] = []
         if isinstance(value, list):
             tag_names = [str(v).strip() for v in value if str(v).strip()]
@@ -488,6 +504,28 @@ def apply_suggestion_to_document(
                 unmatched.append(name)
         if matched:
             doc.tags = matched
+            updated = True
+        normalized_unmatched = sorted(set(unmatched), key=str.lower)
+        if normalized_unmatched:
+            names_payload = json.dumps(normalized_unmatched, ensure_ascii=False)
+            if pending_row is None:
+                db.add(
+                    DocumentPendingTag(
+                        doc_id=doc_id,
+                        names_json=names_payload,
+                        updated_at=_utc_now_iso(),
+                    )
+                )
+                updated = True
+            else:
+                if (pending_row.names_json or "") != names_payload:
+                    pending_row.names_json = names_payload
+                    pending_row.updated_at = _utc_now_iso()
+                    updated = True
+        elif pending_row is not None:
+            db.delete(pending_row)
+            updated = True
+        if sorted(old_pending, key=str.lower) != normalized_unmatched:
             updated = True
         details["unmatched"] = unmatched
     elif field == "note":

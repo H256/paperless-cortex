@@ -67,6 +67,7 @@ def compare_document_fields(
     remote_correspondent_id: int | None,
     local_tags: list[int],
     remote_tags: list[int],
+    local_pending_tag_names: list[str] | None = None,
     local_ai_note: str | None,
     remote_ai_note: str | None,
 ) -> tuple[list[str], dict[str, Any]]:
@@ -82,9 +83,11 @@ def compare_document_fields(
     if (local_correspondent_id or None) != (remote_correspondent_id or None):
         changed.append("correspondent")
         payload["correspondent"] = local_correspondent_id
-    if normalize_tags(local_tags) != normalize_tags(remote_tags):
+    pending_tag_names = [str(name).strip() for name in (local_pending_tag_names or []) if str(name).strip()]
+    if normalize_tags(local_tags) != normalize_tags(remote_tags) or bool(pending_tag_names):
         changed.append("tags")
         payload["tags"] = normalize_tags(local_tags)
+        payload["pending_tag_names"] = sorted(set(pending_tag_names), key=str.lower)
 
     local_summary = canonical_ai_summary(local_ai_note)
     remote_summary = canonical_ai_summary(remote_ai_note)

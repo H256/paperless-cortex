@@ -128,6 +128,7 @@ class DocumentSummary(PaperlessDocument):
     has_suggestions_paperless: Optional[bool] = None
     has_suggestions_vision: Optional[bool] = None
     has_vision_pages: Optional[bool] = None
+    pending_tag_names: list[str] = []
 
 
 class DocumentNoteOut(BaseModel):
@@ -154,6 +155,7 @@ class DocumentLocalResponse(BaseModel):
     review_status: Optional[str] = None
     reviewed_at: Optional[str] = None
     paperless_modified: Optional[str] = None
+    pending_tag_names: list[str] = []
 
 
 class DocumentsPageResponse(BaseModel):
@@ -538,6 +540,38 @@ class WritebackDryRunExecuteResponse(BaseModel):
     docs_selected: int
     docs_changed: int
     calls: list[WritebackDryRunCall] = []
+
+
+class WritebackExecuteNowRequest(BaseModel):
+    doc_ids: list[int]
+
+
+class WritebackExecuteNowResponse(BaseModel):
+    docs_selected: int
+    docs_changed: int
+    calls_count: int
+    doc_ids: list[int] = []
+    calls: list[WritebackDryRunCall] = []
+
+
+class WritebackDirectExecuteRequest(BaseModel):
+    known_paperless_modified: Optional[str] = None
+    resolutions: dict[str, str] = {}
+
+
+class WritebackConflictField(BaseModel):
+    field: str
+    paperless: Any = None
+    local: Any = None
+
+
+class WritebackDirectExecuteResponse(BaseModel):
+    status: str
+    docs_changed: int
+    calls_count: int
+    doc_ids: list[int] = []
+    calls: list[WritebackDryRunCall] = []
+    conflicts: list[WritebackConflictField] = []
 
 
 class WritebackJobCreateRequest(BaseModel):
