@@ -4,6 +4,8 @@ import importlib
 import os
 from pathlib import Path
 import sys
+import tempfile
+import uuid
 
 import pytest
 from sqlalchemy import create_engine
@@ -17,9 +19,7 @@ from app.models import Base  # noqa: E402
 
 @pytest.fixture()
 def api_client(monkeypatch):
-    db_path = Path("/tmp/paperless_intelligence_test.db")
-    if db_path.exists():
-        db_path.unlink()
+    db_path = Path(tempfile.gettempdir()) / f"paperless_intelligence_test_{uuid.uuid4().hex}.db"
     os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"
     os.environ["QUEUE_ENABLED"] = "0"
 
