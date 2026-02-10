@@ -552,6 +552,26 @@ class WritebackExecuteNowResponse(BaseModel):
     calls: list[WritebackDryRunCall] = []
 
 
+class WritebackDirectExecuteRequest(BaseModel):
+    known_paperless_modified: Optional[str] = None
+    resolutions: dict[str, str] = {}
+
+
+class WritebackConflictField(BaseModel):
+    field: str
+    paperless: Any = None
+    local: Any = None
+
+
+class WritebackDirectExecuteResponse(BaseModel):
+    status: str
+    docs_changed: int
+    calls_count: int
+    doc_ids: list[int] = []
+    calls: list[WritebackDryRunCall] = []
+    conflicts: list[WritebackConflictField] = []
+
+
 class WritebackJobCreateRequest(BaseModel):
     doc_ids: list[int]
 

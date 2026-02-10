@@ -49,6 +49,26 @@ export type WritebackExecuteNowResponse = {
   }>
 }
 
+export type WritebackConflictField = {
+  field: string
+  paperless: unknown
+  local: unknown
+}
+
+export type WritebackDirectExecuteResponse = {
+  status: 'no_changes' | 'conflicts' | 'completed'
+  docs_changed: number
+  calls_count: number
+  doc_ids: number[]
+  calls: Array<{
+    doc_id: number
+    method: string
+    path: string
+    payload: Record<string, unknown>
+  }>
+  conflicts: WritebackConflictField[]
+}
+
 export type WritebackJobSummary = {
   id: number
   status: string
@@ -104,6 +124,21 @@ export const executeWritebackNow = (doc_ids: number[]) =>
   request<WritebackExecuteNowResponse>('/writeback/execute-now', {
     method: 'POST',
     body: { doc_ids },
+  })
+
+export const executeWritebackDirectForDocument = (
+  docId: number,
+  params: {
+    known_paperless_modified?: string | null
+    resolutions?: Record<string, 'skip' | 'use_paperless' | 'use_local'>
+  },
+) =>
+  request<WritebackDirectExecuteResponse>(`/writeback/documents/${docId}/execute-direct`, {
+    method: 'POST',
+    body: {
+      known_paperless_modified: params.known_paperless_modified ?? null,
+      resolutions: params.resolutions ?? {},
+    },
   })
 
 export const createWritebackJob = (doc_ids: number[]) =>

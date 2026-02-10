@@ -178,3 +178,32 @@ def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
     assert payload["docs_changed"] == 1
     assert payload["calls_count"] >= 1
     assert calls["patch"] >= 1
+
+
+def test_writeback_direct_requires_resolution_when_modified_changed(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(507, "Local title 507")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote title 507",
+            "created": "2026-02-01",
+            "modified": "2026-02-10T10:00:00Z",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post(
+        "/writeback/documents/507/execute-direct",
+        json={"known_paperless_modified": "2026-02-09T10:00:00Z", "resolutions": {}},
+    )
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["status"] == "conflicts"
+    assert isinstance(payload["conflicts"], list)
