@@ -529,3 +529,4 @@ All model names must be configurable via environment variables.
 - Backend: hierarchical section aggregation now uses token-estimate budgets (not only fixed page counts) and suggestions for large docs can use distilled page-note context.
 - Tests: added unit coverage for OCR text cleanup and token-budget-based section grouping.
 - Tests: stabilized backend test fixture on Windows by using unique temp SQLite files per test run (avoids file-lock collisions).
+- Ops: tuned worker/env safe rollout defaults for large-document stability (smaller embedding batches, stricter summary budgets, lower suggestions context cap) and documented Arcane initial profile in the execution blueprint.

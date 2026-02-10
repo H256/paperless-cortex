@@ -136,3 +136,26 @@ Validation:
 3. Phase C: Route suggestions to distilled context for large docs.
 4. Phase D: Tune thresholds from live metrics.
 
+## Arcane Safe Defaults (Initial Rollout)
+Use these values as first production baseline:
+- `VISION_OCR_BATCH_PAGES=1`
+- `EMBEDDING_BATCH_SIZE=8`
+- `EMBEDDING_TIMEOUT_SECONDS=45`
+- `EMBEDDING_MAX_CHUNKS_PER_DOC=800`
+- `SUGGESTIONS_MAX_INPUT_CHARS=9000`
+- `WORKER_SUGGESTIONS_MAX_CHARS=9000`
+- `LARGE_DOC_PAGE_THRESHOLD=20`
+- `PAGE_NOTES_TIMEOUT_SECONDS=35`
+- `PAGE_NOTES_MAX_OUTPUT_TOKENS=220`
+- `SUMMARY_SECTION_PAGES=12`
+- `SECTION_SUMMARY_MAX_INPUT_TOKENS=3500`
+- `SECTION_SUMMARY_TIMEOUT_SECONDS=60`
+- `GLOBAL_SUMMARY_MAX_INPUT_TOKENS=4500`
+- `GLOBAL_SUMMARY_TIMEOUT_SECONDS=90`
+- `SUMMARY_MAX_OUTPUT_TOKENS=700`
+
+## Tuning Rules (After 24-48h Metrics)
+1. If queue grows and timeout rate is low (<2%): increase `EMBEDDING_BATCH_SIZE` by `+2`.
+2. If timeout rate >5% on section/global summaries: lower section input by `-500 tokens`.
+3. If suggestions become too generic: increase `WORKER_SUGGESTIONS_MAX_CHARS` by `+1000`.
+4. If worker memory spikes: reduce `EMBEDDING_MAX_CHUNKS_PER_DOC` by `-100`.
