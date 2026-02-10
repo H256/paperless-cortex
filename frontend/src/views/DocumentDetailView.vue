@@ -34,45 +34,6 @@
       </div>
     </div>
 
-    <section
-      class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
-      <div class="flex flex-wrap items-center gap-3">
-        <div
-          class="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300"
-        >
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doResync" />
-            Resync
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doReembed" :disabled="!doResync" />
-            Re-embed
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doQuality" />
-            Analyze quality
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doPages" />
-            Load extracted pages
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="doSuggestions" />
-            Generate suggestions
-          </label>
-        </div>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-          :disabled="processing"
-          @click="runReprocess"
-        >
-          <RefreshCcw class="h-4 w-4" />
-          {{ processing ? 'Processing...' : 'Re-process' }}
-        </button>
-      </div>
-    </section>
-
     <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-4">
       <div
@@ -237,7 +198,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ExternalLink, RefreshCcw, RefreshCw } from 'lucide-vue-next'
+import { ExternalLink, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -248,7 +209,6 @@ import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
-import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 
@@ -258,7 +218,6 @@ const id = Number(route.params.id)
 
 const documentStore = useDocumentDetailStore()
 const queueStore = useQueueStore()
-const toastStore = useToastStore()
 const statusStore = useStatusStore()
 const {
   document,
@@ -282,12 +241,6 @@ const {
   suggestionVariantError,
 } = storeToRefs(documentStore)
 
-const processing = ref(false)
-const doResync = ref(true)
-const doReembed = ref(true)
-const doQuality = ref(true)
-const doPages = ref(true)
-const doSuggestions = ref(true)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
@@ -483,10 +436,6 @@ const load = async () => {
   await documentStore.loadDocument(id)
 }
 
-const resync = async () => {
-  await documentStore.resync(id, doReembed.value)
-}
-
 const loadMeta = async () => {
   await documentStore.loadMeta()
 }
@@ -506,30 +455,6 @@ const loadSuggestions = async () => {
 
 const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
   await documentStore.refreshSuggestions(id, source)
-}
-
-const runReprocess = async () => {
-  processing.value = true
-  try {
-    if (doResync.value) {
-      await resync()
-      await queueStore.refreshStatus()
-      if (queueStore.status.enabled) {
-        toastStore.push(`Document ${id} queued for processing.`, 'info', 'Queued')
-      }
-    }
-    if (doQuality.value) {
-      await loadContentQuality(true)
-    }
-    if (doPages.value) {
-      await loadPageTexts(true)
-    }
-    if (doSuggestions.value) {
-      await loadSuggestions()
-    }
-  } finally {
-    processing.value = false
-  }
 }
 
 const enqueueDocTask = async (
@@ -598,15 +523,9 @@ onMounted(async () => {
   syncPdfFromQuery()
   await load()
   await loadMeta()
-  if (doQuality.value) {
-    await loadContentQuality()
-  }
-  if (doPages.value) {
-    await loadPageTexts()
-  }
-  if (doSuggestions.value) {
-    await loadSuggestions()
-  }
+  await loadContentQuality()
+  await loadPageTexts()
+  await loadSuggestions()
 })
 
 watch(
@@ -616,9 +535,4 @@ watch(
   },
 )
 
-watch(doPages, async (value) => {
-  if (value && pageTexts.value.length === 0) {
-    await loadPageTexts()
-  }
-})
 </script>
