@@ -507,19 +507,19 @@ def apply_suggestion_to_document(
             updated = True
         normalized_unmatched = sorted(set(unmatched), key=str.lower)
         if normalized_unmatched:
-            payload = json.dumps(normalized_unmatched, ensure_ascii=False)
+            names_payload = json.dumps(normalized_unmatched, ensure_ascii=False)
             if pending_row is None:
                 db.add(
                     DocumentPendingTag(
                         doc_id=doc_id,
-                        names_json=payload,
+                        names_json=names_payload,
                         updated_at=_utc_now_iso(),
                     )
                 )
                 updated = True
             else:
-                if (pending_row.names_json or "") != payload:
-                    pending_row.names_json = payload
+                if (pending_row.names_json or "") != names_payload:
+                    pending_row.names_json = names_payload
                     pending_row.updated_at = _utc_now_iso()
                     updated = True
         elif pending_row is not None:
