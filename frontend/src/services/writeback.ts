@@ -68,6 +68,7 @@ export type WritebackExecutePendingResponse = {
   completed: number
   failed: number
   job_ids: number[]
+  doc_ids: number[]
 }
 
 export const getWritebackDryRunPreview = (params: {

@@ -584,3 +584,4 @@ class WritebackExecutePendingResponse(BaseModel):
     completed: int
     failed: int
     job_ids: list[int] = []
+    doc_ids: list[int] = []

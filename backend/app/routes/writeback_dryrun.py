@@ -433,6 +433,11 @@ def create_writeback_job(
             continue
         docs_changed += 1
         calls.extend(_build_calls_for_item(item))
+    if docs_changed == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="No writeback changes detected for selected documents.",
+        )
 
     job = WritebackJob(
         status="pending",
@@ -549,9 +554,12 @@ def execute_pending_writeback_jobs(
     completed = 0
     failed = 0
     processed_ids: list[int] = []
+    processed_doc_ids: set[int] = set()
     for job in pending_jobs:
         processed_ids.append(int(job.id))
         result = _run_job_execution(settings, db, job, request.dry_run)
+        for doc_id in _deserialize_doc_ids(result):
+            processed_doc_ids.add(int(doc_id))
         if result.status == "completed":
             completed += 1
         else:
@@ -562,4 +570,5 @@ def execute_pending_writeback_jobs(
         completed=completed,
         failed=failed,
         job_ids=processed_ids,
+        doc_ids=sorted(processed_doc_ids),
     )

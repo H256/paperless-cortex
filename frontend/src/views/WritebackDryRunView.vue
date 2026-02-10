@@ -93,12 +93,23 @@
               />
               Document {{ item.doc_id }}
             </label>
-            <span
-              class="rounded-full px-2 py-1 text-[11px] font-semibold"
-              :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
-            >
-              {{ item.changed ? `changed: ${item.changed_fields.join(', ')}` : 'no changes' }}
-            </span>
+            <div class="flex items-center gap-2">
+              <a
+                :href="documentLink(item.doc_id)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Open
+                <ExternalLink class="h-3.5 w-3.5" />
+              </a>
+              <span
+                class="rounded-full px-2 py-1 text-[11px] font-semibold"
+                :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
+              >
+                {{ item.changed ? `changed: ${item.changed_fields.join(', ')}` : 'no changes' }}
+              </span>
+            </div>
           </div>
 
           <div class="overflow-x-auto">
@@ -254,6 +265,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { ExternalLink } from 'lucide-vue-next'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useToastStore } from '../stores/toastStore'
 import {
@@ -293,6 +305,9 @@ const confirmExecuteAllOpen = ref(false)
 
 const selectedIds = computed(() => Array.from(selectedSet.value))
 const pendingCount = computed(() => jobs.value.filter((job) => job.status === 'pending').length)
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseOrigin = window.location.origin
+const paperlessBase = import.meta.env.VITE_PAPERLESS_BASE_URL || ''
 
 const rowsFor = (item: WritebackDryRunItem) => [
   item.title,
@@ -315,7 +330,7 @@ const displayValue = (
   side: 'original' | 'proposed',
 ) => {
   if (side === 'proposed' && !changed) return ''
-  if (value === null || value === undefined || value === '') return '—'
+  if (value === null || value === undefined || value === '') return '-'
 
   if (field === 'correspondent' && typeof value === 'object' && value !== null) {
     const v = value as { name?: unknown; id?: unknown }
@@ -324,7 +339,7 @@ const displayValue = (
     if (name && id !== null) return `${name} (#${id})`
     if (name) return name
     if (id !== null) return `#${id}`
-    return '—'
+    return '-'
   }
 
   if (field === 'tags' && typeof value === 'object' && value !== null) {
@@ -334,14 +349,14 @@ const displayValue = (
       : []
     if (names.length) return names.join(', ')
     const ids = Array.isArray(v.ids) ? v.ids.map((entry) => String(entry).trim()).filter(Boolean) : []
-    return ids.length ? ids.join(', ') : '—'
+    return ids.length ? ids.join(', ') : '-'
   }
 
   if (field === 'note') {
     if (typeof value === 'string') return value
     const extracted = noteText(value)
     if (extracted) return extracted
-    if (typeof value === 'object' && value !== null) return '—'
+    if (typeof value === 'object' && value !== null) return '-'
   }
 
   if (typeof value === 'string') return value
@@ -365,6 +380,25 @@ const selectAllChanged = () => {
 
 const clearSelection = () => {
   selectedSet.value = new Set()
+}
+
+const removeDocsFromPreview = (docIds: number[]) => {
+  if (!docIds.length) return
+  const idSet = new Set(docIds.map((v) => Number(v)))
+  previewItems.value = previewItems.value.filter((item) => !idSet.has(Number(item.doc_id)))
+  selectedSet.value = new Set(
+    Array.from(selectedSet.value).filter((docId) => !idSet.has(Number(docId))),
+  )
+}
+
+const documentLink = (docId: number) => {
+  if (paperlessBase) {
+    return `${String(paperlessBase).replace(/\/$/, '')}/documents/${docId}`
+  }
+  const api = apiBaseUrl.startsWith('http')
+    ? apiBaseUrl
+    : `${baseOrigin}${apiBaseUrl.startsWith('/') ? apiBaseUrl : `/${apiBaseUrl}`}`
+  return `${api.replace(/\/api\/?$/, '')}/documents/${docId}`
 }
 
 const loadPreview = async () => {
@@ -446,6 +480,9 @@ const executeJob = async (jobId: number, dryRun: boolean) => {
       'Writeback',
       2400,
     )
+    if (!dryRun && job.status === 'completed') {
+      removeDocsFromPreview(job.doc_ids || [])
+    }
     await Promise.all([loadJobs(), loadHistory()])
   } catch (err: unknown) {
     toastStore.push(err instanceof Error ? err.message : 'Execution failed', 'danger', 'Writeback', 2800)
@@ -487,6 +524,9 @@ const executeAllPending = async (dryRun: boolean) => {
       'Writeback',
       3000,
     )
+    if (!dryRun && result.completed > 0) {
+      removeDocsFromPreview(result.doc_ids || [])
+    }
     await Promise.all([loadJobs(), loadHistory()])
   } catch (err: unknown) {
     toastStore.push(err instanceof Error ? err.message : 'Run all pending failed', 'danger', 'Writeback', 3200)
