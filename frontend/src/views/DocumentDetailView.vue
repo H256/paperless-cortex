@@ -461,7 +461,6 @@ const rows = computed(() => {
     {
       label: 'Timestamps',
       value: `Created: ${createdLabel}\nModified: ${modifiedLabel}`,
-      align: 'right',
     },
     { label: 'Notes', value: notes },
   ]
