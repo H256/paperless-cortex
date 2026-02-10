@@ -5,7 +5,7 @@
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           {{ document?.title || `Document ${id}` }}
         </h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Document ID: {{ id }}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">{{ headerMetaLine }}</p>
       </div>
       <div class="flex items-center gap-2">
         <IconButton
@@ -445,20 +445,7 @@ const rows = computed(() => {
     document.value.document_type_name ??
     docTypes.value.find((d) => d.id === document.value?.document_type)?.name ??
     document.value.document_type
-  const syncStatusRaw = String(document.value.sync_status || '')
-  const reviewStatusRaw = String(document.value.review_status || '')
-  const paperlessModified = formatDateTime(document.value.paperless_modified)
-  const reviewedAt = formatDateTime(document.value.reviewed_at)
-  const syncStatusLabel = paperlessModified
-    ? `${toTitle(syncStatusRaw)} (Paperless modified: ${paperlessModified})`
-    : toTitle(syncStatusRaw)
-  const reviewStatusLabel = reviewedAt
-    ? `${toTitle(reviewStatusRaw)} (Last reviewed: ${reviewedAt})`
-    : `${toTitle(reviewStatusRaw)} (No review marker yet)`
   return [
-    { label: 'ID', value: document.value.id },
-    { label: 'Sync status', value: syncStatusLabel },
-    { label: 'Review status', value: reviewStatusLabel },
     { label: 'Title', value: document.value.title },
     { label: 'Document date', value: formatDate(document.value.document_date) },
     { label: 'Correspondent', value: correspondentName },
@@ -469,6 +456,14 @@ const rows = computed(() => {
     { label: 'Created', value: formatDateTime(document.value.created) },
     { label: 'Modified', value: formatDateTime(document.value.modified) },
   ]
+})
+
+const headerMetaLine = computed(() => {
+  const syncAt = formatDateTime(document.value?.modified)
+  const reviewStatus = toTitle(document.value?.review_status || '')
+  const reviewedAt = formatDateTime(document.value?.reviewed_at)
+  const reviewPart = reviewedAt ? `${reviewStatus} (${reviewedAt})` : reviewStatus
+  return `Document ID: ${id}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
 
 const syncPdfFromQuery = () => {
