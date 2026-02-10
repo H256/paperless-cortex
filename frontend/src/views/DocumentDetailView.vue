@@ -26,11 +26,13 @@
         </IconButton>
         <button
           class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-          title="Open writeback dry-run focused on this document"
-          @click="openWritebackDryRun"
+          :disabled="writebackRunning"
+          :class="writebackRunning ? 'cursor-not-allowed opacity-70' : ''"
+          title="Run writeback dry-run for this document"
+          @click="runWritebackDryRunForDocument"
         >
-          <ClipboardCheck class="h-4 w-4" />
-          Writeback dry-run
+          <ClipboardCheck class="h-4 w-4" :class="writebackRunning ? 'animate-pulse' : ''" />
+          {{ writebackRunning ? 'Running dry-run...' : 'Run writeback dry-run' }}
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
@@ -180,6 +182,15 @@
         @confirm="confirmResetAndReprocessDoc"
         @cancel="resetConfirmOpen = false"
       />
+      <ConfirmDialog
+        :open="writebackErrorOpen"
+        title="Writeback dry-run failed"
+        :message="writebackErrorMessage || 'Unknown error'"
+        confirm-label="Close"
+        cancel-label="Close"
+        @confirm="writebackErrorOpen = false"
+        @cancel="writebackErrorOpen = false"
+      />
 
     </div>
   </section>
@@ -200,8 +211,10 @@ import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useStatusStore } from '../stores/statusStore'
+import { useToastStore } from '../stores/toastStore'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 import type { DocumentOperationTaskPayload } from '../services/documents'
+import { runWritebackDryRun } from '../services/writeback'
 
 const route = useRoute()
 const router = useRouter()
@@ -210,6 +223,7 @@ const id = Number(route.params.id)
 const documentStore = useDocumentDetailStore()
 const queueStore = useQueueStore()
 const statusStore = useStatusStore()
+const toastStore = useToastStore()
 const {
   document,
   loading,
@@ -299,6 +313,9 @@ const docOpsLoading = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
+const writebackRunning = ref(false)
+const writebackErrorOpen = ref(false)
+const writebackErrorMessage = ref('')
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null
@@ -458,14 +475,36 @@ const onPdfPageChange = (value: number) => {
   pdfHighlights.value = []
 }
 
-const openWritebackDryRun = () => {
-  router.push({
-    path: '/writeback-dry-run',
-    query: {
-      doc_id: String(id),
-      only_changed: '1',
-    },
-  })
+const runWritebackDryRunForDocument = async () => {
+  writebackRunning.value = true
+  writebackErrorMessage.value = ''
+  try {
+    const result = await runWritebackDryRun([id])
+    const calls = result.calls?.length ?? 0
+    const changed = result.docs_changed ?? 0
+    if (calls > 0) {
+      toastStore.push(
+        `Dry-run planned ${calls} call(s) for ${changed} changed document(s).`,
+        'success',
+        'Writeback dry-run',
+        2200,
+      )
+    } else {
+      toastStore.push(
+        'Dry-run found no changes for this document.',
+        'info',
+        'Writeback dry-run',
+        2200,
+      )
+    }
+  } catch (err: unknown) {
+    const message = errorMessage(err, 'Failed to run writeback dry-run')
+    toastStore.push(message, 'danger', 'Writeback dry-run', 2800)
+    writebackErrorMessage.value = message
+    writebackErrorOpen.value = true
+  } finally {
+    writebackRunning.value = false
+  }
 }
 
 const formatDate = (value?: string | null) => {
