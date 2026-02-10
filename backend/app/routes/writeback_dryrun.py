@@ -28,7 +28,7 @@ from app.api_models import (
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Correspondent, Document, Tag, WritebackJob
+from app.models import Correspondent, Document, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
@@ -311,8 +311,10 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
 
     calls = _deserialize_calls(job)
     execution_error: str | None = None
+    executed_doc_ids: set[int] = set()
     try:
         for call in calls:
+            executed_doc_ids.add(int(call.doc_id))
             logger.info(
                 "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
                 "DRY-RUN" if dry_run else "EXECUTE",
@@ -323,6 +325,20 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
             )
             if not dry_run:
                 _execute_call(settings, call)
+        if not dry_run and executed_doc_ids:
+            reviewed_at = _now_iso()
+            for doc_id in sorted(executed_doc_ids):
+                db.add(
+                    SuggestionAudit(
+                        doc_id=int(doc_id),
+                        action="apply_to_document:writeback",
+                        source="writeback",
+                        field=None,
+                        old_value=None,
+                        new_value=None,
+                        created_at=reviewed_at,
+                    )
+                )
     except Exception as exc:
         execution_error = str(exc)
 
