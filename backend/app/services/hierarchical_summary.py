@@ -67,12 +67,13 @@ def _best_effort_page_notes_from_text(page: int, raw_text: str) -> dict[str, Any
     lines = [line.strip(" -*\t") for line in (raw_text or "").splitlines()]
     lines = [line for line in lines if line]
     facts = [line for line in lines[:8] if len(line) > 3]
+    number_matches = re.findall(r"\b(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?(?:\s?(?:EUR|USD|CHF|%))?|\d{4}-\d{2}-\d{2})\b", raw_text or "")
     return {
         "page": int(page),
         "facts": facts[:8],
         "entities": [],
         "references": [],
-        "key_numbers": [],
+        "key_numbers": [str(v) for v in number_matches[:12]],
         "uncertainties": ["model_returned_non_json"],
     }
 
@@ -97,6 +98,8 @@ def _repair_page_notes_json(
         messages=[{"role": "user", "content": repair_prompt}],
         timeout=max(5, int(settings.page_notes_timeout_seconds / 2)),
         max_tokens=settings.page_notes_max_output_tokens,
+        temperature=0.0,
+        json_mode=True,
     )
     repaired_payload = _extract_json_dict(repaired_raw)
     return _coerce_page_notes_payload(page, repaired_payload, raw_fallback=raw_text)
@@ -161,6 +164,8 @@ def generate_page_notes(
         messages=[{"role": "user", "content": _page_notes_prompt(page, cleaned)}],
         timeout=settings.page_notes_timeout_seconds,
         max_tokens=settings.page_notes_max_output_tokens,
+        temperature=0.0,
+        json_mode=True,
     )
     try:
         parsed = _extract_json_dict(raw)
@@ -187,7 +192,8 @@ def generate_page_notes(
             return repaired
     except Exception:
         pass
-    return _best_effort_page_notes_from_text(page, raw)
+    fallback_source = raw if str(raw or "").strip() else cleaned
+    return _best_effort_page_notes_from_text(page, fallback_source)
 
 
 def generate_section_summary(
@@ -205,6 +211,8 @@ def generate_section_summary(
         messages=[{"role": "user", "content": _section_summary_prompt(section_key, payload)}],
         timeout=settings.section_summary_timeout_seconds,
         max_tokens=settings.summary_max_output_tokens,
+        temperature=0.0,
+        json_mode=True,
     )
     parsed = _extract_json_dict(raw)
     parsed["section"] = section_key
@@ -225,6 +233,8 @@ def generate_global_summary(
         messages=[{"role": "user", "content": _global_summary_prompt(payload)}],
         timeout=settings.global_summary_timeout_seconds,
         max_tokens=settings.summary_max_output_tokens,
+        temperature=0.0,
+        json_mode=True,
     )
     return _extract_json_dict(raw)
 

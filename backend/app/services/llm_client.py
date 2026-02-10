@@ -84,6 +84,8 @@ def chat_completion(
     timeout: float | None,
     purpose: Literal["text", "vision"] = "text",
     max_tokens: int | None = None,
+    temperature: float | None = None,
+    json_mode: bool = False,
 ) -> str:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
     if _llm_debug_enabled():
@@ -102,7 +104,21 @@ def chat_completion(
     }
     if max_tokens is not None:
         kwargs["max_tokens"] = int(max_tokens)
-    response = client_sdk.chat.completions.create(**kwargs)
+    if temperature is not None:
+        kwargs["temperature"] = float(temperature)
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = client_sdk.chat.completions.create(**kwargs)
+    except Exception:
+        if not json_mode:
+            raise
+        # Some OpenAI-compatible servers do not implement response_format.
+        if _llm_debug_enabled():
+            logger.warning("LLM json_mode unsupported; retrying without response_format model=%s", model)
+        kwargs.pop("response_format", None)
+        response = client_sdk.chat.completions.create(**kwargs)
     choices = response.choices or []
     if not choices:
         raise RuntimeError("LLM response missing choices")
