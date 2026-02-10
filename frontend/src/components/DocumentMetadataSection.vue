@@ -21,11 +21,12 @@
         </div>
       </div>
     </div>
-    <dl class="mt-3 grid gap-3 md:grid-cols-3">
+    <dl class="mt-3 grid gap-3 md:grid-cols-4">
       <div
         v-for="row in rows"
         :key="row.label"
         class="rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800"
+        :class="row.label === 'Notes' ? 'md:col-span-4' : ''"
       >
         <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           {{ row.label }}

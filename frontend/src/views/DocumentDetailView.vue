@@ -451,10 +451,10 @@ const rows = computed(() => {
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames },
-    { label: 'Notes', value: notes },
     { label: 'Original filename', value: document.value.original_file_name },
     { label: 'Created', value: formatDateTime(document.value.created) },
     { label: 'Modified', value: formatDateTime(document.value.modified) },
+    { label: 'Notes', value: notes },
   ]
 })
 
