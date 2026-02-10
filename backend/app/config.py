@@ -41,7 +41,9 @@ class Settings:
     page_notes_timeout_seconds: int
     page_notes_max_output_tokens: int
     summary_section_pages: int
+    section_summary_max_input_tokens: int
     section_summary_timeout_seconds: int
+    global_summary_max_input_tokens: int
     global_summary_timeout_seconds: int
     summary_max_output_tokens: int
     vision_ocr_min_chars: int
@@ -112,7 +114,9 @@ def load_settings() -> Settings:
         page_notes_timeout_seconds=max(5, int(os.getenv("PAGE_NOTES_TIMEOUT_SECONDS", "45"))),
         page_notes_max_output_tokens=max(64, int(os.getenv("PAGE_NOTES_MAX_OUTPUT_TOKENS", "300"))),
         summary_section_pages=max(2, int(os.getenv("SUMMARY_SECTION_PAGES", "25"))),
+        section_summary_max_input_tokens=max(1000, int(os.getenv("SECTION_SUMMARY_MAX_INPUT_TOKENS", "6000"))),
         section_summary_timeout_seconds=max(10, int(os.getenv("SECTION_SUMMARY_TIMEOUT_SECONDS", "90"))),
+        global_summary_max_input_tokens=max(1000, int(os.getenv("GLOBAL_SUMMARY_MAX_INPUT_TOKENS", "7000"))),
         global_summary_timeout_seconds=max(10, int(os.getenv("GLOBAL_SUMMARY_TIMEOUT_SECONDS", "120"))),
         summary_max_output_tokens=max(128, int(os.getenv("SUMMARY_MAX_OUTPUT_TOKENS", "900"))),
         vision_ocr_min_chars=int(os.getenv("VISION_OCR_MIN_CHARS", "40")),

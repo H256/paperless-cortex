@@ -56,7 +56,7 @@ from app.services.hierarchical_summary import (
     generate_global_summary,
     generate_page_notes,
     generate_section_summary,
-    group_page_ranges,
+    group_notes_into_sections,
     is_large_document,
     replace_section_summaries,
     upsert_page_note,
@@ -125,6 +125,46 @@ def _ensure_paperless_page_texts(settings, db: Session, doc: Document) -> None:
             source_filter="paperless_ocr",
             replace_pages=[page.page for page in baseline_pages],
         )
+
+
+def _build_distilled_context_from_page_notes(
+    db: Session,
+    *,
+    doc_id: int,
+    source: str,
+    max_chars: int,
+) -> str:
+    if max_chars <= 0:
+        max_chars = 12000
+    rows = (
+        db.query(DocumentPageNote)
+        .filter(
+            DocumentPageNote.doc_id == doc_id,
+            DocumentPageNote.source == source,
+            DocumentPageNote.status == "ok",
+        )
+        .order_by(DocumentPageNote.page.asc())
+        .all()
+    )
+    if not rows:
+        return ""
+    parts: list[str] = []
+    used = 0
+    for row in rows:
+        payload = row.notes_json or ""
+        if not payload:
+            continue
+        block = f"Page {row.page}: {payload}"
+        sep = "\n\n" if parts else ""
+        remaining = max_chars - used - len(sep)
+        if remaining <= 0:
+            break
+        if len(block) > remaining:
+            parts.append(block[:remaining])
+            break
+        parts.append(block)
+        used += len(sep) + len(block)
+    return "\n\n".join(parts).strip()
 
 
 def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
@@ -537,14 +577,16 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
                 page_to_note[int(row.page)] = payload
         except Exception:
             continue
-    ranges = group_page_ranges(list(page_to_note.keys()), settings.summary_section_pages)
+    sections = group_notes_into_sections(
+        sorted(page_to_note.items(), key=lambda item: item[0]),
+        max_pages=settings.summary_section_pages,
+        max_input_tokens=settings.section_summary_max_input_tokens,
+    )
     section_payloads: list[tuple[str, dict]] = []
-    for start, end in ranges:
+    for section_key, page_notes in sections:
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; stop section summaries doc=%s", doc_id)
             return
-        section_key = f"{start}-{end}"
-        page_notes = [page_to_note[p] for p in range(start, end + 1) if p in page_to_note]
         if not page_notes:
             continue
         try:
@@ -633,7 +675,16 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
     raw = paperless.get_document(settings, doc_id)
-    baseline_text = doc.content or ""
+    baseline_text = clean_ocr_text(doc.content or "")
+    if _is_large_doc(settings, doc):
+        distilled = _build_distilled_context_from_page_notes(
+            db,
+            doc_id=doc_id,
+            source="paperless_ocr",
+            max_chars=settings.worker_suggestions_max_chars,
+        )
+        if distilled:
+            baseline_text = distilled
     baseline_suggestions = generate_normalized_suggestions(
         settings,
         raw,
@@ -664,10 +715,17 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         .all()
     )
     if vision_pages:
-        vision_text = _join_page_texts_limited(
-            vision_pages,
+        vision_text = _build_distilled_context_from_page_notes(
+            db,
+            doc_id=doc_id,
+            source="vision_ocr",
             max_chars=settings.worker_suggestions_max_chars,
         )
+        if not vision_text:
+            vision_text = _join_page_texts_limited(
+                vision_pages,
+                max_chars=settings.worker_suggestions_max_chars,
+            )
         if vision_text:
             vision_suggestions = generate_normalized_suggestions(
                 settings,

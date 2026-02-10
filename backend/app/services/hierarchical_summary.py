@@ -102,7 +102,7 @@ def generate_section_summary(
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
     payload = json.dumps(page_notes, ensure_ascii=False)
-    payload = _truncate_for_tokens(payload, max_input_tokens=6000)
+    payload = _truncate_for_tokens(payload, max_input_tokens=settings.section_summary_max_input_tokens)
     raw = llm_client.chat_completion(
         settings,
         model=settings.text_model or "",
@@ -122,7 +122,7 @@ def generate_global_summary(
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
     payload = json.dumps(section_summaries, ensure_ascii=False)
-    payload = _truncate_for_tokens(payload, max_input_tokens=7000)
+    payload = _truncate_for_tokens(payload, max_input_tokens=settings.global_summary_max_input_tokens)
     raw = llm_client.chat_completion(
         settings,
         model=settings.text_model or "",
@@ -210,8 +210,45 @@ def group_page_ranges(pages: list[int], section_pages: int) -> list[tuple[int, i
     return ranges
 
 
+def group_notes_into_sections(
+    notes: list[tuple[int, dict[str, Any]]],
+    *,
+    max_pages: int,
+    max_input_tokens: int,
+) -> list[tuple[str, list[dict[str, Any]]]]:
+    if not notes:
+        return []
+    ordered = sorted(notes, key=lambda item: item[0])
+    sections: list[tuple[str, list[dict[str, Any]]]] = []
+    current_pages: list[int] = []
+    current_notes: list[dict[str, Any]] = []
+    current_tokens = 0
+
+    def flush() -> None:
+        nonlocal current_pages, current_notes, current_tokens
+        if not current_pages or not current_notes:
+            return
+        section_key = f"{current_pages[0]}-{current_pages[-1]}"
+        sections.append((section_key, list(current_notes)))
+        current_pages = []
+        current_notes = []
+        current_tokens = 0
+
+    for page, note_payload in ordered:
+        note_json = json.dumps(note_payload, ensure_ascii=False)
+        note_tokens = estimate_tokens(note_json)
+        exceeds_pages = len(current_pages) >= max_pages
+        exceeds_tokens = current_tokens + note_tokens > max_input_tokens
+        if current_pages and (exceeds_pages or exceeds_tokens):
+            flush()
+        current_pages.append(int(page))
+        current_notes.append(note_payload)
+        current_tokens += note_tokens
+    flush()
+    return sections
+
+
 def is_large_document(*, page_count: int | None, total_text: str | None, threshold_pages: int) -> bool:
     if page_count and int(page_count) >= threshold_pages:
         return True
     return estimate_tokens(total_text or "") >= max(3000, threshold_pages * 250)
-
