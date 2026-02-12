@@ -150,6 +150,7 @@ import { useContinueProcessing } from '../composables/useContinueProcessing'
 import { useContinueProcessOptions } from '../composables/useContinueProcessOptions'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import { useDocumentsProcessingActions } from '../composables/useDocumentsProcessingActions'
+import { useDocumentsTableControls } from '../composables/useDocumentsTableControls'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
@@ -220,21 +221,6 @@ const {
   processingEtaText,
 } = useProcessingMetrics(syncStatus, embedStatus, queueStatus)
 const syncing = computed(() => isProcessing.value)
-const sortDir = (field: string) => {
-  const current = ordering.value.replace('-', '')
-  if (current !== field) return null
-  return ordering.value.startsWith('-') ? 'desc' : 'asc'
-}
-
-const toggleSort = (field: string) => {
-  const dir = sortDir(field)
-  if (!dir || dir === 'desc') {
-    ordering.value = field
-  } else {
-    ordering.value = `-${field}`
-  }
-  page.value = 1
-}
 
 const load = async () => {
   try {
@@ -260,21 +246,15 @@ const { openPreview, closePreview, startFromPreview, cancelProcessing } = useDoc
   load,
   processParams,
 )
+const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
+  ordering,
+  page,
+  totalPages,
+  load,
+)
 
 const open = (id: number) => {
   router.push(`/documents/${id}`)
-}
-
-const onPrevPage = async () => {
-  if (page.value <= 1) return
-  page.value -= 1
-  await load()
-}
-
-const onNextPage = async () => {
-  if (page.value >= totalPages.value) return
-  page.value += 1
-  await load()
 }
 
 onMounted(async () => {
