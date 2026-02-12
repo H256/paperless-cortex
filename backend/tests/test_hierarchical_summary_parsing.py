@@ -5,8 +5,11 @@ from app.services.hierarchical_summary import (
     _compact_page_notes_for_section,
     _coerce_page_notes_payload,
     _extract_json_dict,
+    _looks_like_prompt_echo_or_meta,
     _parse_page_notes_text,
+    _sanitize_model_output_text,
     generate_section_summary,
+    generate_page_notes,
 )
 
 
@@ -106,6 +109,47 @@ def test_compact_page_notes_for_section_limits_payload_size():
     # Should keep payload significantly smaller than raw all-pages notes.
     assert len(payload) < 9000
     assert '"page": 1' in payload
+
+
+def test_sanitize_model_output_text_strips_control_tokens():
+    raw = "<|channel|>analysis<|message|>Facts:\n- A\nEntities:\n- B"
+    cleaned = _sanitize_model_output_text(raw)
+    assert "<|" not in cleaned
+    assert "Facts:" in cleaned
+
+
+def test_looks_like_prompt_echo_or_meta_detects_leakage():
+    leaked = (
+        "Extract structured page notes from OCR text. "
+        "Return plain text with exactly these headings: "
+        "Facts: Entities: References: Key numbers: Uncertainties:"
+    )
+    assert _looks_like_prompt_echo_or_meta(leaked) is True
+
+
+def test_generate_page_notes_retries_on_meta_echo(monkeypatch):
+    class StubSettings:
+        text_model = "stub"
+        page_notes_timeout_seconds = 30
+        page_notes_max_output_tokens = 300
+
+    monkeypatch.setattr(
+        "app.services.hierarchical_summary.ensure_text_llm_ready",
+        lambda _settings: None,
+    )
+
+    calls = {"count": 0}
+
+    def _fake_chat(*_args, **_kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return "<|channel|>analysis<|message|>Extract structured page notes from OCR text."
+        return "Facts:\n- Alpha\nEntities:\n- Bank\nReferences:\n- Doc\nKey numbers:\n- 49,00 EUR\nUncertainties:\n- none"
+
+    monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
+    payload = generate_page_notes(StubSettings(), page=1, text="some text")
+    assert payload["facts"]
+    assert calls["count"] >= 2
 
 
 def test_best_effort_section_summary_collects_core_fields():

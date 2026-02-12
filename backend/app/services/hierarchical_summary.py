@@ -37,6 +37,17 @@ _NUMBER_TOKEN_RE = re.compile(
 )
 _DATE_TOKEN_RE = re.compile(r"\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b")
 _JSON_DECODER = json.JSONDecoder()
+_CONTROL_TOKEN_RE = re.compile(r"<\|[^>]+\|>")
+_PROMPT_ECHO_MARKERS = (
+    "extract structured page notes from ocr text",
+    "return plain text with exactly these headings",
+    "facts:",
+    "entities:",
+    "references:",
+    "key numbers:",
+    "uncertainties:",
+    "do not invent information",
+)
 
 
 def _now_iso() -> str:
@@ -200,6 +211,26 @@ def _raw_preview(raw: str | None, max_chars: int = 500) -> str:
     return preview
 
 
+def _sanitize_model_output_text(text: str) -> str:
+    raw = str(text or "")
+    if not raw:
+        return ""
+    cleaned = _CONTROL_TOKEN_RE.sub("", raw)
+    cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _looks_like_prompt_echo_or_meta(text: str) -> bool:
+    normalized = " ".join((text or "").lower().split())
+    if not normalized:
+        return False
+    if "<|channel|>" in normalized or "<|message|>" in normalized:
+        return True
+    marker_hits = sum(1 for marker in _PROMPT_ECHO_MARKERS if marker in normalized)
+    return marker_hits >= 3
+
+
 def _chat_json_response(
     settings: Settings,
     *,
@@ -255,6 +286,22 @@ def _page_notes_prompt(page: int, text: str) -> str:
     )
 
 
+def _page_notes_prompt_strict(page: int, text: str) -> str:
+    return (
+        "Extract structured page notes from OCR text.\n"
+        "Output plain text only. No control tokens, no tags, no prose outside headings.\n"
+        "Return exactly these headings in this order:\n"
+        "Facts:\n"
+        "Entities:\n"
+        "References:\n"
+        "Key numbers:\n"
+        "Uncertainties:\n"
+        "Use bullet points under each heading.\n"
+        f"Page: {page}\n"
+        f"Text:\n{text}\n"
+    )
+
+
 def _section_summary_prompt(section_key: str, page_notes_json: str) -> str:
     return (
         "Aggregate page notes into a section summary.\n"
@@ -286,11 +333,12 @@ def _compact_text_items(values: Any, *, max_items: int, max_chars: int) -> list[
         return []
     items: list[str] = []
     for value in values:
-        text = " ".join(str(value or "").split()).strip()
+        text = _sanitize_model_output_text(str(value or ""))
+        text = " ".join(text.split()).strip()
         if not text:
             continue
         if len(text) > max_chars:
-            text = text[: max_chars - 1].rstrip() + "…"
+            text = text[: max_chars - 3].rstrip() + "..."
         items.append(text)
         if len(items) >= max_items:
             break
@@ -359,20 +407,31 @@ def generate_page_notes(
         max_tokens=settings.page_notes_max_output_tokens,
         json_mode=False,
     )
-    if not str(raw or "").strip():
+    sanitized_raw = _sanitize_model_output_text(raw)
+    if _looks_like_prompt_echo_or_meta(str(raw or "")) or _looks_like_prompt_echo_or_meta(sanitized_raw):
+        logger.warning("Page notes output looks like prompt/meta echo page=%s; retry strict prompt", page)
+        retry_raw = _chat_response(
+            settings,
+            prompt=_page_notes_prompt_strict(page, cleaned),
+            timeout=settings.page_notes_timeout_seconds,
+            max_tokens=settings.page_notes_max_output_tokens,
+            json_mode=False,
+        )
+        sanitized_raw = _sanitize_model_output_text(retry_raw)
+    if not sanitized_raw.strip():
         return _best_effort_page_notes_from_text(page, cleaned)
     try:
-        parsed = _extract_json_dict(raw)
-        return _coerce_page_notes_payload(page, parsed, raw_fallback=raw)
+        parsed = _extract_json_dict(sanitized_raw)
+        return _coerce_page_notes_payload(page, parsed, raw_fallback=sanitized_raw)
     except Exception as exc:
         if os.getenv("LLM_DEBUG") == "1":
             logger.warning(
                 "Page notes JSON parse failed page=%s error=%s raw_snippet=%s",
                 page,
                 exc,
-                _raw_preview(raw),
+                _raw_preview(sanitized_raw),
             )
-        return _parse_page_notes_text(page, raw)
+        return _parse_page_notes_text(page, sanitized_raw)
 
 
 def generate_section_summary(

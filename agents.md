@@ -638,6 +638,7 @@ All model names must be configurable via environment variables.
 - Hierarchical summary robustness: fixed section-summary JSON parsing failures by adding truncated-JSON repair in `_extract_json_dict`, a compact retry prompt for section aggregation, and deterministic fallback section-summary synthesis when model output remains non-JSON; this prevents complete section-summary dropouts on large/verbose model outputs.
 - Tests: extended `test_hierarchical_summary_parsing.py` with truncated-JSON repair, deterministic section fallback, and `generate_section_summary` fallback-path coverage.
 - Hierarchical summary robustness (follow-up): reduced section prompt bloat via deterministic page-note compaction (`facts/entities/references/key_numbers` caps per page + token-budgeted page inclusion), improved JSON extraction to decode the first valid object even with trailing noise, and added parsing/compaction regression tests.
+- Page-notes guardrail hardening: added model-output sanitization for control/meta tokens (e.g. `<|channel|>...`), prompt-echo/meta detection, strict retry prompt for contaminated page-note responses, and section-compaction sanitization so leaked meta content is not persisted or forwarded into section summaries.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
