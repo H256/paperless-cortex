@@ -577,6 +577,7 @@ All model names must be configurable via environment variables.
 - UX/Frontend refactor: extracted documents overview header panel (stats grid + active processing status block) from `DocumentsView` into `frontend/src/components/DocumentsOverviewPanel.vue`, further isolating presentation concerns from orchestration logic.
 - Frontend architecture: extracted App-level SSE stream lifecycle and query-cache fan-out into `frontend/src/composables/useStatusStream.ts`; `App.vue` now delegates status stream start/stop and keeps only shell-level wiring.
 - Frontend cleanup: extracted writeback conflict presentation helpers (`conflictFieldLabel`, `conflictValue`) from `DocumentDetailView` into shared utility `frontend/src/utils/writebackConflict.ts` to reduce in-view helper noise and improve reuse potential.
+- Writeback UX/Backend hardening: extended `POST /writeback/jobs/execute-pending` response with per-job result details (`status`, `error`, doc/call counts), then updated `WritebackDryRunView` Queue tab to show a "Last bulk run details" table so failed execute-pending runs expose actionable errors immediately.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

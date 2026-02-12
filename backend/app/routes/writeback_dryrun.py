@@ -24,6 +24,7 @@ from app.api_models import (
     WritebackJobDetail,
     WritebackExecutePendingRequest,
     WritebackExecutePendingResponse,
+    WritebackExecutePendingJobResult,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
     WritebackJobSummary,
@@ -1000,11 +1001,25 @@ def execute_pending_writeback_jobs(
     failed = 0
     processed_ids: list[int] = []
     processed_doc_ids: set[int] = set()
+    job_results: list[WritebackExecutePendingJobResult] = []
     for job in pending_jobs:
         processed_ids.append(int(job.id))
         result = _run_job_execution(settings, db, job, request.dry_run)
-        for doc_id in _deserialize_doc_ids(result):
+        result_doc_ids = _deserialize_doc_ids(result)
+        for doc_id in result_doc_ids:
             processed_doc_ids.add(int(doc_id))
+        job_results.append(
+            WritebackExecutePendingJobResult(
+                job_id=int(result.id),
+                status=result.status,
+                dry_run=bool(result.dry_run),
+                docs_selected=int(result.docs_selected or 0),
+                docs_changed=int(result.docs_changed or 0),
+                calls_count=int(result.calls_count or 0),
+                doc_ids=result_doc_ids,
+                error=result.error,
+            )
+        )
         if result.status == "completed":
             completed += 1
         else:
@@ -1016,4 +1031,5 @@ def execute_pending_writeback_jobs(
         failed=failed,
         job_ids=processed_ids,
         doc_ids=sorted(processed_doc_ids),
+        results=job_results,
     )

@@ -168,6 +168,53 @@
           </button>
         </div>
       </div>
+      <div
+        v-if="lastExecuteAllResults.length > 0"
+        class="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <div class="font-semibold text-slate-700 dark:text-slate-200">Last bulk run details</div>
+          <button
+            class="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            @click="lastExecuteAllResults = []"
+          >
+            Clear
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 text-left text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <tr>
+                <th class="px-3 py-2">Job</th>
+                <th class="px-3 py-2">Status</th>
+                <th class="px-3 py-2">Mode</th>
+                <th class="px-3 py-2">Docs</th>
+                <th class="px-3 py-2">Calls</th>
+                <th class="px-3 py-2">Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="result in lastExecuteAllResults"
+                :key="result.job_id"
+                class="border-t border-slate-100 dark:border-slate-800"
+              >
+                <td class="px-3 py-2 font-semibold">#{{ result.job_id }}</td>
+                <td
+                  class="px-3 py-2 font-semibold"
+                  :class="result.status === 'completed' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'"
+                >
+                  {{ result.status }}
+                </td>
+                <td class="px-3 py-2">{{ result.dry_run ? 'Dry-run' : 'Execute' }}</td>
+                <td class="px-3 py-2">{{ result.docs_changed }}/{{ result.docs_selected }}</td>
+                <td class="px-3 py-2">{{ result.calls_count }}</td>
+                <td class="px-3 py-2 text-rose-700 dark:text-rose-300">{{ result.error || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table class="w-full text-xs">
           <thead class="bg-slate-50 text-left text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -302,6 +349,18 @@ const executeDryRunMode = ref(true)
 const confirmExecuteOpen = ref(false)
 const pendingExecuteJobId = ref<number | null>(null)
 const confirmExecuteAllOpen = ref(false)
+const lastExecuteAllResults = ref<
+  Array<{
+    job_id: number
+    status: string
+    dry_run: boolean
+    docs_selected: number
+    docs_changed: number
+    calls_count: number
+    doc_ids: number[]
+    error?: string | null
+  }>
+>([])
 
 const selectedIds = computed(() => Array.from(selectedSet.value))
 const pendingCount = computed(() => jobs.value.filter((job) => job.status === 'pending').length)
@@ -526,6 +585,7 @@ const executeAllPending = async (dryRun: boolean) => {
   executeAllLoading.value = true
   try {
     const result = await executePendingWritebackJobs(dryRun, 0)
+    lastExecuteAllResults.value = result.results || []
     const tone = result.failed > 0 ? 'warning' : 'success'
     toastStore.push(
       `Processed ${result.processed} pending job(s): ${result.completed} completed, ${result.failed} failed.`,
@@ -538,6 +598,7 @@ const executeAllPending = async (dryRun: boolean) => {
     }
     await Promise.all([loadJobs(), loadHistory()])
   } catch (err: unknown) {
+    lastExecuteAllResults.value = []
     toastStore.push(err instanceof Error ? err.message : 'Run all pending failed', 'danger', 'Writeback', 3200)
   } finally {
     executeAllLoading.value = false

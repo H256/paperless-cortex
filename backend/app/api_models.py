@@ -664,9 +664,21 @@ class WritebackHistoryResponse(BaseModel):
     items: list[WritebackJobSummary] = []
 
 
+class WritebackExecutePendingJobResult(BaseModel):
+    job_id: int
+    status: str
+    dry_run: bool
+    docs_selected: int
+    docs_changed: int
+    calls_count: int
+    doc_ids: list[int] = []
+    error: Optional[str] = None
+
+
 class WritebackExecutePendingResponse(BaseModel):
     processed: int
     completed: int
     failed: int
     job_ids: list[int] = []
     doc_ids: list[int] = []
+    results: list[WritebackExecutePendingJobResult] = []
