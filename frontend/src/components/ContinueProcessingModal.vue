@@ -216,91 +216,21 @@
             />
             Sync from Paperless first (insert missing docs + mark deleted)
           </label>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includeVisionOcr"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Vision OCR
-          </label>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includeEmbeddingsPaperless"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Embeddings (paperless)
-          </label>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includeEmbeddingsVision"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Embeddings (vision)
-          </label>
           <label class="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-            Embedding mode
+            Processing strategy
             <select
-              v-model="processOptions.embeddingsMode"
+              v-model="processOptions.strategy"
               class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
-              <option value="auto">Auto (prefer vision)</option>
-              <option value="vision">Vision only</option>
-              <option value="paperless">Paperless only</option>
-              <option value="both">Both sources</option>
+              <option value="balanced">Balanced (Recommended)</option>
+              <option value="vision_first">Vision first</option>
+              <option value="paperless_only">Paperless only</option>
+              <option value="max_coverage">Max coverage (both sources)</option>
             </select>
           </label>
-          <div class="text-[11px] text-slate-400 dark:text-slate-500 sm:col-span-2">
-            Auto prefers vision when available. "Both sources" stores paperless and vision embeddings side-by-side.
+          <div class="rounded-md border border-slate-200 bg-white p-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2">
+            {{ strategyHint }}
           </div>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includePageNotes"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Page notes
-          </label>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includeHierarchicalSummary"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Hierarchical summary
-          </label>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includeSuggestionsPaperless"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Suggestions (baseline)
-          </label>
-          <label
-            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
-          >
-            <input
-              type="checkbox"
-              v-model="processOptions.includeSuggestionsVision"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
-            />
-            Suggestions (vision)
-          </label>
         </div>
       </div>
 
@@ -354,14 +284,7 @@ import type { ProcessMissingResponse, SyncStatusResponse } from '@/api/generated
 
 type ProcessOptions = {
   includeSync: boolean
-  includeVisionOcr: boolean
-  includeEmbeddingsPaperless: boolean
-  includeEmbeddingsVision: boolean
-  embeddingsMode: 'auto' | 'paperless' | 'vision' | 'both'
-  includePageNotes: boolean
-  includeHierarchicalSummary: boolean
-  includeSuggestionsPaperless: boolean
-  includeSuggestionsVision: boolean
+  strategy: 'balanced' | 'paperless_only' | 'vision_first' | 'max_coverage'
 }
 
 type PreviewDocItem = {
@@ -456,5 +379,18 @@ const previewDocs = computed<PreviewDocItem[]>(() => {
       }
     })
     .filter((item): item is PreviewDocItem => item !== null)
+})
+
+const strategyHint = computed(() => {
+  if (props.processOptions.strategy === 'vision_first') {
+    return 'Vision first: prioritize vision OCR, vision embeddings, and vision suggestions.'
+  }
+  if (props.processOptions.strategy === 'paperless_only') {
+    return 'Paperless only: skip vision tasks and use baseline OCR only.'
+  }
+  if (props.processOptions.strategy === 'max_coverage') {
+    return 'Max coverage: run both paperless and vision flows (including dual embeddings).'
+  }
+  return 'Balanced: keep baseline coverage and use vision where available.'
 })
 </script>

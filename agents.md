@@ -609,6 +609,8 @@ All model names must be configurable via environment variables.
 - Sync hardening: replaced `Document.notes` clear+reinsert with idempotent merge-by-note-id in `_upsert_document`, preventing duplicate PK collisions (`document_notes_pkey`) during repeated sync/continue runs.
 - Worker resilience: added explicit DB rollback before task-run bookkeeping after task execution failures and ensured running-task marker is cleared on worker shutdown, preventing pending-rollback cascades and stale "running" UI state after exceptions/interrupts.
 - Tests: added `backend/tests/test_sync_upsert_notes.py` to verify note upsert idempotency with stable note IDs.
+- Queue robustness: hardened running-state handling by clamping `in_progress` decrement at zero and auto-clearing stale running markers when lock/heartbeat are absent, reducing orphaned "running" UI states after crashes/interrupted workers.
+- Continue-processing UX simplification: replaced checkbox-heavy source/task toggles with a single guided strategy selector (`balanced`, `vision_first`, `paperless_only`, `max_coverage`) in `useContinueProcessOptions` + `ContinueProcessingModal`, while preserving backend-compatible query payload mapping.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

@@ -327,7 +327,9 @@ def mark_done(settings: Settings) -> None:
     client = _get_client(settings)
     if not client:
         return
-    client.decr(STATS_IN_PROGRESS)
+    current = int(client.get(STATS_IN_PROGRESS) or 0)
+    next_value = max(0, current - 1)
+    client.set(STATS_IN_PROGRESS, next_value)
     client.incr(STATS_DONE)
 
 
@@ -569,6 +571,20 @@ def get_running_task(settings: Settings) -> dict[str, object]:
             started_at = int(started_at)
         except Exception:
             started_at = None
+    # Self-heal stale "running" marker after crash/interrupt:
+    # if lock is gone and heartbeat is stale, clear marker.
+    try:
+        has_lock = bool(client.get(WORKER_LOCK_KEY))
+        heartbeat_raw = client.get(WORKER_HEARTBEAT_KEY)
+        heartbeat_at = int(heartbeat_raw) if heartbeat_raw is not None else None
+        now = int(time.time())
+        heartbeat_stale = heartbeat_at is None or (now - heartbeat_at) > (WORKER_HEARTBEAT_TTL * 2)
+        running_old_enough = started_at is None or (now - int(started_at)) > max(60, WORKER_HEARTBEAT_TTL * 2)
+        if (not has_lock) and heartbeat_stale and running_old_enough:
+            client.delete(RUNNING_TASK_KEY)
+            return {"task": None, "started_at": None}
+    except Exception:
+        pass
     return {"task": task, "started_at": started_at}
 
 
