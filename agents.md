@@ -568,6 +568,7 @@ All model names must be configurable via environment variables.
 - Frontend architecture: split document detail data responsibilities into dedicated composables: `useDocumentDetailCoreData` (document/meta/page-text/quality/OCR) and `useDocumentSuggestions` (suggestions/variants/apply flows), with `useDocumentDetailData` retained as a thin composition wrapper for stable view integration.
 - UX/Frontend refactor: extracted document row processing-status icon rendering from `DocumentsView` into reusable component `frontend/src/components/DocumentProcessingBadges.vue`, removing view-local icon ordering/count/tooltip helpers and improving `DocumentsView` readability.
 - UX/Frontend refactor: extracted documents filter controls block from `DocumentsView` into `frontend/src/components/DocumentsFiltersPanel.vue` with explicit v-model bindings and reload emit, reducing template size and keeping filter UI concerns isolated.
+- UX/Frontend refactor: extracted documents list table + pagination from `DocumentsView` into `frontend/src/components/DocumentsTable.vue` (including sort header controls and row actions), leaving the view focused on state orchestration and handlers.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
