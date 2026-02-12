@@ -19,6 +19,7 @@ from app.models import (
     DocumentPageText,
     DocumentSectionSummary,
     DocumentSuggestion,
+    TaskRun,
 )
 from app.services.queue import enqueue_task, enqueue_task_sequence
 from app.services.embeddings import delete_points_for_doc
@@ -33,6 +34,7 @@ from app.api_models import (
     ClearIntelligenceResponse,
     CleanupTextsResponse,
     DocumentPipelineContinueResponse,
+    DocumentPipelineFanoutResponse,
     DocumentPipelineStatusResponse,
     DeleteEmbeddingsResponse,
     DocumentOperationEnqueueResponse,
@@ -95,6 +97,13 @@ def _task_identity(task: dict[str, Any]) -> tuple:
         str(task.get("source") or ""),
         bool(task.get("force") or False),
         bool(task.get("clear_first") or False),
+    )
+
+
+def _task_signature(task: dict[str, Any]) -> tuple[str, str]:
+    return (
+        str(task.get("task") or "").strip(),
+        str(task.get("source") or "").strip(),
     )
 
 
@@ -322,6 +331,81 @@ def _evaluate_doc_pipeline(
         "needs_page_notes": needs_page_notes,
         "needs_summary_hierarchical": needs_summary,
     }
+
+
+def _latest_task_runs_by_signature(db: Session, doc_id: int) -> dict[tuple[str, str], TaskRun]:
+    rows = (
+        db.query(TaskRun)
+        .filter(TaskRun.doc_id == int(doc_id))
+        .order_by(TaskRun.id.desc())
+        .all()
+    )
+    latest: dict[tuple[str, str], TaskRun] = {}
+    for row in rows:
+        key = (str(row.task or "").strip(), str(row.source or "").strip())
+        if key in latest:
+            continue
+        latest[key] = row
+    return latest
+
+
+def _fanout_status_from_state(*, is_missing: bool, run: TaskRun | None) -> str:
+    if run and str(run.status or "") in {"running", "retrying"}:
+        return str(run.status)
+    if run and str(run.status or "") == "failed":
+        return "failed"
+    if is_missing:
+        return "missing"
+    return "done"
+
+
+def _build_pipeline_fanout_items(
+    *,
+    db: Session,
+    doc: Document,
+    settings: Settings,
+    options: _PipelineOptions,
+    evaluation: dict[str, Any],
+    include_sync: bool,
+) -> list[dict[str, Any]]:
+    planned = _post_sync_followup_tasks(int(doc.id), settings=settings, options=options)
+    if include_sync:
+        planned = [{"doc_id": int(doc.id), "task": "sync"}] + planned
+    planned = _dedupe_tasks(planned)
+    missing_signatures = {_task_signature(task) for task in evaluation.get("tasks", [])}
+    latest_runs = _latest_task_runs_by_signature(db, int(doc.id))
+
+    items: list[dict[str, Any]] = []
+    for index, task in enumerate(planned, start=1):
+        signature = _task_signature(task)
+        run = latest_runs.get(signature)
+        checkpoint = None
+        if run and run.checkpoint_json:
+            raw = str(run.checkpoint_json).strip()
+            if raw.startswith(("{", "[")):
+                try:
+                    parsed = __import__("json").loads(raw)
+                except Exception:
+                    parsed = None
+                if isinstance(parsed, dict):
+                    checkpoint = parsed
+        status = _fanout_status_from_state(is_missing=signature in missing_signatures, run=run)
+        detail = f"{task['task']} ({task.get('source') or 'default'})"
+        items.append(
+            {
+                "order": index,
+                "task": str(task.get("task") or ""),
+                "source": task.get("source"),
+                "status": status,
+                "detail": detail,
+                "checkpoint": checkpoint,
+                "error_type": run.error_type if run else None,
+                "error_message": run.error_message if run else None,
+                "last_started_at": run.started_at if run else None,
+                "last_finished_at": run.finished_at if run else None,
+            }
+        )
+    return items
 
 
 def _clear_intelligence_tables(db: Session) -> None:
@@ -576,6 +660,58 @@ def get_document_pipeline_status(
         "large_ok": large_ok,
         "steps": steps,
         "missing_tasks": evaluation["tasks"],
+    }
+
+
+@router.get("/{doc_id}/pipeline-fanout", response_model=DocumentPipelineFanoutResponse)
+def get_document_pipeline_fanout(
+    doc_id: int,
+    include_sync: bool = True,
+    include_vision_ocr: bool = True,
+    include_embeddings: bool = True,
+    include_embeddings_paperless: bool = True,
+    include_embeddings_vision: bool = True,
+    include_page_notes: bool = True,
+    include_summary_hierarchical: bool = True,
+    include_suggestions_paperless: bool = True,
+    include_suggestions_vision: bool = True,
+    embeddings_mode: str = "auto",
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    doc = db.get(Document, int(doc_id))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if embeddings_mode not in ("auto", "paperless", "vision", "both"):
+        raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
+    options = _PipelineOptions(
+        include_sync=include_sync,
+        include_vision_ocr=include_vision_ocr,
+        include_embeddings=include_embeddings,
+        include_embeddings_paperless=include_embeddings_paperless,
+        include_embeddings_vision=include_embeddings_vision,
+        include_page_notes=include_page_notes,
+        include_summary_hierarchical=include_summary_hierarchical,
+        include_suggestions_paperless=include_suggestions_paperless,
+        include_suggestions_vision=include_suggestions_vision,
+        embeddings_mode=embeddings_mode,
+    )
+    cache = _collect_pipeline_cache(db)
+    evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    if include_sync and not _sync_ok(settings, doc):
+        evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation.get("tasks", []))
+    items = _build_pipeline_fanout_items(
+        db=db,
+        doc=doc,
+        settings=settings,
+        options=options,
+        evaluation=evaluation,
+        include_sync=include_sync,
+    )
+    return {
+        "doc_id": int(doc_id),
+        "enabled": bool(settings.queue_enabled),
+        "items": items,
     }
 
 

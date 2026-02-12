@@ -149,7 +149,25 @@ def enforce_embedding_chunk_budget(
     return normalized
 
 
-def embed_text(settings: Settings, text: str) -> list[float]:
+def summarize_chunk_split_telemetry(chunks: list[dict[str, object]]) -> dict[str, int]:
+    split_chunks = 0
+    split_parts = 0
+    for chunk in chunks:
+        split_total = chunk.get("split_total")
+        if isinstance(split_total, int) and split_total > 1:
+            split_chunks += 1
+            split_parts += split_total
+    return {
+        "split_chunks": split_chunks,
+        "split_parts": split_parts,
+    }
+
+
+def embed_text(
+    settings: Settings,
+    text: str,
+    telemetry: dict[str, int] | None = None,
+) -> list[float]:
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
     ensure_embedding_llm_ready(settings)
@@ -179,7 +197,12 @@ def embed_text(settings: Settings, text: str) -> list[float]:
             settings.embedding_model,
             len(text),
         )
-        vectors = [embed_text(settings, part) for part in fallback_parts]
+        if telemetry is not None:
+            telemetry["overflow_fallback_calls"] = int(telemetry.get("overflow_fallback_calls", 0)) + 1
+            telemetry["overflow_fallback_parts"] = int(telemetry.get("overflow_fallback_parts", 0)) + len(
+                fallback_parts
+            )
+        vectors = [embed_text(settings, part, telemetry=telemetry) for part in fallback_parts]
         embedding = _average_vectors(vectors)
     if settings.llm_base_url and settings.embedding_model:
         if __import__("os").getenv("LLM_DEBUG") == "1":
@@ -193,7 +216,11 @@ def embed_text(settings: Settings, text: str) -> list[float]:
     return embedding
 
 
-def embed_texts(settings: Settings, texts: list[str]) -> list[list[float]]:
+def embed_texts(
+    settings: Settings,
+    texts: list[str],
+    telemetry: dict[str, int] | None = None,
+) -> list[list[float]]:
     if not texts:
         return []
     if not settings.embedding_model:
@@ -218,7 +245,7 @@ def embed_texts(settings: Settings, texts: list[str]) -> list[list[float]]:
             len(texts),
             exc,
         )
-        return [embed_text(settings, text) for text in texts]
+        return [embed_text(settings, text, telemetry=telemetry) for text in texts]
 
 
 def semantic_chunks(text: str, max_chars: int = 1200, overlap: int = 200) -> list[str]:

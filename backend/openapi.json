@@ -697,6 +697,148 @@
         }
       }
     },
+    "/documents/{doc_id}/pipeline-fanout": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Pipeline Fanout",
+        "operationId": "get_document_pipeline_fanout_documents__doc_id__pipeline_fanout_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "include_sync",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Sync"
+            }
+          },
+          {
+            "name": "include_vision_ocr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Vision Ocr"
+            }
+          },
+          {
+            "name": "include_embeddings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings"
+            }
+          },
+          {
+            "name": "include_embeddings_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Paperless"
+            }
+          },
+          {
+            "name": "include_embeddings_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Vision"
+            }
+          },
+          {
+            "name": "include_page_notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Page Notes"
+            }
+          },
+          {
+            "name": "include_summary_hierarchical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Summary Hierarchical"
+            }
+          },
+          {
+            "name": "include_suggestions_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Paperless"
+            }
+          },
+          {
+            "name": "include_suggestions_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Vision"
+            }
+          },
+          {
+            "name": "embeddings_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "auto",
+              "title": "Embeddings Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPipelineFanoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}/pipeline/continue": {
       "post": {
         "tags": [
@@ -3035,6 +3177,22 @@
             }
           },
           {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -4933,6 +5091,32 @@
         ],
         "title": "DocumentPipelineContinueResponse"
       },
+      "DocumentPipelineFanoutResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineFanoutItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "enabled"
+        ],
+        "title": "DocumentPipelineFanoutResponse"
+      },
       "DocumentPipelineStatusResponse": {
         "properties": {
           "doc_id": {
@@ -6018,6 +6202,107 @@
         "additionalProperties": true,
         "type": "object",
         "title": "PaperlessDocument"
+      },
+      "PipelineFanoutItem": {
+        "properties": {
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint"
+          },
+          "error_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "last_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Started At"
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order",
+          "task",
+          "status"
+        ],
+        "title": "PipelineFanoutItem"
       },
       "PipelineStepStatus": {
         "properties": {

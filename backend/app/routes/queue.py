@@ -245,6 +245,7 @@ def get_task_runs(
     task: str | None = None,
     status: str | None = None,
     error_type: str | None = None,
+    q: str | None = None,
     limit: int = 100,
     offset: int = 0,
     settings: Settings = Depends(get_settings),
@@ -258,6 +259,7 @@ def get_task_runs(
         task=task,
         status=status,
         error_type=error_type,
+        query_text=q,
         limit=limit,
         offset=offset,
     )

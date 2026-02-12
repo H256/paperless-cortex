@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 
 from sqlalchemy.exc import PendingRollbackError
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import TaskRun
@@ -49,6 +50,7 @@ def _build_task_runs_query(
     task: str | None = None,
     status: str | None = None,
     error_type: str | None = None,
+    query_text: str | None = None,
 ):
     query = db.query(TaskRun)
     if doc_id is not None:
@@ -59,6 +61,18 @@ def _build_task_runs_query(
         query = query.filter(TaskRun.status == status)
     if error_type:
         query = query.filter(TaskRun.error_type == error_type)
+    if query_text:
+        needle = f"%{query_text.strip()}%"
+        if needle != "%%":
+            query = query.filter(
+                or_(
+                    TaskRun.task.ilike(needle),
+                    TaskRun.source.ilike(needle),
+                    TaskRun.status.ilike(needle),
+                    TaskRun.error_type.ilike(needle),
+                    TaskRun.error_message.ilike(needle),
+                )
+            )
     return query
 
 
@@ -177,6 +191,7 @@ def list_task_runs(
     task: str | None = None,
     status: str | None = None,
     error_type: str | None = None,
+    query_text: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[TaskRun]]:
@@ -190,6 +205,7 @@ def list_task_runs(
             task=task,
             status=status,
             error_type=error_type,
+            query_text=query_text,
         )
         total = query.count()
         rows = query.order_by(TaskRun.id.desc()).offset(row_offset).limit(row_limit).all()

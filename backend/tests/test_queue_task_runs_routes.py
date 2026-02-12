@@ -117,3 +117,49 @@ def test_queue_task_runs_ignores_invalid_checkpoint_json():
     assert payload["count"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["checkpoint"] is None
+
+
+def test_queue_task_runs_supports_text_query_filter():
+    client, session_factory = _build_api_client(queue_enabled=True)
+    with session_factory() as db:
+        db.add(
+            TaskRun(
+                doc_id=1900,
+                task="embeddings_vision",
+                source="vision_ocr",
+                status="failed",
+                worker_id="worker:test",
+                attempt=1,
+                error_type="EMBED_CONTEXT_OVERFLOW",
+                error_message="overflow fallback split parts=3",
+                started_at="2026-02-12T10:00:00+00:00",
+                finished_at="2026-02-12T10:00:01+00:00",
+                duration_ms=1000,
+                created_at="2026-02-12T10:00:00+00:00",
+                updated_at="2026-02-12T10:00:01+00:00",
+            )
+        )
+        db.add(
+            TaskRun(
+                doc_id=1901,
+                task="suggestions_paperless",
+                source="paperless_ocr",
+                status="done",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-12T10:01:00+00:00",
+                finished_at="2026-02-12T10:01:01+00:00",
+                duration_ms=1000,
+                created_at="2026-02-12T10:01:00+00:00",
+                updated_at="2026-02-12T10:01:01+00:00",
+            )
+        )
+        db.commit()
+
+    response = client.get("/queue/task-runs?q=overflow")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is True
+    assert payload["count"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["doc_id"] == 1900

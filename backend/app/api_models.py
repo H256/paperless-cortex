@@ -518,6 +518,25 @@ class DocumentPipelineStatusResponse(BaseModel):
     missing_tasks: list[dict[str, Any]] = []
 
 
+class PipelineFanoutItem(BaseModel):
+    order: int
+    task: str
+    source: Optional[str] = None
+    status: str
+    detail: Optional[str] = None
+    checkpoint: Optional[dict[str, Any]] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    last_started_at: Optional[str] = None
+    last_finished_at: Optional[str] = None
+
+
+class DocumentPipelineFanoutResponse(BaseModel):
+    doc_id: int
+    enabled: bool
+    items: list[PipelineFanoutItem] = []
+
+
 class DocumentPipelineContinueResponse(BaseModel):
     enabled: bool
     doc_id: int
