@@ -161,20 +161,15 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
-import { computed } from 'vue'
 import type { SearchResult } from '../services/search'
 import { RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSearchStore } from '../stores/searchStore'
-import { useStatusStore } from '../stores/statusStore'
+import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 
 const searchStore = useSearchStore()
-const statusStore = useStatusStore()
 const { filteredResults } = storeToRefs(searchStore)
-
-const paperlessBaseUrl = computed(
-  () => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '',
-)
+const { paperlessBaseUrl } = usePaperlessBaseUrl()
 
 const encodeBBox = (bbox: unknown) => {
   if (!Array.isArray(bbox) || bbox.length !== 4) return ''

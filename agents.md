@@ -560,6 +560,8 @@ All model names must be configurable via environment variables.
 - Backend quality: hardened `semantic_chunks` against single oversized sentence fragments, added focused tests in `backend/tests/test_embedding_chunk_budget.py`, and documented new env tuning in `.env.example`, `.env.worker.example`, and `docs/execution-blueprint-large-doc-worker.md`.
 - Frontend architecture: removed `documentDetailStore` and introduced `useDocumentDetailData` composable (Vue Query mutations + local refs) to centralize document detail data loading/actions without Pinia store indirection.
 - Frontend refactor: `DocumentDetailView` now consumes `useDocumentDetailData` directly (document/meta/page-text/quality/OCR/suggestions + variant/application flows), with explicit per-doc loader wrappers for readability and reduced cross-layer coupling.
+- Frontend architecture: added `usePaperlessBaseUrl` composable backed by Vue Query runtime status (`runtime-status`) and migrated `DocumentsView`, `DocumentDetailView`, and `SearchView` to it, removing direct `statusStore` dependency for Paperless URL link rendering.
+- App SSE integration: `App.vue` now updates the `runtime-status` query cache on status stream events so shared runtime URL consumers stay in sync without view-level store coupling.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

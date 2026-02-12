@@ -666,14 +666,13 @@ import {
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
-import { useStatusStore } from '../stores/statusStore'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
+import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
-const statusStore = useStatusStore()
 const toastStore = useToastStore()
 const {
   documents,
@@ -699,6 +698,7 @@ const {
   refresh: refreshProcessingOverview,
   clearQueueNow,
 } = useProcessingOverview()
+const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const {
   processPreview,
   processPreviewLoading,
@@ -748,9 +748,6 @@ const processParams = () => ({
   limit: batchLimit.value ?? undefined,
 })
 
-const paperlessBaseUrl = computed(
-  () => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '',
-)
 const paperlessDocUrl = (id: number) =>
   paperlessBaseUrl.value ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${id}` : ''
 

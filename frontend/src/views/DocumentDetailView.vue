@@ -331,20 +331,20 @@ import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
-import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
 import type { DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
+import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
-const statusStore = useStatusStore()
 const toastStore = useToastStore()
+const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const {
   document,
   loading,
@@ -504,9 +504,6 @@ const parseBBox = (value: unknown): BBox | null => {
   return parts as BBox
 }
 
-const paperlessBaseUrl = computed(
-  () => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '',
-)
 const paperlessUrl = computed(() =>
   paperlessBaseUrl.value && document.value
     ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${document.value.id}`

@@ -234,7 +234,10 @@ const startStatusStream = () => {
     if (!event?.data) return
     try {
       const payload = JSON.parse(event.data)
-      if (payload?.status) statusStore.applyStatus(payload.status)
+      if (payload?.status) {
+        statusStore.applyStatus(payload.status)
+        queryClient.setQueryData(['runtime-status'], payload.status)
+      }
       if (payload?.queue) queryClient.setQueryData(['queue-status'], payload.queue)
       if (payload?.sync) queryClient.setQueryData(['sync-status'], payload.sync)
       if (payload?.embeddings) queryClient.setQueryData(['embed-status'], payload.embeddings)
