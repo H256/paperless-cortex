@@ -252,7 +252,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
 
     ensure_embedding_collection(settings)
-    delete_points_for_doc(settings, doc.id)
+    delete_points_for_doc(settings, doc.id, source=embedding_source)
     normalized_baseline_pages = []
     for page in baseline_pages or []:
         normalized_baseline_pages.append(
@@ -303,7 +303,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
             chunk_text_value = texts[offset]
             points.append(
                 {
-                    "id": make_point_id(doc.id, chunk_idx),
+                    "id": make_point_id(doc.id, chunk_idx, embedding_source),
                     "vector": vector,
                     "payload": {
                         "doc_id": doc.id,
@@ -332,7 +332,11 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     existing.content_hash = content_hash
     existing.embedding_model = settings.embedding_model
     existing.embedded_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
-    existing.embedding_source = embedding_source
+    previous_source = str(existing.embedding_source or "").strip().lower()
+    if previous_source == "both" or (previous_source and previous_source != embedding_source):
+        existing.embedding_source = "both"
+    else:
+        existing.embedding_source = embedding_source
     existing.chunk_count = len(chunks)
     db.commit()
 

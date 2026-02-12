@@ -508,7 +508,7 @@ def get_local_document(
     has_embedding_for_preferred_source = bool(
         has_embeddings
         and embedding_chunk_count > 0
-        and embedding_source == expected_embedding_source
+        and embedding_source in {expected_embedding_source, "both"}
     )
     suggestion_sources = {
         str(row.source)

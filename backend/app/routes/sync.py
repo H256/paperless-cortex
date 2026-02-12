@@ -416,7 +416,8 @@ def _embed_documents(
                 if processed % 5 == 0 or processed == state.total:
                     db.commit()
                 continue
-        delete_points_for_doc(settings, doc.id)
+        embedding_source = "vision" if vision_pages else "paperless"
+        delete_points_for_doc(settings, doc.id, source=embedding_source)
         baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
         vision_chunks = chunk_document_with_pages(settings, content_value, vision_pages or None) if vision_pages else []
         chunks = baseline_chunks + vision_chunks
@@ -427,7 +428,7 @@ def _embed_documents(
             vector = embed_text(settings, chunk_text_value)
             doc_points.append(
                 {
-                    "id": make_point_id(doc.id, idx),
+                    "id": make_point_id(doc.id, idx, embedding_source),
                     "vector": vector,
                     "payload": {
                         "doc_id": doc.id,
@@ -449,7 +450,11 @@ def _embed_documents(
         existing.content_hash = content_hash
         existing.embedding_model = settings.embedding_model
         existing.embedded_at = datetime.now(timezone.utc).isoformat()
-        existing.embedding_source = "vision" if vision_pages else "paperless"
+        previous_source = str(existing.embedding_source or "").strip().lower()
+        if previous_source == "both" or (previous_source and previous_source != embedding_source):
+            existing.embedding_source = "both"
+        else:
+            existing.embedding_source = embedding_source
         existing.chunk_count = len(chunks)
         embedded += 1
         processed += 1

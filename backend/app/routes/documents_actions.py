@@ -28,6 +28,7 @@ from app.services.queue_tasks import build_task_sequence
 from app.services import paperless
 from app.schemas import DocumentIn
 from app.routes.sync import _upsert_document
+from app.routes.sync import sync_documents as run_sync_documents
 from app.api_models import (
     ClearIntelligenceResponse,
     CleanupTextsResponse,
@@ -75,6 +76,7 @@ class CleanupTextsRequest(BaseModel):
 
 
 class _PipelineOptions(BaseModel):
+    include_sync: bool = False
     include_vision_ocr: bool = True
     include_embeddings: bool = True
     include_embeddings_paperless: bool = True
@@ -169,20 +171,25 @@ def _evaluate_doc_pipeline(
         and settings.enable_vision_ocr
         and (has_complete_vision or options.include_vision_ocr)
     )
-    target_embedding_source: str | None = None
+    needs_embeddings_paperless = False
+    needs_embeddings_vision = False
     if options.include_embeddings:
-        if options.embeddings_mode == "vision":
-            target_embedding_source = "vision" if wants_vision_embeddings else None
-        elif options.embeddings_mode == "paperless":
-            target_embedding_source = "paperless" if wants_paperless_embeddings else None
+        mode = (options.embeddings_mode or "auto").strip().lower()
+        has_paperless_embedding = embedding_source in {"paperless", "both"}
+        has_vision_embedding = embedding_source in {"vision", "both"}
+        if mode == "paperless":
+            needs_embeddings_paperless = wants_paperless_embeddings and (embeddings_stale or not has_paperless_embedding)
+        elif mode == "vision":
+            needs_embeddings_vision = wants_vision_embeddings and (embeddings_stale or not has_vision_embedding)
+        elif mode == "both":
+            needs_embeddings_paperless = wants_paperless_embeddings and (embeddings_stale or not has_paperless_embedding)
+            needs_embeddings_vision = wants_vision_embeddings and (embeddings_stale or not has_vision_embedding)
         else:
             if wants_vision_embeddings:
-                target_embedding_source = "vision"
+                needs_embeddings_vision = embeddings_stale or not has_vision_embedding
             elif wants_paperless_embeddings:
-                target_embedding_source = "paperless"
-    needs_embeddings = bool(target_embedding_source and (embedding_source != target_embedding_source or embeddings_stale))
-    needs_embeddings_paperless = needs_embeddings and target_embedding_source == "paperless"
-    needs_embeddings_vision = needs_embeddings and target_embedding_source == "vision"
+                needs_embeddings_paperless = embeddings_stale or not has_paperless_embedding
+    needs_embeddings = bool(needs_embeddings_paperless or needs_embeddings_vision)
     if needs_embeddings_paperless:
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless"})
     if needs_embeddings_vision:
@@ -274,6 +281,7 @@ def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
 @router.post("/process-missing", response_model=ProcessMissingResponse)
 def process_missing(
     dry_run: bool = False,
+    include_sync: bool = True,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
@@ -289,10 +297,23 @@ def process_missing(
 ):
     if not require_queue_enabled(settings):
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
-    if embeddings_mode not in ("auto", "paperless", "vision"):
+    if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     if limit is not None and limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
+    if include_sync:
+        run_sync_documents(
+            page_size=200,
+            incremental=False,
+            embed=False,
+            page=1,
+            page_only=False,
+            force_embed=False,
+            mark_missing=True,
+            insert_only=True,
+            settings=settings,
+            db=db,
+        )
 
     docs = db.query(Document).order_by(Document.id.asc()).all()
     if include_vision_ocr:
@@ -305,6 +326,7 @@ def process_missing(
         )
     cache = _collect_pipeline_cache(db)
     options = _PipelineOptions(
+        include_sync=include_sync,
         include_vision_ocr=include_vision_ocr,
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
@@ -411,10 +433,11 @@ def get_document_pipeline_status(
     cache = _collect_pipeline_cache(db)
     options = _PipelineOptions()
     evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    sync_ok = _sync_ok(settings, doc)
+    if not sync_ok:
+        evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation["tasks"])
     preferred_source = str(evaluation["preferred_source"])
     is_large_doc = bool(evaluation["large_doc"])
-
-    sync_ok = _sync_ok(settings, doc)
     paperless_ok = not (
         evaluation["needs_embeddings_paperless"] or evaluation["needs_suggestions_paperless"]
     )
@@ -464,6 +487,7 @@ def get_document_pipeline_status(
 def continue_document_pipeline(
     doc_id: int,
     dry_run: bool = False,
+    include_sync: bool = True,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
@@ -479,12 +503,13 @@ def continue_document_pipeline(
     doc = db.get(Document, int(doc_id))
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    if embeddings_mode not in ("auto", "paperless", "vision"):
+    if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     if not require_queue_enabled(settings):
         return {"enabled": False, "doc_id": int(doc_id), "dry_run": dry_run, "missing_tasks": 0, "enqueued": 0}
 
     options = _PipelineOptions(
+        include_sync=include_sync,
         include_vision_ocr=include_vision_ocr,
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
@@ -497,7 +522,9 @@ def continue_document_pipeline(
     )
     cache = _collect_pipeline_cache(db)
     evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
-    tasks = evaluation["tasks"]
+    tasks = list(evaluation["tasks"])
+    if include_sync and not _sync_ok(settings, doc):
+        tasks = [{"doc_id": int(doc_id), "task": "sync"}] + tasks
     enqueued = 0
     if tasks and not dry_run:
         enqueued = enqueue_task_sequence(settings, tasks)

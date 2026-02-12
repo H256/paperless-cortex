@@ -18,8 +18,27 @@ from app.services.text_pages import score_text_quality
 logger = logging.getLogger(__name__)
 
 
-def make_point_id(doc_id: int, chunk: int) -> int:
-    return doc_id * 1_000_000 + chunk
+_SOURCE_ID_OFFSETS = {
+    "paperless": 1,
+    "vision": 2,
+}
+
+
+def _normalize_embedding_source(source: str | None) -> str | None:
+    if not source:
+        return None
+    normalized = str(source).strip().lower()
+    if normalized in {"paperless", "paperless_ocr"}:
+        return "paperless"
+    if normalized in {"vision", "vision_ocr"}:
+        return "vision"
+    return normalized
+
+
+def make_point_id(doc_id: int, chunk: int, source: str | None = None) -> int:
+    normalized_source = _normalize_embedding_source(source)
+    source_offset = _SOURCE_ID_OFFSETS.get(normalized_source or "", 0)
+    return doc_id * 1_000_000_000 + source_offset * 1_000_000 + chunk
 
 
 def _is_context_overflow_error(exc: Exception) -> bool:
@@ -504,11 +523,15 @@ def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
     logger.info("Qdrant upsert ok")
 
 
-def delete_points_for_doc(settings: Settings, doc_id: int) -> None:
+def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = None) -> None:
     base = qdrant.base_url(settings)
     collection = qdrant.collection_name(settings)
     headers = qdrant.headers(settings)
-    payload = {"filter": {"must": [{"key": "doc_id", "match": {"value": doc_id}}]}}
+    must_filters: list[dict[str, object]] = [{"key": "doc_id", "match": {"value": doc_id}}]
+    normalized_source = _normalize_embedding_source(source)
+    if normalized_source:
+        must_filters.append({"key": "source", "match": {"value": normalized_source}})
+    payload = {"filter": {"must": must_filters}}
     with qdrant.client(settings, timeout=30) as client:
         response = client.post(
             f"{base}/collections/{collection}/points/delete",
