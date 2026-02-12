@@ -36,6 +36,7 @@ _NUMBER_TOKEN_RE = re.compile(
     r"\b(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?(?:\s?(?:EUR|USD|CHF|%))?|\d{4}-\d{2}-\d{2})\b"
 )
 _DATE_TOKEN_RE = re.compile(r"\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b")
+_JSON_DECODER = json.JSONDecoder()
 
 
 def _now_iso() -> str:
@@ -50,6 +51,13 @@ def _extract_json_dict(text: str) -> dict[str, Any]:
     if raw.startswith("{") and raw.endswith("}"):
         return json.loads(raw)
     start = raw.find("{")
+    if start != -1:
+        try:
+            parsed, _end = _JSON_DECODER.raw_decode(raw[start:])
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
     end = raw.rfind("}")
     if start != -1 and end != -1 and end > start:
         return json.loads(raw[start : end + 1])
@@ -273,6 +281,59 @@ def _section_summary_prompt_compact(section_key: str, page_notes_json: str) -> s
     )
 
 
+def _compact_text_items(values: Any, *, max_items: int, max_chars: int) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    items: list[str] = []
+    for value in values:
+        text = " ".join(str(value or "").split()).strip()
+        if not text:
+            continue
+        if len(text) > max_chars:
+            text = text[: max_chars - 1].rstrip() + "…"
+        items.append(text)
+        if len(items) >= max_items:
+            break
+    return items
+
+
+def _compact_page_note_for_section(note: dict[str, Any]) -> dict[str, Any]:
+    page = int(note.get("page") or 0)
+    return {
+        "page": page,
+        "facts": _compact_text_items(note.get("facts"), max_items=4, max_chars=180),
+        "entities": _compact_text_items(note.get("entities"), max_items=4, max_chars=80),
+        "references": _compact_text_items(note.get("references"), max_items=3, max_chars=120),
+        "key_numbers": _compact_text_items(note.get("key_numbers"), max_items=6, max_chars=60),
+        "uncertainties": _compact_text_items(note.get("uncertainties"), max_items=2, max_chars=120),
+    }
+
+
+def _compact_page_notes_for_section(
+    page_notes: list[dict[str, Any]],
+    *,
+    max_input_tokens: int,
+) -> str:
+    budget = max(1000, int(max_input_tokens))
+    compact_notes: list[dict[str, Any]] = []
+    current_tokens = 0
+    for note in page_notes:
+        if not isinstance(note, dict):
+            continue
+        compact = _compact_page_note_for_section(note)
+        compact_json = _json_dumps(compact)
+        note_tokens = estimate_tokens(compact_json)
+        if compact_notes and current_tokens + note_tokens > budget:
+            break
+        compact_notes.append(compact)
+        current_tokens += note_tokens
+    if not compact_notes and page_notes:
+        # Ensure at least one item goes through even under very tight budgets.
+        first = page_notes[0] if isinstance(page_notes[0], dict) else {}
+        compact_notes.append(_compact_page_note_for_section(first))
+    return _truncate_for_tokens(_json_dumps(compact_notes), max_input_tokens=budget)
+
+
 def _global_summary_prompt(section_summaries_json: str) -> str:
     return (
         "Aggregate section summaries into a document-level summary.\n"
@@ -321,8 +382,10 @@ def generate_section_summary(
     page_notes: list[dict[str, Any]],
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    payload = _json_dumps(page_notes)
-    payload = _truncate_for_tokens(payload, max_input_tokens=settings.section_summary_max_input_tokens)
+    payload = _compact_page_notes_for_section(
+        page_notes,
+        max_input_tokens=settings.section_summary_max_input_tokens,
+    )
     try:
         parsed = _chat_json_response(
             settings,

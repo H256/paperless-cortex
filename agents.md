@@ -637,6 +637,7 @@ All model names must be configurable via environment variables.
 - Log Inspector UX: added server-side pagination controls via `offset` (`Prev`/`Next`), quick filter chips (`Only failed`, `Retrying now`, `Embedding overflows`), and export actions for currently filtered rows (`JSON`, `CSV`).
 - Hierarchical summary robustness: fixed section-summary JSON parsing failures by adding truncated-JSON repair in `_extract_json_dict`, a compact retry prompt for section aggregation, and deterministic fallback section-summary synthesis when model output remains non-JSON; this prevents complete section-summary dropouts on large/verbose model outputs.
 - Tests: extended `test_hierarchical_summary_parsing.py` with truncated-JSON repair, deterministic section fallback, and `generate_section_summary` fallback-path coverage.
+- Hierarchical summary robustness (follow-up): reduced section prompt bloat via deterministic page-note compaction (`facts/entities/references/key_numbers` caps per page + token-budgeted page inclusion), improved JSON extraction to decode the first valid object even with trailing noise, and added parsing/compaction regression tests.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

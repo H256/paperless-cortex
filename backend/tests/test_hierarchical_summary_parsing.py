@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.services.hierarchical_summary import (
     _best_effort_section_summary,
+    _compact_page_notes_for_section,
     _coerce_page_notes_payload,
     _extract_json_dict,
     _parse_page_notes_text,
@@ -81,6 +82,30 @@ def test_extract_json_dict_repairs_truncated_object():
     parsed = _extract_json_dict(raw)
     assert parsed["section"] == "16-20"
     assert parsed["key_facts"] == ["a", "b"]
+
+
+def test_extract_json_dict_ignores_trailing_non_json_text():
+    raw = '{"section":"16-20","summary":"ok","key_facts":[]}\nNOT JSON'
+    parsed = _extract_json_dict(raw)
+    assert parsed["section"] == "16-20"
+
+
+def test_compact_page_notes_for_section_limits_payload_size():
+    notes = [
+        {
+            "page": i,
+            "facts": [f"Fact {i} " + ("x" * 400) for _ in range(10)],
+            "entities": [f"Entity {j}" for j in range(10)],
+            "references": [f"Reference {j}" for j in range(10)],
+            "key_numbers": [str(1000 + j) for j in range(10)],
+            "uncertainties": [f"Uncertainty {j}" for j in range(10)],
+        }
+        for i in range(1, 20)
+    ]
+    payload = _compact_page_notes_for_section(notes, max_input_tokens=1200)
+    # Should keep payload significantly smaller than raw all-pages notes.
+    assert len(payload) < 9000
+    assert '"page": 1' in payload
 
 
 def test_best_effort_section_summary_collects_core_fields():
