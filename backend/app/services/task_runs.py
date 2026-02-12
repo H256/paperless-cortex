@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,9 +9,20 @@ from sqlalchemy.orm import Session
 
 from app.models import TaskRun
 
+logger = logging.getLogger(__name__)
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_missing_task_runs_table_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "task_runs" in message and (
+        "does not exist" in message
+        or "undefinedtable" in message
+        or "no such table" in message
+    )
 
 
 def create_task_run(
@@ -37,9 +49,17 @@ def create_task_run(
         created_at=timestamp,
         updated_at=timestamp,
     )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+    try:
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    except Exception as exc:
+        db.rollback()
+        if _is_missing_task_runs_table_error(exc):
+            logger.warning("task_runs table missing; skip create_task_run")
+            row.id = 0
+            return row
+        raise
     return row
 
 
@@ -52,17 +72,24 @@ def finish_task_run(
     error_type: str | None = None,
     error_message: str | None = None,
 ) -> None:
-    row = db.get(TaskRun, run_id)
-    if not row:
-        return
-    timestamp = _now_iso()
-    row.status = status
-    row.duration_ms = duration_ms
-    row.error_type = error_type
-    row.error_message = error_message
-    row.finished_at = timestamp
-    row.updated_at = timestamp
-    db.commit()
+    try:
+        row = db.get(TaskRun, run_id)
+        if not row:
+            return
+        timestamp = _now_iso()
+        row.status = status
+        row.duration_ms = duration_ms
+        row.error_type = error_type
+        row.error_message = error_message
+        row.finished_at = timestamp
+        row.updated_at = timestamp
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        if _is_missing_task_runs_table_error(exc):
+            logger.warning("task_runs table missing; skip finish_task_run run_id=%s", run_id)
+            return
+        raise
 
 
 def update_task_run_checkpoint(
@@ -71,12 +98,19 @@ def update_task_run_checkpoint(
     run_id: int,
     checkpoint: dict[str, Any],
 ) -> None:
-    row = db.get(TaskRun, run_id)
-    if not row:
-        return
-    row.checkpoint_json = json.dumps(checkpoint, ensure_ascii=False)
-    row.updated_at = _now_iso()
-    db.commit()
+    try:
+        row = db.get(TaskRun, run_id)
+        if not row:
+            return
+        row.checkpoint_json = json.dumps(checkpoint, ensure_ascii=False)
+        row.updated_at = _now_iso()
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        if _is_missing_task_runs_table_error(exc):
+            logger.warning("task_runs table missing; skip checkpoint update run_id=%s", run_id)
+            return
+        raise
 
 
 def list_task_runs(
@@ -89,23 +123,30 @@ def list_task_runs(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[TaskRun]]:
-    query = db.query(TaskRun)
-    if doc_id is not None:
-        query = query.filter(TaskRun.doc_id == doc_id)
-    if task:
-        query = query.filter(TaskRun.task == task)
-    if status:
-        query = query.filter(TaskRun.status == status)
-    if error_type:
-        query = query.filter(TaskRun.error_type == error_type)
-    total = query.count()
-    rows = (
-        query.order_by(TaskRun.id.desc())
-        .offset(max(0, int(offset)))
-        .limit(max(1, min(int(limit), 1000)))
-        .all()
-    )
-    return total, rows
+    try:
+        query = db.query(TaskRun)
+        if doc_id is not None:
+            query = query.filter(TaskRun.doc_id == doc_id)
+        if task:
+            query = query.filter(TaskRun.task == task)
+        if status:
+            query = query.filter(TaskRun.status == status)
+        if error_type:
+            query = query.filter(TaskRun.error_type == error_type)
+        total = query.count()
+        rows = (
+            query.order_by(TaskRun.id.desc())
+            .offset(max(0, int(offset)))
+            .limit(max(1, min(int(limit), 1000)))
+            .all()
+        )
+        return total, rows
+    except Exception as exc:
+        db.rollback()
+        if _is_missing_task_runs_table_error(exc):
+            logger.warning("task_runs table missing; return empty task-runs list")
+            return 0, []
+        raise
 
 
 def find_latest_checkpoint(
@@ -115,27 +156,34 @@ def find_latest_checkpoint(
     task: str,
     source: str | None = None,
 ) -> dict[str, Any] | None:
-    query = (
-        db.query(TaskRun)
-        .filter(
-            TaskRun.doc_id == doc_id,
-            TaskRun.task == task,
-            TaskRun.checkpoint_json.isnot(None),
-        )
-        .order_by(TaskRun.id.desc())
-    )
-    if source:
-        query = query.filter(TaskRun.source == source)
-    row = query.first()
-    if not row or not row.checkpoint_json:
-        return None
-    raw = str(row.checkpoint_json).strip()
-    if not raw.startswith(("{", "[")):
-        return None
     try:
-        payload = json.loads(raw)
-    except Exception:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
+        query = (
+            db.query(TaskRun)
+            .filter(
+                TaskRun.doc_id == doc_id,
+                TaskRun.task == task,
+                TaskRun.checkpoint_json.isnot(None),
+            )
+            .order_by(TaskRun.id.desc())
+        )
+        if source:
+            query = query.filter(TaskRun.source == source)
+        row = query.first()
+        if not row or not row.checkpoint_json:
+            return None
+        raw = str(row.checkpoint_json).strip()
+        if not raw.startswith(("{", "[")):
+            return None
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        return payload
+    except Exception as exc:
+        db.rollback()
+        if _is_missing_task_runs_table_error(exc):
+            logger.warning("task_runs table missing; no latest checkpoint available")
+            return None
+        raise
