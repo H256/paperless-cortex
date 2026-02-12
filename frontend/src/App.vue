@@ -181,7 +181,6 @@ const primaryNavItems: NavItem[] = [
 ]
 
 const secondaryNavItems: NavItem[] = [
-  { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
   { to: '/chat', label: 'Chat', icon: MessageCircle },
   { to: '/queue', label: 'Queue', icon: List },
   { to: '/logs', label: 'Logs', icon: FileSearch },
