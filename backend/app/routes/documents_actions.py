@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -30,6 +31,8 @@ from app.routes.sync import _upsert_document
 from app.api_models import (
     ClearIntelligenceResponse,
     CleanupTextsResponse,
+    DocumentPipelineContinueResponse,
+    DocumentPipelineStatusResponse,
     DeleteEmbeddingsResponse,
     DocumentOperationEnqueueResponse,
     DocumentResetReprocessResponse,
@@ -71,12 +74,179 @@ class CleanupTextsRequest(BaseModel):
     enqueue: bool = True
 
 
+class _PipelineOptions(BaseModel):
+    include_vision_ocr: bool = True
+    include_embeddings: bool = True
+    include_embeddings_paperless: bool = True
+    include_embeddings_vision: bool = True
+    include_page_notes: bool = False
+    include_summary_hierarchical: bool = False
+    include_suggestions_paperless: bool = True
+    include_suggestions_vision: bool = True
+    embeddings_mode: str = "auto"
+
+
 def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
     expected = int(doc.page_count or 0)
     if expected <= 0:
         return bool(pages)
     bounded = {page for page in pages if 1 <= page <= expected}
     return len(bounded) == expected
+
+
+def _collect_pipeline_cache(db: Session) -> dict[str, Any]:
+    embeddings = {int(row.doc_id): row for row in db.query(DocumentEmbedding).all()}
+    suggestions = {(int(row.doc_id), str(row.source)): row for row in db.query(DocumentSuggestion).all()}
+
+    vision_rows = db.query(DocumentPageText).filter(DocumentPageText.source == "vision_ocr").all()
+    vision_latest: dict[int, datetime] = {}
+    vision_pages_by_doc: dict[int, set[int]] = {}
+    for row in vision_rows:
+        doc_id = int(row.doc_id)
+        vision_pages_by_doc.setdefault(doc_id, set()).add(int(row.page))
+        created = parse_iso(row.created_at)
+        if not created:
+            continue
+        current = vision_latest.get(doc_id)
+        if current is None or created > current:
+            vision_latest[doc_id] = created
+
+    page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = {}
+    for row in db.query(DocumentPageNote).all():
+        page_notes_by_doc_source.setdefault((int(row.doc_id), str(row.source)), []).append(row)
+
+    hier_summaries = {
+        int(row.doc_id): row for row in db.query(DocumentSuggestion).filter(DocumentSuggestion.source == "hier_summary").all()
+    }
+    return {
+        "embeddings": embeddings,
+        "suggestions": suggestions,
+        "vision_latest": vision_latest,
+        "vision_pages_by_doc": vision_pages_by_doc,
+        "page_notes_by_doc_source": page_notes_by_doc_source,
+        "hier_summaries": hier_summaries,
+    }
+
+
+def _evaluate_doc_pipeline(
+    *,
+    doc: Document,
+    settings: Settings,
+    cache: dict[str, Any],
+    options: _PipelineOptions,
+) -> dict[str, Any]:
+    tasks: list[dict[str, Any]] = []
+    doc_modified = parse_iso(doc.modified) or parse_iso(doc.created)
+
+    embeddings: dict[int, DocumentEmbedding] = cache["embeddings"]
+    embedding = embeddings.get(int(doc.id))
+    embedded_at = parse_iso(embedding.embedded_at) if embedding else None
+    embedding_source = embedding.embedding_source if embedding else None
+
+    suggestions: dict[tuple[int, str], DocumentSuggestion] = cache["suggestions"]
+    sugg_p = suggestions.get((int(doc.id), "paperless_ocr"))
+    sugg_v = suggestions.get((int(doc.id), "vision_ocr"))
+    sugg_p_at = parse_iso(sugg_p.created_at) if sugg_p else None
+    sugg_v_at = parse_iso(sugg_v.created_at) if sugg_v else None
+
+    vision_latest: dict[int, datetime] = cache["vision_latest"]
+    vision_updated_at = vision_latest.get(int(doc.id))
+    vision_pages_by_doc: dict[int, set[int]] = cache["vision_pages_by_doc"]
+    has_complete_vision = _is_vision_complete(doc, vision_pages_by_doc.get(int(doc.id), set()))
+    needs_vision = options.include_vision_ocr and (
+        not has_complete_vision
+        or not vision_updated_at
+        or (doc_modified and vision_updated_at < doc_modified)
+    )
+    if needs_vision:
+        tasks.append({"doc_id": int(doc.id), "task": "vision_ocr"})
+
+    embeddings_stale = bool(not embedded_at or (doc_modified and embedded_at < doc_modified))
+    wants_paperless_embeddings = bool(options.include_embeddings and options.include_embeddings_paperless)
+    wants_vision_embeddings = bool(
+        options.include_embeddings
+        and options.include_embeddings_vision
+        and settings.enable_vision_ocr
+        and (has_complete_vision or options.include_vision_ocr)
+    )
+    target_embedding_source: str | None = None
+    if options.include_embeddings:
+        if options.embeddings_mode == "vision":
+            target_embedding_source = "vision" if wants_vision_embeddings else None
+        elif options.embeddings_mode == "paperless":
+            target_embedding_source = "paperless" if wants_paperless_embeddings else None
+        else:
+            if wants_vision_embeddings:
+                target_embedding_source = "vision"
+            elif wants_paperless_embeddings:
+                target_embedding_source = "paperless"
+    needs_embeddings = bool(target_embedding_source and (embedding_source != target_embedding_source or embeddings_stale))
+    needs_embeddings_paperless = needs_embeddings and target_embedding_source == "paperless"
+    needs_embeddings_vision = needs_embeddings and target_embedding_source == "vision"
+    if needs_embeddings_paperless:
+        tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless"})
+    if needs_embeddings_vision:
+        tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision"})
+
+    needs_sugg_p = options.include_suggestions_paperless and (not sugg_p_at or (doc_modified and sugg_p_at < doc_modified))
+    needs_sugg_v = options.include_suggestions_vision and (not sugg_v_at or (doc_modified and sugg_v_at < doc_modified))
+
+    page_notes_source = "vision_ocr" if settings.enable_vision_ocr and options.include_vision_ocr else "paperless_ocr"
+    page_notes_task = "page_notes_vision" if page_notes_source == "vision_ocr" else "page_notes_paperless"
+    page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = cache["page_notes_by_doc_source"]
+    note_rows = page_notes_by_doc_source.get((int(doc.id), page_notes_source), [])
+    ok_notes = [row for row in note_rows if row.status == "ok"]
+    note_pages = {
+        int(row.page)
+        for row in ok_notes
+        if getattr(row, "page", None) is not None and int(row.page) > 0
+    }
+    expected_note_pages = int(doc.page_count or 0)
+    notes_complete = len(note_pages) > 0 if expected_note_pages <= 0 else len(note_pages) >= expected_note_pages
+    notes_latest_raw = max((parse_iso(row.processed_at) or parse_iso(row.created_at) for row in ok_notes), default=None)
+    notes_stale = (
+        not notes_latest_raw
+        or (doc_modified and notes_latest_raw < doc_modified)
+        or (page_notes_source == "vision_ocr" and vision_updated_at is not None and notes_latest_raw < vision_updated_at)
+    )
+    large_doc = is_large_document(
+        page_count=doc.page_count,
+        total_text=doc.content,
+        threshold_pages=settings.large_doc_page_threshold,
+    )
+    evaluate_page_notes = options.include_page_notes or options.include_summary_hierarchical
+    needs_page_notes = evaluate_page_notes and large_doc and (not notes_complete or bool(notes_stale))
+    if needs_page_notes and (options.include_page_notes or options.include_summary_hierarchical):
+        tasks.append({"doc_id": int(doc.id), "task": page_notes_task})
+
+    hier_summaries: dict[int, DocumentSuggestion] = cache["hier_summaries"]
+    summary_row = hier_summaries.get(int(doc.id))
+    summary_at = parse_iso(summary_row.created_at) if summary_row else None
+    needs_summary = options.include_summary_hierarchical and large_doc and (
+        not summary_at or (doc_modified and summary_at < doc_modified) or (notes_latest_raw and summary_at < notes_latest_raw)
+    )
+    if needs_summary:
+        tasks.append({"doc_id": int(doc.id), "task": "summary_hierarchical", "source": page_notes_source})
+
+    if needs_sugg_p:
+        tasks.append({"doc_id": int(doc.id), "task": "suggestions_paperless"})
+    if needs_sugg_v:
+        tasks.append({"doc_id": int(doc.id), "task": "suggestions_vision"})
+
+    return {
+        "doc_id": int(doc.id),
+        "tasks": tasks,
+        "large_doc": large_doc,
+        "preferred_source": page_notes_source,
+        "needs_vision": needs_vision,
+        "needs_embeddings": needs_embeddings,
+        "needs_embeddings_paperless": needs_embeddings_paperless,
+        "needs_embeddings_vision": needs_embeddings_vision,
+        "needs_suggestions_paperless": needs_sugg_p,
+        "needs_suggestions_vision": needs_sugg_v,
+        "needs_page_notes": needs_page_notes,
+        "needs_summary_hierarchical": needs_summary,
+    }
 
 
 def _clear_intelligence_tables(db: Session) -> None:
@@ -133,23 +303,18 @@ def process_missing(
                 doc.id,
             )
         )
-    embeddings = {row.doc_id: row for row in db.query(DocumentEmbedding).all()}
-    suggestions = {(row.doc_id, row.source): row for row in db.query(DocumentSuggestion).all()}
-    vision_rows = (
-        db.query(DocumentPageText)
-        .filter(DocumentPageText.source == "vision_ocr")
-        .all()
+    cache = _collect_pipeline_cache(db)
+    options = _PipelineOptions(
+        include_vision_ocr=include_vision_ocr,
+        include_embeddings=include_embeddings,
+        include_embeddings_paperless=include_embeddings_paperless,
+        include_embeddings_vision=include_embeddings_vision,
+        include_page_notes=include_page_notes,
+        include_summary_hierarchical=include_summary_hierarchical,
+        include_suggestions_paperless=include_suggestions_paperless,
+        include_suggestions_vision=include_suggestions_vision,
+        embeddings_mode=embeddings_mode,
     )
-    vision_latest: dict[int, datetime] = {}
-    vision_pages_by_doc: dict[int, set[int]] = {}
-    for row in vision_rows:
-        vision_pages_by_doc.setdefault(int(row.doc_id), set()).add(int(row.page))
-        created = parse_iso(row.created_at)
-        if not created:
-            continue
-        current = vision_latest.get(row.doc_id)
-        if current is None or created > current:
-            vision_latest[row.doc_id] = created
 
     enqueued_docs = 0
     enqueued_tasks = 0
@@ -163,131 +328,34 @@ def process_missing(
     missing_sugg_p = 0
     missing_sugg_v = 0
     checked_docs = 0
-    page_notes_rows = db.query(DocumentPageNote).all()
-    page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = {}
-    for row in page_notes_rows:
-        page_notes_by_doc_source.setdefault((int(row.doc_id), str(row.source)), []).append(row)
-    hier_summaries = {
-        int(row.doc_id): row
-        for row in db.query(DocumentSuggestion).filter(DocumentSuggestion.source == "hier_summary").all()
-    }
     selected_for_run = 0
     for doc in docs:
         if should_skip_doc(doc):
             continue
         checked_docs += 1
-        tasks: list[dict] = []
-        doc_modified = parse_iso(doc.modified) or parse_iso(doc.created)
-        embedding = embeddings.get(doc.id)
-        embedded_at = parse_iso(embedding.embedded_at) if embedding else None
-        embedding_source = embedding.embedding_source if embedding else None
-        has_vision_embedding = embedding_source == "vision"
-        vision_updated_at = vision_latest.get(doc.id)
-        sugg_p = suggestions.get((doc.id, "paperless_ocr"))
-        sugg_v = suggestions.get((doc.id, "vision_ocr"))
-        sugg_p_at = parse_iso(sugg_p.created_at) if sugg_p else None
-        sugg_v_at = parse_iso(sugg_v.created_at) if sugg_v else None
-        has_complete_vision = _is_vision_complete(doc, vision_pages_by_doc.get(doc.id, set()))
-        needs_vision = include_vision_ocr and (
-            not has_complete_vision
-            or not vision_updated_at
-            or (doc_modified and vision_updated_at < doc_modified)
+        evaluation = _evaluate_doc_pipeline(
+            doc=doc,
+            settings=settings,
+            cache=cache,
+            options=options,
         )
-        embeddings_stale = bool(not embedded_at or (doc_modified and embedded_at < doc_modified))
-        wants_paperless_embeddings = bool(include_embeddings and include_embeddings_paperless)
-        wants_vision_embeddings = bool(
-            include_embeddings
-            and include_embeddings_vision
-            and settings.enable_vision_ocr
-            and (has_complete_vision or include_vision_ocr)
-        )
-        target_embedding_source: str | None = None
-        if include_embeddings:
-            if embeddings_mode == "vision":
-                target_embedding_source = "vision" if wants_vision_embeddings else None
-            elif embeddings_mode == "paperless":
-                target_embedding_source = "paperless" if wants_paperless_embeddings else None
-            else:
-                # Auto mode with explicit checkboxes:
-                # if both selected, prefer vision as active retrieval embedding source.
-                if wants_vision_embeddings:
-                    target_embedding_source = "vision"
-                elif wants_paperless_embeddings:
-                    target_embedding_source = "paperless"
-        needs_embeddings = bool(
-            target_embedding_source and (
-                embedding_source != target_embedding_source or embeddings_stale
-            )
-        )
-        needs_embeddings_paperless = needs_embeddings and target_embedding_source == "paperless"
-        needs_embeddings_vision = needs_embeddings and target_embedding_source == "vision"
-        needs_sugg_p = include_suggestions_paperless and (
-            not sugg_p_at or (doc_modified and sugg_p_at < doc_modified)
-        )
-        needs_sugg_v = include_suggestions_vision and (
-            not sugg_v_at or (doc_modified and sugg_v_at < doc_modified)
-        )
-        page_notes_source = "vision_ocr" if settings.enable_vision_ocr and include_vision_ocr else "paperless_ocr"
-        page_notes_task = "page_notes_vision" if page_notes_source == "vision_ocr" else "page_notes_paperless"
-        note_rows = page_notes_by_doc_source.get((int(doc.id), page_notes_source), [])
-        ok_notes = [row for row in note_rows if row.status == "ok"]
-        note_pages = {
-            int(row.page)
-            for row in ok_notes
-            if getattr(row, "page", None) is not None and int(row.page) > 0
-        }
-        expected_note_pages = int(doc.page_count or 0)
-        notes_complete = len(note_pages) > 0 if expected_note_pages <= 0 else len(note_pages) >= expected_note_pages
-        notes_latest_raw = max(
-            (parse_iso(row.processed_at) or parse_iso(row.created_at) for row in ok_notes),
-            default=None,
-        )
-        notes_stale = (
-            not notes_latest_raw
-            or (doc_modified and notes_latest_raw < doc_modified)
-            or (
-                page_notes_source == "vision_ocr"
-                and vision_updated_at is not None
-                and notes_latest_raw < vision_updated_at
-            )
-        )
-        large_doc = is_large_document(
-            page_count=doc.page_count,
-            total_text=doc.content,
-            threshold_pages=settings.large_doc_page_threshold,
-        )
-        evaluate_page_notes = include_page_notes or include_summary_hierarchical
-        needs_page_notes = evaluate_page_notes and large_doc and (not notes_complete or bool(notes_stale))
-        summary_row = hier_summaries.get(int(doc.id))
-        summary_at = parse_iso(summary_row.created_at) if summary_row else None
-        needs_summary = include_summary_hierarchical and large_doc and (
-            not summary_at or (doc_modified and summary_at < doc_modified) or (notes_latest_raw and summary_at < notes_latest_raw)
-        )
-        if needs_vision:
+        tasks = evaluation["tasks"]
+        if evaluation["needs_vision"]:
             missing_vision += 1
-            tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
-        if needs_embeddings:
+        if evaluation["needs_embeddings"]:
             missing_embeddings += 1
-            if needs_embeddings_vision:
+            if evaluation["needs_embeddings_vision"]:
                 missing_embeddings_vision += 1
-                tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-            elif needs_embeddings_paperless:
+            if evaluation["needs_embeddings_paperless"]:
                 missing_embeddings_paperless += 1
-                tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-        if evaluate_page_notes and needs_page_notes:
+        if options.include_page_notes and evaluation["needs_page_notes"]:
             missing_page_notes += 1
-        if needs_summary:
+        if evaluation["needs_summary_hierarchical"]:
             missing_summary_hier += 1
-        if needs_page_notes and (include_page_notes or needs_summary):
-            tasks.append({"doc_id": doc.id, "task": page_notes_task})
-        if needs_summary:
-            tasks.append({"doc_id": doc.id, "task": "summary_hierarchical", "source": page_notes_source})
-        if needs_sugg_p:
+        if evaluation["needs_suggestions_paperless"]:
             missing_sugg_p += 1
-            tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
-        if needs_sugg_v:
+        if evaluation["needs_suggestions_vision"]:
             missing_sugg_v += 1
-            tasks.append({"doc_id": doc.id, "task": "suggestions_vision"})
         if tasks:
             missing_docs += 1
         if limit is not None and selected_for_run >= limit:
@@ -314,6 +382,131 @@ def process_missing(
         "enqueued": enqueued_docs,
         "tasks": enqueued_tasks,
         "dry_run": dry_run,
+    }
+
+
+def _sync_ok(settings: Settings, doc: Document) -> bool:
+    try:
+        remote = paperless.get_document(settings, int(doc.id))
+    except Exception:
+        return False
+    local_modified = parse_iso(doc.modified) or parse_iso(doc.created)
+    remote_modified = parse_iso(remote.get("modified")) or parse_iso(remote.get("created"))
+    if not remote_modified:
+        return True
+    if not local_modified:
+        return False
+    return local_modified >= remote_modified
+
+
+@router.get("/{doc_id}/pipeline-status", response_model=DocumentPipelineStatusResponse)
+def get_document_pipeline_status(
+    doc_id: int,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    doc = db.get(Document, int(doc_id))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    cache = _collect_pipeline_cache(db)
+    options = _PipelineOptions()
+    evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    preferred_source = str(evaluation["preferred_source"])
+    is_large_doc = bool(evaluation["large_doc"])
+
+    sync_ok = _sync_ok(settings, doc)
+    paperless_ok = not (
+        evaluation["needs_embeddings_paperless"] or evaluation["needs_suggestions_paperless"]
+    )
+    vision_required = settings.enable_vision_ocr
+    vision_ok = True if not vision_required else not (
+        evaluation["needs_vision"] or evaluation["needs_embeddings_vision"] or evaluation["needs_suggestions_vision"]
+    )
+    large_ok = True if not is_large_doc else not (
+        evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]
+    )
+
+    steps = [
+        {"key": "sync", "required": True, "done": sync_ok, "detail": "Local document is up to date with Paperless."},
+        {
+            "key": "paperless",
+            "required": True,
+            "done": paperless_ok,
+            "detail": "Paperless suggestions and paperless embeddings are ready.",
+        },
+        {
+            "key": "vision",
+            "required": vision_required,
+            "done": vision_ok if vision_required else True,
+            "detail": "Vision OCR, vision suggestions, and vision embeddings are ready.",
+        },
+        {
+            "key": "large",
+            "required": is_large_doc,
+            "done": large_ok if is_large_doc else True,
+            "detail": "Large-doc page notes and hierarchical summary are ready.",
+        },
+    ]
+    return {
+        "doc_id": int(doc_id),
+        "preferred_source": preferred_source,
+        "is_large_document": is_large_doc,
+        "sync_ok": sync_ok,
+        "paperless_ok": paperless_ok,
+        "vision_ok": vision_ok,
+        "large_ok": large_ok,
+        "steps": steps,
+        "missing_tasks": evaluation["tasks"],
+    }
+
+
+@router.post("/{doc_id}/pipeline/continue", response_model=DocumentPipelineContinueResponse)
+def continue_document_pipeline(
+    doc_id: int,
+    dry_run: bool = False,
+    include_vision_ocr: bool = True,
+    include_embeddings: bool = True,
+    include_embeddings_paperless: bool = True,
+    include_embeddings_vision: bool = True,
+    include_page_notes: bool = True,
+    include_summary_hierarchical: bool = True,
+    include_suggestions_paperless: bool = True,
+    include_suggestions_vision: bool = True,
+    embeddings_mode: str = "auto",
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    doc = db.get(Document, int(doc_id))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if embeddings_mode not in ("auto", "paperless", "vision"):
+        raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
+    if not require_queue_enabled(settings):
+        return {"enabled": False, "doc_id": int(doc_id), "dry_run": dry_run, "missing_tasks": 0, "enqueued": 0}
+
+    options = _PipelineOptions(
+        include_vision_ocr=include_vision_ocr,
+        include_embeddings=include_embeddings,
+        include_embeddings_paperless=include_embeddings_paperless,
+        include_embeddings_vision=include_embeddings_vision,
+        include_page_notes=include_page_notes,
+        include_summary_hierarchical=include_summary_hierarchical,
+        include_suggestions_paperless=include_suggestions_paperless,
+        include_suggestions_vision=include_suggestions_vision,
+        embeddings_mode=embeddings_mode,
+    )
+    cache = _collect_pipeline_cache(db)
+    evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    tasks = evaluation["tasks"]
+    enqueued = 0
+    if tasks and not dry_run:
+        enqueued = enqueue_task_sequence(settings, tasks)
+    return {
+        "enabled": True,
+        "doc_id": int(doc_id),
+        "dry_run": dry_run,
+        "missing_tasks": len(tasks),
+        "enqueued": int(enqueued),
     }
 
 

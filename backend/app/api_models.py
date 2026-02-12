@@ -442,6 +442,33 @@ class ProcessMissingResponse(BaseModel):
     missing_suggestions_vision: Optional[int] = None
 
 
+class PipelineStepStatus(BaseModel):
+    key: str
+    required: bool
+    done: bool
+    detail: Optional[str] = None
+
+
+class DocumentPipelineStatusResponse(BaseModel):
+    doc_id: int
+    preferred_source: str
+    is_large_document: bool
+    sync_ok: bool
+    paperless_ok: bool
+    vision_ok: bool
+    large_ok: bool
+    steps: list[PipelineStepStatus] = []
+    missing_tasks: list[dict[str, Any]] = []
+
+
+class DocumentPipelineContinueResponse(BaseModel):
+    enabled: bool
+    doc_id: int
+    dry_run: bool = False
+    missing_tasks: int = 0
+    enqueued: int = 0
+
+
 class ResetIntelligenceResponse(BaseModel):
     cleared_embeddings: int
     cleared_page_texts: int
