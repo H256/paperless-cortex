@@ -432,7 +432,7 @@
         <div
           class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
         >
-          Missing embeddings (any selected):
+          Missing embeddings (target source):
           <strong class="text-slate-900 dark:text-slate-100">{{
             processPreview?.missing_embeddings ?? 0
           }}</strong>
@@ -543,6 +543,17 @@
               class="h-4 w-4 rounded border-slate-300 text-indigo-600"
             />
             Embeddings (vision)
+          </label>
+          <label class="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+            Embedding mode
+            <select
+              v-model="processOptions.embeddingsMode"
+              class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="auto">Auto (prefer vision)</option>
+              <option value="vision">Vision only</option>
+              <option value="paperless">Paperless only</option>
+            </select>
           </label>
           <div class="text-[11px] text-slate-400 dark:text-slate-500 sm:col-span-2">
             Only one embedding source is active per document. If both are enabled, vision is preferred.
@@ -655,7 +666,7 @@ import { useDocumentsStore } from '../stores/documentsStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
-import type {DocumentRow} from '../services/documents'
+import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
 const documentsStore = useDocumentsStore()
@@ -695,6 +706,7 @@ const processOptions = reactive({
   includeVisionOcr: true,
   includeEmbeddingsPaperless: true,
   includeEmbeddingsVision: true,
+  embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
   includePageNotes: true,
   includeHierarchicalSummary: true,
   includeSuggestionsPaperless: true,
@@ -707,12 +719,16 @@ const batchLimit = computed(() => {
   return value === 'All' ? null : value
 })
 const batchLabel = computed(() => (batchLimit.value === null ? 'All' : String(batchLimit.value)))
+const includeEmbeddings = computed(
+  () => processOptions.includeEmbeddingsPaperless || processOptions.includeEmbeddingsVision,
+)
 
 const processParams = () => ({
   include_vision_ocr: processOptions.includeVisionOcr,
-  include_embeddings: true,
+  include_embeddings: includeEmbeddings.value,
   include_embeddings_paperless: processOptions.includeEmbeddingsPaperless,
   include_embeddings_vision: processOptions.includeEmbeddingsVision,
+  embeddings_mode: processOptions.embeddingsMode,
   include_page_notes: processOptions.includePageNotes,
   include_summary_hierarchical: processOptions.includeHierarchicalSummary,
   include_suggestions_paperless: processOptions.includeSuggestionsPaperless,

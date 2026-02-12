@@ -431,6 +431,7 @@ class ProcessMissingResponse(BaseModel):
     enqueued: int
     tasks: int
     dry_run: bool = False
+    selected: Optional[int] = None
     missing_docs: Optional[int] = None
     missing_vision_ocr: Optional[int] = None
     missing_embeddings: Optional[int] = None

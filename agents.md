@@ -540,3 +540,4 @@ All model names must be configurable via environment variables.
 - Backend: refactored `process-missing` internals to reuse shared pipeline cache/evaluation helpers for better DRY/KISS and consistent task detection.
 - Frontend: wired document detail operations to canonical pipeline endpoints (status + continue), replaced local heuristic status cards with backend-driven step states, and added a single-click "Continue missing processing" action.
 - Backend: set canonical pipeline defaults to include large-document steps (`page_notes` + `summary_hierarchical`) so status and default continue/reprocess runs no longer miss large-doc processing.
+- UX/Processing: refined "Continue processing" modal with explicit embedding mode (`auto`/`vision`/`paperless`), embedding-enable derivation from source checkboxes, and clearer embeddings status wording; API response model now declares `selected` for process-missing consistency.
