@@ -87,8 +87,8 @@
         :suggestion-variant-loading="suggestionVariantLoading"
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
-        @refresh="refreshSuggestions"
-        @suggest-field="suggestField"
+        @refresh="refreshSuggestionsAction"
+        @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantOnly"
         @apply-variant-to-document="applyVariantToDocument"
         @apply-to-document="applyToDocument"
@@ -324,7 +324,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { AlertTriangle, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
@@ -332,19 +331,18 @@ import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
-import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
 import type { DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
+import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
-const documentStore = useDocumentDetailStore()
 const statusStore = useStatusStore()
 const toastStore = useToastStore()
 const {
@@ -367,7 +365,17 @@ const {
   suggestionVariants,
   suggestionVariantLoading,
   suggestionVariantError,
-} = storeToRefs(documentStore)
+  loadDocument,
+  loadMeta,
+  loadPageTexts,
+  loadContentQuality,
+  loadOcrScores,
+  loadSuggestions,
+  refreshSuggestions: refreshSuggestionsForSource,
+  suggestField,
+  applyVariant,
+  applyToDocument: applySuggestionToDocument,
+} = useDocumentDetailData()
 const {
   pipelineStatus,
   pipelineStatusLoading,
@@ -516,8 +524,8 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
-  await documentStore.suggestField(id, source, field)
+const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
+  await suggestField(id, source, field)
 }
 
 const applyVariantOnly = async (
@@ -525,7 +533,7 @@ const applyVariantOnly = async (
   field: string,
   value: unknown,
 ) => {
-  await documentStore.applyVariant(id, source, field, value)
+  await applyVariant(id, source, field, value)
 }
 
 const applyVariantToDocument = async (
@@ -533,10 +541,10 @@ const applyVariantToDocument = async (
   field: string,
   value: unknown,
 ) => {
-  await documentStore.applyVariant(id, source, field, value)
-  await documentStore.applyToDocument(id, { source, field, value })
+  await applyVariant(id, source, field, value)
+  await applySuggestionToDocument(id, { source, field, value })
   await load()
-  await loadSuggestions()
+  await loadSuggestionsForDoc()
 }
 
 const applyToDocument = async (source: string, field: string, value: unknown) => {
@@ -544,16 +552,16 @@ const applyToDocument = async (source: string, field: string, value: unknown) =>
     const reloadSuggestions = Boolean(suggestions.value)
     const reloadPages = pageTexts.value.length > 0
     const reloadQuality = Boolean(contentQuality.value)
-    await documentStore.applyToDocument(id, { source, field, value })
+    await applySuggestionToDocument(id, { source, field, value })
     await load()
     if (reloadSuggestions) {
-      await loadSuggestions()
+      await loadSuggestionsForDoc()
     }
     if (reloadPages) {
-      await loadPageTexts()
+      await loadPageTextsForDoc()
     }
     if (reloadQuality) {
-      await loadContentQuality()
+      await loadContentQualityForDoc()
     }
   } catch (err: unknown) {
     suggestionsError.value = errorMessage(err, 'Failed to apply suggestion to document')
@@ -782,24 +790,24 @@ const formatDateTime = (value?: string | null) => {
 }
 
 const load = async () => {
-  await documentStore.loadDocument(id)
+  await loadDocument(id)
 }
 
-const loadMeta = async () => {
-  await documentStore.loadMeta()
+const loadMetaForDoc = async () => {
+  await loadMeta()
 }
 
-const loadPageTexts = async (priority = false) => {
-  await documentStore.loadPageTexts(id, priority)
+const loadPageTextsForDoc = async (priority = false) => {
+  await loadPageTexts(id, priority)
 }
 
-const loadContentQuality = async (priority = false) => {
-  await documentStore.loadContentQuality(id, priority)
-  await documentStore.loadOcrScores(id, priority)
+const loadContentQualityForDoc = async (priority = false) => {
+  await loadContentQuality(id, priority)
+  await loadOcrScores(id, priority)
 }
 
-const loadSuggestions = async () => {
-  await documentStore.loadSuggestions(id)
+const loadSuggestionsForDoc = async () => {
+  await loadSuggestions(id)
 }
 
 const loadPipelineStatus = async () => {
@@ -816,18 +824,18 @@ const reloadAll = async () => {
   reloadingAll.value = true
   try {
     await load()
-    await loadMeta()
-    await loadContentQuality()
-    await loadPageTexts()
-    await loadSuggestions()
+    await loadMetaForDoc()
+    await loadContentQualityForDoc()
+    await loadPageTextsForDoc()
+    await loadSuggestionsForDoc()
     await loadPipelineStatus()
   } finally {
     reloadingAll.value = false
   }
 }
 
-const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
-  await documentStore.refreshSuggestions(id, source)
+const refreshSuggestionsAction = async (source: 'paperless_ocr' | 'vision_ocr') => {
+  await refreshSuggestionsForSource(id, source)
 }
 
 const enqueueDocTask = async (action: OperationAction) => {

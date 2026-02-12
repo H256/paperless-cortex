@@ -558,6 +558,8 @@ All model names must be configurable via environment variables.
 - Frontend architecture: removed `queueStore`; `App.vue` now reads footer queue status from Vue Query (`queue-status`) and updates that cache directly from SSE, while `DocumentDetailView` operation orchestration no longer depends on queue store refresh calls.
 - Backend robustness: added embedding input budget guard (`EMBEDDING_MAX_INPUT_TOKENS`) and deterministic chunk normalization before worker embedding calls (`enforce_embedding_chunk_budget`), plus overflow fallback split+average in `embed_text` for provider-side context overrun errors.
 - Backend quality: hardened `semantic_chunks` against single oversized sentence fragments, added focused tests in `backend/tests/test_embedding_chunk_budget.py`, and documented new env tuning in `.env.example`, `.env.worker.example`, and `docs/execution-blueprint-large-doc-worker.md`.
+- Frontend architecture: removed `documentDetailStore` and introduced `useDocumentDetailData` composable (Vue Query mutations + local refs) to centralize document detail data loading/actions without Pinia store indirection.
+- Frontend refactor: `DocumentDetailView` now consumes `useDocumentDetailData` directly (document/meta/page-text/quality/OCR/suggestions + variant/application flows), with explicit per-doc loader wrappers for readability and reduced cross-layer coupling.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
