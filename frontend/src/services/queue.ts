@@ -11,6 +11,7 @@ import {
   removeQueueRemovePost,
   moveTopQueueMoveTopPost,
   moveBottomQueueMoveBottomPost,
+  getTaskRunsQueueTaskRunsGet,
 } from '../api/generated/client'
 import type {
   QueueStatusResponse,
@@ -22,6 +23,9 @@ import type {
   QueueMoveRequest,
   QueueMoveEdgeRequest,
   QueueRemoveRequest,
+  TaskRunItem,
+  TaskRunListResponse,
+  GetTaskRunsQueueTaskRunsGetParams,
 } from '../api/generated/model'
 
 export type QueueStatus = QueueStatusResponse
@@ -43,6 +47,8 @@ export type QueueRunningStatus = {
   task?: QueuePeekItem | null
   started_at?: number | null
 }
+export type QueueTaskRun = TaskRunItem
+export type QueueTaskRunList = TaskRunListResponse
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -71,6 +77,9 @@ export const moveQueueItemBottom = (payload: QueueMoveEdgeRequest) =>
 
 export const fetchQueueRunning = () =>
   request<QueueRunningStatus>('/queue/running')
+
+export const fetchQueueTaskRuns = (params?: GetTaskRunsQueueTaskRunsGetParams) =>
+  unwrap<QueueTaskRunList>(getTaskRunsQueueTaskRunsGet(params))
 
 export const fetchWorkerLockStatus = () =>
   request<QueueWorkerLockStatus>('/queue/worker-lock')

@@ -586,6 +586,7 @@ All model names must be configurable via environment variables.
 - Observability phase 1: added configurable structured logging (`LOG_JSON`, `LOG_LEVEL`) with shared formatter/setup (`app/services/logging_setup.py`) and worker error taxonomy (`app/services/error_types.py`) to emit concrete `error_type` values for task failures.
 - Observability phase 1: introduced persistent `task_runs` tracking (`TaskRun` model + Alembic migration `c9d3a7f1b214` + `app/services/task_runs.py`) and wired worker execution lifecycle to create/finish per-task run records with status, duration, worker id, and typed errors.
 - Observability phase 1: added queue inspector endpoint `GET /queue/task-runs` with filtering (`doc_id`, `task`, `status`, `error_type`, pagination), plus backend route tests in `backend/tests/test_queue_task_runs_routes.py`.
+- Observability phase 1 UI/API: regenerated OpenAPI/Orval client for new queue task-runs contracts and wired Queue Manager to show filterable recent task-run history (doc/task/status/error type, duration, start time) via Vue Query (`useQueueManager`) and generated endpoint bindings in `frontend/src/services/queue.ts`.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

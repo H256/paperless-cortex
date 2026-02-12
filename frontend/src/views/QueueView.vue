@@ -276,6 +276,120 @@
         </div>
       </div>
     </section>
+
+    <section
+      class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Task run history</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Inspect recent worker executions with typed errors and timing.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Doc ID
+            <input
+              type="text"
+              v-model="taskRunsDocId"
+              placeholder="e.g. 1756"
+              class="mt-1 h-9 w-28 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Task
+            <input
+              type="text"
+              v-model="taskRunsTask"
+              placeholder="embeddings_vision"
+              class="mt-1 h-9 w-44 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Status
+            <select
+              v-model="taskRunsStatus"
+              class="mt-1 h-9 w-28 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="">all</option>
+              <option value="completed">completed</option>
+              <option value="failed">failed</option>
+              <option value="running">running</option>
+            </select>
+          </label>
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Error type
+            <input
+              type="text"
+              v-model="taskRunsErrorType"
+              placeholder="EMBED_CONTEXT_OVERFLOW"
+              class="mt-1 h-9 w-52 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Limit
+            <input
+              type="number"
+              min="1"
+              max="500"
+              v-model.number="taskRunsLimit"
+              class="mt-1 h-9 w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="taskRunsLoading"
+            @click="loadTaskRuns"
+          >
+            <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': taskRunsLoading }" />
+            {{ taskRunsLoading ? 'Loading...' : 'Reload' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="taskRuns.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        {{ taskRunsLoading ? 'Loading task runs...' : 'No task runs found for current filters.' }}
+      </div>
+      <div v-else class="mt-4 overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead class="text-left text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="px-2 py-1">Run</th>
+              <th class="px-2 py-1">Doc</th>
+              <th class="px-2 py-1">Task</th>
+              <th class="px-2 py-1">Status</th>
+              <th class="px-2 py-1">Error Type</th>
+              <th class="px-2 py-1">Duration</th>
+              <th class="px-2 py-1">Started</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="run in taskRuns"
+              :key="run.id"
+              class="border-t border-slate-100 dark:border-slate-800"
+            >
+              <td class="px-2 py-2 font-semibold text-slate-700 dark:text-slate-200">#{{ run.id }}</td>
+              <td class="px-2 py-2">{{ run.doc_id ?? '-' }}</td>
+              <td class="px-2 py-2">{{ run.task }}</td>
+              <td
+                class="px-2 py-2 font-semibold"
+                :class="run.status === 'failed' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'"
+              >
+                {{ run.status }}
+              </td>
+              <td class="px-2 py-2">{{ run.error_type || '-' }}</td>
+              <td class="px-2 py-2">{{ run.duration_ms != null ? `${run.duration_ms} ms` : '-' }}</td>
+              <td class="px-2 py-2">{{ formatIso(run.started_at) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+        Showing {{ taskRuns.length }} of {{ taskRunsCount }} run(s)
+      </div>
+    </section>
   </section>
 </template>
 
@@ -301,13 +415,22 @@ const {
   status,
   running,
   peekItems,
+  taskRuns,
+  taskRunsCount,
+  taskRunsLoading,
   peekLimit,
+  taskRunsLimit,
+  taskRunsDocId,
+  taskRunsTask,
+  taskRunsStatus,
+  taskRunsErrorType,
   loading,
   peekLoading,
   busy,
   error,
   refresh,
   loadPeek,
+  loadTaskRuns,
   clearQueue: clearQueueRequest,
   resetStats: resetStatsRequest,
   pauseQueue: pauseQueueRequest,
@@ -409,6 +532,13 @@ const formatRuntime = (unixTs: number) => {
   const hours = Math.floor(mins / 60)
   const remMins = mins % 60
   return `${hours}h ${remMins}m`
+}
+
+const formatIso = (value?: string | null) => {
+  if (!value) return '-'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString()
 }
 
 refresh()

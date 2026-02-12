@@ -5,6 +5,7 @@ import {
   fetchQueuePeek,
   fetchQueueRunning,
   fetchQueueStatus,
+  fetchQueueTaskRuns,
   moveQueueItem,
   moveQueueItemBottom,
   moveQueueItemTop,
@@ -17,6 +18,11 @@ import {
 export const useQueueManager = () => {
   const queryClient = useQueryClient()
   const peekLimit = ref(20)
+  const taskRunsLimit = ref(50)
+  const taskRunsDocId = ref('')
+  const taskRunsTask = ref('')
+  const taskRunsStatus = ref('')
+  const taskRunsErrorType = ref('')
 
   const statusQuery = useQuery({
     queryKey: ['queue-status'],
@@ -36,6 +42,26 @@ export const useQueueManager = () => {
     queryKey: computed(() => ['queue-peek', peekLimit.value]),
     queryFn: () => fetchQueuePeek(peekLimit.value),
     refetchInterval: 30_000,
+    staleTime: 5_000,
+  })
+
+  const taskRunsQuery = useQuery({
+    queryKey: computed(() => [
+      'queue-task-runs',
+      taskRunsLimit.value,
+      taskRunsDocId.value,
+      taskRunsTask.value,
+      taskRunsStatus.value,
+      taskRunsErrorType.value,
+    ]),
+    queryFn: () =>
+      fetchQueueTaskRuns({
+        limit: taskRunsLimit.value,
+        doc_id: taskRunsDocId.value ? Number(taskRunsDocId.value) : undefined,
+        task: taskRunsTask.value || undefined,
+        status: taskRunsStatus.value || undefined,
+        error_type: taskRunsErrorType.value || undefined,
+      }),
     staleTime: 5_000,
   })
 
@@ -101,7 +127,12 @@ export const useQueueManager = () => {
   })
 
   const refresh = async () =>
-    Promise.all([statusQuery.refetch(), runningQuery.refetch(), peekQuery.refetch()])
+    Promise.all([
+      statusQuery.refetch(),
+      runningQuery.refetch(),
+      peekQuery.refetch(),
+      taskRunsQuery.refetch(),
+    ])
 
   const busy = computed(
     () =>
@@ -119,13 +150,22 @@ export const useQueueManager = () => {
     status: computed(() => statusQuery.data.value ?? { enabled: false, length: null }),
     running: computed(() => runningQuery.data.value ?? { enabled: false, task: null, started_at: null }),
     peekItems: computed(() => peekQuery.data.value?.items ?? []),
+    taskRuns: computed(() => taskRunsQuery.data.value?.items ?? []),
+    taskRunsCount: computed(() => taskRunsQuery.data.value?.count ?? 0),
+    taskRunsLoading: computed(() => taskRunsQuery.isPending.value || taskRunsQuery.isFetching.value),
     peekLimit,
+    taskRunsLimit,
+    taskRunsDocId,
+    taskRunsTask,
+    taskRunsStatus,
+    taskRunsErrorType,
     loading,
     peekLoading,
     busy,
     error,
     refresh,
     loadPeek: async () => peekQuery.refetch(),
+    loadTaskRuns: async () => taskRunsQuery.refetch(),
     clearQueue: () => clearMutation.mutateAsync(),
     resetStats: () => resetStatsMutation.mutateAsync(),
     pauseQueue: () => pauseMutation.mutateAsync(),
