@@ -53,70 +53,6 @@
           </div>
           <div class="mt-1 text-xs text-slate-500">Documents to process</div>
         </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing vision OCR:
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_vision_ocr ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing embeddings (paperless):
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_embeddings_paperless ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing embeddings (target source):
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_embeddings ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing vision embeddings:
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_embeddings_vision ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing page notes:
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_page_notes ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing hierarchical summaries:
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_summary_hierarchical ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing suggestions (baseline):
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_suggestions_paperless ?? 0
-          }}</strong>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          Missing suggestions (vision):
-          <strong class="text-slate-900 dark:text-slate-100">{{
-            processPreview?.missing_suggestions_vision ?? 0
-          }}</strong>
-        </div>
       </div>
 
       <div
@@ -139,6 +75,33 @@
             >
               {{ item.missing > 0 ? `${item.missing} missing` : 'covered' }}
             </span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="!processPreviewLoading && processPreview"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Detailed Missing Counters
+          </div>
+          <button
+            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            @click="showDetailedCounters = !showDetailedCounters"
+          >
+            {{ showDetailedCounters ? 'Hide details' : 'Show details' }}
+          </button>
+        </div>
+        <div v-if="showDetailedCounters" class="mt-2 grid gap-2 sm:grid-cols-2">
+          <div
+            v-for="item in detailedCounters"
+            :key="item.key"
+            class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
+          >
+            {{ item.label }}:
+            <strong class="text-slate-900 dark:text-slate-100">{{ item.value }}</strong>
           </div>
         </div>
       </div>
@@ -325,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 import type { ProcessMissingResponse, SyncStatusResponse } from '@/api/generated/model'
 
@@ -455,6 +418,23 @@ const previewDocs = computed<PreviewDocItem[]>(() => {
       }
     })
     .filter((item): item is PreviewDocItem => item !== null)
+})
+
+const showDetailedCounters = ref(false)
+
+const detailedCounters = computed(() => {
+  const preview = props.processPreview
+  if (!preview) return []
+  return [
+    { key: 'missing_vision_ocr', label: 'Missing vision OCR', value: Number(preview.missing_vision_ocr ?? 0) },
+    { key: 'missing_embeddings_paperless', label: 'Missing embeddings (paperless)', value: Number(preview.missing_embeddings_paperless ?? 0) },
+    { key: 'missing_embeddings', label: 'Missing embeddings (target source)', value: Number(preview.missing_embeddings ?? 0) },
+    { key: 'missing_embeddings_vision', label: 'Missing vision embeddings', value: Number(preview.missing_embeddings_vision ?? 0) },
+    { key: 'missing_page_notes', label: 'Missing page notes', value: Number(preview.missing_page_notes ?? 0) },
+    { key: 'missing_summary_hierarchical', label: 'Missing hierarchical summaries', value: Number(preview.missing_summary_hierarchical ?? 0) },
+    { key: 'missing_suggestions_paperless', label: 'Missing suggestions (baseline)', value: Number(preview.missing_suggestions_paperless ?? 0) },
+    { key: 'missing_suggestions_vision', label: 'Missing suggestions (vision)', value: Number(preview.missing_suggestions_vision ?? 0) },
+  ]
 })
 
 const strategyHint = computed(() => {
