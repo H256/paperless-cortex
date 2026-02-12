@@ -668,3 +668,4 @@ All model names must be configurable via environment variables.
 - Navigation UX update: app top nav now always uses persistent More behavior (no screen-size split), with primary links Dashboard/Documents/Search/Writeback and More menu order Writeback/Chat/Queue/Logs/Operations.
 - Nav hotfix: removed duplicate Writeback entry from More menu; Writeback remains only in primary navigation.
 - Nav UX tweak: More submenu now closes on blur/focus-out (ocusout handler) when focus leaves the menu container.
+- Continue-processing layout tweak: panel now uses full available page/container width by removing the fixed max-width constraint.
