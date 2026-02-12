@@ -25,5 +25,6 @@ export interface DocumentSummary {
   has_suggestions_paperless?: boolean | null;
   has_suggestions_vision?: boolean | null;
   has_vision_pages?: boolean | null;
+  pending_tag_names?: string[];
   [key: string]: unknown;
  }

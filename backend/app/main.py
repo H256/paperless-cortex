@@ -13,10 +13,10 @@ from app.config import load_settings
 from app.services.meta_cache import refresh_cache
 from app.services.meta_sync import sync_correspondents_all, sync_tags_all
 from app.db import SessionLocal
+from app.services.logging_setup import configure_logging
 
 app = FastAPI(title="Paperless-NGX Cortex API")
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+configure_logging(load_settings(), service="api")
 
 app.add_middleware(
     CORSMiddleware,

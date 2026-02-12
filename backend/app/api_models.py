@@ -97,6 +97,60 @@ class QueueRunningResponse(BaseModel):
     started_at: Optional[int] = None
 
 
+class QueueDlqItem(BaseModel):
+    task: Optional[dict[str, Any]] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    attempt: Optional[int] = None
+    created_at: Optional[int] = None
+
+
+class QueueDlqResponse(BaseModel):
+    enabled: bool
+    items: list[QueueDlqItem] = []
+
+
+class QueueDlqActionResponse(BaseModel):
+    enabled: bool
+    ok: bool
+
+
+class QueueDelayedItem(BaseModel):
+    task: Optional[dict[str, Any]] = None
+    raw: Optional[str] = None
+    due_at: Optional[int] = None
+    due_in_seconds: Optional[int] = None
+
+
+class QueueDelayedResponse(BaseModel):
+    enabled: bool
+    items: list[QueueDelayedItem] = []
+
+
+class TaskRunItem(BaseModel):
+    id: int
+    doc_id: Optional[int] = None
+    task: str
+    source: Optional[str] = None
+    status: str
+    worker_id: Optional[str] = None
+    attempt: int
+    checkpoint: Optional[dict[str, Any]] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    duration_ms: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class TaskRunListResponse(BaseModel):
+    enabled: bool
+    count: int
+    items: list[TaskRunItem] = []
+
+
 class ConnectionStatus(BaseModel):
     service: str
     status: str
@@ -431,6 +485,7 @@ class ProcessMissingResponse(BaseModel):
     enqueued: int
     tasks: int
     dry_run: bool = False
+    selected: Optional[int] = None
     missing_docs: Optional[int] = None
     missing_vision_ocr: Optional[int] = None
     missing_embeddings: Optional[int] = None
@@ -440,6 +495,54 @@ class ProcessMissingResponse(BaseModel):
     missing_summary_hierarchical: Optional[int] = None
     missing_suggestions_paperless: Optional[int] = None
     missing_suggestions_vision: Optional[int] = None
+    missing_by_step: dict[str, int] = {}
+    preview_docs: list[dict[str, Any]] = []
+
+
+class PipelineStepStatus(BaseModel):
+    key: str
+    required: bool
+    done: bool
+    detail: Optional[str] = None
+
+
+class DocumentPipelineStatusResponse(BaseModel):
+    doc_id: int
+    preferred_source: str
+    is_large_document: bool
+    sync_ok: bool
+    paperless_ok: bool
+    vision_ok: bool
+    large_ok: bool
+    steps: list[PipelineStepStatus] = []
+    missing_tasks: list[dict[str, Any]] = []
+
+
+class PipelineFanoutItem(BaseModel):
+    order: int
+    task: str
+    source: Optional[str] = None
+    status: str
+    detail: Optional[str] = None
+    checkpoint: Optional[dict[str, Any]] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    last_started_at: Optional[str] = None
+    last_finished_at: Optional[str] = None
+
+
+class DocumentPipelineFanoutResponse(BaseModel):
+    doc_id: int
+    enabled: bool
+    items: list[PipelineFanoutItem] = []
+
+
+class DocumentPipelineContinueResponse(BaseModel):
+    enabled: bool
+    doc_id: int
+    dry_run: bool = False
+    missing_tasks: int = 0
+    enqueued: int = 0
 
 
 class ResetIntelligenceResponse(BaseModel):
@@ -636,9 +739,21 @@ class WritebackHistoryResponse(BaseModel):
     items: list[WritebackJobSummary] = []
 
 
+class WritebackExecutePendingJobResult(BaseModel):
+    job_id: int
+    status: str
+    dry_run: bool
+    docs_selected: int
+    docs_changed: int
+    calls_count: int
+    doc_ids: list[int] = []
+    error: Optional[str] = None
+
+
 class WritebackExecutePendingResponse(BaseModel):
     processed: int
     completed: int
     failed: int
     job_ids: list[int] = []
     doc_ids: list[int] = []
+    results: list[WritebackExecutePendingJobResult] = []

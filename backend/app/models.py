@@ -211,6 +211,27 @@ class WritebackJob(Base):
     finished_at: Mapped[str | None] = mapped_column(String(64))
 
 
+class TaskRun(Base):
+    __tablename__ = "task_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
+    doc_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    task: Mapped[str] = mapped_column(String(64), index=True)
+    source: Mapped[str | None] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    worker_id: Mapped[str | None] = mapped_column(String(128))
+    payload_json: Mapped[str | None] = mapped_column(Text)
+    checkpoint_json: Mapped[str | None] = mapped_column(Text)
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    error_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[str | None] = mapped_column(String(64))
+    finished_at: Mapped[str | None] = mapped_column(String(64))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+    updated_at: Mapped[str | None] = mapped_column(String(64))
+
+
 class DocumentPendingTag(Base):
     __tablename__ = "document_pending_tags"
 

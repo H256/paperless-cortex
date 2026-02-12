@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.config import Settings
+from app.db import get_db
 from app.deps import get_settings
 from app.services.queue import (
     enqueue_docs,
@@ -21,7 +24,12 @@ from app.services.queue import (
     worker_lock_status,
     reset_worker_lock,
     get_running_task,
+    peek_dead_letters,
+    peek_delayed_queue,
+    clear_dead_letters,
+    requeue_dead_letter_item,
 )
+from app.services.task_runs import list_task_runs
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
     QueueStatusResponse,
@@ -35,6 +43,11 @@ from app.api_models import (
     QueueWorkerLockStatusResponse,
     QueueWorkerLockResetResponse,
     QueueRunningResponse,
+    TaskRunListResponse,
+    TaskRunItem,
+    QueueDlqResponse,
+    QueueDlqActionResponse,
+    QueueDelayedResponse,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -55,6 +68,25 @@ class QueueRemoveRequest(BaseModel):
 
 class QueueMoveEdgeRequest(BaseModel):
     index: int
+
+
+class QueueDlqRequeueRequest(BaseModel):
+    index: int
+
+
+def _parse_json_object(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    payload = str(raw).strip()
+    if not payload.startswith(("{", "[")):
+        return None
+    try:
+        parsed = json.loads(payload)
+    except Exception:
+        return None
+    if isinstance(parsed, dict):
+        return parsed
+    return None
 
 
 @router.get("/status", response_model=QueueStatusResponse)
@@ -173,3 +205,82 @@ def reset_worker_lock_route(force: bool = False, settings: Settings = Depends(ge
         return queue_disabled_response(reset=False, had_lock=False, reason="queue_disabled")
     result = reset_worker_lock(settings, force=force)
     return {"enabled": True, **result}
+
+
+@router.get("/dlq", response_model=QueueDlqResponse)
+def get_dlq(limit: int = 100, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "items": []}
+    items = peek_dead_letters(settings, limit=limit)
+    return {"enabled": True, "items": items}
+
+
+@router.get("/delayed", response_model=QueueDelayedResponse)
+def get_delayed_queue(limit: int = 100, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "items": []}
+    items = peek_delayed_queue(settings, limit=limit)
+    return {"enabled": True, "items": items}
+
+
+@router.post("/dlq/clear", response_model=QueueDlqActionResponse)
+def clear_dlq(settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "ok": False}
+    clear_dead_letters(settings)
+    return {"enabled": True, "ok": True}
+
+
+@router.post("/dlq/requeue", response_model=QueueDlqActionResponse)
+def requeue_dlq(payload: QueueDlqRequeueRequest, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "ok": False}
+    ok = requeue_dead_letter_item(settings, payload.index)
+    return {"enabled": True, "ok": bool(ok)}
+
+
+@router.get("/task-runs", response_model=TaskRunListResponse)
+def get_task_runs(
+    doc_id: int | None = None,
+    task: str | None = None,
+    status: str | None = None,
+    error_type: str | None = None,
+    q: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    settings: Settings = Depends(get_settings),
+    db=Depends(get_db),
+):
+    if not settings.queue_enabled:
+        return {"enabled": False, "count": 0, "items": []}
+    total, rows = list_task_runs(
+        db,
+        doc_id=doc_id,
+        task=task,
+        status=status,
+        error_type=error_type,
+        query_text=q,
+        limit=limit,
+        offset=offset,
+    )
+    items = [
+        TaskRunItem(
+            id=int(row.id),
+            doc_id=int(row.doc_id) if row.doc_id is not None else None,
+            task=str(row.task),
+            source=row.source,
+            status=str(row.status),
+            worker_id=row.worker_id,
+            attempt=int(row.attempt or 1),
+            checkpoint=_parse_json_object(row.checkpoint_json),
+            error_type=row.error_type,
+            error_message=row.error_message,
+            started_at=row.started_at,
+            finished_at=row.finished_at,
+            duration_ms=int(row.duration_ms) if row.duration_ms is not None else None,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
+    return {"enabled": True, "count": total, "items": items}

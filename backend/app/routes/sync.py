@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+from sqlalchemy import func
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -46,6 +47,58 @@ from app.services.queue_tasks import build_task_sequence
 from app.services.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+
+
+def _next_local_note_id(db: Session) -> int:
+    min_id = db.query(func.min(DocumentNote.id)).scalar()
+    if min_id is None:
+        return -1
+    try:
+        value = int(min_id)
+    except Exception:
+        return -1
+    if value >= 0:
+        return -1
+    return value - 1
+
+
+def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> None:
+    existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
+    incoming_ids: set[int] = set()
+
+    for note in incoming_notes:
+        note_id = int(note.id)
+        incoming_ids.add(note_id)
+        user = note.user or {}
+        existing = existing_by_id.get(note_id)
+        if existing is None:
+            # Resolve collisions where legacy local AI notes used positive ids that now overlap with Paperless ids.
+            global_note = db.get(DocumentNote, note_id)
+            if global_note is not None and int(global_note.document_id) != int(doc.id):
+                global_note.id = _next_local_note_id(db)
+                db.flush()
+        if existing:
+            existing.note = note.note
+            existing.created = note.created
+            existing.user_id = user.get("id")
+            existing.user_username = user.get("username")
+            existing.user_first_name = user.get("first_name")
+            existing.user_last_name = user.get("last_name")
+            continue
+        doc.notes.append(
+            DocumentNote(
+                id=note_id,
+                note=note.note,
+                created=note.created,
+                user_id=user.get("id"),
+                user_username=user.get("username"),
+                user_first_name=user.get("first_name"),
+                user_last_name=user.get("last_name"),
+            )
+        )
+
+    for stale in [note for note in list(doc.notes or []) if int(note.id) not in incoming_ids]:
+        doc.notes.remove(stale)
 
 
 @router.post("/documents", response_model=SyncDocumentsResponse)
@@ -258,20 +311,7 @@ def _upsert_document(
                 db.merge(doc_type)
             cache["document_types"].add(data.document_type)
 
-    doc.notes.clear()
-    for note in data.notes:
-        user = note.user or {}
-        doc.notes.append(
-            DocumentNote(
-                id=note.id,
-                note=note.note,
-                created=note.created,
-                user_id=user.get("id"),
-                user_username=user.get("username"),
-                user_first_name=user.get("first_name"),
-                user_last_name=user.get("last_name"),
-            )
-        )
+    _merge_document_notes(db, doc, data.notes)
 
     doc.tags.clear()
     for tag_id in data.tags or []:
@@ -416,7 +456,8 @@ def _embed_documents(
                 if processed % 5 == 0 or processed == state.total:
                     db.commit()
                 continue
-        delete_points_for_doc(settings, doc.id)
+        embedding_source = "vision" if vision_pages else "paperless"
+        delete_points_for_doc(settings, doc.id, source=embedding_source)
         baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
         vision_chunks = chunk_document_with_pages(settings, content_value, vision_pages or None) if vision_pages else []
         chunks = baseline_chunks + vision_chunks
@@ -427,7 +468,7 @@ def _embed_documents(
             vector = embed_text(settings, chunk_text_value)
             doc_points.append(
                 {
-                    "id": make_point_id(doc.id, idx),
+                    "id": make_point_id(doc.id, idx, embedding_source),
                     "vector": vector,
                     "payload": {
                         "doc_id": doc.id,
@@ -449,7 +490,11 @@ def _embed_documents(
         existing.content_hash = content_hash
         existing.embedding_model = settings.embedding_model
         existing.embedded_at = datetime.now(timezone.utc).isoformat()
-        existing.embedding_source = "vision" if vision_pages else "paperless"
+        previous_source = str(existing.embedding_source or "").strip().lower()
+        if previous_source == "both" or (previous_source and previous_source != embedding_source):
+            existing.embedding_source = "both"
+        else:
+            existing.embedding_source = embedding_source
         existing.chunk_count = len(chunks)
         embedded += 1
         processed += 1

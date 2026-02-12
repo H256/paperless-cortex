@@ -11,11 +11,22 @@ from sqlalchemy.orm import Session
 
 from app.config import load_settings
 from app.db import SessionLocal
-from app.models import Document, DocumentEmbedding, DocumentPageNote, DocumentPageText, DocumentSuggestion, SyncState
+from app.models import (
+    Document,
+    DocumentEmbedding,
+    DocumentPageNote,
+    DocumentPageText,
+    DocumentSectionSummary,
+    DocumentSuggestion,
+    SyncState,
+    TaskRun,
+)
 from app.services import paperless
 from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
     chunk_document_with_pages,
+    enforce_embedding_chunk_budget,
+    summarize_chunk_split_telemetry,
     delete_points_for_doc,
     embed_texts,
     make_point_id,
@@ -41,6 +52,10 @@ from app.services.queue import (
     is_paused,
     set_running_task,
     clear_running_task,
+    enqueue_task,
+    enqueue_task_delayed,
+    move_due_delayed_tasks,
+    add_dead_letter,
 )
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
@@ -53,6 +68,10 @@ from app.services.suggestion_store import audit_suggestion_run, persist_suggesti
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services import vision_ocr
 from app.services.text_cleaning import clean_ocr_text
+from app.services.error_types import classify_worker_error
+from app.services.error_types import is_retryable_error_type
+from app.services.error_types import task_source_from_payload
+from app.services.logging_setup import configure_logging, log_event
 from app.services.hierarchical_summary import (
     generate_global_summary,
     generate_page_notes,
@@ -64,6 +83,12 @@ from app.services.hierarchical_summary import (
 )
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
+from app.services.task_runs import (
+    create_task_run,
+    find_latest_checkpoint,
+    finish_task_run,
+    update_task_run_checkpoint,
+)
 import json
 
 logger = logging.getLogger(__name__)
@@ -79,6 +104,105 @@ def _page_text_value(page: object) -> str:
     if isinstance(raw_text, str):
         return clean_ocr_text(raw_text)
     return ""
+
+
+def _set_task_checkpoint(
+    db: Session,
+    *,
+    run_id: int | None,
+    stage: str,
+    current: int | None = None,
+    total: int | None = None,
+    extra: dict | None = None,
+) -> None:
+    if run_id is None:
+        return
+    payload = {"stage": stage}
+    if current is not None:
+        payload["current"] = int(current)
+    if total is not None:
+        payload["total"] = int(total)
+    if extra:
+        payload.update(extra)
+    try:
+        update_task_run_checkpoint(db, run_id=run_id, checkpoint=payload)
+    except Exception:
+        logger.warning("Failed to persist task checkpoint run_id=%s stage=%s", run_id, stage)
+
+
+def _get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
+    if run_id is None:
+        return None
+    row = db.get(TaskRun, run_id)
+    if not row or not row.checkpoint_json:
+        return None
+    raw = str(row.checkpoint_json).strip()
+    if not raw.startswith(("{", "[")):
+        return None
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _resume_stage_current(
+    checkpoint: dict | None,
+    *,
+    stage: str,
+    source: str | None = None,
+    total: int | None = None,
+) -> int:
+    if not checkpoint:
+        return 0
+    candidate = checkpoint
+    resume_from = checkpoint.get("resume_from")
+    if isinstance(resume_from, dict):
+        candidate = resume_from
+    if str(candidate.get("stage") or "").strip() != stage:
+        return 0
+    candidate_source = str(candidate.get("source") or "").strip()
+    if source and candidate_source and candidate_source != source:
+        return 0
+    if total is not None:
+        candidate_total = candidate.get("total")
+        if isinstance(candidate_total, int) and candidate_total > 0 and candidate_total != total:
+            return 0
+    try:
+        current = int(candidate.get("current") or 0)
+    except Exception:
+        return 0
+    if total is not None:
+        return max(0, min(current, int(total)))
+    return max(0, current)
+
+
+def _vision_ocr_batch_size(
+    *,
+    total_pages: int,
+    configured_batch_size: int,
+) -> int:
+    # Large runs checkpoint more frequently and reduce rework on retries.
+    if total_pages >= 300:
+        return min(configured_batch_size, 5)
+    if total_pages >= 120:
+        return min(configured_batch_size, 10)
+    return configured_batch_size
+
+
+def _embedding_checkpoint_batch_size(
+    *,
+    total_chunks: int,
+    configured_batch_size: int,
+) -> int:
+    # Very large chunk sets use smaller batches to report progress more often.
+    if total_chunks >= 1200:
+        return min(configured_batch_size, 4)
+    if total_chunks >= 600:
+        return min(configured_batch_size, 6)
+    if total_chunks >= 250:
+        return min(configured_batch_size, 8)
+    return configured_batch_size
 
 
 def _join_page_texts_limited(pages: Iterable[object], max_chars: int) -> str:
@@ -240,7 +364,7 @@ def _build_distilled_context_from_hier_summary(
     return "\n\n".join(parts).strip()
 
 
-def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
+def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str, run_id: int | None = None) -> None:
     content_value = clean_ocr_text(doc.content or "")
     page_texts = (baseline_pages or []) + (vision_pages or [])
     hash_source = (
@@ -251,7 +375,6 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
 
     ensure_embedding_collection(settings)
-    delete_points_for_doc(settings, doc.id)
     normalized_baseline_pages = []
     for page in baseline_pages or []:
         normalized_baseline_pages.append(
@@ -280,7 +403,8 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         if normalized_vision_pages
         else []
     )
-    chunks = baseline_chunks + vision_chunks
+    chunks = enforce_embedding_chunk_budget(settings, baseline_chunks + vision_chunks)
+    telemetry: dict[str, int] = summarize_chunk_split_telemetry(chunks)
     max_chunks = max(0, int(settings.embedding_max_chunks_per_doc))
     if max_chunks > 0 and len(chunks) > max_chunks:
         logger.warning(
@@ -291,18 +415,54 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         )
         chunks = chunks[:max_chunks]
 
-    batch_size = max(1, int(settings.embedding_batch_size))
-    for start in range(0, len(chunks), batch_size):
+    configured_batch_size = max(1, int(settings.embedding_batch_size))
+    batch_size = _embedding_checkpoint_batch_size(
+        total_chunks=len(chunks),
+        configured_batch_size=configured_batch_size,
+    )
+    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+    resume_current = _resume_stage_current(
+        checkpoint,
+        stage="embedding_chunks",
+        source=embedding_source,
+        total=len(chunks),
+    )
+    start_index = max(0, min(resume_current, len(chunks)))
+    if start_index <= 0:
+        delete_points_for_doc(settings, doc.id, source=embedding_source)
+    else:
+        logger.info(
+            "Embedding resume doc=%s source=%s start_chunk=%s total=%s",
+            doc.id,
+            embedding_source,
+            start_index,
+            len(chunks),
+        )
+
+    _set_task_checkpoint(
+        db,
+        run_id=run_id,
+        stage="embedding_chunks",
+        current=start_index,
+        total=len(chunks),
+        extra={
+            "source": embedding_source,
+            "batch_size": batch_size,
+            "resumed": start_index > 0,
+            **telemetry,
+        },
+    )
+    for start in range(start_index, len(chunks), batch_size):
         chunk_batch = chunks[start : start + batch_size]
         texts = [str(chunk["text"]) for chunk in chunk_batch]
-        vectors = embed_texts(settings, texts)
+        vectors = embed_texts(settings, texts, telemetry=telemetry)
         points = []
         for offset, (chunk, vector) in enumerate(zip(chunk_batch, vectors)):
             chunk_idx = start + offset
             chunk_text_value = texts[offset]
             points.append(
                 {
-                    "id": make_point_id(doc.id, chunk_idx),
+                    "id": make_point_id(doc.id, chunk_idx, embedding_source),
                     "vector": vector,
                     "payload": {
                         "doc_id": doc.id,
@@ -323,6 +483,14 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
             min(start + len(chunk_batch), len(chunks)),
             len(chunks),
         )
+        _set_task_checkpoint(
+            db,
+            run_id=run_id,
+            stage="embedding_chunks",
+            current=min(start + len(chunk_batch), len(chunks)),
+            total=len(chunks),
+            extra={"source": embedding_source, "batch_size": batch_size, **telemetry},
+        )
 
     existing = db.get(DocumentEmbedding, doc.id)
     if not existing:
@@ -331,7 +499,11 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     existing.content_hash = content_hash
     existing.embedding_model = settings.embedding_model
     existing.embedded_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
-    existing.embedding_source = embedding_source
+    previous_source = str(existing.embedding_source or "").strip().lower()
+    if previous_source == "both" or (previous_source and previous_source != embedding_source):
+        existing.embedding_source = "both"
+    else:
+        existing.embedding_source = embedding_source
     existing.chunk_count = len(chunks)
     db.commit()
 
@@ -350,7 +522,7 @@ def _process_sync_only(settings, db: Session, doc_id: int) -> None:
         ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
 
 
-def _process_doc(settings, db: Session, doc_id: int) -> None:
+def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort doc=%s", doc_id)
         return
@@ -381,15 +553,16 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         baseline_pages,
         vision_pages,
         "vision" if vision_pages else "paperless",
+        run_id=run_id,
     )
 
     if _is_large_doc(settings, doc):
-        _process_page_notes(settings, db, doc_id, source="paperless_ocr")
+        _process_page_notes(settings, db, doc_id, source="paperless_ocr", run_id=run_id)
         if vision_pages:
-            _process_page_notes(settings, db, doc_id, source="vision_ocr")
-            _process_summary_hierarchical(settings, db, doc_id, source="vision_ocr")
+            _process_page_notes(settings, db, doc_id, source="vision_ocr", run_id=run_id)
+            _process_summary_hierarchical(settings, db, doc_id, source="vision_ocr", run_id=run_id)
         else:
-            _process_summary_hierarchical(settings, db, doc_id, source="paperless_ocr")
+            _process_summary_hierarchical(settings, db, doc_id, source="paperless_ocr", run_id=run_id)
 
     # Suggestions
     tags = get_cached_tags(settings)
@@ -461,7 +634,7 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
             model_name=settings.text_model,
         )
 
-def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
+def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort vision OCR doc=%s", doc_id)
         return
@@ -506,6 +679,10 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         batch_size = configured_batch_size
 
     total_pages = len(target_pages) if target_pages is not None else int(doc.page_count or 0)
+    batch_size = _vision_ocr_batch_size(
+        total_pages=max(0, int(total_pages)),
+        configured_batch_size=max(1, int(batch_size)),
+    )
     logger.info(
         "Vision OCR start doc=%s expected_pages=%s existing_pages=%s remaining=%s batch_size=%s force=%s",
         doc_id,
@@ -518,6 +695,7 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
 
     processed_any = False
     if target_pages is None:
+        _set_task_checkpoint(db, run_id=run_id, stage="vision_ocr", current=0, total=0, extra={"mode": "all"})
         generated = vision_ocr.ocr_pdf_pages(
             settings,
             pdf_bytes,
@@ -534,8 +712,30 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
             )
             processed_any = True
     else:
-        processed = 0
-        for start in range(0, len(target_pages), batch_size):
+        checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+        resume_current = _resume_stage_current(
+            checkpoint,
+            stage="vision_ocr",
+            total=len(target_pages),
+        )
+        start_index = max(0, min(resume_current, len(target_pages)))
+        if start_index > 0:
+            logger.info(
+                "Vision OCR resume doc=%s start=%s total=%s",
+                doc_id,
+                start_index,
+                len(target_pages),
+            )
+        processed = start_index
+        _set_task_checkpoint(
+            db,
+            run_id=run_id,
+            stage="vision_ocr",
+            current=processed,
+            total=len(target_pages),
+            extra={"mode": "pages", "batch_size": batch_size, "resumed": start_index > 0},
+        )
+        for start in range(start_index, len(target_pages), batch_size):
             if is_cancel_requested(settings):
                 logger.info(
                     "Worker cancel requested; stop vision OCR doc=%s processed=%s/%s",
@@ -567,6 +767,14 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
                 processed,
                 len(target_pages),
             )
+            _set_task_checkpoint(
+                db,
+                run_id=run_id,
+                stage="vision_ocr",
+                current=processed,
+                total=len(target_pages),
+                extra={"mode": "pages", "batch_size": batch_size},
+            )
 
     if processed_any:
         ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=force)
@@ -592,7 +800,7 @@ def _process_cleanup_texts(
     )
 
 
-def _process_page_notes(settings, db: Session, doc_id: int, source: str) -> None:
+def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort page notes doc=%s source=%s", doc_id, source)
         return
@@ -613,7 +821,32 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str) -> None
     if not pages:
         logger.info("Page notes skipped (no pages) doc=%s source=%s", doc_id, source)
         return
-    for page in pages:
+    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+    resume_current = _resume_stage_current(
+        checkpoint,
+        stage="page_notes",
+        source=source,
+        total=len(pages),
+    )
+    start_index = max(0, min(resume_current, len(pages)))
+    if start_index > 0:
+        logger.info(
+            "Page notes resume doc=%s source=%s start=%s total=%s",
+            doc_id,
+            source,
+            start_index,
+            len(pages),
+        )
+    _set_task_checkpoint(
+        db,
+        run_id=run_id,
+        stage="page_notes",
+        current=start_index,
+        total=len(pages),
+        extra={"source": source, "resumed": start_index > 0},
+    )
+    processed_pages = start_index
+    for page in pages[start_index:]:
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; stop page notes doc=%s source=%s", doc_id, source)
             return
@@ -657,9 +890,19 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str) -> None
                 model_name=settings.text_model,
             )
             logger.warning("Page notes failed doc=%s page=%s source=%s error=%s", doc_id, page.page, source, exc)
+        finally:
+            processed_pages += 1
+            _set_task_checkpoint(
+                db,
+                run_id=run_id,
+                stage="page_notes",
+                current=processed_pages,
+                total=len(pages),
+                extra={"source": source},
+            )
 
 
-def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: str) -> None:
+def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: str, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort hierarchical summary doc=%s", doc_id)
         return
@@ -708,8 +951,64 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
         max_pages=settings.summary_section_pages,
         max_input_tokens=settings.section_summary_max_input_tokens,
     )
+    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+    resume_current = _resume_stage_current(
+        checkpoint,
+        stage="summary_sections",
+        source=source,
+        total=len(sections),
+    )
+    start_index = max(0, min(resume_current, len(sections)))
+    persisted_by_key: dict[str, dict] = {}
+    if start_index > 0:
+        persisted_rows = (
+            db.query(DocumentSectionSummary)
+            .filter(
+                DocumentSectionSummary.doc_id == doc_id,
+                DocumentSectionSummary.source == source,
+                DocumentSectionSummary.status == "ok",
+            )
+            .all()
+        )
+        for row in persisted_rows:
+            try:
+                payload = json.loads(row.summary_json or "{}")
+            except Exception:
+                continue
+            if isinstance(payload, dict):
+                persisted_by_key[str(row.section_key)] = payload
+        required_keys = [str(sections[i][0]) for i in range(start_index)]
+        if not all(key in persisted_by_key for key in required_keys):
+            logger.info(
+                "Summary resume reset doc=%s source=%s reason=missing_persisted_sections",
+                doc_id,
+                source,
+            )
+            start_index = 0
+            persisted_by_key = {}
+        else:
+            logger.info(
+                "Summary resume doc=%s source=%s start=%s total=%s",
+                doc_id,
+                source,
+                start_index,
+                len(sections),
+            )
+    _set_task_checkpoint(
+        db,
+        run_id=run_id,
+        stage="summary_sections",
+        current=start_index,
+        total=len(sections),
+        extra={"source": source, "resumed": start_index > 0},
+    )
     section_payloads: list[tuple[str, dict]] = []
-    for section_key, page_notes in sections:
+    if start_index > 0:
+        for section_key, _ in sections[:start_index]:
+            cached = persisted_by_key.get(str(section_key))
+            if cached is not None:
+                section_payloads.append((section_key, cached))
+    for section_index, (section_key, page_notes) in enumerate(sections[start_index:], start=start_index + 1):
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; stop section summaries doc=%s", doc_id)
             return
@@ -724,6 +1023,15 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
             section_payloads.append((section_key, section_summary))
         except Exception as exc:
             logger.warning("Section summary failed doc=%s section=%s error=%s", doc_id, section_key, exc)
+        finally:
+            _set_task_checkpoint(
+                db,
+                run_id=run_id,
+                stage="summary_sections",
+                current=section_index,
+                total=len(sections),
+                extra={"source": source},
+            )
     if not section_payloads:
         return
     replace_section_summaries(
@@ -760,7 +1068,7 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
         action="hierarchical_summary_generate",
     )
 
-def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
+def _process_embeddings_paperless(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
         return
@@ -772,10 +1080,10 @@ def _process_embeddings_paperless(settings, db: Session, doc_id: int) -> None:
         doc.content,
         fetch_pdf_bytes=lambda: fetch_pdf_bytes_for_doc(settings, doc),
     )
-    _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless")
+    _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless", run_id=run_id)
 
 
-def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
+def _process_embeddings_vision(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
         return
@@ -788,7 +1096,7 @@ def _process_embeddings_vision(settings, db: Session, doc_id: int) -> None:
         doc,
         force_vision=False,
     )
-    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages, "vision")
+    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages, "vision", run_id=run_id)
 
 
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
@@ -934,11 +1242,19 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
     db.commit()
 
 
-def _dispatch_task(settings, db: Session, task_type: str, doc_id: int, task: dict | None) -> None:
+def _dispatch_task(
+    settings,
+    db: Session,
+    task_type: str,
+    doc_id: int,
+    task: dict | None,
+    *,
+    run_id: int | None = None,
+) -> None:
     handlers = {
         "sync": lambda: _process_sync_only(settings, db, doc_id),
-        "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id),
-        "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id),
+        "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id, run_id=run_id),
+        "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id, run_id=run_id),
         "cleanup_texts": lambda: _process_cleanup_texts(
             settings,
             db,
@@ -946,13 +1262,14 @@ def _dispatch_task(settings, db: Session, task_type: str, doc_id: int, task: dic
             source=str((task or {}).get("source")) if (task or {}).get("source") else None,
             clear_first=bool((task or {}).get("clear_first")),
         ),
-        "page_notes_paperless": lambda: _process_page_notes(settings, db, doc_id, "paperless_ocr"),
-        "page_notes_vision": lambda: _process_page_notes(settings, db, doc_id, "vision_ocr"),
+        "page_notes_paperless": lambda: _process_page_notes(settings, db, doc_id, "paperless_ocr", run_id=run_id),
+        "page_notes_vision": lambda: _process_page_notes(settings, db, doc_id, "vision_ocr", run_id=run_id),
         "summary_hierarchical": lambda: _process_summary_hierarchical(
             settings,
             db,
             doc_id,
             str((task or {}).get("source") or "vision_ocr"),
+            run_id=run_id,
         ),
         "suggestions_paperless": lambda: _process_suggestions_paperless(settings, db, doc_id),
         "suggestions_vision": lambda: _process_suggestions_vision(settings, db, doc_id),
@@ -960,17 +1277,18 @@ def _dispatch_task(settings, db: Session, task_type: str, doc_id: int, task: dic
     }
     if task_type == "vision_ocr":
         force = bool(task.get("force")) if isinstance(task, dict) else False
-        _process_vision_ocr_only(settings, db, doc_id, force=force)
+        _process_vision_ocr_only(settings, db, doc_id, force=force, run_id=run_id)
         return
     handler = handlers.get(task_type)
     if handler:
         handler()
         return
-    _process_doc(settings, db, doc_id)
+    _process_doc(settings, db, doc_id, run_id=run_id)
 
 
 def main() -> None:
     settings = load_settings()
+    configure_logging(settings, service="worker")
     if not settings.queue_enabled:
         raise SystemExit("QUEUE_ENABLED is not set")
     client = _get_client(settings)
@@ -1016,6 +1334,7 @@ def main() -> None:
             if is_paused(settings):
                 time.sleep(0.5)
                 continue
+            move_due_delayed_tasks(settings, limit=100)
             if is_cancel_requested(settings):
                 logger.info("Worker cancel requested; clearing queue")
                 clear_queue(settings)
@@ -1054,11 +1373,131 @@ def main() -> None:
             set_running_task(settings, running_task)
             mark_in_progress(settings)
             run_started = time.time()
+            run_id: int | None = None
+            run_status = "completed"
+            run_error_type: str | None = None
+            run_error_message: str | None = None
+            pending_retry_payload: dict | None = None
+            pending_retry_delay_seconds: int | None = None
+            pending_dead_letter: dict | None = None
+            retry_attempt = 0
+            if isinstance(task, dict):
+                try:
+                    retry_attempt = int(task.get("retry_count") or 0)
+                except Exception:
+                    retry_attempt = 0
             try:
                 with SessionLocal() as db:
-                    _dispatch_task(settings, db, task_type, doc_id, task if isinstance(task, dict) else None)
+                    task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
+                    source = task_source_from_payload(task if isinstance(task, dict) else None)
+                    run_row = create_task_run(
+                        db,
+                        doc_id=doc_id,
+                        task=task_type,
+                        source=source,
+                        payload=task_payload,
+                        worker_id=worker_token,
+                        attempt=retry_attempt + 1,
+                    )
+                    run_id = int(run_row.id)
+                    if retry_attempt > 0:
+                        previous_checkpoint = find_latest_checkpoint(
+                            db,
+                            doc_id=doc_id,
+                            task=task_type,
+                            source=source,
+                        )
+                        if previous_checkpoint:
+                            _set_task_checkpoint(
+                                db,
+                                run_id=run_id,
+                                stage="resume",
+                                extra={"resume_from": previous_checkpoint},
+                            )
+                    try:
+                        _dispatch_task(
+                            settings,
+                            db,
+                            task_type,
+                            doc_id,
+                            task if isinstance(task, dict) else None,
+                            run_id=run_id,
+                        )
+                    except Exception as exc:
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+                        run_status = "failed"
+                        run_error_type = classify_worker_error(exc)
+                        run_error_message = str(exc)
+                        log_event(
+                            logger,
+                            logging.ERROR,
+                            "Worker task failed",
+                            doc_id=doc_id,
+                            task=task_type,
+                            retry_attempt=retry_attempt + 1,
+                            error_type=run_error_type,
+                            error_message=run_error_message,
+                        )
+                        logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
+                    finally:
+                        duration_ms = int(max(0.0, (time.time() - run_started) * 1000))
+                        should_retry = bool(
+                            run_status == "failed"
+                            and run_error_type
+                            and is_retryable_error_type(run_error_type)
+                            and retry_attempt < settings.worker_max_retries
+                            and isinstance(task_payload, dict)
+                        )
+                        if should_retry:
+                            retry_payload = dict(task_payload)
+                            retry_payload["retry_count"] = retry_attempt + 1
+                            pending_retry_payload = retry_payload
+                            pending_retry_delay_seconds = min(300, 5 * (2 ** retry_attempt))
+                            run_status = "retrying"
+                            log_event(
+                                logger,
+                                logging.WARNING,
+                                "Worker task requeued",
+                                doc_id=doc_id,
+                                task=task_type,
+                                retry_attempt=retry_attempt + 1,
+                                max_retries=settings.worker_max_retries,
+                                error_type=run_error_type,
+                            )
+                        elif run_status == "failed":
+                            pending_dead_letter = {
+                                "task": task_payload if isinstance(task_payload, dict) else {"doc_id": doc_id, "task": task_type},
+                                "error_type": run_error_type or "WORKER_TASK_ERROR",
+                                "error_message": run_error_message or "unknown error",
+                                "attempt": retry_attempt + 1,
+                            }
+                        if run_id is not None:
+                            try:
+                                db.rollback()
+                            except Exception:
+                                pass
+                            finish_task_run(
+                                db,
+                                run_id=run_id,
+                                status=run_status,
+                                duration_ms=duration_ms,
+                                error_type=run_error_type,
+                                error_message=run_error_message,
+                            )
             except Exception as exc:
-                logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "Worker loop task bookkeeping failed",
+                    doc_id=doc_id,
+                    task=task_type,
+                    error_type=classify_worker_error(exc),
+                    error_message=str(exc),
+                )
+                logger.exception("Worker bookkeeping failed doc=%s task=%s", doc_id, task_type)
             finally:
                 clear_running_task(settings)
                 mark_done(settings)
@@ -1068,11 +1507,21 @@ def main() -> None:
                         client.srem(QUEUE_SET, task_key(task))
                     else:
                         client.srem(QUEUE_SET, str(doc_id))
+                if pending_retry_payload is not None:
+                    enqueue_task_delayed(settings, pending_retry_payload, pending_retry_delay_seconds or 5)
+                elif pending_dead_letter is not None:
+                    add_dead_letter(
+                        settings,
+                        task=pending_dead_letter["task"],
+                        error_type=str(pending_dead_letter["error_type"]),
+                        error_message=str(pending_dead_letter["error_message"]),
+                        attempt=int(pending_dead_letter["attempt"]),
+                    )
     finally:
         stop_event.set()
+        clear_running_task(settings)
         release_worker_lock(settings, worker_token)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     main()

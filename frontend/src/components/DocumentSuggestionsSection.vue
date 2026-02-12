@@ -136,17 +136,17 @@
 
             <div
               v-if="
-                (bestPickPanel.suggestion.data.suggested_tags_existing || []).length ||
-                (bestPickPanel.suggestion.data.suggested_tags_new || []).length
+                tagList(bestPickPanel.suggestion.data, 'suggested_tags_existing').length ||
+                tagList(bestPickPanel.suggestion.data, 'suggested_tags_new').length
               "
               class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
             >
               <div>
                 Existing tags:
-                {{ (bestPickPanel.suggestion.data.suggested_tags_existing || []).join(', ') }}
+                {{ tagList(bestPickPanel.suggestion.data, 'suggested_tags_existing').join(', ') }}
               </div>
               <div>
-                New tags: {{ (bestPickPanel.suggestion.data.suggested_tags_new || []).join(', ') }}
+                New tags: {{ tagList(bestPickPanel.suggestion.data, 'suggested_tags_new').join(', ') }}
               </div>
             </div>
 
@@ -307,17 +307,17 @@
 
               <div
                 v-if="
-                  (panel.suggestion.data.suggested_tags_existing || []).length ||
-                  (panel.suggestion.data.suggested_tags_new || []).length
+                  tagList(panel.suggestion.data, 'suggested_tags_existing').length ||
+                  tagList(panel.suggestion.data, 'suggested_tags_new').length
                 "
                 class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               >
                 <div>
                   Existing tags:
-                  {{ (panel.suggestion.data.suggested_tags_existing || []).join(', ') }}
+                  {{ tagList(panel.suggestion.data, 'suggested_tags_existing').join(', ') }}
                 </div>
                 <div>
-                  New tags: {{ (panel.suggestion.data.suggested_tags_new || []).join(', ') }}
+                  New tags: {{ tagList(panel.suggestion.data, 'suggested_tags_new').join(', ') }}
                 </div>
               </div>
 
@@ -414,6 +414,7 @@ import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 type SuggestionPayload = Record<string, unknown>
+type SuggestionSource = 'paperless_ocr' | 'vision_ocr'
 type SuggestionState = {
   paperless_ocr?: SuggestionPayload
   vision_ocr?: SuggestionPayload
@@ -438,10 +439,10 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'refresh', source: 'paperless_ocr' | 'vision_ocr'): void
-  (e: 'suggestField', source: 'paperless_ocr' | 'vision_ocr', field: string): void
-  (e: 'applyVariant', source: 'paperless_ocr' | 'vision_ocr', field: string, value: unknown): void
-  (e: 'applyVariantToDocument', source: 'paperless_ocr' | 'vision_ocr', field: string, value: unknown): void
+  (e: 'refresh', source: SuggestionSource): void
+  (e: 'suggestField', source: SuggestionSource, field: string): void
+  (e: 'applyVariant', source: SuggestionSource, field: string, value: unknown): void
+  (e: 'applyVariantToDocument', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyToDocument', source: string, field: string, value: unknown): void
 }>()
 
@@ -506,7 +507,12 @@ const panels = computed(() => [
 ])
 
 const bestPickPanel = computed(() => panels.value[0])
-const sidePanels = computed(() => panels.value.slice(1))
+const sidePanels = computed(() =>
+  panels.value.filter(
+    (panel): panel is (typeof panels.value)[number] & { source: SuggestionSource } =>
+      panel.source !== null,
+  ),
+)
 
 const suggestionMetaLine = (source: string) => {
   const meta = suggestionsMeta.value?.[source]
@@ -555,6 +561,12 @@ const normalizedTags = (data: SuggestionPayload): string[] => {
   return [String(raw)]
 }
 
+const tagList = (data: SuggestionPayload, field: string): string[] => {
+  const value = data[field]
+  if (Array.isArray(value)) return value.map((entry) => String(entry)).filter(Boolean)
+  return []
+}
+
 const currentValueFor = (field: string) => {
   if (field === 'title') return props.currentValues.title
   if (field === 'date') return props.currentValues.date
@@ -563,32 +575,32 @@ const currentValueFor = (field: string) => {
   return ''
 }
 
-const isVariantBusy = (source: 'paperless_ocr' | 'vision_ocr') =>
+const isVariantBusy = (source: SuggestionSource) =>
   Object.entries(props.suggestionVariantLoading).some(
     ([key, value]) => key.startsWith(`${source}:`) && value,
   )
 
-const isVariantLoading = (source: 'paperless_ocr' | 'vision_ocr', field: string) =>
+const isVariantLoading = (source: SuggestionSource, field: string) =>
   Boolean(props.suggestionVariantLoading[`${source}:${field}`])
 
-const variantsFor = (source: 'paperless_ocr' | 'vision_ocr', field: string) =>
+const variantsFor = (source: SuggestionSource, field: string) =>
   props.suggestionVariants[`${source}:${field}`] || []
 
-const variantError = (source: 'paperless_ocr' | 'vision_ocr', field: string) =>
+const variantError = (source: SuggestionSource, field: string) =>
   props.suggestionVariantError[`${source}:${field}`] || ''
 
-const generateAllVariants = (source: 'paperless_ocr' | 'vision_ocr') => {
+const generateAllVariants = (source: SuggestionSource) => {
   suggestionFields.forEach((field) => emit('suggestField', source, field.key))
 }
 
 const showVariantDialog = ref(false)
-const variantDialog = ref<{ source: 'paperless_ocr' | 'vision_ocr'; field: string; value: unknown } | null>(null)
+const variantDialog = ref<{ source: SuggestionSource; field: string; value: unknown } | null>(null)
 const showApplyDialog = ref(false)
 const applyDialog = ref<{ source: string; field: string; value: unknown; label: string } | null>(
   null,
 )
 
-const openVariantDialog = (source: 'paperless_ocr' | 'vision_ocr', field: string, value: unknown) => {
+const openVariantDialog = (source: SuggestionSource, field: string, value: unknown) => {
   variantDialog.value = { source, field, value }
   showVariantDialog.value = true
 }

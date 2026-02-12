@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
@@ -24,6 +25,7 @@ from app.api_models import (
     WritebackJobDetail,
     WritebackExecutePendingRequest,
     WritebackExecutePendingResponse,
+    WritebackExecutePendingJobResult,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
     WritebackJobSummary,
@@ -44,6 +46,19 @@ router = APIRouter(prefix="/writeback", tags=["writeback"])
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _next_local_note_id(db: Session) -> int:
+    min_id = db.query(func.min(DocumentNote.id)).scalar()
+    if min_id is None:
+        return -1
+    try:
+        value = int(min_id)
+    except Exception:
+        return -1
+    if value >= 0:
+        return -1
+    return value - 1
 
 
 def _missing_writeback_jobs_table(exc: Exception) -> bool:
@@ -533,6 +548,7 @@ def _sync_local_field_from_paperless(
         if remote_note_id and remote_note_text:
             db.add(
                 DocumentNote(
+                    id=_next_local_note_id(db),
                     document_id=local_doc.id,
                     note=remote_note_text,
                     created=_now_iso(),
@@ -1000,11 +1016,25 @@ def execute_pending_writeback_jobs(
     failed = 0
     processed_ids: list[int] = []
     processed_doc_ids: set[int] = set()
+    job_results: list[WritebackExecutePendingJobResult] = []
     for job in pending_jobs:
         processed_ids.append(int(job.id))
         result = _run_job_execution(settings, db, job, request.dry_run)
-        for doc_id in _deserialize_doc_ids(result):
+        result_doc_ids = _deserialize_doc_ids(result)
+        for doc_id in result_doc_ids:
             processed_doc_ids.add(int(doc_id))
+        job_results.append(
+            WritebackExecutePendingJobResult(
+                job_id=int(result.id),
+                status=result.status,
+                dry_run=bool(result.dry_run),
+                docs_selected=int(result.docs_selected or 0),
+                docs_changed=int(result.docs_changed or 0),
+                calls_count=int(result.calls_count or 0),
+                doc_ids=result_doc_ids,
+                error=result.error,
+            )
+        )
         if result.status == "completed":
             completed += 1
         else:
@@ -1016,4 +1046,5 @@ def execute_pending_writeback_jobs(
         failed=failed,
         job_ids=processed_ids,
         doc_ids=sorted(processed_doc_ids),
+        results=job_results,
     )

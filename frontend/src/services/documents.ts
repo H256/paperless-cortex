@@ -30,6 +30,7 @@ import {
   getDashboardDocumentsDashboardGet,
   syncTagsSyncTagsPost,
   syncCorrespondentsSyncCorrespondentsPost,
+  getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet,
 } from '../api/generated/client'
 import type {
   ApplyFieldSuggestionResponse,
@@ -75,6 +76,8 @@ import type {
   TagResponse,
   TagsPageResponse,
   SyncSimpleResponse,
+  DocumentPipelineFanoutResponse,
+  GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,
 } from '@/api/generated/model'
 
 export type DocumentRow = DocumentSummary
@@ -255,6 +258,50 @@ export type DocumentResetReprocessResult = {
   enqueued: number
 }
 
+export type DocumentPipelineStepStatus = {
+  key: string
+  required: boolean
+  done: boolean
+  detail?: string | null
+}
+
+export type DocumentPipelineStatus = {
+  doc_id: number
+  preferred_source: string
+  is_large_document: boolean
+  sync_ok: boolean
+  paperless_ok: boolean
+  vision_ok: boolean
+  large_ok: boolean
+  steps: DocumentPipelineStepStatus[]
+  missing_tasks: Array<Record<string, unknown>>
+}
+
+export type ContinuePipelinePayload = {
+  dry_run?: boolean
+  include_sync?: boolean
+  include_vision_ocr?: boolean
+  include_embeddings?: boolean
+  include_embeddings_paperless?: boolean
+  include_embeddings_vision?: boolean
+  include_page_notes?: boolean
+  include_summary_hierarchical?: boolean
+  include_suggestions_paperless?: boolean
+  include_suggestions_vision?: boolean
+  embeddings_mode?: 'auto' | 'paperless' | 'vision' | 'both'
+}
+
+export type ContinuePipelineResult = {
+  enabled: boolean
+  doc_id: number
+  dry_run: boolean
+  missing_tasks: number
+  enqueued: number
+}
+
+export type DocumentPipelineFanout = DocumentPipelineFanoutResponse
+export type PipelineFanoutParams = GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams
+
 export const cleanupTexts = (payload: CleanupTextsPayload) =>
   request<CleanupTextsResult>('/documents/cleanup-texts', { method: 'POST', body: payload })
 
@@ -268,4 +315,16 @@ export const resetAndReprocessDocument = (id: number, enqueue = true) =>
   request<DocumentResetReprocessResult>(`/documents/${id}/operations/reset-and-reprocess`, {
     method: 'POST',
     params: { enqueue },
+  })
+
+export const getDocumentPipelineStatus = (id: number) =>
+  request<DocumentPipelineStatus>(`/documents/${id}/pipeline-status`)
+
+export const getDocumentPipelineFanout = (id: number, params?: PipelineFanoutParams) =>
+  unwrap<DocumentPipelineFanout>(getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet(id, params))
+
+export const continueDocumentPipeline = (id: number, payload: ContinuePipelinePayload = {}) =>
+  request<ContinuePipelineResult>(`/documents/${id}/pipeline/continue`, {
+    method: 'POST',
+    params: payload,
   })

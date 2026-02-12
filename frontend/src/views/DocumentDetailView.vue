@@ -6,6 +6,12 @@
           {{ document?.title || `Document ${id}` }}
         </h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">{{ headerMetaLine }}</p>
+        <p
+          v-if="activeRunLabel"
+          class="mt-1 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+        >
+          Processing now: {{ activeRunLabel }}
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <IconButton
@@ -87,8 +93,8 @@
         :suggestion-variant-loading="suggestionVariantLoading"
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
-        @refresh="refreshSuggestions"
-        @suggest-field="suggestField"
+        @refresh="refreshSuggestionsAction"
+        @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantOnly"
         @apply-variant-to-document="applyVariantToDocument"
         @apply-to-document="applyToDocument"
@@ -115,6 +121,14 @@
               Trigger single processing steps or fully reset and rebuild this document.
             </p>
           </div>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading || pipelineStatusLoading || continuePipelineLoading"
+            title="Checks missing processing steps for this document and enqueues only those tasks."
+            @click="runContinuePipeline"
+          >
+            Continue missing processing
+          </button>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
@@ -125,6 +139,21 @@
             <div class="text-xs text-slate-500 dark:text-slate-300">
               Done {{ processingDoneCount }} / {{ processingRequiredCount }} required
             </div>
+          </div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-300">
+            Preferred source: {{ toTitle(pipelinePreferredSource) }}
+          </div>
+          <div class="mt-1 text-xs" :class="isLargeDocumentMode ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-300'">
+            {{ largeDocumentHint }}
+          </div>
+          <div v-if="pipelineStatusLoading" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            Loading pipeline status...
+          </div>
+          <div v-else-if="pipelineStatusError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+            {{ pipelineStatusError }}
+          </div>
+          <div v-else-if="!processingStatusItems.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            No processing status available.
           </div>
           <div class="mt-2 grid gap-2 md:grid-cols-2">
             <div
@@ -144,6 +173,145 @@
                 {{ processingStateLabel(item.state) }}
               </span>
             </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+              Downstream fan-out
+            </div>
+            <button
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              :disabled="pipelineFanoutLoading"
+              @click="reloadPipelineFanout"
+            >
+              {{ pipelineFanoutLoading ? 'Loading...' : 'Reload fan-out' }}
+            </button>
+          </div>
+          <div v-if="pipelineFanoutError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+            {{ pipelineFanoutError }}
+          </div>
+          <div v-else-if="!pipelineFanoutItems.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            No downstream fan-out tasks available.
+          </div>
+          <div v-else class="mt-2 overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="text-left text-slate-500 dark:text-slate-400">
+                <tr>
+                  <th class="px-2 py-1">#</th>
+                  <th class="px-2 py-1">Task</th>
+                  <th class="px-2 py-1">Status</th>
+                  <th class="px-2 py-1">Last run</th>
+                  <th class="px-2 py-1">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in pipelineFanoutItems" :key="`${item.order}-${item.task}-${item.source || ''}`" class="border-t border-slate-100 dark:border-slate-700">
+                  <td class="px-2 py-1.5">{{ item.order }}</td>
+                  <td class="px-2 py-1.5">{{ item.task }}<span v-if="item.source" class="text-slate-400"> ({{ item.source }})</span></td>
+                  <td class="px-2 py-1.5" :class="fanoutStatusClass(item.status)">{{ item.status }}</td>
+                  <td class="px-2 py-1.5" :title="toDateTime(item.last_started_at)">
+                    {{ toRelativeTime(item.last_started_at) }}
+                    <span v-if="item.checkpoint" class="ml-1 text-slate-400">· {{ checkpointLabel(item.checkpoint as Record<string, unknown>) }}</span>
+                  </td>
+                  <td class="px-2 py-1.5">{{ item.error_type || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+              Processing timeline
+            </div>
+            <div class="flex items-end gap-2">
+              <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
+                Status
+                <select
+                  v-model="timelineStatusFilter"
+                  class="mt-1 h-8 w-24 rounded-md border border-slate-200 bg-white px-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="">all</option>
+                  <option value="running">running</option>
+                  <option value="retrying">retrying</option>
+                  <option value="failed">failed</option>
+                  <option value="done">done</option>
+                </select>
+              </label>
+              <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
+                Search
+                <input
+                  v-model="timelineQueryFilter"
+                  type="text"
+                  placeholder="task/error..."
+                  class="mt-1 h-8 w-32 rounded-md border border-slate-200 bg-white px-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+              </label>
+              <button
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                :disabled="taskRunsLoading"
+                @click="refreshTaskRuns"
+              >
+                {{ taskRunsLoading ? 'Loading...' : 'Reload timeline' }}
+              </button>
+            </div>
+          </div>
+          <div v-if="taskRunsError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+            {{ taskRunsError }}
+          </div>
+          <div v-else-if="!taskRuns.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            No task runs for this document yet.
+          </div>
+          <div v-else class="mt-2 overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="text-left text-slate-500 dark:text-slate-400">
+                <tr>
+                  <th class="px-2 py-1">Started</th>
+                  <th class="px-2 py-1">Task</th>
+                  <th class="px-2 py-1">Status</th>
+                  <th class="px-2 py-1">Attempt</th>
+                  <th class="px-2 py-1">Checkpoint</th>
+                  <th class="px-2 py-1">Error</th>
+                  <th class="px-2 py-1">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="run in taskRuns" :key="run.id" class="border-t border-slate-100 dark:border-slate-700">
+                  <td class="px-2 py-1.5" :title="toDateTime(run.started_at)">{{ toRelativeTime(run.started_at) }}</td>
+                  <td class="px-2 py-1.5">{{ run.task }}</td>
+                  <td class="px-2 py-1.5" :class="run.status === 'failed' ? 'text-rose-700 dark:text-rose-300 font-semibold' : 'text-slate-700 dark:text-slate-200'">
+                    {{ run.status }}
+                  </td>
+                  <td class="px-2 py-1.5">{{ run.attempt ?? 1 }}</td>
+                  <td class="px-2 py-1.5">
+                    <div>{{ checkpointLabel(run.checkpoint) }}</div>
+                    <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="text-[11px] text-amber-600 dark:text-amber-300">
+                      {{ embeddingTelemetryLabel(run.checkpoint) }}
+                    </div>
+                  </td>
+                  <td class="px-2 py-1.5">
+                    <div>{{ run.error_type || '-' }}</div>
+                    <div v-if="run.error_message" class="text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
+                      {{ compactErrorMessage(run.error_message) }}
+                    </div>
+                  </td>
+                  <td class="px-2 py-1.5">
+                    <button
+                      v-if="run.status === 'failed'"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      :disabled="docOpsLoading"
+                      @click="retryTaskRun(run)"
+                    >
+                      Retry
+                    </button>
+                    <span v-else class="text-slate-400 dark:text-slate-500">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -304,7 +472,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { AlertTriangle, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
@@ -312,22 +479,25 @@ import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
-import { useDocumentDetailStore } from '../stores/documentDetailStore'
-import { useQueueStore } from '../stores/queueStore'
-import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
-import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
+import { useDocumentPipeline } from '../composables/useDocumentPipeline'
 import type { DocumentOperationTaskPayload } from '../services/documents'
+import { useDocumentOperations } from '../composables/useDocumentOperations'
+import { useDocumentDetailData } from '../composables/useDocumentDetailData'
+import { useAutoRefresh } from '../composables/useAutoRefresh'
+import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
+import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
+import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
+import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
+import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
-const documentStore = useDocumentDetailStore()
-const queueStore = useQueueStore()
-const statusStore = useStatusStore()
 const toastStore = useToastStore()
+const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const {
   document,
   loading,
@@ -348,12 +518,52 @@ const {
   suggestionVariants,
   suggestionVariantLoading,
   suggestionVariantError,
-} = storeToRefs(documentStore)
+  loadDocument,
+  loadMeta,
+  loadPageTexts,
+  loadContentQuality,
+  loadOcrScores,
+  loadSuggestions,
+  refreshSuggestions: refreshSuggestionsForSource,
+  suggestField,
+  applyVariant,
+  applyToDocument: applySuggestionToDocument,
+} = useDocumentDetailData()
+const {
+  pipelineStatus,
+  pipelineStatusLoading,
+  pipelineStatusError,
+  pipelineFanout,
+  pipelineFanoutLoading,
+  pipelineFanoutError,
+  refreshPipelineStatus,
+  refreshPipelineFanout,
+  continuePipeline: continuePipelineRequest,
+  continuePipelineLoading,
+} = useDocumentPipeline(computed(() => id))
+const {
+  loading: docOpsLoading,
+  enqueueTask: enqueueDocumentTaskNow,
+  cleanup: cleanupDocumentTexts,
+  resetAndReprocess: resetAndReprocessNow,
+} = useDocumentOperations(computed(() => id))
+const timelineStatusFilter = ref('')
+const timelineQueryFilter = ref('')
+const {
+  taskRuns,
+  taskRunsLoading,
+  taskRunsError,
+  refreshTaskRuns,
+} = useDocumentTaskRuns(() => id, {
+  status: timelineStatusFilter,
+  query: timelineQueryFilter,
+})
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
-const pdfHighlights = ref<number[][]>([])
+type BBox = [number, number, number, number]
+const pdfHighlights = ref<BBox[]>([])
 const tabs = [
   { key: 'meta', label: 'Metadata' },
   { key: 'text', label: 'Text & quality' },
@@ -413,7 +623,6 @@ const operationActions: OperationAction[] = [
 ]
 const activeTab = ref('meta')
 const reloadingAll = ref(false)
-const docOpsLoading = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
@@ -427,78 +636,19 @@ const writebackErrorMessage = ref('')
 const canWriteback = computed(() => document.value?.review_status === 'needs_review')
 type ProcessingState = 'done' | 'missing' | 'na'
 type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
+type TimelineTaskRun = {
+  task: string
+  source?: string | null
+  status: string
+}
 
-const preferredProcessingSource = computed(
-  () => (document.value?.preferred_processing_source === 'vision_ocr' ? 'vision_ocr' : 'paperless_ocr'),
-)
-const requiresVisionSource = computed(() => preferredProcessingSource.value === 'vision_ocr')
-const hasPreferredPageNotes = computed(() => {
-  if (preferredProcessingSource.value === 'vision_ocr') {
-    return Boolean(document.value?.has_complete_page_notes_vision)
-  }
-  return Boolean(document.value?.has_complete_page_notes_paperless)
-})
-const requiresLargeDocSteps = computed(() => Boolean(document.value?.is_large_document))
 const processingStatusItems = computed<ProcessingStatusItem[]>(() => {
-  const items: ProcessingStatusItem[] = [
-    {
-      label: 'Embeddings',
-      state: document.value?.has_embedding_for_preferred_source ? 'done' : 'missing',
-      detail: `Expected source: ${requiresVisionSource.value ? 'vision' : 'paperless'}, current: ${
-        document.value?.embedding_source || 'none'
-      }, chunks: ${document.value?.embedding_chunk_count ?? 0}.`,
-    },
-    {
-      label: 'Vision OCR',
-      state: requiresVisionSource.value
-        ? document.value?.has_complete_vision_pages
-          ? 'done'
-          : 'missing'
-        : 'na',
-      detail: requiresVisionSource.value
-        ? `Vision pages: ${document.value?.vision_pages_done ?? 0} / ${document.value?.vision_pages_expected ?? 0}.`
-        : 'Vision OCR is not the preferred processing source.',
-    },
-    {
-      label: 'Suggestions (paperless)',
-      state: document.value?.has_suggestions_paperless ? 'done' : 'missing',
-      detail: 'Suggestions generated from Paperless OCR.',
-    },
-    {
-      label: 'Suggestions (vision)',
-      state: requiresVisionSource.value
-        ? document.value?.has_suggestions_vision
-          ? 'done'
-          : 'missing'
-        : 'na',
-      detail: requiresVisionSource.value
-        ? 'Suggestions generated from Vision OCR.'
-        : 'Not required when processing source is paperless_ocr.',
-    },
-    {
-      label: `Page notes (${preferredProcessingSource.value === 'vision_ocr' ? 'vision' : 'paperless'})`,
-      state: requiresLargeDocSteps.value ? (hasPreferredPageNotes.value ? 'done' : 'missing') : 'na',
-      detail: requiresLargeDocSteps.value
-        ? `Page notes: ${
-            preferredProcessingSource.value === 'vision_ocr'
-              ? document.value?.page_notes_vision_done ?? 0
-              : document.value?.page_notes_paperless_done ?? 0
-          } / ${document.value?.page_notes_expected ?? 0}.`
-        : 'Page notes are only required for large documents.',
-    },
-    {
-      label: 'Hierarchical summary',
-      state: requiresLargeDocSteps.value
-        ? document.value?.has_hierarchical_summary
-          ? 'done'
-          : 'missing'
-        : 'na',
-      detail: requiresLargeDocSteps.value
-        ? 'Distilled multi-section summary for large documents.'
-        : 'Hierarchical summary is only required for large documents.',
-    },
-  ]
-  return items
+  if (!pipelineStatus.value?.steps?.length) return []
+  return pipelineStatus.value.steps.map((step) => ({
+    label: toTitle(step.key),
+    state: step.required ? (step.done ? 'done' : 'missing') : 'na',
+    detail: step.detail || '',
+  }))
 })
 const processingRequiredCount = computed(
   () => processingStatusItems.value.filter((item) => item.state !== 'na').length,
@@ -506,6 +656,31 @@ const processingRequiredCount = computed(
 const processingDoneCount = computed(
   () => processingStatusItems.value.filter((item) => item.state === 'done').length,
 )
+const pipelineFanoutItems = computed(() => pipelineFanout.value?.items || [])
+const activeRun = computed(() =>
+  taskRuns.value.find((run) => run.status === 'running' || run.status === 'retrying') ?? null,
+)
+const activeRunLabel = computed(() => {
+  const run = activeRun.value
+  if (!run) return ''
+  const stage = checkpointLabel(
+    run.checkpoint && typeof run.checkpoint === 'object'
+      ? (run.checkpoint as Record<string, unknown>)
+      : null,
+  )
+  return stage !== '-' ? `${run.task} (${stage})` : run.task
+})
+const shouldAutoRefreshTimeline = computed(() =>
+  taskRuns.value.some((run) => run.status === 'running' || run.status === 'retrying'),
+)
+const pipelinePreferredSource = computed(() => pipelineStatus.value?.preferred_source || 'paperless_ocr')
+const isLargeDocumentMode = computed(() => Boolean(pipelineStatus.value?.is_large_document))
+const largeDocumentHint = computed(() => {
+  if (isLargeDocumentMode.value) {
+    return 'Large-document mode active: page notes and hierarchical summary are required for complete processing.'
+  }
+  return 'Standard mode: large-document extras are not required for this document.'
+})
 const processingStateLabel = (state: ProcessingState) => {
   if (state === 'done') return 'Done'
   if (state === 'missing') return 'Missing'
@@ -516,19 +691,24 @@ const processingBadgeClass = (state: ProcessingState) => {
   if (state === 'missing') return 'text-amber-600 dark:text-amber-300'
   return 'text-slate-400 dark:text-slate-500'
 }
+const fanoutStatusClass = (status: string | null | undefined) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'done') return 'text-emerald-700 dark:text-emerald-300 font-semibold'
+  if (normalized === 'running' || normalized === 'retrying') return 'text-indigo-700 dark:text-indigo-300 font-semibold'
+  if (normalized === 'failed') return 'text-rose-700 dark:text-rose-300 font-semibold'
+  if (normalized === 'missing') return 'text-amber-700 dark:text-amber-300 font-semibold'
+  return 'text-slate-600 dark:text-slate-300'
+}
 
-const parseBBox = (value: unknown): number[] | null => {
+const parseBBox = (value: unknown): BBox | null => {
   if (!value) return null
   const raw = Array.isArray(value) ? value[0] : value
   if (typeof raw !== 'string') return null
   const parts = raw.split(',').map((part) => Number(part.trim()))
   if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return null
-  return parts as number[]
+  return parts as BBox
 }
 
-const paperlessBaseUrl = computed(
-  () => import.meta.env.VITE_PAPERLESS_BASE_URL || statusStore.paperlessBaseUrl || '',
-)
 const paperlessUrl = computed(() =>
   paperlessBaseUrl.value && document.value
     ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${document.value.id}`
@@ -546,8 +726,8 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const suggestField = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
-  await documentStore.suggestField(id, source, field)
+const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
+  await suggestField(id, source, field)
 }
 
 const applyVariantOnly = async (
@@ -555,7 +735,7 @@ const applyVariantOnly = async (
   field: string,
   value: unknown,
 ) => {
-  await documentStore.applyVariant(id, source, field, value)
+  await applyVariant(id, source, field, value)
 }
 
 const applyVariantToDocument = async (
@@ -563,10 +743,10 @@ const applyVariantToDocument = async (
   field: string,
   value: unknown,
 ) => {
-  await documentStore.applyVariant(id, source, field, value)
-  await documentStore.applyToDocument(id, { source, field, value })
+  await applyVariant(id, source, field, value)
+  await applySuggestionToDocument(id, { source, field, value })
   await load()
-  await loadSuggestions()
+  await loadSuggestionsForDoc()
 }
 
 const applyToDocument = async (source: string, field: string, value: unknown) => {
@@ -574,16 +754,16 @@ const applyToDocument = async (source: string, field: string, value: unknown) =>
     const reloadSuggestions = Boolean(suggestions.value)
     const reloadPages = pageTexts.value.length > 0
     const reloadQuality = Boolean(contentQuality.value)
-    await documentStore.applyToDocument(id, { source, field, value })
+    await applySuggestionToDocument(id, { source, field, value })
     await load()
     if (reloadSuggestions) {
-      await loadSuggestions()
+      await loadSuggestionsForDoc()
     }
     if (reloadPages) {
-      await loadPageTexts()
+      await loadPageTextsForDoc()
     }
     if (reloadQuality) {
-      await loadContentQuality()
+      await loadContentQualityForDoc()
     }
   } catch (err: unknown) {
     suggestionsError.value = errorMessage(err, 'Failed to apply suggestion to document')
@@ -606,12 +786,12 @@ const currentTagNames = computed(() =>
 
 const currentCorrespondentName = computed(() => {
   if (!document.value) return ''
-  return (
+  const value =
     document.value.correspondent_name ??
     correspondents.value.find((c) => c.id === document.value?.correspondent)?.name ??
     document.value.correspondent ??
     ''
-  )
+  return String(value)
 })
 
 const currentValues = computed(() => ({
@@ -700,25 +880,6 @@ const onPdfPageChange = (value: number) => {
   pdfHighlights.value = []
 }
 
-const conflictFieldLabel = (field: string) => {
-  if (field === 'issue_date' || field === 'document_date') return 'Issue date'
-  if (field === 'title') return 'Title'
-  if (field === 'correspondent') return 'Correspondent'
-  if (field === 'tags') return 'Tags'
-  if (field === 'note') return 'Note'
-  return field
-}
-
-const conflictValue = (value: unknown) => {
-  if (value === null || value === undefined || value === '') return '-'
-  if (typeof value === 'string') return value
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
 const runWritebackNowForDocument = async (
   resolutions?: Record<string, 'skip' | 'use_paperless' | 'use_local'>,
 ) => {
@@ -801,69 +962,100 @@ const formatDate = (value?: string | null) => {
   return new Intl.DateTimeFormat(navigator.language).format(parsed)
 }
 
-const formatDateTime = (value?: string | null) => {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat(navigator.language, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed)
+const toDateTime = (value?: string | null) => {
+  if (!value) return '-'
+  return formatDateTime(value) || value
+}
+
+const toRelativeTime = (value?: string | null) => {
+  return formatRelativeTime(value)
+}
+
+const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
+  return formatCheckpointLabel(checkpoint, '-')
+}
+
+const embeddingTelemetryLabel = (checkpoint?: Record<string, unknown> | null) => {
+  if (!checkpoint || typeof checkpoint !== 'object') return ''
+  const splitChunks = typeof checkpoint.split_chunks === 'number' ? checkpoint.split_chunks : null
+  const overflowCalls = typeof checkpoint.overflow_fallback_calls === 'number' ? checkpoint.overflow_fallback_calls : null
+  if ((splitChunks ?? 0) <= 0 && (overflowCalls ?? 0) <= 0) return ''
+  const parts: string[] = []
+  if ((splitChunks ?? 0) > 0) parts.push(`split chunks: ${splitChunks}`)
+  if ((overflowCalls ?? 0) > 0) parts.push(`fallback calls: ${overflowCalls}`)
+  return parts.join(' | ')
+}
+
+const compactErrorMessage = (message?: string | null) => {
+  if (!message) return ''
+  const normalized = message.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= 90) return normalized
+  return `${normalized.slice(0, 87)}...`
 }
 
 const load = async () => {
-  await documentStore.loadDocument(id)
+  await loadDocument(id)
 }
 
-const loadMeta = async () => {
-  await documentStore.loadMeta()
+const loadMetaForDoc = async () => {
+  await loadMeta()
 }
 
-const loadPageTexts = async (priority = false) => {
-  await documentStore.loadPageTexts(id, priority)
+const loadPageTextsForDoc = async (priority = false) => {
+  await loadPageTexts(id, priority)
 }
 
-const loadContentQuality = async (priority = false) => {
-  await documentStore.loadContentQuality(id, priority)
-  await documentStore.loadOcrScores(id, priority)
+const loadContentQualityForDoc = async (priority = false) => {
+  await loadContentQuality(id, priority)
+  await loadOcrScores(id, priority)
 }
 
-const loadSuggestions = async () => {
-  await documentStore.loadSuggestions(id)
+const loadSuggestionsForDoc = async () => {
+  await loadSuggestions(id)
+}
+
+const loadPipelineStatus = async () => {
+  await refreshPipelineStatus()
+}
+
+const loadPipelineFanout = async () => {
+  await refreshPipelineFanout()
+}
+
+const reloadPipelineFanout = async () => {
+  await loadPipelineFanout()
 }
 
 const withDocOperation = async (fn: () => Promise<void>) => {
-  docOpsLoading.value = true
   docOpsMessage.value = ''
-  try {
-    await fn()
-    await queueStore.refreshStatus()
-  } finally {
-    docOpsLoading.value = false
-  }
+  await fn()
+  await loadPipelineStatus()
+  await loadPipelineFanout()
 }
 
 const reloadAll = async () => {
   reloadingAll.value = true
   try {
     await load()
-    await loadMeta()
-    await loadContentQuality()
-    await loadPageTexts()
-    await loadSuggestions()
+    await loadMetaForDoc()
+    await loadContentQualityForDoc()
+    await loadPageTextsForDoc()
+    await loadSuggestionsForDoc()
+    await loadPipelineStatus()
+    await loadPipelineFanout()
   } finally {
     reloadingAll.value = false
   }
 }
 
-const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
-  await documentStore.refreshSuggestions(id, source)
+const refreshSuggestionsAction = async (source: 'paperless_ocr' | 'vision_ocr') => {
+  await refreshSuggestionsForSource(id, source)
 }
 
 const enqueueDocTask = async (action: OperationAction) => {
   await withDocOperation(async () => {
     try {
-      const result = await enqueueDocumentTask(id, {
+      const result = await enqueueDocumentTaskNow({
         task: action.task,
         force: action.force ?? false,
         source: action.source,
@@ -877,14 +1069,29 @@ const enqueueDocTask = async (action: OperationAction) => {
   })
 }
 
+const retryTaskRun = async (run: TimelineTaskRun) => {
+  const task = String(run.task || '').trim() as DocumentOperationTaskPayload['task']
+  if (!task) return
+  await withDocOperation(async () => {
+    try {
+      const result = await enqueueDocumentTaskNow({
+        task,
+        source: run.source === 'paperless_ocr' || run.source === 'vision_ocr' ? run.source : undefined,
+      })
+      docOpsMessage.value = result.enqueued
+        ? `Queued retry for ${task}.`
+        : `Retry for ${task} was not enqueued (duplicate or already running).`
+      await refreshTaskRuns()
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, `Failed to retry ${task}`)
+    }
+  })
+}
+
 const runDocCleanup = async () => {
   await withDocOperation(async () => {
     try {
-      const result = await cleanupTexts({
-        doc_ids: [id],
-        clear_first: docCleanupClearFirst.value,
-        enqueue: true,
-      })
+      const result = await cleanupDocumentTexts(docCleanupClearFirst.value)
       docOpsMessage.value = result.queued
         ? `Queued cleanup for ${result.docs} document(s).`
         : `Cleanup done: ${result.updated}/${result.processed} updated.`
@@ -894,10 +1101,36 @@ const runDocCleanup = async () => {
   })
 }
 
+const runContinuePipeline = async () => {
+  await withDocOperation(async () => {
+    try {
+      const result = await continuePipelineRequest({
+        include_vision_ocr: true,
+        include_embeddings: true,
+        include_embeddings_paperless: true,
+        include_embeddings_vision: true,
+        include_page_notes: true,
+        include_summary_hierarchical: true,
+        include_suggestions_paperless: true,
+        include_suggestions_vision: true,
+      })
+      if (!result.enabled) {
+        docOpsMessage.value = 'Queue is disabled.'
+        return
+      }
+      docOpsMessage.value = result.enqueued
+        ? `Enqueued ${result.enqueued}/${result.missing_tasks} missing tasks.`
+        : `No missing tasks.`
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, 'Failed to continue document pipeline')
+    }
+  })
+}
+
 const runResetAndReprocessDoc = async () => {
   await withDocOperation(async () => {
     try {
-      const result = await resetAndReprocessDocument(id, true)
+      const result = await resetAndReprocessNow(true)
       docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
       await load()
     } catch (err) {
@@ -915,6 +1148,15 @@ const confirmResetAndReprocessDoc = async () => {
   await runResetAndReprocessDoc()
 }
 
+useAutoRefresh({
+  enabled: shouldAutoRefreshTimeline,
+  intervalMs: 5000,
+  onTick: async () => {
+    await refreshTaskRuns()
+    await loadPipelineStatus()
+    await refreshPipelineFanout()
+  },
+})
 
 onMounted(async () => {
   syncPdfFromQuery()

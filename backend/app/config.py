@@ -9,6 +9,9 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Settings:
+    log_level: str
+    log_json: bool
+    worker_max_retries: int
     paperless_base_url: str
     paperless_api_token: str
     database_url: str | None
@@ -23,6 +26,7 @@ class Settings:
     embedding_batch_size: int
     embedding_request_timeout_seconds: int
     embedding_max_chunks_per_doc: int
+    embedding_max_input_tokens: int
     qdrant_collection: str | None
     embed_on_sync: bool
     chunk_mode: str
@@ -81,6 +85,9 @@ def load_settings() -> Settings:
     if database_url and database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
     return Settings(
+        log_level=(os.getenv("LOG_LEVEL", "INFO") or "INFO").upper(),
+        log_json=os.getenv("LOG_JSON", "0") == "1",
+        worker_max_retries=max(0, int(os.getenv("WORKER_MAX_RETRIES", "2"))),
         paperless_base_url=paperless_base_url,
         paperless_api_token=paperless_api_token,
         database_url=database_url,
@@ -95,6 +102,7 @@ def load_settings() -> Settings:
         embedding_batch_size=max(1, int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))),
         embedding_request_timeout_seconds=max(1, int(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "60"))),
         embedding_max_chunks_per_doc=max(0, int(os.getenv("EMBEDDING_MAX_CHUNKS_PER_DOC", "0"))),
+        embedding_max_input_tokens=max(256, int(os.getenv("EMBEDDING_MAX_INPUT_TOKENS", "3000"))),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "paperless_chunks"),
         embed_on_sync=os.getenv("EMBED_ON_SYNC", "0") == "1",
         chunk_mode=os.getenv("CHUNK_MODE", "heuristic"),

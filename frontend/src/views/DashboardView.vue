@@ -404,41 +404,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RefreshCcw } from 'lucide-vue-next'
-import { getDashboard } from '../services/documents'
+import { useDashboardData } from '../composables/useDashboardData'
 
 type DashboardCount = { id?: number | null; name: string; count: number }
 type PageCountBucket = { label: string; count: number }
-type DashboardPayload = {
-  stats: {
-    total: number
-    processed: number
-    unprocessed: number
-    embeddings: number
-    vision: number
-    suggestions: number
-    fully_processed: number
-  }
-  correspondents: DashboardCount[]
-  top_correspondents: DashboardCount[]
-  tags: DashboardCount[]
-  top_tags: DashboardCount[]
-  page_counts: PageCountBucket[]
-  document_types: DashboardCount[]
-  unprocessed_by_correspondent: DashboardCount[]
-  monthly_processing: { label: string; total: number; processed: number; unprocessed: number }[]
-}
 
-const loading = ref(false)
-const error = ref('')
-const data = ref<DashboardPayload | null>(null)
-
-const errorMessage = (err: unknown, fallback: string) => {
-  if (err instanceof Error) return err.message || fallback
-  if (typeof err === 'string') return err || fallback
-  return fallback
-}
+const { loading, error, data, refresh } = useDashboardData()
 
 const stats = computed(
   () =>
@@ -536,17 +509,6 @@ const unprocessedMax = computed(() =>
 )
 
 const load = async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await getDashboard()
-  } catch (err: unknown) {
-    error.value = errorMessage(err, 'Failed to load dashboard')
-  } finally {
-    loading.value = false
-  }
+  await refresh()
 }
-
-onMounted(load)
 </script>
-

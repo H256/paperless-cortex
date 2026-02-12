@@ -13,6 +13,7 @@ import type {
   CleanupTextsRequest,
   CleanupTextsResponse,
   ClearIntelligenceResponse,
+  ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams,
   CorrespondentResponse,
   CorrespondentsPageResponse,
   DeleteEmbeddingsDocumentsDeleteEmbeddingsPostParams,
@@ -25,32 +26,45 @@ import type {
   DocumentLocalResponse,
   DocumentOcrScoresResponse,
   DocumentOperationEnqueueResponse,
+  DocumentPipelineContinueResponse,
+  DocumentPipelineFanoutResponse,
+  DocumentPipelineStatusResponse,
   DocumentResetReprocessResponse,
   DocumentStatsResponse,
   DocumentTaskRequest,
   DocumentTextQualityResponse,
   DocumentTypeResponse,
   DocumentsPageResponse,
+  DryRunPreviewWritebackDryRunPreviewGetParams,
   EmbeddingIngestResponse,
   EmbeddingSearchResponse,
   EmbeddingStatusResponse,
+  GetDelayedQueueQueueDelayedGetParams,
+  GetDlqQueueDlqGetParams,
   GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
+  GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
+  GetTaskRunsQueueTaskRunsGetParams,
   HTTPValidationError,
   IngestDocumentsEmbeddingsIngestDocsPostParams,
   IngestEmbeddingsEmbeddingsIngestPostParams,
   ListCorrespondentsCorrespondentsGetParams,
   ListDocumentsDocumentsGetParams,
   ListTagsTagsGetParams,
+  ListWritebackJobsWritebackJobsGetParams,
   PageTextsResponse,
   PaperlessDocument,
   PeekQueuePeekGetParams,
   ProcessMissingDocumentsProcessMissingPostParams,
   ProcessMissingResponse,
   QueueCancelResponse,
+  QueueDelayedResponse,
+  QueueDlqActionResponse,
+  QueueDlqRequeueRequest,
+  QueueDlqResponse,
   QueueEnqueue,
   QueueEnqueueResponse,
   QueueMoveEdgeRequest,
@@ -85,7 +99,23 @@ import type {
   SyncSimpleResponse,
   SyncStatusResponse,
   SyncTagsSyncTagsPostParams,
-  TagsPageResponse
+  TagsPageResponse,
+  TaskRunListResponse,
+  WritebackDirectExecuteRequest,
+  WritebackDirectExecuteResponse,
+  WritebackDryRunExecuteRequest,
+  WritebackDryRunExecuteResponse,
+  WritebackDryRunPreviewResponse,
+  WritebackExecuteNowRequest,
+  WritebackExecuteNowResponse,
+  WritebackExecutePendingRequest,
+  WritebackExecutePendingResponse,
+  WritebackHistoryResponse,
+  WritebackHistoryWritebackHistoryGetParams,
+  WritebackJobCreateRequest,
+  WritebackJobDetail,
+  WritebackJobExecuteRequest,
+  WritebackJobListResponse
 } from './model';
 
 /**
@@ -601,6 +631,171 @@ export const processMissingDocumentsProcessMissingPost = async (params?: Process
   
   const data: processMissingDocumentsProcessMissingPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as processMissingDocumentsProcessMissingPostResponse
+}
+
+
+
+/**
+ * @summary Get Document Pipeline Status
+ */
+export type getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse200 = {
+  data: DocumentPipelineStatusResponse
+  status: 200
+}
+
+export type getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponseSuccess = (getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponseError = (getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse = (getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponseSuccess | getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponseError)
+
+export const getGetDocumentPipelineStatusDocumentsDocIdPipelineStatusGetUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/documents/${docId}/pipeline-status`
+}
+
+export const getDocumentPipelineStatusDocumentsDocIdPipelineStatusGet = async (docId: number, options?: RequestInit): Promise<getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse> => {
+  
+  const res = await fetch(getGetDocumentPipelineStatusDocumentsDocIdPipelineStatusGetUrl(docId),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse
+}
+
+
+
+/**
+ * @summary Get Document Pipeline Fanout
+ */
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse200 = {
+  data: DocumentPipelineFanoutResponse
+  status: 200
+}
+
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseSuccess = (getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseError = (getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse = (getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseSuccess | getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseError)
+
+export const getGetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetUrl = (docId: number,
+    params?: GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/pipeline-fanout?${stringifiedParams}` : `/api/documents/${docId}/pipeline-fanout`
+}
+
+export const getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet = async (docId: number,
+    params?: GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams, options?: RequestInit): Promise<getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse> => {
+  
+  const res = await fetch(getGetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse
+}
+
+
+
+/**
+ * @summary Continue Document Pipeline
+ */
+export type continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse200 = {
+  data: DocumentPipelineContinueResponse
+  status: 200
+}
+
+export type continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponseSuccess = (continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse200) & {
+  headers: Headers;
+};
+export type continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponseError = (continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse422) & {
+  headers: Headers;
+};
+
+export type continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse = (continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponseSuccess | continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponseError)
+
+export const getContinueDocumentPipelineDocumentsDocIdPipelineContinuePostUrl = (docId: number,
+    params?: ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/pipeline/continue?${stringifiedParams}` : `/api/documents/${docId}/pipeline/continue`
+}
+
+export const continueDocumentPipelineDocumentsDocIdPipelineContinuePost = async (docId: number,
+    params?: ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams, options?: RequestInit): Promise<continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse> => {
+  
+  const res = await fetch(getContinueDocumentPipelineDocumentsDocIdPipelineContinuePostUrl(docId,params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse
 }
 
 
@@ -2823,6 +3018,266 @@ export const resetWorkerLockRouteQueueWorkerLockResetPost = async (params?: Rese
 
 
 /**
+ * @summary Get Dlq
+ */
+export type getDlqQueueDlqGetResponse200 = {
+  data: QueueDlqResponse
+  status: 200
+}
+
+export type getDlqQueueDlqGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDlqQueueDlqGetResponseSuccess = (getDlqQueueDlqGetResponse200) & {
+  headers: Headers;
+};
+export type getDlqQueueDlqGetResponseError = (getDlqQueueDlqGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDlqQueueDlqGetResponse = (getDlqQueueDlqGetResponseSuccess | getDlqQueueDlqGetResponseError)
+
+export const getGetDlqQueueDlqGetUrl = (params?: GetDlqQueueDlqGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue/dlq?${stringifiedParams}` : `/api/queue/dlq`
+}
+
+export const getDlqQueueDlqGet = async (params?: GetDlqQueueDlqGetParams, options?: RequestInit): Promise<getDlqQueueDlqGetResponse> => {
+  
+  const res = await fetch(getGetDlqQueueDlqGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDlqQueueDlqGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDlqQueueDlqGetResponse
+}
+
+
+
+/**
+ * @summary Get Delayed Queue
+ */
+export type getDelayedQueueQueueDelayedGetResponse200 = {
+  data: QueueDelayedResponse
+  status: 200
+}
+
+export type getDelayedQueueQueueDelayedGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDelayedQueueQueueDelayedGetResponseSuccess = (getDelayedQueueQueueDelayedGetResponse200) & {
+  headers: Headers;
+};
+export type getDelayedQueueQueueDelayedGetResponseError = (getDelayedQueueQueueDelayedGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDelayedQueueQueueDelayedGetResponse = (getDelayedQueueQueueDelayedGetResponseSuccess | getDelayedQueueQueueDelayedGetResponseError)
+
+export const getGetDelayedQueueQueueDelayedGetUrl = (params?: GetDelayedQueueQueueDelayedGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue/delayed?${stringifiedParams}` : `/api/queue/delayed`
+}
+
+export const getDelayedQueueQueueDelayedGet = async (params?: GetDelayedQueueQueueDelayedGetParams, options?: RequestInit): Promise<getDelayedQueueQueueDelayedGetResponse> => {
+  
+  const res = await fetch(getGetDelayedQueueQueueDelayedGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDelayedQueueQueueDelayedGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDelayedQueueQueueDelayedGetResponse
+}
+
+
+
+/**
+ * @summary Clear Dlq
+ */
+export type clearDlqQueueDlqClearPostResponse200 = {
+  data: QueueDlqActionResponse
+  status: 200
+}
+    
+export type clearDlqQueueDlqClearPostResponseSuccess = (clearDlqQueueDlqClearPostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type clearDlqQueueDlqClearPostResponse = (clearDlqQueueDlqClearPostResponseSuccess)
+
+export const getClearDlqQueueDlqClearPostUrl = () => {
+
+
+  
+
+  return `/api/queue/dlq/clear`
+}
+
+export const clearDlqQueueDlqClearPost = async ( options?: RequestInit): Promise<clearDlqQueueDlqClearPostResponse> => {
+  
+  const res = await fetch(getClearDlqQueueDlqClearPostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: clearDlqQueueDlqClearPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as clearDlqQueueDlqClearPostResponse
+}
+
+
+
+/**
+ * @summary Requeue Dlq
+ */
+export type requeueDlqQueueDlqRequeuePostResponse200 = {
+  data: QueueDlqActionResponse
+  status: 200
+}
+
+export type requeueDlqQueueDlqRequeuePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type requeueDlqQueueDlqRequeuePostResponseSuccess = (requeueDlqQueueDlqRequeuePostResponse200) & {
+  headers: Headers;
+};
+export type requeueDlqQueueDlqRequeuePostResponseError = (requeueDlqQueueDlqRequeuePostResponse422) & {
+  headers: Headers;
+};
+
+export type requeueDlqQueueDlqRequeuePostResponse = (requeueDlqQueueDlqRequeuePostResponseSuccess | requeueDlqQueueDlqRequeuePostResponseError)
+
+export const getRequeueDlqQueueDlqRequeuePostUrl = () => {
+
+
+  
+
+  return `/api/queue/dlq/requeue`
+}
+
+export const requeueDlqQueueDlqRequeuePost = async (queueDlqRequeueRequest: QueueDlqRequeueRequest, options?: RequestInit): Promise<requeueDlqQueueDlqRequeuePostResponse> => {
+  
+  const res = await fetch(getRequeueDlqQueueDlqRequeuePostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      queueDlqRequeueRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: requeueDlqQueueDlqRequeuePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as requeueDlqQueueDlqRequeuePostResponse
+}
+
+
+
+/**
+ * @summary Get Task Runs
+ */
+export type getTaskRunsQueueTaskRunsGetResponse200 = {
+  data: TaskRunListResponse
+  status: 200
+}
+
+export type getTaskRunsQueueTaskRunsGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getTaskRunsQueueTaskRunsGetResponseSuccess = (getTaskRunsQueueTaskRunsGetResponse200) & {
+  headers: Headers;
+};
+export type getTaskRunsQueueTaskRunsGetResponseError = (getTaskRunsQueueTaskRunsGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTaskRunsQueueTaskRunsGetResponse = (getTaskRunsQueueTaskRunsGetResponseSuccess | getTaskRunsQueueTaskRunsGetResponseError)
+
+export const getGetTaskRunsQueueTaskRunsGetUrl = (params?: GetTaskRunsQueueTaskRunsGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue/task-runs?${stringifiedParams}` : `/api/queue/task-runs`
+}
+
+export const getTaskRunsQueueTaskRunsGet = async (params?: GetTaskRunsQueueTaskRunsGetParams, options?: RequestInit): Promise<getTaskRunsQueueTaskRunsGetResponse> => {
+  
+  const res = await fetch(getGetTaskRunsQueueTaskRunsGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getTaskRunsQueueTaskRunsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getTaskRunsQueueTaskRunsGetResponse
+}
+
+
+
+/**
  * @summary Status
  */
 export type statusStatusGetResponse200 = {
@@ -3002,4 +3457,523 @@ export const chatStreamChatStreamPost = async (chatRequest: ChatRequest, options
   
   const data: chatStreamChatStreamPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as chatStreamChatStreamPostResponse
+}
+
+
+
+/**
+ * @summary Execute Writeback Direct For Document
+ */
+export type executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse200 = {
+  data: WritebackDirectExecuteResponse
+  status: 200
+}
+
+export type executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponseSuccess = (executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse200) & {
+  headers: Headers;
+};
+export type executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponseError = (executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse422) & {
+  headers: Headers;
+};
+
+export type executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse = (executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponseSuccess | executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponseError)
+
+export const getExecuteWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/writeback/documents/${docId}/execute-direct`
+}
+
+export const executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPost = async (docId: number,
+    writebackDirectExecuteRequest: WritebackDirectExecuteRequest, options?: RequestInit): Promise<executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse> => {
+  
+  const res = await fetch(getExecuteWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostUrl(docId),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      writebackDirectExecuteRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse
+}
+
+
+
+/**
+ * @summary Execute Writeback Now
+ */
+export type executeWritebackNowWritebackExecuteNowPostResponse200 = {
+  data: WritebackExecuteNowResponse
+  status: 200
+}
+
+export type executeWritebackNowWritebackExecuteNowPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type executeWritebackNowWritebackExecuteNowPostResponseSuccess = (executeWritebackNowWritebackExecuteNowPostResponse200) & {
+  headers: Headers;
+};
+export type executeWritebackNowWritebackExecuteNowPostResponseError = (executeWritebackNowWritebackExecuteNowPostResponse422) & {
+  headers: Headers;
+};
+
+export type executeWritebackNowWritebackExecuteNowPostResponse = (executeWritebackNowWritebackExecuteNowPostResponseSuccess | executeWritebackNowWritebackExecuteNowPostResponseError)
+
+export const getExecuteWritebackNowWritebackExecuteNowPostUrl = () => {
+
+
+  
+
+  return `/api/writeback/execute-now`
+}
+
+export const executeWritebackNowWritebackExecuteNowPost = async (writebackExecuteNowRequest: WritebackExecuteNowRequest, options?: RequestInit): Promise<executeWritebackNowWritebackExecuteNowPostResponse> => {
+  
+  const res = await fetch(getExecuteWritebackNowWritebackExecuteNowPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      writebackExecuteNowRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: executeWritebackNowWritebackExecuteNowPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as executeWritebackNowWritebackExecuteNowPostResponse
+}
+
+
+
+/**
+ * @summary Dry Run Preview
+ */
+export type dryRunPreviewWritebackDryRunPreviewGetResponse200 = {
+  data: WritebackDryRunPreviewResponse
+  status: 200
+}
+
+export type dryRunPreviewWritebackDryRunPreviewGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type dryRunPreviewWritebackDryRunPreviewGetResponseSuccess = (dryRunPreviewWritebackDryRunPreviewGetResponse200) & {
+  headers: Headers;
+};
+export type dryRunPreviewWritebackDryRunPreviewGetResponseError = (dryRunPreviewWritebackDryRunPreviewGetResponse422) & {
+  headers: Headers;
+};
+
+export type dryRunPreviewWritebackDryRunPreviewGetResponse = (dryRunPreviewWritebackDryRunPreviewGetResponseSuccess | dryRunPreviewWritebackDryRunPreviewGetResponseError)
+
+export const getDryRunPreviewWritebackDryRunPreviewGetUrl = (params?: DryRunPreviewWritebackDryRunPreviewGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/writeback/dry-run/preview?${stringifiedParams}` : `/api/writeback/dry-run/preview`
+}
+
+export const dryRunPreviewWritebackDryRunPreviewGet = async (params?: DryRunPreviewWritebackDryRunPreviewGetParams, options?: RequestInit): Promise<dryRunPreviewWritebackDryRunPreviewGetResponse> => {
+  
+  const res = await fetch(getDryRunPreviewWritebackDryRunPreviewGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: dryRunPreviewWritebackDryRunPreviewGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as dryRunPreviewWritebackDryRunPreviewGetResponse
+}
+
+
+
+/**
+ * @summary Dry Run Execute
+ */
+export type dryRunExecuteWritebackDryRunExecutePostResponse200 = {
+  data: WritebackDryRunExecuteResponse
+  status: 200
+}
+
+export type dryRunExecuteWritebackDryRunExecutePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type dryRunExecuteWritebackDryRunExecutePostResponseSuccess = (dryRunExecuteWritebackDryRunExecutePostResponse200) & {
+  headers: Headers;
+};
+export type dryRunExecuteWritebackDryRunExecutePostResponseError = (dryRunExecuteWritebackDryRunExecutePostResponse422) & {
+  headers: Headers;
+};
+
+export type dryRunExecuteWritebackDryRunExecutePostResponse = (dryRunExecuteWritebackDryRunExecutePostResponseSuccess | dryRunExecuteWritebackDryRunExecutePostResponseError)
+
+export const getDryRunExecuteWritebackDryRunExecutePostUrl = () => {
+
+
+  
+
+  return `/api/writeback/dry-run/execute`
+}
+
+export const dryRunExecuteWritebackDryRunExecutePost = async (writebackDryRunExecuteRequest: WritebackDryRunExecuteRequest, options?: RequestInit): Promise<dryRunExecuteWritebackDryRunExecutePostResponse> => {
+  
+  const res = await fetch(getDryRunExecuteWritebackDryRunExecutePostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      writebackDryRunExecuteRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: dryRunExecuteWritebackDryRunExecutePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as dryRunExecuteWritebackDryRunExecutePostResponse
+}
+
+
+
+/**
+ * @summary Create Writeback Job
+ */
+export type createWritebackJobWritebackJobsPostResponse200 = {
+  data: WritebackJobDetail
+  status: 200
+}
+
+export type createWritebackJobWritebackJobsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type createWritebackJobWritebackJobsPostResponseSuccess = (createWritebackJobWritebackJobsPostResponse200) & {
+  headers: Headers;
+};
+export type createWritebackJobWritebackJobsPostResponseError = (createWritebackJobWritebackJobsPostResponse422) & {
+  headers: Headers;
+};
+
+export type createWritebackJobWritebackJobsPostResponse = (createWritebackJobWritebackJobsPostResponseSuccess | createWritebackJobWritebackJobsPostResponseError)
+
+export const getCreateWritebackJobWritebackJobsPostUrl = () => {
+
+
+  
+
+  return `/api/writeback/jobs`
+}
+
+export const createWritebackJobWritebackJobsPost = async (writebackJobCreateRequest: WritebackJobCreateRequest, options?: RequestInit): Promise<createWritebackJobWritebackJobsPostResponse> => {
+  
+  const res = await fetch(getCreateWritebackJobWritebackJobsPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      writebackJobCreateRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: createWritebackJobWritebackJobsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createWritebackJobWritebackJobsPostResponse
+}
+
+
+
+/**
+ * @summary List Writeback Jobs
+ */
+export type listWritebackJobsWritebackJobsGetResponse200 = {
+  data: WritebackJobListResponse
+  status: 200
+}
+
+export type listWritebackJobsWritebackJobsGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type listWritebackJobsWritebackJobsGetResponseSuccess = (listWritebackJobsWritebackJobsGetResponse200) & {
+  headers: Headers;
+};
+export type listWritebackJobsWritebackJobsGetResponseError = (listWritebackJobsWritebackJobsGetResponse422) & {
+  headers: Headers;
+};
+
+export type listWritebackJobsWritebackJobsGetResponse = (listWritebackJobsWritebackJobsGetResponseSuccess | listWritebackJobsWritebackJobsGetResponseError)
+
+export const getListWritebackJobsWritebackJobsGetUrl = (params?: ListWritebackJobsWritebackJobsGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/writeback/jobs?${stringifiedParams}` : `/api/writeback/jobs`
+}
+
+export const listWritebackJobsWritebackJobsGet = async (params?: ListWritebackJobsWritebackJobsGetParams, options?: RequestInit): Promise<listWritebackJobsWritebackJobsGetResponse> => {
+  
+  const res = await fetch(getListWritebackJobsWritebackJobsGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: listWritebackJobsWritebackJobsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listWritebackJobsWritebackJobsGetResponse
+}
+
+
+
+/**
+ * @summary Get Writeback Job
+ */
+export type getWritebackJobWritebackJobsJobIdGetResponse200 = {
+  data: WritebackJobDetail
+  status: 200
+}
+
+export type getWritebackJobWritebackJobsJobIdGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getWritebackJobWritebackJobsJobIdGetResponseSuccess = (getWritebackJobWritebackJobsJobIdGetResponse200) & {
+  headers: Headers;
+};
+export type getWritebackJobWritebackJobsJobIdGetResponseError = (getWritebackJobWritebackJobsJobIdGetResponse422) & {
+  headers: Headers;
+};
+
+export type getWritebackJobWritebackJobsJobIdGetResponse = (getWritebackJobWritebackJobsJobIdGetResponseSuccess | getWritebackJobWritebackJobsJobIdGetResponseError)
+
+export const getGetWritebackJobWritebackJobsJobIdGetUrl = (jobId: number,) => {
+
+
+  
+
+  return `/api/writeback/jobs/${jobId}`
+}
+
+export const getWritebackJobWritebackJobsJobIdGet = async (jobId: number, options?: RequestInit): Promise<getWritebackJobWritebackJobsJobIdGetResponse> => {
+  
+  const res = await fetch(getGetWritebackJobWritebackJobsJobIdGetUrl(jobId),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getWritebackJobWritebackJobsJobIdGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getWritebackJobWritebackJobsJobIdGetResponse
+}
+
+
+
+/**
+ * @summary Execute Writeback Job
+ */
+export type executeWritebackJobWritebackJobsJobIdExecutePostResponse200 = {
+  data: WritebackJobDetail
+  status: 200
+}
+
+export type executeWritebackJobWritebackJobsJobIdExecutePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type executeWritebackJobWritebackJobsJobIdExecutePostResponseSuccess = (executeWritebackJobWritebackJobsJobIdExecutePostResponse200) & {
+  headers: Headers;
+};
+export type executeWritebackJobWritebackJobsJobIdExecutePostResponseError = (executeWritebackJobWritebackJobsJobIdExecutePostResponse422) & {
+  headers: Headers;
+};
+
+export type executeWritebackJobWritebackJobsJobIdExecutePostResponse = (executeWritebackJobWritebackJobsJobIdExecutePostResponseSuccess | executeWritebackJobWritebackJobsJobIdExecutePostResponseError)
+
+export const getExecuteWritebackJobWritebackJobsJobIdExecutePostUrl = (jobId: number,) => {
+
+
+  
+
+  return `/api/writeback/jobs/${jobId}/execute`
+}
+
+export const executeWritebackJobWritebackJobsJobIdExecutePost = async (jobId: number,
+    writebackJobExecuteRequest: WritebackJobExecuteRequest, options?: RequestInit): Promise<executeWritebackJobWritebackJobsJobIdExecutePostResponse> => {
+  
+  const res = await fetch(getExecuteWritebackJobWritebackJobsJobIdExecutePostUrl(jobId),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      writebackJobExecuteRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: executeWritebackJobWritebackJobsJobIdExecutePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as executeWritebackJobWritebackJobsJobIdExecutePostResponse
+}
+
+
+
+/**
+ * @summary Writeback History
+ */
+export type writebackHistoryWritebackHistoryGetResponse200 = {
+  data: WritebackHistoryResponse
+  status: 200
+}
+
+export type writebackHistoryWritebackHistoryGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type writebackHistoryWritebackHistoryGetResponseSuccess = (writebackHistoryWritebackHistoryGetResponse200) & {
+  headers: Headers;
+};
+export type writebackHistoryWritebackHistoryGetResponseError = (writebackHistoryWritebackHistoryGetResponse422) & {
+  headers: Headers;
+};
+
+export type writebackHistoryWritebackHistoryGetResponse = (writebackHistoryWritebackHistoryGetResponseSuccess | writebackHistoryWritebackHistoryGetResponseError)
+
+export const getWritebackHistoryWritebackHistoryGetUrl = (params?: WritebackHistoryWritebackHistoryGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/writeback/history?${stringifiedParams}` : `/api/writeback/history`
+}
+
+export const writebackHistoryWritebackHistoryGet = async (params?: WritebackHistoryWritebackHistoryGetParams, options?: RequestInit): Promise<writebackHistoryWritebackHistoryGetResponse> => {
+  
+  const res = await fetch(getWritebackHistoryWritebackHistoryGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: writebackHistoryWritebackHistoryGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as writebackHistoryWritebackHistoryGetResponse
+}
+
+
+
+/**
+ * @summary Execute Pending Writeback Jobs
+ */
+export type executePendingWritebackJobsWritebackJobsExecutePendingPostResponse200 = {
+  data: WritebackExecutePendingResponse
+  status: 200
+}
+
+export type executePendingWritebackJobsWritebackJobsExecutePendingPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type executePendingWritebackJobsWritebackJobsExecutePendingPostResponseSuccess = (executePendingWritebackJobsWritebackJobsExecutePendingPostResponse200) & {
+  headers: Headers;
+};
+export type executePendingWritebackJobsWritebackJobsExecutePendingPostResponseError = (executePendingWritebackJobsWritebackJobsExecutePendingPostResponse422) & {
+  headers: Headers;
+};
+
+export type executePendingWritebackJobsWritebackJobsExecutePendingPostResponse = (executePendingWritebackJobsWritebackJobsExecutePendingPostResponseSuccess | executePendingWritebackJobsWritebackJobsExecutePendingPostResponseError)
+
+export const getExecutePendingWritebackJobsWritebackJobsExecutePendingPostUrl = () => {
+
+
+  
+
+  return `/api/writeback/jobs/execute-pending`
+}
+
+export const executePendingWritebackJobsWritebackJobsExecutePendingPost = async (writebackExecutePendingRequest: WritebackExecutePendingRequest, options?: RequestInit): Promise<executePendingWritebackJobsWritebackJobsExecutePendingPostResponse> => {
+  
+  const res = await fetch(getExecutePendingWritebackJobsWritebackJobsExecutePendingPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      writebackExecutePendingRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: executePendingWritebackJobsWritebackJobsExecutePendingPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as executePendingWritebackJobsWritebackJobsExecutePendingPostResponse
 }

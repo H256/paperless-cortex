@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document, DocumentPendingTag, SuggestionAudit
+from app.models import Document, DocumentPendingTag, SuggestionAudit, TaskRun
 
 
 def _insert_suggestion_audit(
@@ -217,3 +217,47 @@ def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
     assert payload["count"] == 1
     assert payload["results"][0]["id"] == 5
     assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=21, title="Fanout Doc", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.get(Document, 21)
+        assert doc is not None
+        doc.modified = "2026-02-10T10:00:00+00:00"
+        db.add(
+            TaskRun(
+                doc_id=21,
+                task="vision_ocr",
+                source=None,
+                status="running",
+                worker_id="worker:test",
+                attempt=1,
+                checkpoint_json='{"stage":"vision_ocr","current":5,"total":20}',
+                started_at="2026-02-12T10:00:00+00:00",
+                created_at="2026-02-12T10:00:00+00:00",
+                updated_at="2026-02-12T10:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {"id": 21, "modified": "2026-02-10T09:00:00+00:00"},
+    )
+
+    response = api_client.get("/documents/21/pipeline-fanout")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doc_id"] == 21
+    assert isinstance(payload["items"], list)
+    assert len(payload["items"]) > 0
+    assert payload["items"][0]["order"] == 1
+    assert any(item["task"] == "sync" for item in payload["items"])
+    vision_item = next((item for item in payload["items"] if item["task"] == "vision_ocr"), None)
+    assert vision_item is not None
+    assert vision_item["status"] in {"running", "missing", "done", "failed", "retrying"}

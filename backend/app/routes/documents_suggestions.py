@@ -69,6 +69,19 @@ def _utc_now_iso() -> str:
     return __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
 
 
+def _next_local_note_id(db: Session) -> int:
+    min_id = db.query(func.min(DocumentNote.id)).scalar()
+    if min_id is None:
+        return -1
+    try:
+        value = int(min_id)
+    except Exception:
+        return -1
+    if value >= 0:
+        return -1
+    return value - 1
+
+
 @router.get("/{doc_id}/suggestions", response_model=SuggestionsResponse)
 def get_document_suggestions(
     doc_id: int,
@@ -555,9 +568,8 @@ def apply_suggestion_to_document(
                 existing_note.created = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
                 updated = True
             else:
-                max_id = db.query(func.max(DocumentNote.id)).scalar() or 0
                 note = DocumentNote(
-                    id=int(max_id) + 1,
+                    id=_next_local_note_id(db),
                     document_id=doc_id,
                     note=marker_text,
                     created=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),

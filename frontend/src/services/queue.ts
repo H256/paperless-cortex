@@ -11,6 +11,11 @@ import {
   removeQueueRemovePost,
   moveTopQueueMoveTopPost,
   moveBottomQueueMoveBottomPost,
+  getTaskRunsQueueTaskRunsGet,
+  getDelayedQueueQueueDelayedGet,
+  getDlqQueueDlqGet,
+  clearDlqQueueDlqClearPost,
+  requeueDlqQueueDlqRequeuePost,
 } from '../api/generated/client'
 import type {
   QueueStatusResponse,
@@ -22,6 +27,14 @@ import type {
   QueueMoveRequest,
   QueueMoveEdgeRequest,
   QueueRemoveRequest,
+  TaskRunItem,
+  TaskRunListResponse,
+  GetTaskRunsQueueTaskRunsGetParams,
+  QueueDelayedItem,
+  QueueDelayedResponse,
+  QueueDlqItem,
+  QueueDlqResponse,
+  QueueDlqActionResponse,
 } from '../api/generated/model'
 
 export type QueueStatus = QueueStatusResponse
@@ -43,6 +56,12 @@ export type QueueRunningStatus = {
   task?: QueuePeekItem | null
   started_at?: number | null
 }
+export type QueueTaskRun = TaskRunItem
+export type QueueTaskRunList = TaskRunListResponse
+export type QueueDelayedEntry = QueueDelayedItem
+export type QueueDelayedList = QueueDelayedResponse
+export type QueueDlqEntry = QueueDlqItem
+export type QueueDlqList = QueueDlqResponse
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -71,6 +90,21 @@ export const moveQueueItemBottom = (payload: QueueMoveEdgeRequest) =>
 
 export const fetchQueueRunning = () =>
   request<QueueRunningStatus>('/queue/running')
+
+export const fetchQueueTaskRuns = (params?: GetTaskRunsQueueTaskRunsGetParams) =>
+  unwrap<QueueTaskRunList>(getTaskRunsQueueTaskRunsGet(params))
+
+export const fetchQueueDelayed = (limit = 100) =>
+  unwrap<QueueDelayedResponse>(getDelayedQueueQueueDelayedGet({ limit }))
+
+export const fetchQueueDlq = (limit = 100) =>
+  unwrap<QueueDlqResponse>(getDlqQueueDlqGet({ limit }))
+
+export const clearQueueDlq = () =>
+  unwrap<QueueDlqActionResponse>(clearDlqQueueDlqClearPost())
+
+export const requeueQueueDlqItem = (index: number) =>
+  unwrap<QueueDlqActionResponse>(requeueDlqQueueDlqRequeuePost({ index }))
 
 export const fetchWorkerLockStatus = () =>
   request<QueueWorkerLockStatus>('/queue/worker-lock')

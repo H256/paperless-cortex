@@ -1,11 +1,13 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
+import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query'
 import App from './App.vue'
 import DocumentsView from './views/DocumentsView.vue'
 import DocumentDetailView from './views/DocumentDetailView.vue'
 import DashboardView from './views/DashboardView.vue'
 import QueueView from './views/QueueView.vue'
+import LogInspectorView from './views/LogInspectorView.vue'
 import SearchView from './views/SearchView.vue'
 import ChatView from './views/ChatView.vue'
 import MaintenanceView from './views/MaintenanceView.vue'
@@ -21,6 +23,7 @@ const router = createRouter({
     { path: '/dashboard', component: DashboardView },
     { path: '/search', component: SearchView },
     { path: '/queue', component: QueueView },
+    { path: '/logs', component: LogInspectorView },
     { path: '/chat', component: ChatView },
     { path: '/operations', component: MaintenanceView },
     { path: '/writeback', component: WritebackDryRunView },
@@ -29,6 +32,8 @@ const router = createRouter({
 })
 
 const app = createApp(App)
+const queryClient = new QueryClient()
 app.use(createPinia())
+app.use(VueQueryPlugin, { queryClient })
 app.use(router)
 app.mount('#app')

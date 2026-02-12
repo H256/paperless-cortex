@@ -122,6 +122,16 @@
               "default": false,
               "title": "Include Derived"
             }
+          },
+          {
+            "name": "review_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "all",
+              "title": "Review Status"
+            }
           }
         ],
         "responses": {
@@ -505,6 +515,16 @@
             }
           },
           {
+            "name": "include_sync",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Sync"
+            }
+          },
+          {
             "name": "include_vision_ocr",
             "in": "query",
             "required": false,
@@ -522,6 +542,46 @@
               "type": "boolean",
               "default": true,
               "title": "Include Embeddings"
+            }
+          },
+          {
+            "name": "include_embeddings_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Paperless"
+            }
+          },
+          {
+            "name": "include_embeddings_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Vision"
+            }
+          },
+          {
+            "name": "include_page_notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Page Notes"
+            }
+          },
+          {
+            "name": "include_summary_hierarchical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Summary Hierarchical"
             }
           },
           {
@@ -578,6 +638,342 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProcessMissingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/pipeline-status": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Pipeline Status",
+        "operationId": "get_document_pipeline_status_documents__doc_id__pipeline_status_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPipelineStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/pipeline-fanout": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Document Pipeline Fanout",
+        "operationId": "get_document_pipeline_fanout_documents__doc_id__pipeline_fanout_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "include_sync",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Sync"
+            }
+          },
+          {
+            "name": "include_vision_ocr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Vision Ocr"
+            }
+          },
+          {
+            "name": "include_embeddings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings"
+            }
+          },
+          {
+            "name": "include_embeddings_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Paperless"
+            }
+          },
+          {
+            "name": "include_embeddings_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Vision"
+            }
+          },
+          {
+            "name": "include_page_notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Page Notes"
+            }
+          },
+          {
+            "name": "include_summary_hierarchical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Summary Hierarchical"
+            }
+          },
+          {
+            "name": "include_suggestions_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Paperless"
+            }
+          },
+          {
+            "name": "include_suggestions_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Vision"
+            }
+          },
+          {
+            "name": "embeddings_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "auto",
+              "title": "Embeddings Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPipelineFanoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/pipeline/continue": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Continue Document Pipeline",
+        "operationId": "continue_document_pipeline_documents__doc_id__pipeline_continue_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dry Run"
+            }
+          },
+          {
+            "name": "include_sync",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Sync"
+            }
+          },
+          {
+            "name": "include_vision_ocr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Vision Ocr"
+            }
+          },
+          {
+            "name": "include_embeddings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings"
+            }
+          },
+          {
+            "name": "include_embeddings_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Paperless"
+            }
+          },
+          {
+            "name": "include_embeddings_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Embeddings Vision"
+            }
+          },
+          {
+            "name": "include_page_notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Page Notes"
+            }
+          },
+          {
+            "name": "include_summary_hierarchical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Summary Hierarchical"
+            }
+          },
+          {
+            "name": "include_suggestions_paperless",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Paperless"
+            }
+          },
+          {
+            "name": "include_suggestions_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Suggestions Vision"
+            }
+          },
+          {
+            "name": "embeddings_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "auto",
+              "title": "Embeddings Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPipelineContinueResponse"
                 }
               }
             }
@@ -2560,6 +2956,287 @@
         }
       }
     },
+    "/queue/dlq": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Dlq",
+        "operationId": "get_dlq_queue_dlq_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDlqResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/delayed": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Delayed Queue",
+        "operationId": "get_delayed_queue_queue_delayed_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDelayedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/dlq/clear": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Clear Dlq",
+        "operationId": "clear_dlq_queue_dlq_clear_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDlqActionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/dlq/requeue": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Requeue Dlq",
+        "operationId": "requeue_dlq_queue_dlq_requeue_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueDlqRequeueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDlqActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/task-runs": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Task Runs",
+        "operationId": "get_task_runs_queue_task_runs_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "task",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "error_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error Type"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskRunListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "tags": [
@@ -2664,6 +3341,479 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/documents/{doc_id}/execute-direct": {
+      "post": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Execute Writeback Direct For Document",
+        "operationId": "execute_writeback_direct_for_document_writeback_documents__doc_id__execute_direct_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritebackDirectExecuteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackDirectExecuteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/execute-now": {
+      "post": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Execute Writeback Now",
+        "operationId": "execute_writeback_now_writeback_execute_now_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritebackExecuteNowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackExecuteNowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/dry-run/preview": {
+      "get": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Dry Run Preview",
+        "operationId": "dry_run_preview_writeback_dry_run_preview_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "only_changed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Only Changed"
+            }
+          },
+          {
+            "name": "doc_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackDryRunPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/dry-run/execute": {
+      "post": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Dry Run Execute",
+        "operationId": "dry_run_execute_writeback_dry_run_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritebackDryRunExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackDryRunExecuteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/jobs": {
+      "post": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Create Writeback Job",
+        "operationId": "create_writeback_job_writeback_jobs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritebackJobCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackJobDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "List Writeback Jobs",
+        "operationId": "list_writeback_jobs_writeback_jobs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackJobListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Get Writeback Job",
+        "operationId": "get_writeback_job_writeback_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackJobDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/jobs/{job_id}/execute": {
+      "post": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Execute Writeback Job",
+        "operationId": "execute_writeback_job_writeback_jobs__job_id__execute_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritebackJobExecuteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackJobDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/history": {
+      "get": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Writeback History",
+        "operationId": "writeback_history_writeback_history_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/writeback/jobs/execute-pending": {
+      "post": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Execute Pending Writeback Jobs",
+        "operationId": "execute_pending_writeback_jobs_writeback_jobs_execute_pending_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritebackExecutePendingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackExecutePendingResponse"
+                }
               }
             }
           },
@@ -3475,6 +4625,289 @@
               }
             ],
             "title": "Status"
+          },
+          "local_overrides": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Overrides"
+          },
+          "sync_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Status"
+          },
+          "review_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Status"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "paperless_modified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paperless Modified"
+          },
+          "pending_tag_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Tag Names",
+            "default": []
+          },
+          "has_embeddings": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Embeddings"
+          },
+          "embedding_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Source"
+          },
+          "embedding_chunk_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Chunk Count"
+          },
+          "has_embedding_for_preferred_source": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Embedding For Preferred Source"
+          },
+          "has_suggestions_paperless": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Suggestions Paperless"
+          },
+          "has_suggestions_vision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Suggestions Vision"
+          },
+          "has_vision_pages": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Vision Pages"
+          },
+          "vision_pages_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vision Pages Done"
+          },
+          "vision_pages_expected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vision Pages Expected"
+          },
+          "has_complete_vision_pages": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Complete Vision Pages"
+          },
+          "has_page_notes_paperless": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Page Notes Paperless"
+          },
+          "has_page_notes_vision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Page Notes Vision"
+          },
+          "page_notes_paperless_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Notes Paperless Done"
+          },
+          "page_notes_vision_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Notes Vision Done"
+          },
+          "page_notes_expected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Notes Expected"
+          },
+          "has_complete_page_notes_paperless": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Complete Page Notes Paperless"
+          },
+          "has_complete_page_notes_vision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Complete Page Notes Vision"
+          },
+          "has_hierarchical_summary": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Hierarchical Summary"
+          },
+          "is_large_document": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Large Document"
+          },
+          "preferred_processing_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Processing Source"
           }
         },
         "type": "object",
@@ -3624,6 +5057,125 @@
           "doc_id"
         ],
         "title": "DocumentOperationEnqueueResponse"
+      },
+      "DocumentPipelineContinueResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          },
+          "missing_tasks": {
+            "type": "integer",
+            "title": "Missing Tasks",
+            "default": 0
+          },
+          "enqueued": {
+            "type": "integer",
+            "title": "Enqueued",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "doc_id"
+        ],
+        "title": "DocumentPipelineContinueResponse"
+      },
+      "DocumentPipelineFanoutResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineFanoutItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "enabled"
+        ],
+        "title": "DocumentPipelineFanoutResponse"
+      },
+      "DocumentPipelineStatusResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "preferred_source": {
+            "type": "string",
+            "title": "Preferred Source"
+          },
+          "is_large_document": {
+            "type": "boolean",
+            "title": "Is Large Document"
+          },
+          "sync_ok": {
+            "type": "boolean",
+            "title": "Sync Ok"
+          },
+          "paperless_ok": {
+            "type": "boolean",
+            "title": "Paperless Ok"
+          },
+          "vision_ok": {
+            "type": "boolean",
+            "title": "Vision Ok"
+          },
+          "large_ok": {
+            "type": "boolean",
+            "title": "Large Ok"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineStepStatus"
+            },
+            "type": "array",
+            "title": "Steps",
+            "default": []
+          },
+          "missing_tasks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Missing Tasks",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "preferred_source",
+          "is_large_document",
+          "sync_ok",
+          "paperless_ok",
+          "vision_ok",
+          "large_ok"
+        ],
+        "title": "DocumentPipelineStatusResponse"
       },
       "DocumentResetReprocessResponse": {
         "properties": {
@@ -3827,6 +5379,28 @@
             ],
             "title": "Local Overrides"
           },
+          "review_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Status"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
           "has_embeddings": {
             "anyOf": [
               {
@@ -3881,6 +5455,14 @@
               }
             ],
             "title": "Has Vision Pages"
+          },
+          "pending_tag_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Tag Names",
+            "default": []
           }
         },
         "additionalProperties": true,
@@ -4621,6 +6203,141 @@
         "type": "object",
         "title": "PaperlessDocument"
       },
+      "PipelineFanoutItem": {
+        "properties": {
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint"
+          },
+          "error_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "last_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Started At"
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order",
+          "task",
+          "status"
+        ],
+        "title": "PipelineFanoutItem"
+      },
+      "PipelineStepStatus": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "required",
+          "done"
+        ],
+        "title": "PipelineStepStatus"
+      },
       "ProcessMissingResponse": {
         "properties": {
           "enabled": {
@@ -4643,6 +6360,17 @@
             "type": "boolean",
             "title": "Dry Run",
             "default": false
+          },
+          "selected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected"
           },
           "missing_docs": {
             "anyOf": [
@@ -4677,6 +6405,17 @@
             ],
             "title": "Missing Embeddings"
           },
+          "missing_embeddings_paperless": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Embeddings Paperless"
+          },
           "missing_embeddings_vision": {
             "anyOf": [
               {
@@ -4687,6 +6426,28 @@
               }
             ],
             "title": "Missing Embeddings Vision"
+          },
+          "missing_page_notes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Page Notes"
+          },
+          "missing_summary_hierarchical": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Summary Hierarchical"
           },
           "missing_suggestions_paperless": {
             "anyOf": [
@@ -4709,6 +6470,23 @@
               }
             ],
             "title": "Missing Suggestions Vision"
+          },
+          "missing_by_step": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Missing By Step",
+            "default": {}
+          },
+          "preview_docs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Preview Docs",
+            "default": []
           }
         },
         "type": "object",
@@ -4743,6 +6521,192 @@
           "enabled"
         ],
         "title": "QueueCancelResponse"
+      },
+      "QueueDelayedItem": {
+        "properties": {
+          "task": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "due_in_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due In Seconds"
+          }
+        },
+        "type": "object",
+        "title": "QueueDelayedItem"
+      },
+      "QueueDelayedResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QueueDelayedItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "QueueDelayedResponse"
+      },
+      "QueueDlqActionResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "ok"
+        ],
+        "title": "QueueDlqActionResponse"
+      },
+      "QueueDlqItem": {
+        "properties": {
+          "task": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "error_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "attempt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "title": "QueueDlqItem"
+      },
+      "QueueDlqRequeueRequest": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index"
+        ],
+        "title": "QueueDlqRequeueRequest"
+      },
+      "QueueDlqResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QueueDlqItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "QueueDlqResponse"
       },
       "QueueEnqueue": {
         "properties": {
@@ -5758,6 +7722,182 @@
         "type": "object",
         "title": "TagsPageResponse"
       },
+      "TaskRunItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "doc_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Id"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint"
+          },
+          "error_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "task",
+          "status",
+          "attempt"
+        ],
+        "title": "TaskRunItem"
+      },
+      "TaskRunListResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskRunItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "count"
+        ],
+        "title": "TaskRunListResponse"
+      },
       "TextQualityMetrics": {
         "properties": {
           "score": {
@@ -5819,6 +7959,679 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WritebackConflictField": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "paperless": {
+            "title": "Paperless"
+          },
+          "local": {
+            "title": "Local"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "title": "WritebackConflictField"
+      },
+      "WritebackDirectExecuteRequest": {
+        "properties": {
+          "known_paperless_modified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Paperless Modified"
+          },
+          "resolutions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Resolutions",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "title": "WritebackDirectExecuteRequest"
+      },
+      "WritebackDirectExecuteResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "docs_changed": {
+            "type": "integer",
+            "title": "Docs Changed"
+          },
+          "calls_count": {
+            "type": "integer",
+            "title": "Calls Count"
+          },
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids",
+            "default": []
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackDryRunCall"
+            },
+            "type": "array",
+            "title": "Calls",
+            "default": []
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackConflictField"
+            },
+            "type": "array",
+            "title": "Conflicts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "docs_changed",
+          "calls_count"
+        ],
+        "title": "WritebackDirectExecuteResponse"
+      },
+      "WritebackDryRunCall": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "method",
+          "path"
+        ],
+        "title": "WritebackDryRunCall"
+      },
+      "WritebackDryRunExecuteRequest": {
+        "properties": {
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_ids"
+        ],
+        "title": "WritebackDryRunExecuteRequest"
+      },
+      "WritebackDryRunExecuteResponse": {
+        "properties": {
+          "docs_selected": {
+            "type": "integer",
+            "title": "Docs Selected"
+          },
+          "docs_changed": {
+            "type": "integer",
+            "title": "Docs Changed"
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackDryRunCall"
+            },
+            "type": "array",
+            "title": "Calls",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "docs_selected",
+          "docs_changed"
+        ],
+        "title": "WritebackDryRunExecuteResponse"
+      },
+      "WritebackDryRunItem": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changed Fields",
+            "default": []
+          },
+          "title": {
+            "$ref": "#/components/schemas/WritebackFieldDiff"
+          },
+          "document_date": {
+            "$ref": "#/components/schemas/WritebackFieldDiff"
+          },
+          "correspondent": {
+            "$ref": "#/components/schemas/WritebackFieldDiff"
+          },
+          "tags": {
+            "$ref": "#/components/schemas/WritebackFieldDiff"
+          },
+          "note": {
+            "$ref": "#/components/schemas/WritebackFieldDiff"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "changed",
+          "title",
+          "document_date",
+          "correspondent",
+          "tags",
+          "note"
+        ],
+        "title": "WritebackDryRunItem"
+      },
+      "WritebackDryRunPreviewResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackDryRunItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "page",
+          "page_size"
+        ],
+        "title": "WritebackDryRunPreviewResponse"
+      },
+      "WritebackExecuteNowRequest": {
+        "properties": {
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_ids"
+        ],
+        "title": "WritebackExecuteNowRequest"
+      },
+      "WritebackExecuteNowResponse": {
+        "properties": {
+          "docs_selected": {
+            "type": "integer",
+            "title": "Docs Selected"
+          },
+          "docs_changed": {
+            "type": "integer",
+            "title": "Docs Changed"
+          },
+          "calls_count": {
+            "type": "integer",
+            "title": "Calls Count"
+          },
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids",
+            "default": []
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackDryRunCall"
+            },
+            "type": "array",
+            "title": "Calls",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "docs_selected",
+          "docs_changed",
+          "calls_count"
+        ],
+        "title": "WritebackExecuteNowResponse"
+      },
+      "WritebackExecutePendingJobResult": {
+        "properties": {
+          "job_id": {
+            "type": "integer",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "docs_selected": {
+            "type": "integer",
+            "title": "Docs Selected"
+          },
+          "docs_changed": {
+            "type": "integer",
+            "title": "Docs Changed"
+          },
+          "calls_count": {
+            "type": "integer",
+            "title": "Calls Count"
+          },
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids",
+            "default": []
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "status",
+          "dry_run",
+          "docs_selected",
+          "docs_changed",
+          "calls_count"
+        ],
+        "title": "WritebackExecutePendingJobResult"
+      },
+      "WritebackExecutePendingRequest": {
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": true
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "WritebackExecutePendingRequest"
+      },
+      "WritebackExecutePendingResponse": {
+        "properties": {
+          "processed": {
+            "type": "integer",
+            "title": "Processed"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "job_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Job Ids",
+            "default": []
+          },
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids",
+            "default": []
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackExecutePendingJobResult"
+            },
+            "type": "array",
+            "title": "Results",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "processed",
+          "completed",
+          "failed"
+        ],
+        "title": "WritebackExecutePendingResponse"
+      },
+      "WritebackFieldDiff": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "original": {
+            "title": "Original"
+          },
+          "proposed": {
+            "title": "Proposed"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "changed"
+        ],
+        "title": "WritebackFieldDiff"
+      },
+      "WritebackHistoryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackJobSummary"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "WritebackHistoryResponse"
+      },
+      "WritebackJobCreateRequest": {
+        "properties": {
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_ids"
+        ],
+        "title": "WritebackJobCreateRequest"
+      },
+      "WritebackJobDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "docs_selected": {
+            "type": "integer",
+            "title": "Docs Selected"
+          },
+          "docs_changed": {
+            "type": "integer",
+            "title": "Docs Changed"
+          },
+          "calls_count": {
+            "type": "integer",
+            "title": "Calls Count"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids",
+            "default": []
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackDryRunCall"
+            },
+            "type": "array",
+            "title": "Calls",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "dry_run",
+          "docs_selected",
+          "docs_changed",
+          "calls_count"
+        ],
+        "title": "WritebackJobDetail"
+      },
+      "WritebackJobExecuteRequest": {
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "WritebackJobExecuteRequest"
+      },
+      "WritebackJobListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackJobSummary"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "WritebackJobListResponse"
+      },
+      "WritebackJobSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "docs_selected": {
+            "type": "integer",
+            "title": "Docs Selected"
+          },
+          "docs_changed": {
+            "type": "integer",
+            "title": "Docs Changed"
+          },
+          "calls_count": {
+            "type": "integer",
+            "title": "Calls Count"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "dry_run",
+          "docs_selected",
+          "docs_changed",
+          "calls_count"
+        ],
+        "title": "WritebackJobSummary"
       }
     }
   }

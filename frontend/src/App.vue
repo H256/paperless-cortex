@@ -103,9 +103,9 @@
           />
         </div>
         <div class="flex flex-wrap items-center gap-4">
-          <div v-if="queueStore.status.enabled">Queue: {{ queueStore.status.length ?? 'n/a' }}</div>
-          <div v-if="queueStore.status.enabled">Done: {{ queueStore.status.done ?? 0 }}</div>
-          <div v-if="queueStore.status.enabled">Total: {{ queueStore.status.total ?? 0 }}</div>
+          <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
+          <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
+          <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
         </div>
         <img
@@ -141,20 +141,27 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
+import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench, FileSearch } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
 import ToastHost from './components/ToastHost.vue'
-import { useQueueStore } from './stores/queueStore'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
-import { useDocumentsStore } from './stores/documentsStore'
+import { fetchQueueStatus } from './services/queue'
+import { useStatusStream } from './composables/useStatusStream'
 
-const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
-const documentsStore = useDocumentsStore()
+const queryClient = useQueryClient()
+const queueStatusQuery = useQuery({
+  queryKey: ['queue-status'],
+  queryFn: () => fetchQueueStatus(),
+  refetchInterval: 30_000,
+  staleTime: 5_000,
+})
+const queueStatus = computed(() => queueStatusQuery.data.value ?? { enabled: false, length: null })
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
@@ -164,9 +171,8 @@ const prefersDark = ref(mediaQuery.matches)
 const effectiveTheme = computed(() =>
   theme.value === 'system' ? (prefersDark.value ? 'dark' : 'light') : theme.value,
 )
-let statusStream: EventSource | null = null
-let statusStreamRetryId: number | null = null
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+const { startStatusStream, stopStatusStream } = useStatusStream(apiBaseUrl, statusStore, queryClient)
 const primaryNavItems: NavItem[] = [
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/chat', label: 'Chat', icon: MessageCircle },
@@ -175,6 +181,7 @@ const primaryNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+  { to: '/logs', label: 'Logs', icon: FileSearch },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
   { to: '/operations', label: 'Operations', icon: Wrench },
@@ -200,7 +207,6 @@ const onErrorEvent = (event: Event) => {
 
 onMounted(() => {
   applyTheme(effectiveTheme.value)
-  queueStore.refreshStatus()
   statusStore.refresh()
   startStatusStream()
   window.addEventListener('app-error', onErrorEvent as EventListener)
@@ -220,38 +226,4 @@ watch(theme, (value) => {
 watchEffect(() => {
   applyTheme(effectiveTheme.value)
 })
-
-const startStatusStream = () => {
-  stopStatusStream()
-  const url = `${apiBaseUrl}/status/stream`
-  statusStream = new EventSource(url)
-  statusStream.onmessage = (event) => {
-    if (!event?.data) return
-    try {
-      const payload = JSON.parse(event.data)
-      if (payload?.status) statusStore.applyStatus(payload.status)
-      if (payload?.queue) queueStore.setStatus(payload.queue)
-      if (payload?.sync) documentsStore.setSyncStatus(payload.sync)
-      if (payload?.embeddings) documentsStore.setEmbedStatus(payload.embeddings)
-      if (payload?.stats) documentsStore.setStats(payload.stats)
-    } catch {
-      // ignore malformed payloads
-    }
-  }
-  statusStream.onerror = () => {
-    stopStatusStream()
-    statusStreamRetryId = window.setTimeout(startStatusStream, 5000)
-  }
-}
-
-const stopStatusStream = () => {
-  if (statusStream) {
-    statusStream.close()
-    statusStream = null
-  }
-  if (statusStreamRetryId !== null) {
-    window.clearTimeout(statusStreamRetryId)
-    statusStreamRetryId = null
-  }
-}
 </script>

@@ -1,130 +1,55 @@
-import { request } from './http'
+import { unwrap } from '../api/orval'
+import {
+  createWritebackJobWritebackJobsPost,
+  dryRunExecuteWritebackDryRunExecutePost,
+  dryRunPreviewWritebackDryRunPreviewGet,
+  executePendingWritebackJobsWritebackJobsExecutePendingPost,
+  executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPost,
+  executeWritebackJobWritebackJobsJobIdExecutePost,
+  executeWritebackNowWritebackExecuteNowPost,
+  getWritebackJobWritebackJobsJobIdGet,
+  listWritebackJobsWritebackJobsGet,
+  writebackHistoryWritebackHistoryGet,
+} from '../api/generated/client'
+import type {
+  DryRunPreviewWritebackDryRunPreviewGetParams,
+  WritebackDirectExecuteRequest,
+  WritebackDirectExecuteResponse,
+  WritebackDryRunExecuteResponse,
+  WritebackDryRunItem as WritebackDryRunItemModel,
+  WritebackDryRunPreviewResponse,
+  WritebackExecuteNowResponse,
+  WritebackExecutePendingResponse,
+  WritebackJobDetail,
+  WritebackJobListResponse,
+  WritebackJobSummary as WritebackJobSummaryModel,
+  WritebackConflictField as WritebackConflictFieldModel,
+} from '../api/generated/model'
 
-export type WritebackFieldDiff = {
-  field: string
-  original: unknown
-  proposed: unknown
-  changed: boolean
-}
+export type WritebackFieldDiff = WritebackDryRunItemModel['title']
+export type WritebackDryRunPreview = WritebackDryRunPreviewResponse
+export type WritebackDryRunExecute = WritebackDryRunExecuteResponse
+export type WritebackExecuteNow = WritebackExecuteNowResponse
+export type WritebackDirectExecute = WritebackDirectExecuteResponse
+export type WritebackJob = WritebackJobSummaryModel
+export type WritebackJobList = WritebackJobListResponse
+export type WritebackExecutePending = WritebackExecutePendingResponse
+export type WritebackJobSummary = WritebackJobSummaryModel
+export type WritebackDryRunItem = WritebackDryRunItemModel
+export type WritebackConflictField = WritebackConflictFieldModel
 
-export type WritebackDryRunItem = {
-  doc_id: number
-  changed: boolean
-  changed_fields: string[]
-  title: WritebackFieldDiff
-  document_date: WritebackFieldDiff
-  correspondent: WritebackFieldDiff
-  tags: WritebackFieldDiff
-  note: WritebackFieldDiff
-}
-
-export type WritebackDryRunPreviewResponse = {
-  count: number
-  page: number
-  page_size: number
-  items: WritebackDryRunItem[]
-}
-
-export type WritebackDryRunExecuteResponse = {
-  docs_selected: number
-  docs_changed: number
-  calls: Array<{
-    doc_id: number
-    method: string
-    path: string
-    payload: Record<string, unknown>
-  }>
-}
-
-export type WritebackExecuteNowResponse = {
-  docs_selected: number
-  docs_changed: number
-  calls_count: number
-  doc_ids: number[]
-  calls: Array<{
-    doc_id: number
-    method: string
-    path: string
-    payload: Record<string, unknown>
-  }>
-}
-
-export type WritebackConflictField = {
-  field: string
-  paperless: unknown
-  local: unknown
-}
-
-export type WritebackDirectExecuteResponse = {
-  status: 'no_changes' | 'conflicts' | 'completed'
-  docs_changed: number
-  calls_count: number
-  doc_ids: number[]
-  calls: Array<{
-    doc_id: number
-    method: string
-    path: string
-    payload: Record<string, unknown>
-  }>
-  conflicts: WritebackConflictField[]
-}
-
-export type WritebackJobSummary = {
-  id: number
-  status: string
-  dry_run: boolean
-  docs_selected: number
-  docs_changed: number
-  calls_count: number
-  created_at?: string | null
-  started_at?: string | null
-  finished_at?: string | null
-  error?: string | null
-}
-
-export type WritebackJobDetail = WritebackJobSummary & {
-  doc_ids: number[]
-  calls: Array<{
-    doc_id: number
-    method: string
-    path: string
-    payload: Record<string, unknown>
-  }>
-}
-
-export type WritebackJobListResponse = {
-  items: WritebackJobSummary[]
-}
-
-export type WritebackExecutePendingResponse = {
-  processed: number
-  completed: number
-  failed: number
-  job_ids: number[]
-  doc_ids: number[]
-}
-
-export const getWritebackDryRunPreview = (params: {
-  page: number
-  page_size: number
-  only_changed?: boolean
-  doc_id?: number
-}) =>
-  request<WritebackDryRunPreviewResponse>('/writeback/dry-run/preview', {
-    params,
-  })
+export const getWritebackDryRunPreview = (params: DryRunPreviewWritebackDryRunPreviewGetParams) =>
+  unwrap<WritebackDryRunPreviewResponse>(dryRunPreviewWritebackDryRunPreviewGet(params))
 
 export const runWritebackDryRun = (doc_ids: number[]) =>
-  request<WritebackDryRunExecuteResponse>('/writeback/dry-run/execute', {
-    method: 'POST',
-    body: { doc_ids },
-  })
+  unwrap<WritebackDryRunExecuteResponse>(
+    dryRunExecuteWritebackDryRunExecutePost({ doc_ids }),
+  )
 
 export const executeWritebackNow = (doc_ids: number[]) =>
-  request<WritebackExecuteNowResponse>('/writeback/execute-now', {
-    method: 'POST',
-    body: { doc_ids },
-  })
+  unwrap<WritebackExecuteNowResponse>(
+    executeWritebackNowWritebackExecuteNowPost({ doc_ids }),
+  )
 
 export const executeWritebackDirectForDocument = (
   docId: number,
@@ -132,38 +57,37 @@ export const executeWritebackDirectForDocument = (
     known_paperless_modified?: string | null
     resolutions?: Record<string, 'skip' | 'use_paperless' | 'use_local'>
   },
-) =>
-  request<WritebackDirectExecuteResponse>(`/writeback/documents/${docId}/execute-direct`, {
-    method: 'POST',
-    body: {
-      known_paperless_modified: params.known_paperless_modified ?? null,
-      resolutions: params.resolutions ?? {},
-    },
-  })
+) => {
+  const payload: WritebackDirectExecuteRequest = {
+    known_paperless_modified: params.known_paperless_modified ?? undefined,
+    resolutions: params.resolutions ?? {},
+  }
+  return unwrap<WritebackDirectExecuteResponse>(
+    executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPost(docId, payload),
+  )
+}
 
 export const createWritebackJob = (doc_ids: number[]) =>
-  request<WritebackJobDetail>('/writeback/jobs', {
-    method: 'POST',
-    body: { doc_ids },
-  })
+  unwrap<WritebackJobDetail>(createWritebackJobWritebackJobsPost({ doc_ids }))
 
 export const listWritebackJobs = (limit = 100) =>
-  request<WritebackJobListResponse>('/writeback/jobs', { params: { limit } })
+  unwrap<WritebackJobListResponse>(listWritebackJobsWritebackJobsGet({ limit }))
 
 export const getWritebackJob = (jobId: number) =>
-  request<WritebackJobDetail>(`/writeback/jobs/${jobId}`)
+  unwrap<WritebackJobDetail>(getWritebackJobWritebackJobsJobIdGet(jobId))
 
 export const executeWritebackJob = (jobId: number, dryRun = true) =>
-  request<WritebackJobDetail>(`/writeback/jobs/${jobId}/execute`, {
-    method: 'POST',
-    body: { dry_run: dryRun },
-  })
+  unwrap<WritebackJobDetail>(
+    executeWritebackJobWritebackJobsJobIdExecutePost(jobId, { dry_run: dryRun }),
+  )
 
 export const listWritebackHistory = (limit = 100) =>
-  request<WritebackJobListResponse>('/writeback/history', { params: { limit } })
+  unwrap<WritebackJobListResponse>(writebackHistoryWritebackHistoryGet({ limit }))
 
 export const executePendingWritebackJobs = (dryRun = true, limit = 0) =>
-  request<WritebackExecutePendingResponse>('/writeback/jobs/execute-pending', {
-    method: 'POST',
-    body: { dry_run: dryRun, limit },
-  })
+  unwrap<WritebackExecutePendingResponse>(
+    executePendingWritebackJobsWritebackJobsExecutePendingPost({
+      dry_run: dryRun,
+      limit,
+    }),
+  )

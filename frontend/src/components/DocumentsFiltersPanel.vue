@@ -1,0 +1,192 @@
+<template>
+  <section
+    class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+  >
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      Filters
+    </div>
+    <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
+        <select
+          v-model="orderingModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="-date">Issue date desc</option>
+          <option value="date">Issue date asc</option>
+          <option value="-title">Title desc</option>
+          <option value="title">Title asc</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Correspondent</label>
+        <select
+          v-model="selectedCorrespondentModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="">All</option>
+          <option
+            v-for="c in correspondents"
+            :key="c.id ?? `corr-${c.name}`"
+            :value="c.id != null ? String(c.id) : ''"
+          >
+            {{ c.name }}
+          </option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Tag</label>
+        <select
+          v-model="selectedTagModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="">All</option>
+          <option v-for="t in tags" :key="t.id ?? `tag-${t.name}`" :value="t.id != null ? String(t.id) : ''">
+            {{ t.name }}
+          </option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">From</label>
+        <input
+          type="date"
+          v-model="dateFromModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">To</label>
+        <input
+          type="date"
+          v-model="dateToModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Analysis</label>
+        <select
+          v-model="analysisFilterModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="all">All</option>
+          <option value="analyzed">Analyzed</option>
+          <option value="not_analyzed">Not analyzed</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Review</label>
+        <select
+          v-model="selectedReviewStatusModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="all">All</option>
+          <option value="unreviewed">Unreviewed</option>
+          <option value="needs_review">Needs review</option>
+          <option value="reviewed">Reviewed</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Model</label>
+        <input
+          v-model="modelFilterModel"
+          type="text"
+          placeholder="e.g. gpt-oss"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Page size</label>
+        <select
+          v-model.number="pageSizeModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+      <button
+        class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+        @click="$emit('reload')"
+        title="Reload current list"
+      >
+        <RefreshCw class="h-4 w-4" />
+        Reload
+      </button>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { RefreshCw } from 'lucide-vue-next'
+import type { Correspondent, Tag } from '../services/documents'
+
+const props = defineProps<{
+  tags: Tag[]
+  correspondents: Correspondent[]
+  ordering: string
+  selectedCorrespondent: string
+  selectedTag: string
+  dateFrom: string
+  dateTo: string
+  analysisFilter: 'all' | 'analyzed' | 'not_analyzed'
+  selectedReviewStatus: 'all' | 'unreviewed' | 'reviewed' | 'needs_review'
+  modelFilter: string
+  pageSize: number
+}>()
+
+const emit = defineEmits<{
+  reload: []
+  'update:ordering': [value: string]
+  'update:selectedCorrespondent': [value: string]
+  'update:selectedTag': [value: string]
+  'update:dateFrom': [value: string]
+  'update:dateTo': [value: string]
+  'update:analysisFilter': [value: 'all' | 'analyzed' | 'not_analyzed']
+  'update:selectedReviewStatus': [value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review']
+  'update:modelFilter': [value: string]
+  'update:pageSize': [value: number]
+}>()
+
+const orderingModel = computed({
+  get: () => props.ordering,
+  set: (value: string) => emit('update:ordering', value),
+})
+const selectedCorrespondentModel = computed({
+  get: () => props.selectedCorrespondent,
+  set: (value: string) => emit('update:selectedCorrespondent', value),
+})
+const selectedTagModel = computed({
+  get: () => props.selectedTag,
+  set: (value: string) => emit('update:selectedTag', value),
+})
+const dateFromModel = computed({
+  get: () => props.dateFrom,
+  set: (value: string) => emit('update:dateFrom', value),
+})
+const dateToModel = computed({
+  get: () => props.dateTo,
+  set: (value: string) => emit('update:dateTo', value),
+})
+const analysisFilterModel = computed({
+  get: () => props.analysisFilter,
+  set: (value: 'all' | 'analyzed' | 'not_analyzed') => emit('update:analysisFilter', value),
+})
+const selectedReviewStatusModel = computed({
+  get: () => props.selectedReviewStatus,
+  set: (value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review') =>
+    emit('update:selectedReviewStatus', value),
+})
+const modelFilterModel = computed({
+  get: () => props.modelFilter,
+  set: (value: string) => emit('update:modelFilter', value),
+})
+const pageSizeModel = computed({
+  get: () => props.pageSize,
+  set: (value: number) => emit('update:pageSize', value),
+})
+</script>
