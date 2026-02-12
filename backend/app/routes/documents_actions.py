@@ -88,6 +88,74 @@ class _PipelineOptions(BaseModel):
     embeddings_mode: str = "auto"
 
 
+def _task_identity(task: dict[str, Any]) -> tuple:
+    return (
+        int(task.get("doc_id") or 0),
+        str(task.get("task") or ""),
+        str(task.get("source") or ""),
+        bool(task.get("force") or False),
+        bool(task.get("clear_first") or False),
+    )
+
+
+def _dedupe_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple] = set()
+    deduped: list[dict[str, Any]] = []
+    for task in tasks:
+        key = _task_identity(task)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(task)
+    return deduped
+
+
+def _post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: _PipelineOptions) -> list[dict[str, Any]]:
+    normalized = int(doc_id)
+    tasks: list[dict[str, Any]] = []
+    use_vision = bool(settings.enable_vision_ocr and options.include_vision_ocr)
+
+    if options.include_embeddings:
+        if options.embeddings_mode == "paperless":
+            if options.include_embeddings_paperless:
+                tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+        elif options.embeddings_mode == "vision":
+            if options.include_embeddings_vision and use_vision:
+                tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
+        elif options.embeddings_mode == "both":
+            if options.include_embeddings_paperless:
+                tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+            if options.include_embeddings_vision and use_vision:
+                tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
+        else:
+            # auto
+            if use_vision and options.include_embeddings_vision:
+                tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
+            elif options.include_embeddings_paperless:
+                tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+
+    if use_vision:
+        if options.include_vision_ocr:
+            tasks.append({"doc_id": normalized, "task": "vision_ocr"})
+        if options.include_page_notes or options.include_summary_hierarchical:
+            tasks.append({"doc_id": normalized, "task": "page_notes_vision"})
+        if options.include_summary_hierarchical:
+            tasks.append({"doc_id": normalized, "task": "summary_hierarchical", "source": "vision_ocr"})
+        if options.include_suggestions_paperless:
+            tasks.append({"doc_id": normalized, "task": "suggestions_paperless"})
+        if options.include_suggestions_vision:
+            tasks.append({"doc_id": normalized, "task": "suggestions_vision"})
+    else:
+        if options.include_page_notes or options.include_summary_hierarchical:
+            tasks.append({"doc_id": normalized, "task": "page_notes_paperless"})
+        if options.include_summary_hierarchical:
+            tasks.append({"doc_id": normalized, "task": "summary_hierarchical", "source": "paperless_ocr"})
+        if options.include_suggestions_paperless:
+            tasks.append({"doc_id": normalized, "task": "suggestions_paperless"})
+
+    return _dedupe_tasks(tasks)
+
+
 def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
     expected = int(doc.page_count or 0)
     if expected <= 0:
@@ -552,7 +620,8 @@ def continue_document_pipeline(
     evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     tasks = list(evaluation["tasks"])
     if include_sync and not _sync_ok(settings, doc):
-        tasks = [{"doc_id": int(doc_id), "task": "sync"}] + tasks
+        followups = _post_sync_followup_tasks(int(doc_id), settings=settings, options=options)
+        tasks = _dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}] + tasks + followups)
     enqueued = 0
     if tasks and not dry_run:
         enqueued = enqueue_task_sequence(settings, tasks)
