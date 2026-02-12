@@ -78,6 +78,38 @@
           Save preset
         </button>
         <button
+          class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+          @click="applyQuickFilter('failed')"
+        >
+          Only failed
+        </button>
+        <button
+          class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+          @click="applyQuickFilter('retrying')"
+        >
+          Retrying now
+        </button>
+        <button
+          class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+          @click="applyQuickFilter('embedding_overflow')"
+        >
+          Embedding overflows
+        </button>
+        <button
+          class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
+          :disabled="taskRuns.length === 0"
+          @click="exportJson"
+        >
+          Export JSON
+        </button>
+        <button
+          class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
+          :disabled="taskRuns.length === 0"
+          @click="exportCsv"
+        >
+          Export CSV
+        </button>
+        <button
           v-for="preset in presets"
           :key="preset.id"
           class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
@@ -90,7 +122,7 @@
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div class="text-xs text-slate-500 dark:text-slate-400">
-        Showing {{ taskRuns.length }} of {{ taskRunsCount }} run(s)
+        Showing {{ taskRuns.length }} of {{ taskRunsCount }} run(s), offset {{ filters.offset.value }}
       </div>
       <div v-if="error" class="mt-2 text-sm text-rose-600 dark:text-rose-300">{{ error }}</div>
       <div v-else-if="taskRuns.length === 0" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -137,6 +169,22 @@
           </tbody>
         </table>
       </div>
+      <div class="mt-3 flex items-center gap-2">
+        <button
+          class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          :disabled="filters.offset.value <= 0 || loading"
+          @click="prevPage"
+        >
+          Prev
+        </button>
+        <button
+          class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          :disabled="filters.offset.value + filters.limit.value >= taskRunsCount || loading"
+          @click="nextPage"
+        >
+          Next
+        </button>
+      </div>
     </section>
   </section>
 </template>
@@ -164,6 +212,8 @@ const {
   applyPreset,
   deletePreset,
   clearFilters,
+  nextPage,
+  prevPage,
 } = useTaskRunInspector()
 
 const formatTaskCheckpoint = (checkpoint?: Record<string, unknown> | null) =>
@@ -196,5 +246,89 @@ const saveCurrentPreset = () => {
   }
   presetName.value = ''
   toastStore.push('Preset saved.', 'success', 'Logs', 1200)
+}
+
+const applyQuickFilter = (kind: 'failed' | 'retrying' | 'embedding_overflow') => {
+  clearFilters()
+  if (kind === 'failed') {
+    filters.status.value = 'failed'
+  } else if (kind === 'retrying') {
+    filters.status.value = 'retrying'
+  } else {
+    filters.status.value = 'failed'
+    filters.task.value = 'embeddings_vision'
+    filters.query.value = 'overflow'
+  }
+}
+
+const downloadBlob = (filename: string, content: string, mime: string) => {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+const exportJson = () => {
+  const payload = {
+    filters: {
+      doc_id: filters.docId.value || null,
+      task: filters.task.value || null,
+      status: filters.status.value || null,
+      error_type: filters.errorType.value || null,
+      q: filters.query.value || null,
+      limit: filters.limit.value,
+      offset: filters.offset.value,
+    },
+    count: taskRunsCount.value,
+    items: taskRuns.value,
+  }
+  downloadBlob(
+    `task-runs-${Date.now()}.json`,
+    JSON.stringify(payload, null, 2),
+    'application/json;charset=utf-8',
+  )
+}
+
+const csvEscape = (value: unknown) => {
+  const text = String(value ?? '')
+  if (!/[",\n]/.test(text)) return text
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+const exportCsv = () => {
+  const columns = [
+    'id',
+    'doc_id',
+    'task',
+    'source',
+    'status',
+    'attempt',
+    'error_type',
+    'error_message',
+    'started_at',
+    'finished_at',
+    'duration_ms',
+  ]
+  const lines = [columns.join(',')]
+  for (const run of taskRuns.value) {
+    const row = [
+      csvEscape(run.id),
+      csvEscape(run.doc_id),
+      csvEscape(run.task),
+      csvEscape(run.source),
+      csvEscape(run.status),
+      csvEscape(run.attempt),
+      csvEscape(run.error_type),
+      csvEscape(run.error_message),
+      csvEscape(run.started_at),
+      csvEscape(run.finished_at),
+      csvEscape(run.duration_ms),
+    ]
+    lines.push(row.join(','))
+  }
+  downloadBlob(`task-runs-${Date.now()}.csv`, lines.join('\n'), 'text/csv;charset=utf-8')
 }
 </script>

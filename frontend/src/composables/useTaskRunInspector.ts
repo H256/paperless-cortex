@@ -11,6 +11,7 @@ type TaskRunPreset = {
   errorType: string
   query: string
   limit: number
+  offset: number
 }
 
 const PRESETS_STORAGE_KEY = 'task_run_inspector_presets_v1'
@@ -33,6 +34,7 @@ const loadPresets = (): TaskRunPreset[] => {
         errorType: String(item.errorType || ''),
         query: String(item.query || ''),
         limit: Number(item.limit || 100),
+        offset: Number(item.offset || 0),
       }))
   } catch {
     return []
@@ -50,7 +52,12 @@ export const useTaskRunInspector = () => {
   const errorType = ref('')
   const query = ref('')
   const limit = ref(100)
+  const offset = ref(0)
   const autoRefresh = ref(true)
+
+  watch([docId, task, status, errorType, query], () => {
+    offset.value = 0
+  })
 
   const presets = ref<TaskRunPreset[]>(loadPresets())
   watch(
@@ -70,6 +77,7 @@ export const useTaskRunInspector = () => {
       errorType.value,
       query.value,
       limit.value,
+      offset.value,
     ]),
     queryFn: () =>
       fetchQueueTaskRuns({
@@ -79,6 +87,7 @@ export const useTaskRunInspector = () => {
         error_type: errorType.value || undefined,
         q: query.value || undefined,
         limit: limit.value,
+        offset: offset.value,
       }),
     staleTime: 5_000,
     refetchInterval: computed(() => (autoRefresh.value ? 5_000 : false)),
@@ -96,6 +105,7 @@ export const useTaskRunInspector = () => {
       errorType: errorType.value,
       query: query.value,
       limit: limit.value,
+      offset: offset.value,
     }
     presets.value = [preset, ...presets.value].slice(0, 20)
     return true
@@ -124,6 +134,19 @@ export const useTaskRunInspector = () => {
     errorType.value = ''
     query.value = ''
     limit.value = 100
+    offset.value = 0
+  }
+
+  const nextPage = () => {
+    if (!taskRunsQuery.data.value?.count) return
+    const total = Number(taskRunsQuery.data.value.count || 0)
+    const next = offset.value + limit.value
+    if (next >= total) return
+    offset.value = next
+  }
+
+  const prevPage = () => {
+    offset.value = Math.max(0, offset.value - limit.value)
   }
 
   return {
@@ -134,6 +157,7 @@ export const useTaskRunInspector = () => {
       errorType,
       query,
       limit,
+      offset,
       autoRefresh,
     },
     taskRuns: computed<QueueTaskRun[]>(() => taskRunsQuery.data.value?.items ?? []),
@@ -150,5 +174,7 @@ export const useTaskRunInspector = () => {
     applyPreset,
     deletePreset,
     clearFilters,
+    nextPage,
+    prevPage,
   }
 }

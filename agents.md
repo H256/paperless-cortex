@@ -634,6 +634,7 @@ All model names must be configurable via environment variables.
 - Queue run-history UX: made rows actionable by adding direct jump-to-document buttons and one-click copy for raw error messages, reducing context switching during failure triage.
 - UX/Observability: added dedicated Log Inspector page (`/logs`) with advanced task-run filtering (doc/task/status/error/query), auto-refresh toggle, saved filter presets (localStorage), direct jump-to-document actions, and error copy support for faster end-to-end troubleshooting.
 - Frontend architecture: introduced reusable `useTaskRunInspector` composable to keep log-query/filter/preset state isolated and DRY; wired app navigation with new Logs entry.
+- Log Inspector UX: added server-side pagination controls via `offset` (`Prev`/`Next`), quick filter chips (`Only failed`, `Retrying now`, `Embedding overflows`), and export actions for currently filtered rows (`JSON`, `CSV`).
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
