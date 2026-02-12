@@ -573,34 +573,52 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RefreshCcw, Loader2 } from 'lucide-vue-next'
-import { storeToRefs } from 'pinia'
-import { useDocumentsStore } from '../stores/documentsStore'
-import { cleanupTexts, clearIntelligence, syncCorrespondents, syncTags } from '../services/documents'
-import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
-import { useQueueStore } from '../stores/queueStore'
 import {
-  fetchWorkerLockStatus,
-  resetWorkerLock,
   type QueueWorkerLockReset,
   type QueueWorkerLockStatus,
 } from '../services/queue'
+import { useMaintenanceOps } from '../composables/useMaintenanceOps'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
-const documentsStore = useDocumentsStore()
-const queueStore = useQueueStore()
-const statusStore = useStatusStore()
 const toastStore = useToastStore()
+const maintenanceOps = useMaintenanceOps()
 
-const { syncing, syncStatus, embedStatus } = storeToRefs(documentsStore)
-const { runtime } = storeToRefs(statusStore)
+const {
+  syncStatus,
+  embedStatus,
+  runtime,
+  workerLockStatus,
+  workerLockLoading,
+  reprocessRunning,
+  visionLoading,
+  suggestionsLoading,
+  embeddingsLoading,
+  clearAllLoading,
+  cleanupLoading,
+  correspondentsSyncLoading,
+  tagsSyncLoading,
+  workerLockResetLoading,
+  loadWorkerLockStatus: fetchWorkerLockStatusNow,
+  reprocessAll,
+  removeVisionOcr,
+  removeSuggestions,
+  removeEmbeddings,
+  clearAllIntelligence,
+  cleanupTexts: runCleanupTexts,
+  syncCorrespondentsNow: syncCorrespondentsAction,
+  syncTagsNow: syncTagsAction,
+  resetWorkerLockNow,
+} = maintenanceOps
 
 const showReprocessModal = ref(false)
-const reprocessRunning = ref(false)
 const copiedKey = ref<string | null>(null)
 const showClearAllModal = ref(false)
 const clearAllArmed = ref(false)
 
+const syncing = computed(
+  () => syncStatus.value.status === 'running' || embedStatus.value.status === 'running',
+)
 const isProcessing = computed(
   () => syncStatus.value.status === 'running' || embedStatus.value.status === 'running',
 )
@@ -628,9 +646,6 @@ const etaText = computed(() => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 })
 
-const visionLoading = ref(false)
-const suggestionsLoading = ref(false)
-const embeddingsLoading = ref(false)
 const visionResult = ref<{ deleted: number } | null>(null)
 const suggestionsResult = ref<{ deleted: number } | null>(null)
 const embeddingsResult = ref<{
@@ -638,7 +653,6 @@ const embeddingsResult = ref<{
   qdrant_deleted: number
   qdrant_errors: number
 } | null>(null)
-const clearAllLoading = ref(false)
 const clearAllResult = ref<{
   cleared_documents: number
   cleared_embeddings: number
@@ -648,15 +662,9 @@ const clearAllResult = ref<{
   qdrant_errors: number
 } | null>(null)
 
-const correspondentsSyncLoading = ref(false)
-const tagsSyncLoading = ref(false)
 const correspondentsSyncResult = ref<{ count: number; upserted: number } | null>(null)
 const tagsSyncResult = ref<{ count: number; upserted: number } | null>(null)
-const workerLockLoading = ref(false)
-const workerLockResetLoading = ref(false)
-const workerLockStatus = ref<QueueWorkerLockStatus | null>(null)
 const workerLockResetResult = ref<QueueWorkerLockReset | null>(null)
-const cleanupLoading = ref(false)
 const cleanupClearFirst = ref(false)
 const cleanupResult = ref<{
   queued: boolean
@@ -706,13 +714,12 @@ const closeReprocessModal = () => {
 }
 
 const confirmReprocessAll = async () => {
-  reprocessRunning.value = true
   try {
-    await documentsStore.reprocessAll()
-    await queueStore.refreshStatus()
+    await reprocessAll()
     showReprocessModal.value = false
-  } finally {
-    reprocessRunning.value = false
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to start reprocess'
+    toastStore.push(message, 'danger', 'Error')
   }
 }
 
@@ -721,17 +728,14 @@ const confirmVision = async () => {
     'Remove Vision OCR',
     'Remove all vision OCR pages for every document? This cannot be undone.',
     async () => {
-      visionLoading.value = true
       visionResult.value = null
       try {
-        const result = await documentsStore.removeVisionOcr()
+        const result = await removeVisionOcr()
         visionResult.value = { deleted: result.deleted ?? 0 }
         toastStore.push('Vision OCR removed', 'success', 'Completed')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to remove vision OCR'
         toastStore.push(message, 'danger', 'Error')
-      } finally {
-        visionLoading.value = false
       }
     },
   )
@@ -742,17 +746,14 @@ const confirmSuggestions = async () => {
     'Remove AI suggestions',
     'Remove all AI suggestions for every document? This cannot be undone.',
     async () => {
-      suggestionsLoading.value = true
       suggestionsResult.value = null
       try {
-        const result = await documentsStore.removeSuggestions()
+        const result = await removeSuggestions()
         suggestionsResult.value = { deleted: result.deleted ?? 0 }
         toastStore.push('Suggestions removed', 'success', 'Completed')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to remove suggestions'
         toastStore.push(message, 'danger', 'Error')
-      } finally {
-        suggestionsLoading.value = false
       }
     },
   )
@@ -763,10 +764,9 @@ const confirmEmbeddings = async () => {
     'Remove embeddings',
     'Remove all embeddings (paperless + vision) for every document? This cannot be undone.',
     async () => {
-      embeddingsLoading.value = true
       embeddingsResult.value = null
       try {
-        const result = await documentsStore.removeEmbeddings()
+        const result = await removeEmbeddings()
         embeddingsResult.value = {
           deleted: result.deleted ?? 0,
           qdrant_deleted: result.qdrant_deleted ?? 0,
@@ -776,8 +776,6 @@ const confirmEmbeddings = async () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to remove embeddings'
         toastStore.push(message, 'danger', 'Error')
-      } finally {
-        embeddingsLoading.value = false
       }
     },
   )
@@ -788,10 +786,9 @@ const confirmCleanupTexts = async () => {
     'Cleanup page texts',
     'Recompute cleaned text/token fields for all stored pages?',
     async () => {
-      cleanupLoading.value = true
       cleanupResult.value = null
       try {
-        const result = await cleanupTexts({
+        const result = await runCleanupTexts({
           clear_first: cleanupClearFirst.value,
           enqueue: true,
         })
@@ -800,52 +797,47 @@ const confirmCleanupTexts = async () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to run cleanup'
         toastStore.push(message, 'danger', 'Error')
-      } finally {
-        cleanupLoading.value = false
       }
     },
   )
 }
 
 const syncCorrespondentsNow = async () => {
-  correspondentsSyncLoading.value = true
   correspondentsSyncResult.value = null
   try {
-    const result = await syncCorrespondents()
+    const result = await syncCorrespondentsAction()
     correspondentsSyncResult.value = {
       count: result.count ?? 0,
       upserted: result.upserted ?? 0,
     }
     toastStore.push('Correspondents synced', 'success', 'Sync complete')
-  } finally {
-    correspondentsSyncLoading.value = false
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to sync correspondents'
+    toastStore.push(message, 'danger', 'Error')
   }
 }
 
 const syncTagsNow = async () => {
-  tagsSyncLoading.value = true
   tagsSyncResult.value = null
   try {
-    const result = await syncTags()
+    const result = await syncTagsAction()
     tagsSyncResult.value = {
       count: result.count ?? 0,
       upserted: result.upserted ?? 0,
     }
     toastStore.push('Tags synced', 'success', 'Sync complete')
-  } finally {
-    tagsSyncLoading.value = false
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to sync tags'
+    toastStore.push(message, 'danger', 'Error')
   }
 }
 
 const loadWorkerLockStatus = async () => {
-  workerLockLoading.value = true
   try {
-    workerLockStatus.value = await fetchWorkerLockStatus()
+    await fetchWorkerLockStatusNow()
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to load worker lock status'
     toastStore.push(message, 'danger', 'Error')
-  } finally {
-    workerLockLoading.value = false
   }
 }
 
@@ -854,10 +846,9 @@ const confirmWorkerLockReset = async () => {
     'Reset worker lock',
     'Reset Redis worker lock now? Use this only if a stale lock blocks worker startup.',
     async () => {
-      workerLockResetLoading.value = true
       workerLockResetResult.value = null
       try {
-        const result = await resetWorkerLock()
+        const result = await resetWorkerLockNow()
         workerLockResetResult.value = result
         await loadWorkerLockStatus()
         if (result.reason === 'worker_active') {
@@ -868,16 +859,13 @@ const confirmWorkerLockReset = async () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to reset worker lock'
         toastStore.push(message, 'danger', 'Error')
-      } finally {
-        workerLockResetLoading.value = false
       }
     },
   )
 }
 
 onMounted(async () => {
-  await statusStore.refresh()
-  await loadWorkerLockStatus()
+  await Promise.all([loadWorkerLockStatus(), maintenanceOps.refreshRuntime()])
 })
 
 const copyValue = async (value: string, key: string) => {
@@ -903,11 +891,9 @@ const closeClearAllModal = () => {
 }
 
 const confirmClearAll = async () => {
-  clearAllLoading.value = true
   clearAllResult.value = null
   try {
-    const clearAll = documentsStore.clearAllIntelligence ?? clearIntelligence
-    const result = await clearAll()
+    const result = await clearAllIntelligence()
     clearAllResult.value = {
       cleared_documents: result.cleared_documents ?? 0,
       cleared_embeddings: result.cleared_embeddings ?? 0,
@@ -921,8 +907,6 @@ const confirmClearAll = async () => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to wipe local data'
     toastStore.push(message, 'danger', 'Error')
-  } finally {
-    clearAllLoading.value = false
   }
 }
 </script>

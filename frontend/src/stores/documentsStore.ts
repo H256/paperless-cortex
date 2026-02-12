@@ -3,12 +3,6 @@ import {
   getEmbedStatus,
   getStats,
   getSyncStatus,
-  deleteEmbeddings,
-  deleteSuggestions,
-  deleteVisionOcr,
-  clearIntelligence,
-  processMissing,
-  resetIntelligence,
   syncDocuments,
 } from '../services/documents'
 import type {
@@ -16,7 +10,6 @@ import type {
   SyncStatus,
   EmbedStatus,
 } from '../services/documents'
-import type { SyncDocumentsSyncDocumentsPostParams } from '@/api/generated/model'
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
@@ -115,39 +108,6 @@ export const useDocumentsStore = defineStore('documents', {
       } finally {
         this.syncing = false
       }
-    },
-    async reprocessAll() {
-      this.syncing = true
-      try {
-        const params: SyncDocumentsSyncDocumentsPostParams = {
-          page_size: 200,
-          incremental: false,
-          page: 1,
-          page_only: false,
-          embed: false,
-          force_embed: false,
-          mark_missing: true,
-        }
-        await syncDocuments(params)
-        await resetIntelligence()
-        await processMissing()
-        await this.fetchSyncStatus()
-        await this.fetchEmbedStatus()
-      } finally {
-        this.syncing = false
-      }
-    },
-    async removeVisionOcr() {
-      return deleteVisionOcr()
-    },
-    async removeSuggestions() {
-      return deleteSuggestions()
-    },
-    async removeEmbeddings() {
-      return deleteEmbeddings()
-    },
-    async clearAllIntelligence() {
-      return clearIntelligence()
     },
   },
 })
