@@ -2,10 +2,11 @@ import { computed, reactive, ref } from 'vue'
 
 export const useContinueProcessOptions = () => {
   const processOptions = reactive({
+    includeSync: true,
     includeVisionOcr: true,
     includeEmbeddingsPaperless: true,
     includeEmbeddingsVision: true,
-    embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
+    embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision' | 'both',
     includePageNotes: true,
     includeHierarchicalSummary: true,
     includeSuggestionsPaperless: true,
@@ -24,6 +25,7 @@ export const useContinueProcessOptions = () => {
   )
 
   const processParams = () => ({
+    include_sync: processOptions.includeSync,
     include_vision_ocr: processOptions.includeVisionOcr,
     include_embeddings: includeEmbeddings.value,
     include_embeddings_paperless: processOptions.includeEmbeddingsPaperless,

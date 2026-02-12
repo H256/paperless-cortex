@@ -21,11 +21,11 @@ export interface DocumentLocalResponse {
   notes?: DocumentNoteOut[];
   original_file_name?: string | null;
   status?: string | null;
+  local_overrides?: boolean | null;
   sync_status?: string | null;
   review_status?: string | null;
   reviewed_at?: string | null;
   paperless_modified?: string | null;
-  local_overrides?: boolean | null;
   pending_tag_names?: string[];
   has_embeddings?: boolean | null;
   embedding_source?: string | null;

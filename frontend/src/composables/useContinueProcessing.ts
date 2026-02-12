@@ -4,7 +4,6 @@ import {
   cancelEmbeddings,
   cancelSync,
   processMissing,
-  syncDocuments,
   type ProcessMissingParams,
 } from '../services/documents'
 import type { ProcessMissingResponse } from '@/api/generated/model'
@@ -14,19 +13,7 @@ export const useContinueProcessing = () => {
   const processStartResult = ref<{ enqueued?: number; tasks?: number } | null>(null)
 
   const previewMutation = useMutation({
-    mutationFn: async (options: ProcessMissingParams = {}) => {
-      await syncDocuments({
-        page_size: 200,
-        incremental: false,
-        page: 1,
-        page_only: false,
-        embed: false,
-        force_embed: false,
-        mark_missing: true,
-        insert_only: true,
-      })
-      return processMissing({ dry_run: true, ...options })
-    },
+    mutationFn: (options: ProcessMissingParams = {}) => processMissing({ dry_run: true, ...options }),
     onSuccess: (preview) => {
       processPreview.value = preview
       processStartResult.value = null

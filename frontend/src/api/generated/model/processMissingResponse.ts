@@ -11,6 +11,7 @@ export interface ProcessMissingResponse {
   enqueued: number;
   tasks: number;
   dry_run?: boolean;
+  selected?: number | null;
   missing_docs?: number | null;
   missing_vision_ocr?: number | null;
   missing_embeddings?: number | null;

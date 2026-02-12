@@ -155,6 +155,16 @@
             </span>
           </div>
           <label
+            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2"
+          >
+            <input
+              type="checkbox"
+              v-model="processOptions.includeSync"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+            />
+            Sync from Paperless first (insert missing docs + mark deleted)
+          </label>
+          <label
             class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
           >
             <input
@@ -193,10 +203,11 @@
               <option value="auto">Auto (prefer vision)</option>
               <option value="vision">Vision only</option>
               <option value="paperless">Paperless only</option>
+              <option value="both">Both sources</option>
             </select>
           </label>
           <div class="text-[11px] text-slate-400 dark:text-slate-500 sm:col-span-2">
-            Only one embedding source is active per document. If both are enabled, vision is preferred.
+            Auto prefers vision when available. "Both sources" stores paperless and vision embeddings side-by-side.
           </div>
           <label
             class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
@@ -290,10 +301,11 @@ import { Loader2 } from 'lucide-vue-next'
 import type { ProcessMissingResponse, SyncStatusResponse } from '@/api/generated/model'
 
 type ProcessOptions = {
+  includeSync: boolean
   includeVisionOcr: boolean
   includeEmbeddingsPaperless: boolean
   includeEmbeddingsVision: boolean
-  embeddingsMode: 'auto' | 'paperless' | 'vision'
+  embeddingsMode: 'auto' | 'paperless' | 'vision' | 'both'
   includePageNotes: boolean
   includeHierarchicalSummary: boolean
   includeSuggestionsPaperless: boolean

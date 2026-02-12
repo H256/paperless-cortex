@@ -5,7 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ProcessMissingDocumentsProcessMissingPostParams = {
+export type ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams = {
 dry_run?: boolean;
 include_sync?: boolean;
 include_vision_ocr?: boolean;
@@ -17,5 +17,4 @@ include_summary_hierarchical?: boolean;
 include_suggestions_paperless?: boolean;
 include_suggestions_vision?: boolean;
 embeddings_mode?: string;
-limit?: number | null;
 };

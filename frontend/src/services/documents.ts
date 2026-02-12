@@ -276,6 +276,7 @@ export type DocumentPipelineStatus = {
 
 export type ContinuePipelinePayload = {
   dry_run?: boolean
+  include_sync?: boolean
   include_vision_ocr?: boolean
   include_embeddings?: boolean
   include_embeddings_paperless?: boolean
@@ -284,7 +285,7 @@ export type ContinuePipelinePayload = {
   include_summary_hierarchical?: boolean
   include_suggestions_paperless?: boolean
   include_suggestions_vision?: boolean
-  embeddings_mode?: 'auto' | 'paperless' | 'vision'
+  embeddings_mode?: 'auto' | 'paperless' | 'vision' | 'both'
 }
 
 export type ContinuePipelineResult = {
