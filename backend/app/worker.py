@@ -276,10 +276,30 @@ def _build_distilled_context_from_page_notes(
     parts: list[str] = []
     used = 0
     for row in rows:
-        payload = row.notes_json or ""
-        if not payload:
+        raw = (row.notes_json or "").strip()
+        if not raw:
             continue
-        block = f"Page {row.page}: {payload}"
+        text = raw
+        try:
+            payload_obj = json.loads(raw)
+            if isinstance(payload_obj, dict):
+                direct = str(payload_obj.get("text") or "").strip()
+                if direct:
+                    text = direct
+                else:
+                    parts_list: list[str] = []
+                    for key in ("facts", "entities", "references", "key_numbers", "uncertainties"):
+                        values = payload_obj.get(key)
+                        if isinstance(values, list):
+                            cleaned = [str(v).strip() for v in values if str(v).strip()]
+                            if cleaned:
+                                parts_list.append(f"{key}: " + "; ".join(cleaned[:12]))
+                    text = "\n".join(parts_list).strip() or raw
+        except Exception:
+            text = raw
+        if not text:
+            continue
+        block = f"Page {row.page}: {text}"
         sep = "\n\n" if parts else ""
         remaining = max_chars - used - len(sep)
         if remaining <= 0:

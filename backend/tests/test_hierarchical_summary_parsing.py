@@ -173,7 +173,7 @@ def test_best_effort_section_summary_collects_core_fields():
     assert payload["confidence_notes"]
 
 
-def test_generate_section_summary_falls_back_when_json_never_parses(monkeypatch):
+def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(monkeypatch):
     class StubSettings:
         text_model = "stub"
         section_summary_max_input_tokens = 6000
@@ -189,8 +189,7 @@ def test_generate_section_summary_falls_back_when_json_never_parses(monkeypatch)
 
     def _fake_chat(*_args, **_kwargs):
         calls["count"] += 1
-        # No JSON object on both primary + compact retry.
-        return "Summary text only without braces"
+        return ""
 
     monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_section_summary(
@@ -204,7 +203,7 @@ def test_generate_section_summary_falls_back_when_json_never_parses(monkeypatch)
     assert calls["count"] >= 2
 
 
-def test_generate_global_summary_falls_back_when_json_never_parses(monkeypatch):
+def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch):
     class StubSettings:
         text_model = "stub"
         global_summary_max_input_tokens = 6000
@@ -220,7 +219,7 @@ def test_generate_global_summary_falls_back_when_json_never_parses(monkeypatch):
 
     def _fake_chat(*_args, **_kwargs):
         calls["count"] += 1
-        return "non-json response"
+        return "Executive summary line.\nThis is the detailed summary."
 
     monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_global_summary(
@@ -238,9 +237,7 @@ def test_generate_global_summary_falls_back_when_json_never_parses(monkeypatch):
     )
     assert payload["summary"]
     assert payload["executive_summary"]
-    assert payload["key_facts"]
-    assert payload["confidence_notes"]
-    assert calls["count"] >= 2
+    assert calls["count"] >= 1
 
 
 def test_section_summary_normalizer_drops_meta_thinking_lines():

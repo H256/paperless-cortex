@@ -312,6 +312,48 @@ def _normalize_section_summary_payload(section_key: str, payload: dict[str, Any]
     }
 
 
+def _page_note_payload_to_text(payload: dict[str, Any]) -> str:
+    direct_text = _sanitize_summary_value(payload.get("text"), max_chars=2000)
+    if direct_text:
+        return direct_text
+    lines: list[str] = []
+    for key, label in (
+        ("facts", "Facts"),
+        ("entities", "Entities"),
+        ("references", "References"),
+        ("key_numbers", "Key numbers"),
+        ("uncertainties", "Uncertainties"),
+    ):
+        values = _sanitize_summary_list(payload.get(key), max_items=16, max_chars=240)
+        if not values:
+            continue
+        lines.append(f"{label}:")
+        lines.extend(f"- {value}" for value in values)
+    return "\n".join(lines).strip()
+
+
+def _section_notes_to_text(page_notes: list[dict[str, Any]], *, max_input_tokens: int) -> str:
+    budget = max(1000, int(max_input_tokens))
+    blocks: list[str] = []
+    used = 0
+    for note in page_notes:
+        if not isinstance(note, dict):
+            continue
+        page_no = int(note.get("page") or 0)
+        text = _page_note_payload_to_text(note)
+        if not text:
+            continue
+        block = f"Page {page_no}:\n{text}" if page_no > 0 else text
+        block_tokens = estimate_tokens(block)
+        if blocks and used + block_tokens > budget:
+            break
+        blocks.append(block)
+        used += block_tokens
+    if not blocks:
+        return ""
+    return _truncate_for_tokens("\n\n".join(blocks), max_input_tokens=budget)
+
+
 def _chat_json_response(
     settings: Settings,
     *,
@@ -385,27 +427,25 @@ def _page_notes_prompt_strict(page: int, text: str) -> str:
 
 def _section_summary_prompt(section_key: str, page_notes_json: str) -> str:
     return (
-        "Aggregate page notes into a section summary.\n"
-        "Return only valid JSON.\n"
-        "Schema:\n"
-        '{ "section": "<key>", "summary": string, "key_facts": [string], "key_dates": [string], "key_entities": [string], "key_numbers": [string], "open_questions": [string], "confidence_notes": [string] }\n'
+        "Aggregate page notes into a concise section summary.\n"
+        "Return plain text only.\n"
+        "No JSON, no markdown, no XML/control tags.\n"
+        "Keep it factual and concise.\n"
         f"Section: {section_key}\n"
-        f"Page notes JSON:\n{page_notes_json}\n"
+        f"Page notes:\n{page_notes_json}\n"
     )
 
 
 def _section_summary_prompt_compact(section_key: str, page_notes_json: str) -> str:
     return (
         "Aggregate page notes into a concise section summary.\n"
-        "Return only valid JSON and keep output compact.\n"
+        "Return plain text only and keep output compact.\n"
         "Rules:\n"
         '- summary max 120 words\n'
-        '- each list max 6 entries\n'
-        "- do not include markdown or prose outside JSON\n"
-        "Schema:\n"
-        '{ "section": "<key>", "summary": string, "key_facts": [string], "key_dates": [string], "key_entities": [string], "key_numbers": [string], "open_questions": [string], "confidence_notes": [string] }\n'
+        "- no JSON\n"
+        "- no markdown\n"
         f"Section: {section_key}\n"
-        f"Page notes JSON:\n{page_notes_json}\n"
+        f"Page notes:\n{page_notes_json}\n"
     )
 
 
@@ -468,25 +508,24 @@ def _compact_page_notes_for_section(
 def _global_summary_prompt(section_summaries_json: str) -> str:
     return (
         "Aggregate section summaries into a document-level summary.\n"
-        "Return only valid JSON.\n"
-        "Schema:\n"
-        '{ "summary": string, "executive_summary": string, "key_facts": [string], "key_dates": [string], "key_entities": [string], "key_numbers": [string], "open_questions": [string], "confidence_notes": [string] }\n'
-        f"Section summaries JSON:\n{section_summaries_json}\n"
+        "Return plain text only.\n"
+        "No JSON and no markdown.\n"
+        "First line: one-sentence executive summary.\n"
+        "Then a concise multi-sentence summary.\n"
+        f"Section summaries:\n{section_summaries_json}\n"
     )
 
 
 def _global_summary_prompt_compact(section_summaries_json: str) -> str:
     return (
         "Aggregate section summaries into a concise document-level summary.\n"
-        "Return only valid JSON and keep output compact.\n"
+        "Return plain text only and keep output compact.\n"
         "Rules:\n"
-        '- summary max 160 words\n'
-        '- executive_summary max 80 words\n'
-        '- each list max 8 entries\n'
-        "- do not include markdown or prose outside JSON\n"
-        "Schema:\n"
-        '{ "summary": string, "executive_summary": string, "key_facts": [string], "key_dates": [string], "key_entities": [string], "key_numbers": [string], "open_questions": [string], "confidence_notes": [string] }\n'
-        f"Section summaries JSON:\n{section_summaries_json}\n"
+        '- max 160 words total\n'
+        "- first line executive summary\n"
+        "- no JSON\n"
+        "- no markdown\n"
+        f"Section summaries:\n{section_summaries_json}\n"
     )
 
 
@@ -517,19 +556,12 @@ def generate_page_notes(
         )
         sanitized_raw = _sanitize_model_output_text(retry_raw)
     if not sanitized_raw.strip():
-        return _best_effort_page_notes_from_text(page, cleaned)
-    try:
-        parsed = _extract_json_dict(sanitized_raw)
-        return _coerce_page_notes_payload(page, parsed, raw_fallback=sanitized_raw)
-    except Exception as exc:
-        if os.getenv("LLM_DEBUG") == "1":
-            logger.warning(
-                "Page notes JSON parse failed page=%s error=%s raw_snippet=%s",
-                page,
-                exc,
-                _raw_preview(sanitized_raw),
-            )
-        return _parse_page_notes_text(page, sanitized_raw)
+        fallback = _best_effort_page_notes_from_text(page, cleaned)
+        fallback["text"] = " ".join(cleaned.split())[:2000]
+        return fallback
+    parsed = _parse_page_notes_text(page, sanitized_raw)
+    parsed["text"] = sanitized_raw
+    return parsed
 
 
 def generate_section_summary(
@@ -539,43 +571,53 @@ def generate_section_summary(
     page_notes: list[dict[str, Any]],
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    payload = _compact_page_notes_for_section(
+    payload = _section_notes_to_text(
         page_notes,
         max_input_tokens=settings.section_summary_max_input_tokens,
     )
-    try:
-        parsed = _chat_json_response(
-            settings,
-            prompt=_section_summary_prompt(section_key, payload),
-            timeout=settings.section_summary_timeout_seconds,
-            max_tokens=settings.summary_max_output_tokens,
+    if not payload.strip():
+        return _best_effort_section_summary(
+            section_key=section_key,
+            page_notes=page_notes,
+            reason="fallback_due_to_empty_page_notes",
         )
-        if not isinstance(parsed, dict):
-            raise ValueError("Invalid section summary payload")
-        return _normalize_section_summary_payload(section_key, parsed)
-    except Exception as exc:
-        logger.warning("Section summary primary parse failed section=%s error=%s", section_key, exc)
-        try:
-            compact_raw = _chat_response(
-                settings,
-                prompt=_section_summary_prompt_compact(section_key, payload),
-                timeout=settings.section_summary_timeout_seconds,
-                max_tokens=max(250, int(settings.summary_max_output_tokens * 0.75)),
-                json_mode=False,
-            )
-            parsed = _extract_json_dict(compact_raw)
-            return _normalize_section_summary_payload(section_key, parsed)
-        except Exception as retry_exc:
-            logger.warning(
-                "Section summary compact retry failed section=%s error=%s",
-                section_key,
-                retry_exc,
-            )
-            return _best_effort_section_summary(
-                section_key=section_key,
-                page_notes=page_notes,
-                reason=f"fallback_due_to_json_parse_error:{retry_exc}",
-            )
+    raw = _chat_response(
+        settings,
+        prompt=_section_summary_prompt(section_key, payload),
+        timeout=settings.section_summary_timeout_seconds,
+        max_tokens=settings.summary_max_output_tokens,
+        json_mode=False,
+    )
+    summary_text = _sanitize_summary_value(raw, max_chars=2000)
+    if not summary_text:
+        compact_raw = _chat_response(
+            settings,
+            prompt=_section_summary_prompt_compact(section_key, payload),
+            timeout=settings.section_summary_timeout_seconds,
+            max_tokens=max(250, int(settings.summary_max_output_tokens * 0.75)),
+            json_mode=False,
+        )
+        summary_text = _sanitize_summary_value(compact_raw, max_chars=2000)
+    if not summary_text:
+        return _best_effort_section_summary(
+            section_key=section_key,
+            page_notes=page_notes,
+            reason="fallback_due_to_empty_section_summary_text",
+        )
+    return _normalize_section_summary_payload(
+        section_key,
+        {
+            "section": section_key,
+            "summary": summary_text,
+            "key_facts": [],
+            "key_dates": [],
+            "key_entities": [],
+            "key_numbers": [],
+            "open_questions": [],
+            "confidence_notes": [],
+            "text": summary_text,
+        },
+    )
 
 
 def generate_global_summary(
@@ -584,32 +626,56 @@ def generate_global_summary(
     section_summaries: list[dict[str, Any]],
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    payload = _json_dumps(section_summaries)
+    section_texts: list[str] = []
+    for section in section_summaries:
+        if not isinstance(section, dict):
+            continue
+        section_key = str(section.get("section") or "").strip()
+        text = _sanitize_summary_value(section.get("text") or section.get("summary"), max_chars=2000)
+        if not text:
+            continue
+        section_texts.append(f"Section {section_key}: {text}" if section_key else text)
+    payload = "\n\n".join(section_texts)
     payload = _truncate_for_tokens(payload, max_input_tokens=settings.global_summary_max_input_tokens)
-    try:
-        return _chat_json_response(
-            settings,
-            prompt=_global_summary_prompt(payload),
-            timeout=settings.global_summary_timeout_seconds,
-            max_tokens=settings.summary_max_output_tokens,
+    if not payload.strip():
+        return _best_effort_global_summary(
+            section_summaries=section_summaries,
+            reason="fallback_due_to_empty_sections_payload",
         )
-    except Exception as exc:
-        logger.warning("Global summary primary parse failed error=%s", exc)
-        try:
-            compact_raw = _chat_response(
-                settings,
-                prompt=_global_summary_prompt_compact(payload),
-                timeout=settings.global_summary_timeout_seconds,
-                max_tokens=max(300, int(settings.summary_max_output_tokens * 0.75)),
-                json_mode=False,
-            )
-            return _extract_json_dict(compact_raw)
-        except Exception as retry_exc:
-            logger.warning("Global summary compact retry failed error=%s", retry_exc)
-            return _best_effort_global_summary(
-                section_summaries=section_summaries,
-                reason=f"fallback_due_to_json_parse_error:{retry_exc}",
-            )
+    raw = _chat_response(
+        settings,
+        prompt=_global_summary_prompt(payload),
+        timeout=settings.global_summary_timeout_seconds,
+        max_tokens=settings.summary_max_output_tokens,
+        json_mode=False,
+    )
+    summary_text = _sanitize_summary_value(raw, max_chars=4000)
+    if not summary_text:
+        compact_raw = _chat_response(
+            settings,
+            prompt=_global_summary_prompt_compact(payload),
+            timeout=settings.global_summary_timeout_seconds,
+            max_tokens=max(300, int(settings.summary_max_output_tokens * 0.75)),
+            json_mode=False,
+        )
+        summary_text = _sanitize_summary_value(compact_raw, max_chars=4000)
+    if not summary_text:
+        return _best_effort_global_summary(
+            section_summaries=section_summaries,
+            reason="fallback_due_to_empty_global_summary_text",
+        )
+    lines = [line.strip() for line in summary_text.splitlines() if line.strip()]
+    executive = lines[0] if lines else summary_text
+    return {
+        "summary": summary_text,
+        "executive_summary": executive[:320] if executive else "",
+        "key_facts": [],
+        "key_dates": [],
+        "key_entities": [],
+        "key_numbers": [],
+        "open_questions": [],
+        "confidence_notes": [],
+    }
 
 
 def upsert_page_note(
