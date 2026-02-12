@@ -538,6 +538,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useQueueManager } from '../composables/useQueueManager'
 import {
   ArrowDown,
@@ -604,6 +605,11 @@ const filteredItems = computed(() => {
 })
 
 const failedTaskRuns = computed(() => taskRuns.value.filter((run) => run.status === 'failed'))
+const shouldAutoRefreshQueue = computed(() => {
+  const inProgress = Number(status.value.in_progress || 0)
+  const queued = Number(status.value.length || 0)
+  return inProgress > 0 || queued > 0 || Boolean(running.value.started_at)
+})
 
 const TASK_MAP: Record<string, { label: string; description: string }> = {
   sync: { label: 'Sync document', description: 'Fetch latest metadata from Paperless.' },
@@ -744,6 +750,14 @@ const delayedDocId = (item: { task?: unknown }) => {
   if (typeof value === 'string' && value.trim()) return value
   return '-'
 }
+
+useAutoRefresh({
+  enabled: shouldAutoRefreshQueue,
+  intervalMs: 5000,
+  onTick: async () => {
+    await refresh()
+  },
+})
 
 refresh()
 </script>

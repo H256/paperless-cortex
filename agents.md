@@ -618,6 +618,7 @@ All model names must be configurable via environment variables.
 - Added regression coverage for legacy positive local note collision vs incoming remote note ID in `test_upsert_document_notes_remaps_legacy_positive_collision`.
 - Continue-processing UX feedback: added explicit kickoff loading state (`Starting...`) in `DocumentsProcessingToolbar` plus inline kickoff banner in `DocumentsView` while enqueue/start is pending, so users see immediate activity after pressing continue.
 - Queue/detail timeline UX: standardized relative task-run start timestamps ("15m ago") with shared formatter utility (`frontend/src/utils/dateTime.ts`) and kept absolute datetime in hover tooltips, reducing repeated view-local date/time helpers.
+- Queue/detail timeline UX: added shared `useAutoRefresh` polling composable and wired Queue Manager + Document Detail timeline to auto-refresh while work is active/running, so users see live progress without manual reload clicks.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

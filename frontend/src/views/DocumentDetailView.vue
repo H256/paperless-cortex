@@ -398,6 +398,7 @@ import { useDocumentPipeline } from '../composables/useDocumentPipeline'
 import type { DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
+import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
@@ -558,6 +559,9 @@ const processingRequiredCount = computed(
 )
 const processingDoneCount = computed(
   () => processingStatusItems.value.filter((item) => item.state === 'done').length,
+)
+const shouldAutoRefreshTimeline = computed(() =>
+  taskRuns.value.some((run) => run.status === 'running' || run.status === 'retrying'),
 )
 const pipelinePreferredSource = computed(() => pipelineStatus.value?.preferred_source || 'paperless_ocr')
 const isLargeDocumentMode = computed(() => Boolean(pipelineStatus.value?.is_large_document))
@@ -1005,6 +1009,14 @@ const confirmResetAndReprocessDoc = async () => {
   await runResetAndReprocessDoc()
 }
 
+useAutoRefresh({
+  enabled: shouldAutoRefreshTimeline,
+  intervalMs: 5000,
+  onTick: async () => {
+    await refreshTaskRuns()
+    await loadPipelineStatus()
+  },
+})
 
 onMounted(async () => {
   syncPdfFromQuery()
