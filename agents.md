@@ -651,6 +651,7 @@ All model names must be configurable via environment variables.
 - Continue modal decision assist: added computed strategy recommendation based on current missing-work profile (vision/paperless/large-doc gaps) with one-click "Use recommended" action to reduce manual strategy guesswork.
 - Continue modal readiness pass: added explicit enqueue readiness/status line ("Ready to enqueue" vs reason), expected enqueue docs/tasks summary based on selected batch limit, and disabled start action when no missing work would be enqueued.
 - Section summary sanitization hardening: normalized section-summary payloads (primary/compact/fallback) now strip control/meta/prompt-echo content (including `<|channel|>...`, "we need to extract...", "given OCR text..."), so contaminated reasoning text no longer propagates into persisted section summaries and downstream suggestions.
+- Debug observability tweak: added optional full-response LLM logging via `LLM_DEBUG_FULL_RESPONSE=1` (used with `LLM_DEBUG=1`) so model outputs are logged untruncated for JSON/debug investigations.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
