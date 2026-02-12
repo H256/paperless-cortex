@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
 import {
-  cancelEmbeddings,
-  cancelSync,
   getCorrespondents,
   getEmbedStatus,
   getStats,
@@ -23,7 +21,6 @@ import type {
   EmbedStatus,
   Tag,
   Correspondent,
-  ProcessMissingParams,
 } from '../services/documents'
 import type { SyncDocumentsSyncDocumentsPostParams } from '@/api/generated/model'
 import { toOptionalNumber } from '../utils/number'
@@ -70,21 +67,6 @@ export const useDocumentsStore = defineStore('documents', {
       suggestions: 0,
       fully_processed: 0,
     } as DocumentStats,
-    processPreview: null as null | {
-      missing_docs?: number
-      missing_vision_ocr?: number
-      missing_embeddings?: number
-      missing_embeddings_paperless?: number
-      missing_embeddings_vision?: number
-      missing_page_notes?: number
-      missing_summary_hierarchical?: number
-      missing_suggestions_paperless?: number
-      missing_suggestions_vision?: number
-      docs?: number
-    },
-    processPreviewLoading: false,
-    processStartLoading: false,
-    processStartResult: null as null | { enqueued?: number; tasks?: number },
   }),
   actions: {
     setSyncStatus(status: SyncStatus) {
@@ -193,69 +175,6 @@ export const useDocumentsStore = defineStore('documents', {
         this.syncing = false
       }
     },
-    async continueProcessingPreview(options?: ProcessMissingParams) {
-      this.syncing = true
-      this.processPreviewLoading = true
-      this.processPreview = {}
-      try {
-        await syncDocuments({
-          page_size: 200,
-          incremental: false,
-          page: 1,
-          page_only: false,
-          embed: false,
-          force_embed: false,
-          mark_missing: true,
-          insert_only: true,
-        })
-        await this.refreshProcessPreview(options)
-        await this.fetchSyncStatus()
-        await this.fetchEmbedStatus()
-        await this.load()
-      } finally {
-        this.syncing = false
-        this.processPreviewLoading = false
-      }
-    },
-    async refreshProcessPreview(options?: ProcessMissingParams) {
-      this.processPreviewLoading = true
-      try {
-        const preview = await processMissing({ dry_run: true, ...options })
-        this.processPreview = {
-          docs: preview.docs ?? undefined,
-          missing_docs: preview.missing_docs ?? undefined,
-          missing_vision_ocr: preview.missing_vision_ocr ?? undefined,
-          missing_embeddings: preview.missing_embeddings ?? undefined,
-          missing_embeddings_paperless: preview.missing_embeddings_paperless ?? undefined,
-          missing_embeddings_vision: preview.missing_embeddings_vision ?? undefined,
-          missing_page_notes: preview.missing_page_notes ?? undefined,
-          missing_summary_hierarchical: preview.missing_summary_hierarchical ?? undefined,
-          missing_suggestions_paperless: preview.missing_suggestions_paperless ?? undefined,
-          missing_suggestions_vision: preview.missing_suggestions_vision ?? undefined,
-        }
-      } finally {
-        this.processPreviewLoading = false
-      }
-    },
-    async startProcessingFromPreview(options?: ProcessMissingParams) {
-      this.syncing = true
-      this.processStartLoading = true
-      this.processStartResult = null
-      try {
-        const result = await processMissing(options)
-        this.processStartResult = { enqueued: result.enqueued, tasks: result.tasks }
-        await this.fetchSyncStatus()
-        await this.fetchEmbedStatus()
-        await this.load()
-      } finally {
-        this.syncing = false
-        this.processStartLoading = false
-      }
-    },
-    clearProcessPreview() {
-      this.processPreview = null
-      this.processStartResult = null
-    },
     async reprocessAll() {
       this.syncing = true
       try {
@@ -289,10 +208,6 @@ export const useDocumentsStore = defineStore('documents', {
     },
     async clearAllIntelligence() {
       return clearIntelligence()
-    },
-    async cancelProcessing() {
-      await cancelSync()
-      await cancelEmbeddings()
     },
   },
 })

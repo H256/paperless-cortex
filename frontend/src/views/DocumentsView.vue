@@ -67,12 +67,12 @@
       <div class="flex w-full flex-wrap items-center justify-end gap-3">
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-          :disabled="syncing || isProcessing"
+          :disabled="continueProcessingRunning || isProcessing"
           @click="openPreview"
           title="Sync new documents and process missing intelligence items"
         >
           <RefreshCw class="h-4 w-4" />
-          {{ syncing ? 'Working...' : 'Continue processing' }}
+          {{ continueProcessingRunning ? 'Working...' : 'Continue processing' }}
         </button>
         <button
           v-if="showCancel"
@@ -389,7 +389,7 @@
         </div>
       </div>
       <div
-        v-if="documentsStore.processPreviewLoading"
+        v-if="processPreviewLoading"
         class="mt-4 text-sm text-slate-500 dark:text-slate-400"
       >
         Calculating...
@@ -621,13 +621,13 @@
             class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
             :class="{
               'cursor-not-allowed opacity-60':
-                documentsStore.processPreviewLoading ||
+                processPreviewLoading ||
                 processStartLoading ||
                 syncing ||
                 isSyncingNow,
             }"
             :disabled="
-              documentsStore.processPreviewLoading || processStartLoading || syncing || isSyncingNow
+              processPreviewLoading || processStartLoading || syncing || isSyncingNow
             "
             @click="startFromPreview"
           >
@@ -666,6 +666,7 @@ import { useDocumentsStore } from '../stores/documentsStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
+import { useContinueProcessing } from '../composables/useContinueProcessing'
 import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
@@ -692,14 +693,22 @@ const {
   syncStatus,
   embedStatus,
   stats,
-  processPreview,
-  processStartLoading,
-  processStartResult,
 } = storeToRefs(documentsStore)
 
 const { status: queueStatus } = storeToRefs(queueStore)
-
-const showPreviewModal = computed(() => processPreview.value !== null)
+const {
+  processPreview,
+  processPreviewLoading,
+  processStartResult,
+  processStartLoading,
+  showPreviewModal,
+  continueProcessingRunning,
+  openPreview: openPreviewRequest,
+  refreshProcessPreview,
+  startFromPreview: startFromPreviewRequest,
+  cancelProcessing: cancelProcessingRequest,
+  closePreview: clearPreviewState,
+} = useContinueProcessing()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
 const processOptions = reactive({
@@ -861,15 +870,18 @@ const load = async () => {
 }
 
 const openPreview = async () => {
-  await documentsStore.continueProcessingPreview(processParams())
+  await openPreviewRequest(processParams())
+  await documentsStore.fetchSyncStatus()
+  await documentsStore.fetchEmbedStatus()
+  await load()
 }
 
 const closePreview = () => {
-  documentsStore.clearProcessPreview()
+  clearPreviewState()
 }
 
 const startFromPreview = async () => {
-  await documentsStore.startProcessingFromPreview(processParams())
+  await startFromPreviewRequest(processParams())
   if (processStartResult.value) {
     toastStore.push(
       `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
@@ -877,12 +889,17 @@ const startFromPreview = async () => {
       'Queue started',
     )
   }
-  documentsStore.clearProcessPreview()
+  clearPreviewState()
+  await documentsStore.fetchSyncStatus()
+  await documentsStore.fetchEmbedStatus()
+  await load()
 }
 
 const cancelProcessing = async () => {
-  await documentsStore.cancelProcessing()
+  await cancelProcessingRequest()
   await queueStore.clear()
+  await documentsStore.fetchSyncStatus()
+  await documentsStore.fetchEmbedStatus()
   await load()
 }
 
@@ -981,14 +998,14 @@ watch(
   () => ({ ...processOptions }),
   async () => {
     if (!showPreviewModal.value) return
-    await documentsStore.refreshProcessPreview(processParams())
+    await refreshProcessPreview(processParams())
   },
   { deep: true },
 )
 
 watch(batchIndex, async () => {
   if (!showPreviewModal.value) return
-  await documentsStore.refreshProcessPreview(processParams())
+  await refreshProcessPreview(processParams())
 })
 
 watch(ordering, async () => {
