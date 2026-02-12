@@ -635,6 +635,8 @@ All model names must be configurable via environment variables.
 - UX/Observability: added dedicated Log Inspector page (`/logs`) with advanced task-run filtering (doc/task/status/error/query), auto-refresh toggle, saved filter presets (localStorage), direct jump-to-document actions, and error copy support for faster end-to-end troubleshooting.
 - Frontend architecture: introduced reusable `useTaskRunInspector` composable to keep log-query/filter/preset state isolated and DRY; wired app navigation with new Logs entry.
 - Log Inspector UX: added server-side pagination controls via `offset` (`Prev`/`Next`), quick filter chips (`Only failed`, `Retrying now`, `Embedding overflows`), and export actions for currently filtered rows (`JSON`, `CSV`).
+- Hierarchical summary robustness: fixed section-summary JSON parsing failures by adding truncated-JSON repair in `_extract_json_dict`, a compact retry prompt for section aggregation, and deterministic fallback section-summary synthesis when model output remains non-JSON; this prevents complete section-summary dropouts on large/verbose model outputs.
+- Tests: extended `test_hierarchical_summary_parsing.py` with truncated-JSON repair, deterministic section fallback, and `generate_section_summary` fallback-path coverage.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

@@ -35,6 +35,7 @@ _BULLET_PREFIX_RE = re.compile(r"^(?:[-*]|\u2022|\d+[.)])\s*")
 _NUMBER_TOKEN_RE = re.compile(
     r"\b(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?(?:\s?(?:EUR|USD|CHF|%))?|\d{4}-\d{2}-\d{2})\b"
 )
+_DATE_TOKEN_RE = re.compile(r"\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b")
 
 
 def _now_iso() -> str:
@@ -52,7 +53,54 @@ def _extract_json_dict(text: str) -> dict[str, Any]:
     end = raw.rfind("}")
     if start != -1 and end != -1 and end > start:
         return json.loads(raw[start : end + 1])
+    if start != -1:
+        repaired = _repair_truncated_json_object(raw[start:])
+        if repaired is not None:
+            return repaired
     raise ValueError("No JSON object found in response")
+
+
+def _repair_truncated_json_object(raw: str) -> dict[str, Any] | None:
+    candidate = str(raw or "").strip()
+    if not candidate or not candidate.startswith("{"):
+        return None
+    try:
+        parsed = json.loads(candidate)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        pass
+
+    in_string = False
+    escape = False
+    brace_depth = 0
+    for ch in candidate:
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            brace_depth += 1
+        elif ch == "}":
+            brace_depth = max(0, brace_depth - 1)
+
+    repaired = candidate
+    if in_string:
+        repaired += '"'
+    if brace_depth > 0:
+        repaired += "}" * brace_depth
+    repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
+    try:
+        parsed = json.loads(repaired)
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def _json_dumps(value: Any) -> str:
@@ -210,6 +258,21 @@ def _section_summary_prompt(section_key: str, page_notes_json: str) -> str:
     )
 
 
+def _section_summary_prompt_compact(section_key: str, page_notes_json: str) -> str:
+    return (
+        "Aggregate page notes into a concise section summary.\n"
+        "Return only valid JSON and keep output compact.\n"
+        "Rules:\n"
+        '- summary max 120 words\n'
+        '- each list max 6 entries\n'
+        "- do not include markdown or prose outside JSON\n"
+        "Schema:\n"
+        '{ "section": "<key>", "summary": string, "key_facts": [string], "key_dates": [string], "key_entities": [string], "key_numbers": [string], "open_questions": [string], "confidence_notes": [string] }\n'
+        f"Section: {section_key}\n"
+        f"Page notes JSON:\n{page_notes_json}\n"
+    )
+
+
 def _global_summary_prompt(section_summaries_json: str) -> str:
     return (
         "Aggregate section summaries into a document-level summary.\n"
@@ -260,14 +323,39 @@ def generate_section_summary(
     ensure_text_llm_ready(settings)
     payload = _json_dumps(page_notes)
     payload = _truncate_for_tokens(payload, max_input_tokens=settings.section_summary_max_input_tokens)
-    parsed = _chat_json_response(
-        settings,
-        prompt=_section_summary_prompt(section_key, payload),
-        timeout=settings.section_summary_timeout_seconds,
-        max_tokens=settings.summary_max_output_tokens,
-    )
-    parsed["section"] = section_key
-    return parsed
+    try:
+        parsed = _chat_json_response(
+            settings,
+            prompt=_section_summary_prompt(section_key, payload),
+            timeout=settings.section_summary_timeout_seconds,
+            max_tokens=settings.summary_max_output_tokens,
+        )
+        parsed["section"] = section_key
+        return parsed
+    except Exception as exc:
+        logger.warning("Section summary primary parse failed section=%s error=%s", section_key, exc)
+        try:
+            compact_raw = _chat_response(
+                settings,
+                prompt=_section_summary_prompt_compact(section_key, payload),
+                timeout=settings.section_summary_timeout_seconds,
+                max_tokens=max(250, int(settings.summary_max_output_tokens * 0.75)),
+                json_mode=False,
+            )
+            parsed = _extract_json_dict(compact_raw)
+            parsed["section"] = section_key
+            return parsed
+        except Exception as retry_exc:
+            logger.warning(
+                "Section summary compact retry failed section=%s error=%s",
+                section_key,
+                retry_exc,
+            )
+            return _best_effort_section_summary(
+                section_key=section_key,
+                page_notes=page_notes,
+                reason=f"fallback_due_to_json_parse_error:{retry_exc}",
+            )
 
 
 def generate_global_summary(
@@ -412,3 +500,55 @@ def is_large_document(*, page_count: int | None, total_text: str | None, thresho
     if page_count and int(page_count) >= threshold_pages:
         return True
     return estimate_tokens(total_text or "") >= max(3000, threshold_pages * 250)
+
+
+def _best_effort_section_summary(
+    *,
+    section_key: str,
+    page_notes: list[dict[str, Any]],
+    reason: str,
+) -> dict[str, Any]:
+    facts: list[str] = []
+    entities: list[str] = []
+    numbers: list[str] = []
+    dates: list[str] = []
+    for note in page_notes:
+        note_facts = note.get("facts") if isinstance(note, dict) else []
+        if isinstance(note_facts, list):
+            for item in note_facts:
+                text = str(item).strip()
+                if text:
+                    facts.append(text)
+                    dates.extend(_DATE_TOKEN_RE.findall(text))
+                    numbers.extend(_NUMBER_TOKEN_RE.findall(text))
+        note_entities = note.get("entities") if isinstance(note, dict) else []
+        if isinstance(note_entities, list):
+            for item in note_entities:
+                text = str(item).strip()
+                if text:
+                    entities.append(text)
+        note_numbers = note.get("key_numbers") if isinstance(note, dict) else []
+        if isinstance(note_numbers, list):
+            for item in note_numbers:
+                text = str(item).strip()
+                if text:
+                    numbers.append(text)
+
+    uniq = lambda values: list(dict.fromkeys(v for v in values if v))
+    facts_u = uniq(facts)[:8]
+    entities_u = uniq(entities)[:8]
+    numbers_u = uniq(numbers)[:10]
+    dates_u = uniq(dates)[:8]
+    summary = " ".join(facts_u[:4]).strip()
+    if not summary:
+        summary = f"Section {section_key} was summarized using deterministic fallback due to malformed model JSON."
+    return {
+        "section": section_key,
+        "summary": summary,
+        "key_facts": facts_u,
+        "key_dates": dates_u,
+        "key_entities": entities_u,
+        "key_numbers": numbers_u,
+        "open_questions": [],
+        "confidence_notes": [reason],
+    }
