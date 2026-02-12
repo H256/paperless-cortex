@@ -141,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
+import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench, FileSearch } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import AppNav, { type NavItem } from './components/AppNav.vue'
@@ -181,6 +181,7 @@ const primaryNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+  { to: '/logs', label: 'Logs', icon: FileSearch },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
   { to: '/operations', label: 'Operations', icon: Wrench },

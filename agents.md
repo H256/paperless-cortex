@@ -632,6 +632,8 @@ All model names must be configurable via environment variables.
 - Tests: added coverage for queue task-run text-query filtering, document pipeline fan-out endpoint response, embedding split telemetry summary, and overflow-fallback telemetry tracking.
 - Document timeline UX: enhanced per-document processing timeline with inline filters (`status`, free-text `q`) and compact error-message previews; implemented via extended `useDocumentTaskRuns` composable filters to keep timeline inspection DRY and reusable.
 - Queue run-history UX: made rows actionable by adding direct jump-to-document buttons and one-click copy for raw error messages, reducing context switching during failure triage.
+- UX/Observability: added dedicated Log Inspector page (`/logs`) with advanced task-run filtering (doc/task/status/error/query), auto-refresh toggle, saved filter presets (localStorage), direct jump-to-document actions, and error copy support for faster end-to-end troubleshooting.
+- Frontend architecture: introduced reusable `useTaskRunInspector` composable to keep log-query/filter/preset state isolated and DRY; wired app navigation with new Logs entry.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
