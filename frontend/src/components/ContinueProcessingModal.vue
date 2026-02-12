@@ -229,6 +229,23 @@
               <option value="max_coverage">Max coverage (both sources)</option>
             </select>
           </label>
+          <div
+            v-if="recommendedStrategyInfo"
+            class="flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-[11px] text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300 sm:col-span-2"
+          >
+            <div>
+              Recommended now:
+              <strong>{{ strategyLabel(recommendedStrategyInfo.strategy) }}</strong>
+              <span v-if="recommendedStrategyInfo.reason"> ({{ recommendedStrategyInfo.reason }})</span>
+            </div>
+            <button
+              v-if="processOptions.strategy !== recommendedStrategyInfo.strategy"
+              class="rounded-md border border-indigo-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-700 hover:border-indigo-400 dark:border-indigo-700 dark:bg-slate-900 dark:text-indigo-300"
+              @click="applyRecommendedStrategy"
+            >
+              Use recommended
+            </button>
+          </div>
           <div class="rounded-md border border-slate-200 bg-white p-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2">
             {{ strategyHint }}
           </div>
@@ -579,6 +596,46 @@ const strategyHint = computed(() => {
   }
   return 'Balanced: keep baseline coverage and use vision where available.'
 })
+
+const strategyLabel = (value: ProcessOptions['strategy']) => {
+  if (value === 'vision_first') return 'Vision first'
+  if (value === 'paperless_only') return 'Paperless only'
+  if (value === 'max_coverage') return 'Max coverage'
+  return 'Balanced'
+}
+
+const recommendedStrategyInfo = computed<null | { strategy: ProcessOptions['strategy']; reason: string }>(() => {
+  const preview = props.processPreview
+  if (!preview) return null
+  const visionGaps =
+    Number(preview.missing_vision_ocr ?? 0) +
+    Number(preview.missing_embeddings_vision ?? 0) +
+    Number(preview.missing_suggestions_vision ?? 0) +
+    Number(preview.missing_page_notes ?? 0) +
+    Number(preview.missing_summary_hierarchical ?? 0)
+  const paperlessGaps =
+    Number(preview.missing_embeddings_paperless ?? 0) +
+    Number(preview.missing_suggestions_paperless ?? 0)
+  const largeGaps =
+    Number(preview.missing_page_notes ?? 0) + Number(preview.missing_summary_hierarchical ?? 0)
+
+  if (largeGaps > 0 || (visionGaps > 0 && paperlessGaps > 0)) {
+    return { strategy: 'max_coverage', reason: 'large-doc or mixed source gaps detected' }
+  }
+  if (visionGaps > 0) {
+    return { strategy: 'vision_first', reason: 'vision pipeline gaps dominate' }
+  }
+  if (paperlessGaps > 0) {
+    return { strategy: 'balanced', reason: 'baseline tasks remain' }
+  }
+  return { strategy: 'balanced', reason: 'already mostly covered' }
+})
+
+const applyRecommendedStrategy = () => {
+  const next = recommendedStrategyInfo.value?.strategy
+  if (!next) return
+  props.processOptions.strategy = next
+}
 
 const strategyWarnings = computed(() => {
   const preview = props.processPreview

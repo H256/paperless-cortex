@@ -648,6 +648,7 @@ All model names must be configurable via environment variables.
 - Continue-processing flow polish: after enqueue start, the preview modal now remains open in its success state (instead of closing immediately), so users can confirm enqueued docs/tasks and runtime context before closing manually.
 - Continue modal prioritization pass: sample preview docs are now ranked/highlighted by critical-gap priority (large-doc extras + vision downstream tasks), and strategy-specific risk warnings are shown when selected strategy is likely to leave relevant gaps unresolved.
 - Continue modal actionability pass: preview doc rows are now directly clickable (open document detail), and detailed counters gained an "only non-zero" filter to reduce low-value noise during troubleshooting.
+- Continue modal decision assist: added computed strategy recommendation based on current missing-work profile (vision/paperless/large-doc gaps) with one-click "Use recommended" action to reduce manual strategy guesswork.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
