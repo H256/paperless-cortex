@@ -405,6 +405,7 @@ import { useToastStore } from '../stores/toastStore'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
+import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
 import type { DocumentRow } from '../services/documents'
@@ -489,22 +490,21 @@ const paperlessDocUrl = (id: number) =>
   paperlessBaseUrl.value ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${id}` : ''
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
-const isProcessing = computed(
-  () => syncStatus.value.status === 'running' || embedStatus.value.status === 'running',
-)
+const {
+  isProcessing,
+  isSyncingNow,
+  hasQueuedWork,
+  showCancel,
+  embedLabel,
+  progressPercent,
+  etaText,
+  lastRunText,
+  processingProcessed,
+  processingTotal,
+  processingPercent,
+  processingEtaText,
+} = useProcessingMetrics(syncStatus, embedStatus, queueStatus)
 const syncing = computed(() => isProcessing.value)
-const isSyncingNow = computed(() => syncStatus.value.status === 'running')
-const hasQueuedWork = computed(() => {
-  if (!queueStatus.value.enabled) return false
-  return (queueStatus.value.length ?? 0) > 0 || (queueStatus.value.in_progress ?? 0) > 0
-})
-const showCancel = computed(() => isProcessing.value || hasQueuedWork.value)
-const embedLabel = computed(() => {
-  if (queueStatus.value.enabled && (queueStatus.value.length || queueStatus.value.in_progress)) {
-    return 'Queue'
-  }
-  return 'Embed'
-})
 const sortDir = (field: string) => {
   const current = ordering.value.replace('-', '')
   if (current !== field) return null
@@ -520,83 +520,6 @@ const toggleSort = (field: string) => {
   }
   page.value = 1
 }
-const progressPercent = computed(() => {
-  if (!syncStatus.value.total) return 0
-  return Math.min(100, Math.round((syncStatus.value.processed / syncStatus.value.total) * 100))
-})
-const etaText = computed(() => {
-  if (syncStatus.value.eta_seconds !== null && syncStatus.value.eta_seconds !== undefined) {
-    const minutes = Math.floor(syncStatus.value.eta_seconds / 60)
-    const seconds = syncStatus.value.eta_seconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-  if (!syncStatus.value.started_at || !syncStatus.value.processed) return '--'
-  const started = Date.parse(syncStatus.value.started_at)
-  if (Number.isNaN(started)) return '--'
-  const elapsedMs = Date.now() - started
-  const rate = syncStatus.value.processed / Math.max(1, elapsedMs / 1000)
-  if (!syncStatus.value.total || rate <= 0) return '--'
-  const remaining = syncStatus.value.total - syncStatus.value.processed
-  const etaSec = Math.max(0, Math.round(remaining / rate))
-  const minutes = Math.floor(etaSec / 60)
-  const seconds = etaSec % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-})
-const formatDuration = (totalSeconds: number) => {
-  const safe = Math.max(0, Math.round(totalSeconds))
-  const hours = Math.floor(safe / 3600)
-  const minutes = Math.floor((safe % 3600) / 60)
-  const seconds = safe % 60
-  return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-}
-
-const queueOutstanding = computed(
-  () => (queueStatus.value.length ?? 0) + (queueStatus.value.in_progress ?? 0),
-)
-const queueIsIdle = computed(() => !queueStatus.value.enabled || queueOutstanding.value === 0)
-const queueProcessed = computed(() => (queueIsIdle.value ? 0 : (queueStatus.value.done ?? 0)))
-const queueTotal = computed(() =>
-  queueIsIdle.value
-    ? 0
-    : Math.max(queueStatus.value.total ?? 0, queueProcessed.value + queueOutstanding.value),
-)
-const queueEtaText = computed(() => {
-  const lastRun = queueStatus.value.last_run_seconds ?? null
-  if (!lastRun || !queueOutstanding.value) return '--'
-  return formatDuration(lastRun * queueOutstanding.value)
-})
-const lastRunText = computed(() => {
-  const lastRun = queueStatus.value.last_run_seconds ?? null
-  if (!lastRun) return '--'
-  return formatDuration(lastRun)
-})
-
-const processingProcessed = computed(() =>
-  hasQueuedWork.value ? queueProcessed.value : embedStatus.value.processed,
-)
-const processingTotal = computed(() =>
-  hasQueuedWork.value ? queueTotal.value : embedStatus.value.total,
-)
-const processingPercent = computed(() => {
-  if (!processingTotal.value) return 0
-  return Math.min(100, Math.round((processingProcessed.value / processingTotal.value) * 100))
-})
-const processingEtaText = computed(() => {
-  if (hasQueuedWork.value) return queueEtaText.value
-  if (embedStatus.value.eta_seconds !== null && embedStatus.value.eta_seconds !== undefined) {
-    const minutes = Math.floor(embedStatus.value.eta_seconds / 60)
-    const seconds = embedStatus.value.eta_seconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-  if (!embedStatus.value.started_at || !embedStatus.value.processed) return '--'
-  const started = Date.parse(embedStatus.value.started_at)
-  if (Number.isNaN(started)) return '--'
-  const elapsedMs = Date.now() - started
-  const rate = embedStatus.value.processed / Math.max(1, elapsedMs / 1000)
-  if (!embedStatus.value.total || rate <= 0) return '--'
-  const remaining = embedStatus.value.total - embedStatus.value.processed
-  return formatDuration(remaining / rate)
-})
 
 const load = async () => {
   try {
