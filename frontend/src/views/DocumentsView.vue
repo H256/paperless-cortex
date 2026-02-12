@@ -93,6 +93,8 @@
     @close="closePreview"
     @start="startFromPreview"
     @open-doc="openDocFromPreview"
+    @open-queue="openQueueFromPreview"
+    @open-logs="openLogsFromPreview"
   />
 </template>
 
@@ -219,6 +221,16 @@ const open = (id: number) => {
 const openDocFromPreview = (id: number) => {
   closePreview()
   router.push(`/documents/${id}`)
+}
+
+const openQueueFromPreview = () => {
+  closePreview()
+  router.push('/queue')
+}
+
+const openLogsFromPreview = () => {
+  closePreview()
+  router.push('/logs')
 }
 
 onMounted(async () => {

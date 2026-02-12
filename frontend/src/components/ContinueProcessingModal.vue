@@ -345,6 +345,20 @@
       >
         Enqueued {{ processStartResult.enqueued ?? 0 }} documents and
         {{ processStartResult.tasks ?? 0 }} tasks. Use Queue/Document timeline to monitor progress.
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            class="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300"
+            @click="$emit('open-queue')"
+          >
+            Open Queue
+          </button>
+          <button
+            class="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300"
+            @click="$emit('open-logs')"
+          >
+            Open Logs
+          </button>
+        </div>
       </div>
 
       <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
@@ -438,6 +452,8 @@ const emit = defineEmits<{
   close: []
   start: []
   'open-doc': [docId: number]
+  'open-queue': []
+  'open-logs': []
   'update:batchIndex': [value: number]
 }>()
 
