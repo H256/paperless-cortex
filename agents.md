@@ -595,6 +595,8 @@ All model names must be configurable via environment variables.
 - Worker checkpoints phase 2: retries now attach a `resume_from` marker based on the latest persisted checkpoint for the same doc/task source; Queue history can distinguish resumed attempts from fresh runs.
 - Worker robustness phase 2: tightened progress granularity for very large runs by reducing vision OCR and embedding batch sizes adaptively, improving checkpoint frequency and lowering rework scope after failures.
 - Queue UX: task-run history now includes a checkpoint column and a compact `resume` badge for runs that restart from a previous checkpoint marker.
+- Worker resume semantics phase 3: retry runs now actually resume long stages from checkpoint where safe (vision OCR page offset, embedding chunk offset without deleting prior points, page-notes page offset). Hierarchical section summaries resume only when persisted section rows prove consistency; otherwise stage restarts from section 0 to avoid partial-loss corruption.
+- Tests: added checkpoint resume-selection coverage in `backend/tests/test_worker_resume_checkpoint.py`.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

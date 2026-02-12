@@ -11,7 +11,16 @@ from sqlalchemy.orm import Session
 
 from app.config import load_settings
 from app.db import SessionLocal
-from app.models import Document, DocumentEmbedding, DocumentPageNote, DocumentPageText, DocumentSuggestion, SyncState
+from app.models import (
+    Document,
+    DocumentEmbedding,
+    DocumentPageNote,
+    DocumentPageText,
+    DocumentSectionSummary,
+    DocumentSuggestion,
+    SyncState,
+    TaskRun,
+)
 from app.services import paperless
 from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
@@ -118,6 +127,53 @@ def _set_task_checkpoint(
         update_task_run_checkpoint(db, run_id=run_id, checkpoint=payload)
     except Exception:
         logger.warning("Failed to persist task checkpoint run_id=%s stage=%s", run_id, stage)
+
+
+def _get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
+    if run_id is None:
+        return None
+    row = db.get(TaskRun, run_id)
+    if not row or not row.checkpoint_json:
+        return None
+    raw = str(row.checkpoint_json).strip()
+    if not raw.startswith(("{", "[")):
+        return None
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _resume_stage_current(
+    checkpoint: dict | None,
+    *,
+    stage: str,
+    source: str | None = None,
+    total: int | None = None,
+) -> int:
+    if not checkpoint:
+        return 0
+    candidate = checkpoint
+    resume_from = checkpoint.get("resume_from")
+    if isinstance(resume_from, dict):
+        candidate = resume_from
+    if str(candidate.get("stage") or "").strip() != stage:
+        return 0
+    candidate_source = str(candidate.get("source") or "").strip()
+    if source and candidate_source and candidate_source != source:
+        return 0
+    if total is not None:
+        candidate_total = candidate.get("total")
+        if isinstance(candidate_total, int) and candidate_total > 0 and candidate_total != total:
+            return 0
+    try:
+        current = int(candidate.get("current") or 0)
+    except Exception:
+        return 0
+    if total is not None:
+        return max(0, min(current, int(total)))
+    return max(0, current)
 
 
 def _vision_ocr_batch_size(
@@ -318,7 +374,6 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
     content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
 
     ensure_embedding_collection(settings)
-    delete_points_for_doc(settings, doc.id, source=embedding_source)
     normalized_baseline_pages = []
     for page in baseline_pages or []:
         normalized_baseline_pages.append(
@@ -363,15 +418,34 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         total_chunks=len(chunks),
         configured_batch_size=configured_batch_size,
     )
+    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+    resume_current = _resume_stage_current(
+        checkpoint,
+        stage="embedding_chunks",
+        source=embedding_source,
+        total=len(chunks),
+    )
+    start_index = max(0, min(resume_current, len(chunks)))
+    if start_index <= 0:
+        delete_points_for_doc(settings, doc.id, source=embedding_source)
+    else:
+        logger.info(
+            "Embedding resume doc=%s source=%s start_chunk=%s total=%s",
+            doc.id,
+            embedding_source,
+            start_index,
+            len(chunks),
+        )
+
     _set_task_checkpoint(
         db,
         run_id=run_id,
         stage="embedding_chunks",
-        current=0,
+        current=start_index,
         total=len(chunks),
-        extra={"source": embedding_source, "batch_size": batch_size},
+        extra={"source": embedding_source, "batch_size": batch_size, "resumed": start_index > 0},
     )
-    for start in range(0, len(chunks), batch_size):
+    for start in range(start_index, len(chunks), batch_size):
         chunk_batch = chunks[start : start + batch_size]
         texts = [str(chunk["text"]) for chunk in chunk_batch]
         vectors = embed_texts(settings, texts)
@@ -631,16 +705,30 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
             )
             processed_any = True
     else:
-        processed = 0
+        checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+        resume_current = _resume_stage_current(
+            checkpoint,
+            stage="vision_ocr",
+            total=len(target_pages),
+        )
+        start_index = max(0, min(resume_current, len(target_pages)))
+        if start_index > 0:
+            logger.info(
+                "Vision OCR resume doc=%s start=%s total=%s",
+                doc_id,
+                start_index,
+                len(target_pages),
+            )
+        processed = start_index
         _set_task_checkpoint(
             db,
             run_id=run_id,
             stage="vision_ocr",
-            current=0,
+            current=processed,
             total=len(target_pages),
-            extra={"mode": "pages", "batch_size": batch_size},
+            extra={"mode": "pages", "batch_size": batch_size, "resumed": start_index > 0},
         )
-        for start in range(0, len(target_pages), batch_size):
+        for start in range(start_index, len(target_pages), batch_size):
             if is_cancel_requested(settings):
                 logger.info(
                     "Worker cancel requested; stop vision OCR doc=%s processed=%s/%s",
@@ -726,9 +814,32 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id:
     if not pages:
         logger.info("Page notes skipped (no pages) doc=%s source=%s", doc_id, source)
         return
-    _set_task_checkpoint(db, run_id=run_id, stage="page_notes", current=0, total=len(pages), extra={"source": source})
-    processed_pages = 0
-    for page in pages:
+    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+    resume_current = _resume_stage_current(
+        checkpoint,
+        stage="page_notes",
+        source=source,
+        total=len(pages),
+    )
+    start_index = max(0, min(resume_current, len(pages)))
+    if start_index > 0:
+        logger.info(
+            "Page notes resume doc=%s source=%s start=%s total=%s",
+            doc_id,
+            source,
+            start_index,
+            len(pages),
+        )
+    _set_task_checkpoint(
+        db,
+        run_id=run_id,
+        stage="page_notes",
+        current=start_index,
+        total=len(pages),
+        extra={"source": source, "resumed": start_index > 0},
+    )
+    processed_pages = start_index
+    for page in pages[start_index:]:
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; stop page notes doc=%s source=%s", doc_id, source)
             return
@@ -833,16 +944,64 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
         max_pages=settings.summary_section_pages,
         max_input_tokens=settings.section_summary_max_input_tokens,
     )
+    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
+    resume_current = _resume_stage_current(
+        checkpoint,
+        stage="summary_sections",
+        source=source,
+        total=len(sections),
+    )
+    start_index = max(0, min(resume_current, len(sections)))
+    persisted_by_key: dict[str, dict] = {}
+    if start_index > 0:
+        persisted_rows = (
+            db.query(DocumentSectionSummary)
+            .filter(
+                DocumentSectionSummary.doc_id == doc_id,
+                DocumentSectionSummary.source == source,
+                DocumentSectionSummary.status == "ok",
+            )
+            .all()
+        )
+        for row in persisted_rows:
+            try:
+                payload = json.loads(row.summary_json or "{}")
+            except Exception:
+                continue
+            if isinstance(payload, dict):
+                persisted_by_key[str(row.section_key)] = payload
+        required_keys = [str(sections[i][0]) for i in range(start_index)]
+        if not all(key in persisted_by_key for key in required_keys):
+            logger.info(
+                "Summary resume reset doc=%s source=%s reason=missing_persisted_sections",
+                doc_id,
+                source,
+            )
+            start_index = 0
+            persisted_by_key = {}
+        else:
+            logger.info(
+                "Summary resume doc=%s source=%s start=%s total=%s",
+                doc_id,
+                source,
+                start_index,
+                len(sections),
+            )
     _set_task_checkpoint(
         db,
         run_id=run_id,
         stage="summary_sections",
-        current=0,
+        current=start_index,
         total=len(sections),
-        extra={"source": source},
+        extra={"source": source, "resumed": start_index > 0},
     )
     section_payloads: list[tuple[str, dict]] = []
-    for section_index, (section_key, page_notes) in enumerate(sections, start=1):
+    if start_index > 0:
+        for section_key, _ in sections[:start_index]:
+            cached = persisted_by_key.get(str(section_key))
+            if cached is not None:
+                section_payloads.append((section_key, cached))
+    for section_index, (section_key, page_notes) in enumerate(sections[start_index:], start=start_index + 1):
         if is_cancel_requested(settings):
             logger.info("Worker cancel requested; stop section summaries doc=%s", doc_id)
             return
