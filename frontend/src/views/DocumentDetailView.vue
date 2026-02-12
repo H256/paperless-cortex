@@ -337,8 +337,8 @@ import { useQueueStore } from '../stores/queueStore'
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
-import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 import type { DocumentOperationTaskPayload } from '../services/documents'
+import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 
 const route = useRoute()
@@ -378,6 +378,12 @@ const {
   continuePipeline: continuePipelineRequest,
   continuePipelineLoading,
 } = useDocumentPipeline(computed(() => id))
+const {
+  loading: docOpsLoading,
+  enqueueTask: enqueueDocumentTaskNow,
+  cleanup: cleanupDocumentTexts,
+  resetAndReprocess: resetAndReprocessNow,
+} = useDocumentOperations(computed(() => id))
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
@@ -443,7 +449,6 @@ const operationActions: OperationAction[] = [
 ]
 const activeTab = ref('meta')
 const reloadingAll = ref(false)
-const docOpsLoading = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
@@ -804,15 +809,10 @@ const loadPipelineStatus = async () => {
 }
 
 const withDocOperation = async (fn: () => Promise<void>) => {
-  docOpsLoading.value = true
   docOpsMessage.value = ''
-  try {
-    await fn()
-    await queueStore.refreshStatus()
-    await loadPipelineStatus()
-  } finally {
-    docOpsLoading.value = false
-  }
+  await fn()
+  await queueStore.refreshStatus()
+  await loadPipelineStatus()
 }
 
 const reloadAll = async () => {
@@ -836,7 +836,7 @@ const refreshSuggestions = async (source: 'paperless_ocr' | 'vision_ocr') => {
 const enqueueDocTask = async (action: OperationAction) => {
   await withDocOperation(async () => {
     try {
-      const result = await enqueueDocumentTask(id, {
+      const result = await enqueueDocumentTaskNow({
         task: action.task,
         force: action.force ?? false,
         source: action.source,
@@ -853,11 +853,7 @@ const enqueueDocTask = async (action: OperationAction) => {
 const runDocCleanup = async () => {
   await withDocOperation(async () => {
     try {
-      const result = await cleanupTexts({
-        doc_ids: [id],
-        clear_first: docCleanupClearFirst.value,
-        enqueue: true,
-      })
+      const result = await cleanupDocumentTexts(docCleanupClearFirst.value)
       docOpsMessage.value = result.queued
         ? `Queued cleanup for ${result.docs} document(s).`
         : `Cleanup done: ${result.updated}/${result.processed} updated.`
@@ -896,7 +892,7 @@ const runContinuePipeline = async () => {
 const runResetAndReprocessDoc = async () => {
   await withDocOperation(async () => {
     try {
-      const result = await resetAndReprocessDocument(id, true)
+      const result = await resetAndReprocessNow(true)
       docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
       await load()
     } catch (err) {
