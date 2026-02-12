@@ -48,6 +48,7 @@ export const useQueueManager = () => {
   const taskRunsTask = ref('')
   const taskRunsStatus = ref('')
   const taskRunsErrorType = ref('')
+  const taskRunsSearch = ref('')
   const dlqLimit = ref(50)
   const delayedLimit = ref(50)
 
@@ -80,6 +81,7 @@ export const useQueueManager = () => {
       taskRunsTask.value,
       taskRunsStatus.value,
       taskRunsErrorType.value,
+      taskRunsSearch.value,
     ]),
     queryFn: () =>
       fetchQueueTaskRuns({
@@ -88,6 +90,7 @@ export const useQueueManager = () => {
         task: taskRunsTask.value || undefined,
         status: taskRunsStatus.value || undefined,
         error_type: taskRunsErrorType.value || undefined,
+        q: taskRunsSearch.value || undefined,
       }),
     staleTime: 5_000,
   })
@@ -260,6 +263,7 @@ export const useQueueManager = () => {
     taskRunsTask,
     taskRunsStatus,
     taskRunsErrorType,
+    taskRunsQuery: taskRunsSearch,
     dlqItems: computed(() => dlqQuery.data.value?.items ?? []),
     dlqLoading: computed(() => dlqQuery.isPending.value || dlqQuery.isFetching.value),
     dlqLimit,

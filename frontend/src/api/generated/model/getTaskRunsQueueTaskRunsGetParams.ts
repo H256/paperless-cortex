@@ -10,6 +10,7 @@ doc_id?: number | null;
 task?: string | null;
 status?: string | null;
 error_type?: string | null;
+q?: string | null;
 limit?: number;
 offset?: number;
 };

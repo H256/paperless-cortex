@@ -27,6 +27,7 @@ import type {
   DocumentOcrScoresResponse,
   DocumentOperationEnqueueResponse,
   DocumentPipelineContinueResponse,
+  DocumentPipelineFanoutResponse,
   DocumentPipelineStatusResponse,
   DocumentResetReprocessResponse,
   DocumentStatsResponse,
@@ -42,6 +43,7 @@ import type {
   GetDlqQueueDlqGetParams,
   GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
+  GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
@@ -678,6 +680,64 @@ export const getDocumentPipelineStatusDocumentsDocIdPipelineStatusGet = async (d
   
   const data: getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse
+}
+
+
+
+/**
+ * @summary Get Document Pipeline Fanout
+ */
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse200 = {
+  data: DocumentPipelineFanoutResponse
+  status: 200
+}
+
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseSuccess = (getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse200) & {
+  headers: Headers;
+};
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseError = (getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse = (getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseSuccess | getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponseError)
+
+export const getGetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetUrl = (docId: number,
+    params?: GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/pipeline-fanout?${stringifiedParams}` : `/api/documents/${docId}/pipeline-fanout`
+}
+
+export const getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet = async (docId: number,
+    params?: GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams, options?: RequestInit): Promise<getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse> => {
+  
+  const res = await fetch(getGetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse
 }
 
 

@@ -30,6 +30,7 @@ import {
   getDashboardDocumentsDashboardGet,
   syncTagsSyncTagsPost,
   syncCorrespondentsSyncCorrespondentsPost,
+  getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet,
 } from '../api/generated/client'
 import type {
   ApplyFieldSuggestionResponse,
@@ -75,6 +76,8 @@ import type {
   TagResponse,
   TagsPageResponse,
   SyncSimpleResponse,
+  DocumentPipelineFanoutResponse,
+  GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,
 } from '@/api/generated/model'
 
 export type DocumentRow = DocumentSummary
@@ -296,6 +299,9 @@ export type ContinuePipelineResult = {
   enqueued: number
 }
 
+export type DocumentPipelineFanout = DocumentPipelineFanoutResponse
+export type PipelineFanoutParams = GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams
+
 export const cleanupTexts = (payload: CleanupTextsPayload) =>
   request<CleanupTextsResult>('/documents/cleanup-texts', { method: 'POST', body: payload })
 
@@ -313,6 +319,9 @@ export const resetAndReprocessDocument = (id: number, enqueue = true) =>
 
 export const getDocumentPipelineStatus = (id: number) =>
   request<DocumentPipelineStatus>(`/documents/${id}/pipeline-status`)
+
+export const getDocumentPipelineFanout = (id: number, params?: PipelineFanoutParams) =>
+  unwrap<DocumentPipelineFanout>(getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet(id, params))
 
 export const continueDocumentPipeline = (id: number, payload: ContinuePipelinePayload = {}) =>
   request<ContinuePipelineResult>(`/documents/${id}/pipeline/continue`, {

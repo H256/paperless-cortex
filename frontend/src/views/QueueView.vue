@@ -333,6 +333,15 @@
             />
           </label>
           <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Search
+            <input
+              type="text"
+              v-model="taskRunsQuery"
+              placeholder="message/task/source contains..."
+              class="mt-1 h-9 w-64 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
             Limit
             <input
               type="number"
@@ -372,6 +381,7 @@
               <th class="px-2 py-1">Task</th>
               <th class="px-2 py-1">Status</th>
               <th class="px-2 py-1">Error Type</th>
+              <th class="px-2 py-1">Message</th>
               <th class="px-2 py-1">Checkpoint</th>
               <th class="px-2 py-1">Duration</th>
               <th class="px-2 py-1">Started</th>
@@ -399,6 +409,7 @@
                 </span>
               </td>
               <td class="px-2 py-2">{{ run.error_type || '-' }}</td>
+              <td class="px-2 py-2" :title="run.error_message || '-'">{{ compactMessage(run.error_message) }}</td>
               <td class="px-2 py-2">{{ checkpointLabel(run) }}</td>
               <td class="px-2 py-2">{{ run.duration_ms != null ? `${run.duration_ms} ms` : '-' }}</td>
               <td class="px-2 py-2" :title="formatDateTime(run.started_at) || '-'">{{ formatRelativeTime(run.started_at) }}</td>
@@ -545,6 +556,7 @@
 import { computed, ref } from 'vue'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useQueueManager } from '../composables/useQueueManager'
+import type { QueueTaskRun } from '../services/queue'
 import {
   ArrowDown,
   ArrowDownToLine,
@@ -578,6 +590,7 @@ const {
   taskRunsTask,
   taskRunsStatus,
   taskRunsErrorType,
+  taskRunsQuery,
   delayedItems,
   delayedLoading,
   delayedLimit,
@@ -614,7 +627,9 @@ const filteredItems = computed(() => {
   return items.filter(({ item }) => item.doc_id != null && String(item.doc_id).includes(needle))
 })
 
-const failedTaskRuns = computed(() => taskRuns.value.filter((run) => run.status === 'failed'))
+const failedTaskRuns = computed(() =>
+  taskRuns.value.filter((run: QueueTaskRun) => run.status === 'failed'),
+)
 const shouldAutoRefreshQueue = computed(() => {
   const inProgress = Number(status.value.in_progress || 0)
   const queued = Number(status.value.length || 0)
@@ -736,6 +751,13 @@ const hasResumeMarker = (run: { checkpoint?: unknown }) => {
 const checkpointLabel = (run: { checkpoint?: unknown }) => {
   const checkpoint = run.checkpoint as Record<string, unknown> | null | undefined
   return formatTaskCheckpointLabel(checkpoint, '-')
+}
+
+const compactMessage = (message?: string | null) => {
+  if (!message) return '-'
+  const normalized = message.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= 80) return normalized
+  return `${normalized.slice(0, 77)}...`
 }
 
 const delayedTaskLabel = (item: { task?: unknown }) => {

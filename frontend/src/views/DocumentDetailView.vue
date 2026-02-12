@@ -179,6 +179,52 @@
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
           <div class="flex items-center justify-between gap-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+              Downstream fan-out
+            </div>
+            <button
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              :disabled="pipelineFanoutLoading"
+              @click="reloadPipelineFanout"
+            >
+              {{ pipelineFanoutLoading ? 'Loading...' : 'Reload fan-out' }}
+            </button>
+          </div>
+          <div v-if="pipelineFanoutError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+            {{ pipelineFanoutError }}
+          </div>
+          <div v-else-if="!pipelineFanoutItems.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            No downstream fan-out tasks available.
+          </div>
+          <div v-else class="mt-2 overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="text-left text-slate-500 dark:text-slate-400">
+                <tr>
+                  <th class="px-2 py-1">#</th>
+                  <th class="px-2 py-1">Task</th>
+                  <th class="px-2 py-1">Status</th>
+                  <th class="px-2 py-1">Last run</th>
+                  <th class="px-2 py-1">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in pipelineFanoutItems" :key="`${item.order}-${item.task}-${item.source || ''}`" class="border-t border-slate-100 dark:border-slate-700">
+                  <td class="px-2 py-1.5">{{ item.order }}</td>
+                  <td class="px-2 py-1.5">{{ item.task }}<span v-if="item.source" class="text-slate-400"> ({{ item.source }})</span></td>
+                  <td class="px-2 py-1.5" :class="fanoutStatusClass(item.status)">{{ item.status }}</td>
+                  <td class="px-2 py-1.5" :title="toDateTime(item.last_started_at)">
+                    {{ toRelativeTime(item.last_started_at) }}
+                    <span v-if="item.checkpoint" class="ml-1 text-slate-400">· {{ checkpointLabel(item.checkpoint as Record<string, unknown>) }}</span>
+                  </td>
+                  <td class="px-2 py-1.5">{{ item.error_type || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
               Processing timeline
             </div>
             <button
@@ -216,7 +262,12 @@
                     {{ run.status }}
                   </td>
                   <td class="px-2 py-1.5">{{ run.attempt ?? 1 }}</td>
-                  <td class="px-2 py-1.5">{{ checkpointLabel(run.checkpoint) }}</td>
+                  <td class="px-2 py-1.5">
+                    <div>{{ checkpointLabel(run.checkpoint) }}</div>
+                    <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="text-[11px] text-amber-600 dark:text-amber-300">
+                      {{ embeddingTelemetryLabel(run.checkpoint) }}
+                    </div>
+                  </td>
                   <td class="px-2 py-1.5">{{ run.error_type || '-' }}</td>
                   <td class="px-2 py-1.5">
                     <button
@@ -453,7 +504,11 @@ const {
   pipelineStatus,
   pipelineStatusLoading,
   pipelineStatusError,
+  pipelineFanout,
+  pipelineFanoutLoading,
+  pipelineFanoutError,
   refreshPipelineStatus,
+  refreshPipelineFanout,
   continuePipeline: continuePipelineRequest,
   continuePipelineLoading,
 } = useDocumentPipeline(computed(() => id))
@@ -567,6 +622,7 @@ const processingRequiredCount = computed(
 const processingDoneCount = computed(
   () => processingStatusItems.value.filter((item) => item.state === 'done').length,
 )
+const pipelineFanoutItems = computed(() => pipelineFanout.value?.items || [])
 const activeRun = computed(() =>
   taskRuns.value.find((run) => run.status === 'running' || run.status === 'retrying') ?? null,
 )
@@ -600,6 +656,14 @@ const processingBadgeClass = (state: ProcessingState) => {
   if (state === 'done') return 'text-emerald-600 dark:text-emerald-300'
   if (state === 'missing') return 'text-amber-600 dark:text-amber-300'
   return 'text-slate-400 dark:text-slate-500'
+}
+const fanoutStatusClass = (status: string | null | undefined) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'done') return 'text-emerald-700 dark:text-emerald-300 font-semibold'
+  if (normalized === 'running' || normalized === 'retrying') return 'text-indigo-700 dark:text-indigo-300 font-semibold'
+  if (normalized === 'failed') return 'text-rose-700 dark:text-rose-300 font-semibold'
+  if (normalized === 'missing') return 'text-amber-700 dark:text-amber-300 font-semibold'
+  return 'text-slate-600 dark:text-slate-300'
 }
 
 const parseBBox = (value: unknown): BBox | null => {
@@ -877,6 +941,17 @@ const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
   return formatCheckpointLabel(checkpoint, '-')
 }
 
+const embeddingTelemetryLabel = (checkpoint?: Record<string, unknown> | null) => {
+  if (!checkpoint || typeof checkpoint !== 'object') return ''
+  const splitChunks = typeof checkpoint.split_chunks === 'number' ? checkpoint.split_chunks : null
+  const overflowCalls = typeof checkpoint.overflow_fallback_calls === 'number' ? checkpoint.overflow_fallback_calls : null
+  if ((splitChunks ?? 0) <= 0 && (overflowCalls ?? 0) <= 0) return ''
+  const parts: string[] = []
+  if ((splitChunks ?? 0) > 0) parts.push(`split chunks: ${splitChunks}`)
+  if ((overflowCalls ?? 0) > 0) parts.push(`fallback calls: ${overflowCalls}`)
+  return parts.join(' | ')
+}
+
 const load = async () => {
   await loadDocument(id)
 }
@@ -902,10 +977,19 @@ const loadPipelineStatus = async () => {
   await refreshPipelineStatus()
 }
 
+const loadPipelineFanout = async () => {
+  await refreshPipelineFanout()
+}
+
+const reloadPipelineFanout = async () => {
+  await loadPipelineFanout()
+}
+
 const withDocOperation = async (fn: () => Promise<void>) => {
   docOpsMessage.value = ''
   await fn()
   await loadPipelineStatus()
+  await loadPipelineFanout()
 }
 
 const reloadAll = async () => {
@@ -917,6 +1001,7 @@ const reloadAll = async () => {
     await loadPageTextsForDoc()
     await loadSuggestionsForDoc()
     await loadPipelineStatus()
+    await loadPipelineFanout()
   } finally {
     reloadingAll.value = false
   }
@@ -1028,6 +1113,7 @@ useAutoRefresh({
   onTick: async () => {
     await refreshTaskRuns()
     await loadPipelineStatus()
+    await refreshPipelineFanout()
   },
 })
 

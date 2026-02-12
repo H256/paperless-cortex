@@ -624,6 +624,12 @@ All model names must be configurable via environment variables.
 - Frontend DRY: extracted shared checkpoint formatting/resume-marker helpers into `frontend/src/utils/taskRunCheckpoint.ts` and reused them in Queue view, Document detail timeline, and running-progress composable to remove duplicated checkpoint parsing logic.
 - Backend refactor: cleaned `task_runs` service with shared recovery/query helpers (`_run_with_pending_recovery`, `_build_task_runs_query`) to reduce duplicate branches and keep pending-rollback handling consistent across create/finish/checkpoint/list/find paths.
 - Queue UX observability: Queue Manager now shows live refresh state (`active`/`idle`) and last refresh timestamps (relative + absolute), making background polling visibility explicit when processing is ongoing.
+- Backend/API: added document fan-out endpoint `GET /documents/{id}/pipeline-fanout` to expose ordered downstream processing chain (sync/vision/embeddings/page-notes/summary/suggestions) with per-step state derived from missing-work evaluation + latest task-run status/checkpoint.
+- Document detail UX: added "Downstream fan-out" panel in Operations tab with ordered task chain, live statuses, last-run timestamps, and checkpoint snippets; fan-out auto-refreshes alongside pipeline/timeline while work is running.
+- Queue log explorer hardening: extended `GET /queue/task-runs` with free-text filter `q` (task/source/status/error-type/error-message) and updated Queue Manager filters/table to search and display compact error messages for faster troubleshooting.
+- Worker telemetry: embedding pipeline now records chunk-split and overflow-fallback counters into task checkpoints (`split_chunks`, `split_parts`, `overflow_fallback_calls`, `overflow_fallback_parts`), and document timeline surfaces this telemetry for embedding runs.
+- API/client: regenerated OpenAPI/Orval client for new fan-out endpoint and queue task-run `q` filter; document/queue composables now consume generated contracts.
+- Tests: added coverage for queue task-run text-query filtering, document pipeline fan-out endpoint response, embedding split telemetry summary, and overflow-fallback telemetry tracking.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
