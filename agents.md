@@ -622,6 +622,7 @@ All model names must be configurable via environment variables.
 - Document detail UX: added a header-level live "Processing now" badge (task + checkpoint stage/progress) based on active task-run state to make ongoing background work immediately visible.
 - Backend robustness: hardened task-run service methods against stale failed SQLAlchemy session state (`PendingRollbackError`) by normalizing session readiness before bookkeeping/list queries; added regression tests proving `finish_task_run` and `list_task_runs` recover after prior failed transactions.
 - Frontend DRY: extracted shared checkpoint formatting/resume-marker helpers into `frontend/src/utils/taskRunCheckpoint.ts` and reused them in Queue view, Document detail timeline, and running-progress composable to remove duplicated checkpoint parsing logic.
+- Backend refactor: cleaned `task_runs` service with shared recovery/query helpers (`_run_with_pending_recovery`, `_build_task_runs_query`) to reduce duplicate branches and keep pending-rollback handling consistent across create/finish/checkpoint/list/find paths.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
