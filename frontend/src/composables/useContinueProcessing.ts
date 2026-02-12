@@ -46,7 +46,12 @@ export const useContinueProcessing = () => {
   )
   const processStartLoading = computed(() => startMutation.isPending.value)
   const showPreviewModal = computed(() => processPreview.value !== null)
-  const continueProcessingRunning = computed(() => previewMutation.isPending.value)
+  const continueProcessingRunning = computed(
+    () =>
+      previewMutation.isPending.value ||
+      refreshPreviewMutation.isPending.value ||
+      startMutation.isPending.value,
+  )
 
   const openPreview = async (options: ProcessMissingParams) => previewMutation.mutateAsync(options)
   const refreshProcessPreview = async (options: ProcessMissingParams) =>

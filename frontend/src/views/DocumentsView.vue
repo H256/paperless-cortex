@@ -27,11 +27,18 @@
 
     <DocumentsProcessingToolbar
       :continue-processing-running="continueProcessingRunning"
+      :processing-kickoff-pending="processingKickoffPending"
       :is-processing="isProcessing"
       :show-cancel="showCancel"
       @open-preview="openPreview"
       @cancel-processing="cancelProcessing"
     />
+    <div
+      v-if="processingKickoffPending"
+      class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+    >
+      Starting processing and enqueueing missing tasks...
+    </div>
 
     <DocumentsFiltersPanel
       :tags="tags"
@@ -178,7 +185,7 @@ const load = async () => {
     toastStore.push(message, 'danger', 'Error')
   }
 }
-const { openPreview, closePreview, startFromPreview, cancelProcessing } = useDocumentsProcessingActions(
+const { openPreview, closePreview, startFromPreview, cancelProcessing, processingKickoffPending } = useDocumentsProcessingActions(
   toastStore,
   {
     processStartResult,

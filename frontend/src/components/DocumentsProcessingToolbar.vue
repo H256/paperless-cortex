@@ -5,12 +5,12 @@
     <div class="flex w-full flex-wrap items-center justify-end gap-3">
       <button
         class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-        :disabled="continueProcessingRunning || isProcessing"
+        :disabled="continueProcessingRunning || processingKickoffPending || isProcessing"
         @click="$emit('open-preview')"
         title="Sync new documents and process missing intelligence items"
       >
-        <RefreshCw class="h-4 w-4" />
-        {{ continueProcessingRunning ? 'Working...' : 'Continue processing' }}
+        <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': continueProcessingRunning || processingKickoffPending }" />
+        {{ processingKickoffPending ? 'Starting...' : continueProcessingRunning ? 'Working...' : 'Continue processing' }}
       </button>
       <button
         v-if="showCancel"
@@ -30,6 +30,7 @@ import { RefreshCw, XCircle } from 'lucide-vue-next'
 
 defineProps<{
   continueProcessingRunning: boolean
+  processingKickoffPending: boolean
   isProcessing: boolean
   showCancel: boolean
 }>()

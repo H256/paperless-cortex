@@ -616,6 +616,7 @@ All model names must be configurable via environment variables.
 - Local note id policy: AI/local-only notes now allocate negative IDs in both suggestion apply flow and writeback local-sync note flow, preventing future collisions with Paperless positive note IDs.
 - Follow-up critical fix: resolved remaining cross-document note-ID collisions in sync by checking global `DocumentNote` identity (`db.get`) and re-keying conflicting existing rows before applying remote note IDs; added flush after re-key to prevent identity-map conflicts in the same transaction.
 - Added regression coverage for legacy positive local note collision vs incoming remote note ID in `test_upsert_document_notes_remaps_legacy_positive_collision`.
+- Continue-processing UX feedback: added explicit kickoff loading state (`Starting...`) in `DocumentsProcessingToolbar` plus inline kickoff banner in `DocumentsView` while enqueue/start is pending, so users see immediate activity after pressing continue.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

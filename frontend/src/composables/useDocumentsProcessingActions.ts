@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { ref } from 'vue'
 import type { ToastTone } from '../stores/toastStore'
 
 type ToastLike = {
@@ -25,6 +26,8 @@ export const useDocumentsProcessingActions = (
   loadDocuments: () => Promise<void>,
   processParams: () => Record<string, unknown>,
 ) => {
+  const processingKickoffPending = ref(false)
+
   const refreshAfterProcessingMutation = async () => {
     await Promise.all([overviewApi.refreshProcessingOverview(), loadDocuments()])
   }
@@ -44,6 +47,7 @@ export const useDocumentsProcessingActions = (
   }
 
   const startFromPreview = async () => {
+    processingKickoffPending.value = true
     try {
       await continueApi.startFromPreviewRequest(processParams())
       if (continueApi.processStartResult.value) {
@@ -58,6 +62,8 @@ export const useDocumentsProcessingActions = (
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start processing'
       toastStore.push(message, 'danger', 'Processing')
+    } finally {
+      processingKickoffPending.value = false
     }
   }
 
@@ -73,6 +79,7 @@ export const useDocumentsProcessingActions = (
   }
 
   return {
+    processingKickoffPending,
     refreshAfterProcessingMutation,
     openPreview,
     closePreview,
