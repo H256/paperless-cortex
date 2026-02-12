@@ -234,6 +234,52 @@
         </div>
       </div>
 
+      <div
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          What Happens Next
+        </div>
+        <ol class="mt-2 space-y-1.5 list-decimal pl-4">
+          <li v-for="step in executionPlanSteps" :key="step">
+            {{ step }}
+          </li>
+        </ol>
+      </div>
+
+      <div
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Runtime state
+        </div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-3">
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800">
+            Queue: <strong>{{ queueEnabled ? 'enabled' : 'disabled' }}</strong>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800">
+            Queued items: <strong>{{ queueLengthLabel }}</strong>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800">
+            Worker activity: <strong>{{ processingActive ? 'active' : 'idle' }}</strong>
+          </div>
+        </div>
+        <div
+          v-if="!queueEnabled"
+          class="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300"
+        >
+          Queue is disabled. Starting processing will not enqueue work.
+        </div>
+      </div>
+
+      <div
+        v-if="processStartResult"
+        class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+      >
+        Enqueued {{ processStartResult.enqueued ?? 0 }} documents and
+        {{ processStartResult.tasks ?? 0 }} tasks. Use Queue/Document timeline to monitor progress.
+      </div>
+
       <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
         <button
           v-if="processStartResult"
@@ -257,10 +303,11 @@
                 processPreviewLoading ||
                 processStartLoading ||
                 syncing ||
-                isSyncingNow,
+                isSyncingNow ||
+                !queueEnabled,
             }"
             :disabled="
-              processPreviewLoading || processStartLoading || syncing || isSyncingNow
+              processPreviewLoading || processStartLoading || syncing || isSyncingNow || !queueEnabled
             "
             @click="$emit('start')"
           >
@@ -269,7 +316,7 @@
               Enqueuing...
             </span>
             <span v-else-if="isSyncingNow">Syncing...</span>
-            <span v-else>Start processing</span>
+            <span v-else>Start processing (enqueue)</span>
           </button>
         </template>
       </div>
@@ -309,6 +356,9 @@ const props = defineProps<{
   processStartLoading: boolean
   syncing: boolean
   isSyncingNow: boolean
+  queueEnabled: boolean
+  queueLength: number | null
+  processingActive: boolean
 }>()
 
 const emit = defineEmits<{
@@ -348,6 +398,32 @@ const coverageItems = computed(() => {
       missing: Number(preview.missing_docs ?? 0),
     },
   ]
+})
+
+const queueLengthLabel = computed(() => {
+  if (typeof props.queueLength === 'number') return String(props.queueLength)
+  return '-'
+})
+
+const executionPlanSteps = computed(() => {
+  const steps: string[] = []
+  if (props.processOptions.includeSync) {
+    steps.push('Sync document metadata/text baseline from Paperless (insert-only + mark deleted).')
+  } else {
+    steps.push('Skip sync and use existing local snapshot for missing-work detection.')
+  }
+  if (props.processOptions.strategy === 'paperless_only') {
+    steps.push('Plan missing Paperless baseline tasks (embeddings + suggestions).')
+  } else if (props.processOptions.strategy === 'vision_first') {
+    steps.push('Prioritize vision OCR pipeline, then downstream embeddings/suggestions.')
+  } else if (props.processOptions.strategy === 'max_coverage') {
+    steps.push('Plan max-coverage tasks across paperless and vision sources.')
+  } else {
+    steps.push('Plan balanced missing tasks across baseline + vision where useful.')
+  }
+  steps.push('Enqueue only missing tasks; no automatic writeback to Paperless is performed.')
+  steps.push('Worker executes queued tasks and updates status/timeline progressively.')
+  return steps
 })
 
 const formatMissingSteps = (value?: unknown) => {

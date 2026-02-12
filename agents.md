@@ -641,6 +641,7 @@ All model names must be configurable via environment variables.
 - Page-notes guardrail hardening: added model-output sanitization for control/meta tokens (e.g. `<|channel|>...`), prompt-echo/meta detection, strict retry prompt for contaminated page-note responses, and section-compaction sanitization so leaked meta content is not persisted or forwarded into section summaries.
 - Document operations UX follow-up: improved per-document "Continue missing processing" feedback by adding explicit enqueue/pickup status banner ("checking", "waiting for worker pickup", "picked up") plus temporary auto-refresh while waiting; also updated document-list running badges to include `retrying` task-runs so active retry progress is visible.
 - Document timeline UX follow-up: added one-click "Copy error" action per task-run row in document Operations timeline, mirroring queue troubleshooting flows and reducing context switching during failure triage.
+- Continue-processing modal UX pass: added explicit "What Happens Next" execution plan, live runtime-state block (queue enabled/length + worker activity), stronger post-enqueue success message, and clearer primary action wording ("Start processing (enqueue)") so enqueue vs worker execution is unambiguous.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
