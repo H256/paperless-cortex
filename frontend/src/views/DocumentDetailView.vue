@@ -199,6 +199,7 @@
                   <th class="px-2 py-1">Attempt</th>
                   <th class="px-2 py-1">Checkpoint</th>
                   <th class="px-2 py-1">Error</th>
+                  <th class="px-2 py-1">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,6 +212,17 @@
                   <td class="px-2 py-1.5">{{ run.attempt ?? 1 }}</td>
                   <td class="px-2 py-1.5">{{ checkpointLabel(run.checkpoint) }}</td>
                   <td class="px-2 py-1.5">{{ run.error_type || '-' }}</td>
+                  <td class="px-2 py-1.5">
+                    <button
+                      v-if="run.status === 'failed'"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      :disabled="docOpsLoading"
+                      @click="retryTaskRun(run)"
+                    >
+                      Retry
+                    </button>
+                    <span v-else class="text-slate-400 dark:text-slate-500">-</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -526,6 +538,11 @@ const writebackErrorMessage = ref('')
 const canWriteback = computed(() => document.value?.review_status === 'needs_review')
 type ProcessingState = 'done' | 'missing' | 'na'
 type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
+type TimelineTaskRun = {
+  task: string
+  source?: string | null
+  status: string
+}
 
 const processingStatusItems = computed<ProcessingStatusItem[]>(() => {
   if (!pipelineStatus.value?.steps?.length) return []
@@ -910,6 +927,25 @@ const enqueueDocTask = async (action: OperationAction) => {
         : `Task ${action.task} was not enqueued (possibly duplicate/running).`
     } catch (err) {
       docOpsMessage.value = errorMessage(err, `Failed to queue ${action.task}`)
+    }
+  })
+}
+
+const retryTaskRun = async (run: TimelineTaskRun) => {
+  const task = String(run.task || '').trim() as DocumentOperationTaskPayload['task']
+  if (!task) return
+  await withDocOperation(async () => {
+    try {
+      const result = await enqueueDocumentTaskNow({
+        task,
+        source: run.source === 'paperless_ocr' || run.source === 'vision_ocr' ? run.source : undefined,
+      })
+      docOpsMessage.value = result.enqueued
+        ? `Queued retry for ${task}.`
+        : `Retry for ${task} was not enqueued (duplicate or already running).`
+      await refreshTaskRuns()
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, `Failed to retry ${task}`)
     }
   })
 }

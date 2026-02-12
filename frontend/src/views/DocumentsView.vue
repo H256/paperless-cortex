@@ -50,6 +50,7 @@
 
     <DocumentsTable
       :documents="visibleDocuments"
+      :running-by-doc-id="runningByDocId"
       :ordering="ordering"
       :correspondents="correspondents"
       :paperless-base-url="paperlessBaseUrl"
@@ -98,6 +99,7 @@ import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { usePreviewAutoRefresh } from '../composables/usePreviewAutoRefresh'
 import { useVisibleDocuments } from '../composables/useVisibleDocuments'
+import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
@@ -149,6 +151,7 @@ const modelFilter = ref('')
 const { processOptions, batchOptions, batchIndex, batchLabel, processParams } =
   useContinueProcessOptions()
 const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
+const { runningByDocId } = useRunningTaskProgress()
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const {

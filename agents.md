@@ -600,6 +600,8 @@ All model names must be configurable via environment variables.
 - Queue observability UX: added delayed-retry queue visibility (`GET /queue/delayed`) with due timestamps/remaining backoff, surfaced in Queue Manager as a dedicated "Delayed retries" panel.
 - Continue-processing UX: added a compact pipeline-coverage checklist in `ContinueProcessingModal` (paperless baseline, vision pipeline, large-doc extras, overall docs with gaps) to make missing scope clearer before enqueue.
 - Document detail UX: operations status now explicitly indicates whether large-document mode is active and clarifies that page notes + hierarchical summary are required when applicable.
+- Documents UX: added live per-document running-progress indicators in the list table, derived from running task checkpoints (`queue/task-runs?status=running`) to show active stage progress (`Vision OCR 12/37`, `Embeddings 40/120`, etc.).
+- Document detail UX: processing timeline now offers a one-click retry action for failed task runs, re-enqueuing the same task/source with dedupe-aware feedback.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

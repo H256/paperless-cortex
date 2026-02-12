@@ -89,7 +89,16 @@
               </a>
             </td>
             <td class="px-6 py-3">
-              <DocumentProcessingBadges :doc="doc" />
+              <div class="space-y-1">
+                <DocumentProcessingBadges :doc="doc" />
+                <div
+                  v-if="doc.id != null && runningByDocId[doc.id]"
+                  class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                  :title="runningByDocId[doc.id]"
+                >
+                  {{ runningByDocId[doc.id] }}
+                </div>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -132,6 +141,7 @@ import type { Correspondent, DocumentRow } from '../services/documents'
 
 const props = defineProps<{
   documents: DocumentRow[]
+  runningByDocId: Record<number, string>
   ordering: string
   correspondents: Correspondent[]
   paperlessBaseUrl: string
