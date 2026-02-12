@@ -249,7 +249,7 @@
           class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
           @click="$emit('close')"
         >
-          Close
+          Close and monitor
         </button>
         <template v-else>
           <button
