@@ -574,6 +574,7 @@ All model names must be configurable via environment variables.
 - Frontend refactor: extracted documents table control handlers (`toggleSort`, `prev/next page + reload`) from `DocumentsView` into `frontend/src/composables/useDocumentsTableControls.ts` to keep pagination/sort behavior isolated and reusable.
 - Frontend refactor: extracted continue-preview auto-refresh watchers (options/batch change handling) from `DocumentsView` into `frontend/src/composables/usePreviewAutoRefresh.ts`, reducing reactive boilerplate in the view while preserving refresh-on-change behavior.
 - UX/Frontend refactor: extracted documents processing action bar (continue/cancel processing controls) from `DocumentsView` into `frontend/src/components/DocumentsProcessingToolbar.vue`, further reducing view template noise and improving component composition.
+- UX/Frontend refactor: extracted documents overview header panel (stats grid + active processing status block) from `DocumentsView` into `frontend/src/components/DocumentsOverviewPanel.vue`, further isolating presentation concerns from orchestration logic.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

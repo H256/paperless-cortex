@@ -7,58 +7,22 @@
           Manage ingestion, embedding, and review analysis status.
         </p>
       </div>
-      <div class="flex items-center gap-3">
-        <div
-          class="grid grid-cols-4 gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          <div class="text-slate-500">Synced</div>
-          <div class="font-semibold text-slate-900 dark:text-slate-100">{{ stats.total }}</div>
-          <div class="text-slate-500">Queued</div>
-          <div class="font-semibold text-indigo-600">
-            {{ queueStatus.enabled ? (queueStatus.length ?? 0) : 0 }}
-          </div>
-
-          <div class="text-slate-500">Embeddings</div>
-          <div class="font-semibold text-emerald-600">{{ stats.embeddings }}</div>
-          <div class="text-slate-500">Vision OCR</div>
-          <div class="font-semibold text-emerald-600">{{ stats.vision }}</div>
-
-          <div class="text-slate-500">Suggestions</div>
-          <div class="font-semibold text-emerald-600">{{ stats.suggestions }}</div>
-          <div class="text-slate-500">Fully processed</div>
-          <div class="font-semibold text-emerald-700 dark:text-emerald-400">
-            {{ stats.fully_processed }}
-          </div>
-
-          <div class="text-slate-500">Pending</div>
-          <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
-          <div class="text-slate-500">Processed*</div>
-          <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
-        </div>
-        <div
-          v-if="isProcessing"
-          class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          <Loader2 class="h-4 w-4 animate-spin text-indigo-500" />
-          <div class="space-y-0.5">
-            <div v-if="syncStatus.status === 'running'">
-              Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) -
-              ETA {{ etaText }}
-            </div>
-            <div v-if="embedStatus.status === 'running' || hasQueuedWork">
-              {{ embedLabel }} {{ processingProcessed }} / {{ processingTotal }} ({{
-                processingPercent
-              }}%) - ETA {{ processingEtaText }}
-            </div>
-            <div
-              v-if="hasQueuedWork && lastRunText !== '--'"
-              class="text-xs text-slate-500 dark:text-slate-400"
-            >
-              Last run: {{ lastRunText }}
-            </div>
-          </div>
-        </div>
-      </div>
+      <DocumentsOverviewPanel
+        :stats="stats"
+        :queued-count="queueStatus.enabled ? (queueStatus.length ?? 0) : 0"
+        :is-processing="isProcessing"
+        :sync-status="syncStatus"
+        :embed-status="embedStatus"
+        :has-queued-work="hasQueuedWork"
+        :progress-percent="progressPercent"
+        :eta-text="etaText"
+        :embed-label="embedLabel"
+        :processing-processed="processingProcessed"
+        :processing-total="processingTotal"
+        :processing-percent="processingPercent"
+        :processing-eta-text="processingEtaText"
+        :last-run-text="lastRunText"
+      />
     </div>
 
     <DocumentsProcessingToolbar
@@ -122,9 +86,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import {
-  Loader2,
-} from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
@@ -139,6 +100,7 @@ import { usePreviewAutoRefresh } from '../composables/usePreviewAutoRefresh'
 import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
+import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
 
