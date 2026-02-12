@@ -4,7 +4,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
   >
     <div
-      class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+      class="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900"
     >
       <div class="flex items-center justify-between">
         <div>
