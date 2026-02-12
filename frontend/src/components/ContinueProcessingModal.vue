@@ -292,6 +292,26 @@
             {{ step }}
           </li>
         </ol>
+        <div v-if="executionScopeItems.length" class="mt-3 grid gap-2 sm:grid-cols-2">
+          <div
+            v-for="item in executionScopeItems"
+            :key="item.key"
+            class="flex items-center justify-between rounded-md border px-2 py-1.5"
+            :class="item.included
+              ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20'
+              : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'"
+          >
+            <span>{{ item.label }}</span>
+            <span
+              class="text-[11px] font-semibold"
+              :class="item.included
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : 'text-slate-500 dark:text-slate-400'"
+            >
+              {{ item.included ? 'included' : 'excluded' }}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div
@@ -478,6 +498,21 @@ const executionPlanSteps = computed(() => {
   steps.push('Enqueue only missing tasks; no automatic writeback to Paperless is performed.')
   steps.push('Worker executes queued tasks and updates status/timeline progressively.')
   return steps
+})
+
+const executionScopeItems = computed(() => {
+  const strategy = props.processOptions.strategy
+  const includeVision = strategy === 'vision_first' || strategy === 'balanced' || strategy === 'max_coverage'
+  const includePaperlessBaseline = strategy === 'balanced' || strategy === 'paperless_only' || strategy === 'max_coverage'
+  const includeLargeExtras = strategy === 'vision_first' || strategy === 'max_coverage' || strategy === 'balanced'
+  const includeDualEmbeddings = strategy === 'max_coverage'
+  return [
+    { key: 'sync', label: 'Paperless sync', included: props.processOptions.includeSync },
+    { key: 'paperless', label: 'Paperless baseline tasks', included: includePaperlessBaseline },
+    { key: 'vision', label: 'Vision OCR/tasks', included: includeVision },
+    { key: 'large', label: 'Large-doc extras (page notes + hier summary)', included: includeLargeExtras },
+    { key: 'dual', label: 'Dual embedding coverage', included: includeDualEmbeddings },
+  ]
 })
 
 const formatMissingSteps = (value?: unknown) => {
