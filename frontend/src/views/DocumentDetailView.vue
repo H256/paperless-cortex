@@ -311,15 +311,25 @@
                     </div>
                   </td>
                   <td class="px-2 py-1.5">
-                    <button
-                      v-if="run.status === 'failed'"
-                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                      :disabled="docOpsLoading"
-                      @click="retryTaskRun(run)"
-                    >
-                      Retry
-                    </button>
-                    <span v-else class="text-slate-400 dark:text-slate-500">-</span>
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        v-if="run.status === 'failed'"
+                        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                        :disabled="docOpsLoading"
+                        @click="retryTaskRun(run)"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        v-if="run.error_message"
+                        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                        :disabled="docOpsLoading"
+                        @click="copyRunError(run.error_message)"
+                      >
+                        Copy error
+                      </button>
+                      <span v-if="run.status !== 'failed' && !run.error_message" class="text-slate-400 dark:text-slate-500">-</span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -1006,6 +1016,17 @@ const compactErrorMessage = (message?: string | null) => {
   const normalized = message.replace(/\s+/g, ' ').trim()
   if (normalized.length <= 90) return normalized
   return `${normalized.slice(0, 87)}...`
+}
+
+const copyRunError = async (message?: string | null) => {
+  const text = String(message || '').trim()
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    toastStore.push('Error copied to clipboard.', 'success', 'Processing timeline', 1800)
+  } catch {
+    toastStore.push('Failed to copy error message.', 'danger', 'Processing timeline', 2400)
+  }
 }
 
 const load = async () => {
