@@ -654,6 +654,8 @@ All model names must be configurable via environment variables.
 - Debug observability tweak: added optional full-response LLM logging via `LLM_DEBUG_FULL_RESPONSE=1` (used with `LLM_DEBUG=1`) so model outputs are logged untruncated for JSON/debug investigations.
 - Hierarchical pipeline refactor (text-first): page notes, section summaries, and global summary generation now rely on plain-text model outputs (no JSON parsing dependency in these stages). Structured JSON extraction remains primarily in suggestion generation; hierarchy stages store/propagate sanitized text-first payloads for robustness across model changes.
 - DB naming alignment: renamed hierarchy storage columns via Alembic migration (`document_page_notes.notes_json` -> `notes_text`, `document_section_summaries.summary_json` -> `summary_text`) and updated backend model/runtime references accordingly.
+- Hierarchy persistence cleanup: `notes_text` and `summary_text` now persist actual plain text (not JSON-serialized dict strings); worker summary stage consumes these text fields directly and keeps resume compatibility by reconstructing minimal in-memory payloads.
+- Language preservation hardening: page-notes and hierarchical section/global summary prompts now explicitly require preserving source document language(s) (no translation to English), including multilingual documents.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

@@ -971,12 +971,10 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
 
     page_to_note: dict[int, dict] = {}
     for row in note_rows:
-        try:
-            payload = json.loads(row.notes_text or "{}")
-            if isinstance(payload, dict):
-                page_to_note[int(row.page)] = payload
-        except Exception:
+        raw = (row.notes_text or "").strip()
+        if not raw:
             continue
+        page_to_note[int(row.page)] = {"page": int(row.page), "text": raw}
     sections = group_notes_into_sections(
         sorted(page_to_note.items(), key=lambda item: item[0]),
         max_pages=settings.summary_section_pages,
@@ -1002,12 +1000,20 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
             .all()
         )
         for row in persisted_rows:
-            try:
-                payload = json.loads(row.summary_text or "{}")
-            except Exception:
+            raw_summary = (row.summary_text or "").strip()
+            if not raw_summary:
                 continue
-            if isinstance(payload, dict):
-                persisted_by_key[str(row.section_key)] = payload
+            persisted_by_key[str(row.section_key)] = {
+                "section": str(row.section_key),
+                "text": raw_summary,
+                "summary": raw_summary,
+                "key_facts": [],
+                "key_dates": [],
+                "key_entities": [],
+                "key_numbers": [],
+                "open_questions": [],
+                "confidence_notes": [],
+            }
         required_keys = [str(sections[i][0]) for i in range(start_index)]
         if not all(key in persisted_by_key for key in required_keys):
             logger.info(

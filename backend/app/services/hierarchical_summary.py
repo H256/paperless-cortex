@@ -302,6 +302,7 @@ def _normalize_section_summary_payload(section_key: str, payload: dict[str, Any]
         summary = f"Section {section_key} summary generated with sanitization fallback."
     return {
         "section": section_key,
+        "text": summary,
         "summary": summary,
         "key_facts": key_facts,
         "key_dates": key_dates,
@@ -404,6 +405,8 @@ def _page_notes_prompt(page: int, text: str) -> str:
         "- Keep facts concise and literal.\n"
         "- Include dates, amounts, ids in key_numbers if present.\n"
         "- Do not invent information.\n"
+        "- Preserve the original document language(s); do not translate to English.\n"
+        "- If the source is multilingual, keep each extracted point in its original language.\n"
         f"Page: {page}\n"
         f"Text:\n{text}\n"
     )
@@ -420,6 +423,7 @@ def _page_notes_prompt_strict(page: int, text: str) -> str:
         "Key numbers:\n"
         "Uncertainties:\n"
         "Use bullet points under each heading.\n"
+        "Preserve the original document language(s); do not translate.\n"
         f"Page: {page}\n"
         f"Text:\n{text}\n"
     )
@@ -431,6 +435,7 @@ def _section_summary_prompt(section_key: str, page_notes_json: str) -> str:
         "Return plain text only.\n"
         "No JSON, no markdown, no XML/control tags.\n"
         "Keep it factual and concise.\n"
+        "Preserve the original document language(s); do not translate.\n"
         f"Section: {section_key}\n"
         f"Page notes:\n{page_notes_json}\n"
     )
@@ -444,6 +449,7 @@ def _section_summary_prompt_compact(section_key: str, page_notes_json: str) -> s
         '- summary max 120 words\n'
         "- no JSON\n"
         "- no markdown\n"
+        "- preserve the original document language(s); do not translate\n"
         f"Section: {section_key}\n"
         f"Page notes:\n{page_notes_json}\n"
     )
@@ -512,6 +518,7 @@ def _global_summary_prompt(section_summaries_json: str) -> str:
         "No JSON and no markdown.\n"
         "First line: one-sentence executive summary.\n"
         "Then a concise multi-sentence summary.\n"
+        "Preserve the original document language(s); do not translate.\n"
         f"Section summaries:\n{section_summaries_json}\n"
     )
 
@@ -525,6 +532,7 @@ def _global_summary_prompt_compact(section_summaries_json: str) -> str:
         "- first line executive summary\n"
         "- no JSON\n"
         "- no markdown\n"
+        "- preserve the original document language(s); do not translate\n"
         f"Section summaries:\n{section_summaries_json}\n"
     )
 
@@ -696,13 +704,20 @@ def upsert_page_note(
             DocumentPageNote.source == source,
         )
     )
+    notes_text_value: str | None = None
+    if isinstance(payload, dict):
+        notes_text_value = _sanitize_model_output_text(str(payload.get("text") or ""))
+        if not notes_text_value:
+            notes_text_value = _page_note_payload_to_text(payload)
+    if notes_text_value:
+        notes_text_value = notes_text_value[:12000]
     now = _now_iso()
     db.add(
         DocumentPageNote(
             doc_id=doc_id,
             page=page,
             source=source,
-            notes_text=_json_dumps(payload) if payload is not None else None,
+            notes_text=notes_text_value,
             model_name=model_name,
             status=status,
             error=error,
@@ -729,12 +744,18 @@ def replace_section_summaries(
     )
     now = _now_iso()
     for section_key, payload in summaries:
+        summary_text_value = _sanitize_model_output_text(
+            str(payload.get("text") or payload.get("summary") or "")
+        )
+        if not summary_text_value:
+            summary_text_value = f"Section {section_key} summary unavailable."
+        summary_text_value = summary_text_value[:12000]
         db.add(
             DocumentSectionSummary(
                 doc_id=doc_id,
                 section_key=section_key,
                 source=source,
-                summary_text=_json_dumps(payload),
+                summary_text=summary_text_value,
                 model_name=model_name,
                 status="ok",
                 created_at=now,
