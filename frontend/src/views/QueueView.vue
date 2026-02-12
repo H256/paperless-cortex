@@ -390,6 +390,79 @@
         Showing {{ taskRuns.length }} of {{ taskRunsCount }} run(s)
       </div>
     </section>
+
+    <section
+      class="mt-6 rounded-xl border border-rose-200 bg-rose-50/40 p-6 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Dead-letter queue</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Tasks that failed after retries. Requeue manually after fixing root cause.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Limit
+            <input
+              type="number"
+              min="1"
+              max="500"
+              v-model.number="dlqLimit"
+              class="mt-1 h-9 w-20 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="dlqLoading"
+            @click="loadDlq"
+          >
+            <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': dlqLoading }" />
+            {{ dlqLoading ? 'Loading...' : 'Reload' }}
+          </button>
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300 disabled:opacity-60 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+            :disabled="dlqLoading || dlqItems.length === 0"
+            @click="clearDlq"
+          >
+            Clear DLQ
+          </button>
+        </div>
+      </div>
+
+      <div v-if="dlqItems.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        {{ dlqLoading ? 'Loading dead-letter queue...' : 'No dead-letter items.' }}
+      </div>
+      <div v-else class="mt-4 overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead class="text-left text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="px-2 py-1">Task</th>
+              <th class="px-2 py-1">Error Type</th>
+              <th class="px-2 py-1">Attempt</th>
+              <th class="px-2 py-1">Created</th>
+              <th class="px-2 py-1">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in dlqItems" :key="index" class="border-t border-slate-100 dark:border-slate-800">
+              <td class="px-2 py-1.5">{{ item.task?.task || 'unknown' }} (doc {{ item.task?.doc_id ?? '-' }})</td>
+              <td class="px-2 py-1.5">{{ item.error_type || '-' }}</td>
+              <td class="px-2 py-1.5">{{ item.attempt ?? '-' }}</td>
+              <td class="px-2 py-1.5">{{ item.created_at ? formatStartedAt(item.created_at) : '-' }}</td>
+              <td class="px-2 py-1.5">
+                <button
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  @click="requeueDlqItem(index)"
+                >
+                  Requeue
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </section>
 </template>
 
@@ -424,6 +497,9 @@ const {
   taskRunsTask,
   taskRunsStatus,
   taskRunsErrorType,
+  dlqItems,
+  dlqLoading,
+  dlqLimit,
   loading,
   peekLoading,
   busy,
@@ -431,6 +507,9 @@ const {
   refresh,
   loadPeek,
   loadTaskRuns,
+  loadDlq,
+  clearDlq: clearDlqRequest,
+  requeueDlqItem: requeueDlqItemRequest,
   clearQueue: clearQueueRequest,
   resetStats: resetStatsRequest,
   pauseQueue: pauseQueueRequest,
@@ -519,6 +598,14 @@ const moveBottom = async (index: number) => {
 
 const removeItem = async (index: number) => {
   await removeItemRequest(index)
+}
+
+const clearDlq = async () => {
+  await clearDlqRequest()
+}
+
+const requeueDlqItem = async (index: number) => {
+  await requeueDlqItemRequest(index)
 }
 
 const formatStartedAt = (unixTs: number) => new Date(unixTs * 1000).toLocaleString()

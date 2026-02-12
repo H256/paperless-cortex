@@ -589,6 +589,9 @@ All model names must be configurable via environment variables.
 - Observability phase 1 UI/API: regenerated OpenAPI/Orval client for new queue task-runs contracts and wired Queue Manager to show filterable recent task-run history (doc/task/status/error type, duration, start time) via Vue Query (`useQueueManager`) and generated endpoint bindings in `frontend/src/services/queue.ts`.
 - Worker robustness phase 1: added bounded automatic retries for retryable worker errors (`WORKER_MAX_RETRIES`, retry_count payload propagation), persisted attempt numbers in `task_runs`, and recorded retry state (`retrying`) with typed error metadata.
 - Config/docs/tests: documented logging/retry env vars in `.env.example` and `.env.worker.example`, and added unit coverage for error classification/retryability in `backend/tests/test_worker_error_types.py`.
+- Worker robustness phase 2: implemented delayed retry backoff queue handling (`enqueue_task_delayed`, `move_due_delayed_tasks`) plus Dead-Letter Queue support (`/queue/dlq`, `/queue/dlq/requeue`, `/queue/dlq/clear`) for tasks that still fail after retries.
+- Worker checkpoints: added `checkpoint_json` to `task_runs` and periodic checkpoint updates for long-running stages (vision OCR batches, embedding chunk batches, page notes, section summaries) so progress can be inspected while running.
+- UX/Observability: added Queue Manager Dead-Letter Queue panel (reload/clear/requeue) and per-document processing timeline in `DocumentDetailView` operations tab using filtered `task_runs` (status/attempt/checkpoint/error visibility).
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

@@ -168,6 +168,53 @@
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+              Processing timeline
+            </div>
+            <button
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              :disabled="taskRunsLoading"
+              @click="refreshTaskRuns"
+            >
+              {{ taskRunsLoading ? 'Loading...' : 'Reload timeline' }}
+            </button>
+          </div>
+          <div v-if="taskRunsError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+            {{ taskRunsError }}
+          </div>
+          <div v-else-if="!taskRuns.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            No task runs for this document yet.
+          </div>
+          <div v-else class="mt-2 overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="text-left text-slate-500 dark:text-slate-400">
+                <tr>
+                  <th class="px-2 py-1">Started</th>
+                  <th class="px-2 py-1">Task</th>
+                  <th class="px-2 py-1">Status</th>
+                  <th class="px-2 py-1">Attempt</th>
+                  <th class="px-2 py-1">Checkpoint</th>
+                  <th class="px-2 py-1">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="run in taskRuns" :key="run.id" class="border-t border-slate-100 dark:border-slate-700">
+                  <td class="px-2 py-1.5">{{ toDateTime(run.started_at) }}</td>
+                  <td class="px-2 py-1.5">{{ run.task }}</td>
+                  <td class="px-2 py-1.5" :class="run.status === 'failed' ? 'text-rose-700 dark:text-rose-300 font-semibold' : 'text-slate-700 dark:text-slate-200'">
+                    {{ run.status }}
+                  </td>
+                  <td class="px-2 py-1.5">{{ run.attempt ?? 1 }}</td>
+                  <td class="px-2 py-1.5">{{ checkpointLabel(run.checkpoint) }}</td>
+                  <td class="px-2 py-1.5">{{ run.error_type || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
           <label class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300">
             <input type="checkbox" v-model="docCleanupClearFirst" />
             Clear clean fields first
@@ -337,6 +384,7 @@ import type { DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
+import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
 
@@ -391,6 +439,12 @@ const {
   cleanup: cleanupDocumentTexts,
   resetAndReprocess: resetAndReprocessNow,
 } = useDocumentOperations(computed(() => id))
+const {
+  taskRuns,
+  taskRunsLoading,
+  taskRunsError,
+  refreshTaskRuns,
+} = useDocumentTaskRuns(() => id)
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
@@ -766,6 +820,22 @@ const formatDateTime = (value?: string | null) => {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(parsed)
+}
+
+const toDateTime = (value?: string | null) => {
+  if (!value) return '-'
+  return formatDateTime(value) || value
+}
+
+const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
+  if (!checkpoint || typeof checkpoint !== 'object') return '-'
+  const stage = typeof checkpoint.stage === 'string' ? checkpoint.stage : 'progress'
+  const current = typeof checkpoint.current === 'number' ? checkpoint.current : null
+  const total = typeof checkpoint.total === 'number' ? checkpoint.total : null
+  if (current !== null && total !== null && total > 0) {
+    return `${stage} ${current}/${total}`
+  }
+  return stage
 }
 
 const load = async () => {

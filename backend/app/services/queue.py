@@ -38,6 +38,8 @@ CANCEL_KEY = "paperless_intelligence:queue_cancel"
 CANCEL_TTL = 300
 PAUSE_KEY = "paperless_intelligence:queue_paused"
 PAUSE_TTL = 24 * 60 * 60
+DELAYED_QUEUE_KEY = "paperless_intelligence:doc_queue_delayed"
+DLQ_KEY = "paperless_intelligence:doc_queue_dlq"
 
 
 def _redis_url(host: str) -> str:
@@ -110,6 +112,42 @@ def enqueue_task(settings: Settings, task: dict) -> int:
 
 def enqueue_task_front(settings: Settings, task: dict) -> int:
     return _enqueue_task(settings, task, front=True)
+
+
+def enqueue_task_delayed(settings: Settings, task: dict, delay_seconds: int) -> int:
+    client = _get_client(settings)
+    if not client:
+        return 0
+    if is_cancel_requested(settings):
+        return 0
+    payload = __import__("json").dumps(task)
+    key = task_key(task)
+    is_new = client.sadd(QUEUE_SET, key)
+    due_at = time.time() + max(1, int(delay_seconds))
+    if is_new:
+        client.zadd(DELAYED_QUEUE_KEY, {payload: due_at})
+        client.incr(STATS_TOTAL)
+        logger.info("Enqueued delayed task=%s due_in=%ss", key, int(max(1, int(delay_seconds))))
+        return 1
+    return 0
+
+
+def move_due_delayed_tasks(settings: Settings, limit: int = 100) -> int:
+    client = _get_client(settings)
+    if not client:
+        return 0
+    now = time.time()
+    moved = 0
+    candidates = client.zrangebyscore(DELAYED_QUEUE_KEY, 0, now, start=0, num=max(1, int(limit)))
+    if not candidates:
+        return 0
+    for payload in candidates:
+        removed = int(client.zrem(DELAYED_QUEUE_KEY, payload) or 0)
+        if removed <= 0:
+            continue
+        client.rpush(QUEUE_KEY, payload)
+        moved += 1
+    return moved
 
 
 def enqueue_task_sequence_front(settings: Settings, tasks: list[dict], force: bool = False) -> int:
@@ -266,6 +304,7 @@ def clear_queue(settings: Settings) -> None:
         return
     client.delete(QUEUE_KEY)
     client.delete(QUEUE_SET)
+    client.delete(DELAYED_QUEUE_KEY)
 
 
 def reset_stats(settings: Settings) -> None:
@@ -531,6 +570,74 @@ def get_running_task(settings: Settings) -> dict[str, object]:
         except Exception:
             started_at = None
     return {"task": task, "started_at": started_at}
+
+
+def add_dead_letter(
+    settings: Settings,
+    *,
+    task: dict,
+    error_type: str,
+    error_message: str,
+    attempt: int,
+) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    payload = {
+        "task": task,
+        "error_type": error_type,
+        "error_message": error_message,
+        "attempt": int(attempt),
+        "created_at": int(time.time()),
+    }
+    client.lpush(DLQ_KEY, __import__("json").dumps(payload))
+
+
+def peek_dead_letters(settings: Settings, limit: int = 100) -> list[dict]:
+    client = _get_client(settings)
+    if not client:
+        return []
+    raw_items = client.lrange(DLQ_KEY, 0, max(0, int(limit) - 1))
+    items: list[dict] = []
+    for raw in raw_items:
+        try:
+            payload = __import__("json").loads(raw)
+        except Exception:
+            payload = {"raw": raw}
+        if isinstance(payload, dict):
+            items.append(payload)
+    return items
+
+
+def clear_dead_letters(settings: Settings) -> None:
+    client = _get_client(settings)
+    if not client:
+        return
+    client.delete(DLQ_KEY)
+
+
+def requeue_dead_letter_item(settings: Settings, index: int) -> bool:
+    client = _get_client(settings)
+    if not client:
+        return False
+    items = client.lrange(DLQ_KEY, 0, -1)
+    if not items or index < 0 or index >= len(items):
+        return False
+    entry = items.pop(index)
+    client.delete(DLQ_KEY)
+    if items:
+        client.rpush(DLQ_KEY, *items)
+    try:
+        parsed = __import__("json").loads(entry)
+    except Exception:
+        return False
+    if not isinstance(parsed, dict):
+        return False
+    task = parsed.get("task")
+    if not isinstance(task, dict):
+        return False
+    task["retry_count"] = 0
+    return enqueue_task(settings, task) > 0
 
 
 def reset_worker_lock(settings: Settings, force: bool = False) -> dict[str, object]:

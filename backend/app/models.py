@@ -221,6 +221,7 @@ class TaskRun(Base):
     status: Mapped[str] = mapped_column(String(32), index=True)
     worker_id: Mapped[str | None] = mapped_column(String(128))
     payload_json: Mapped[str | None] = mapped_column(Text)
+    checkpoint_json: Mapped[str | None] = mapped_column(Text)
     attempt: Mapped[int] = mapped_column(Integer, default=1)
     error_type: Mapped[str | None] = mapped_column(String(64), index=True)
     error_message: Mapped[str | None] = mapped_column(Text)

@@ -38,6 +38,7 @@ import type {
   EmbeddingIngestResponse,
   EmbeddingSearchResponse,
   EmbeddingStatusResponse,
+  GetDlqQueueDlqGetParams,
   GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
@@ -57,6 +58,9 @@ import type {
   ProcessMissingDocumentsProcessMissingPostParams,
   ProcessMissingResponse,
   QueueCancelResponse,
+  QueueDlqActionResponse,
+  QueueDlqRequeueRequest,
+  QueueDlqResponse,
   QueueEnqueue,
   QueueEnqueueResponse,
   QueueMoveEdgeRequest,
@@ -2947,6 +2951,154 @@ export const resetWorkerLockRouteQueueWorkerLockResetPost = async (params?: Rese
   
   const data: resetWorkerLockRouteQueueWorkerLockResetPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resetWorkerLockRouteQueueWorkerLockResetPostResponse
+}
+
+
+
+/**
+ * @summary Get Dlq
+ */
+export type getDlqQueueDlqGetResponse200 = {
+  data: QueueDlqResponse
+  status: 200
+}
+
+export type getDlqQueueDlqGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDlqQueueDlqGetResponseSuccess = (getDlqQueueDlqGetResponse200) & {
+  headers: Headers;
+};
+export type getDlqQueueDlqGetResponseError = (getDlqQueueDlqGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDlqQueueDlqGetResponse = (getDlqQueueDlqGetResponseSuccess | getDlqQueueDlqGetResponseError)
+
+export const getGetDlqQueueDlqGetUrl = (params?: GetDlqQueueDlqGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue/dlq?${stringifiedParams}` : `/api/queue/dlq`
+}
+
+export const getDlqQueueDlqGet = async (params?: GetDlqQueueDlqGetParams, options?: RequestInit): Promise<getDlqQueueDlqGetResponse> => {
+  
+  const res = await fetch(getGetDlqQueueDlqGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDlqQueueDlqGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDlqQueueDlqGetResponse
+}
+
+
+
+/**
+ * @summary Clear Dlq
+ */
+export type clearDlqQueueDlqClearPostResponse200 = {
+  data: QueueDlqActionResponse
+  status: 200
+}
+    
+export type clearDlqQueueDlqClearPostResponseSuccess = (clearDlqQueueDlqClearPostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type clearDlqQueueDlqClearPostResponse = (clearDlqQueueDlqClearPostResponseSuccess)
+
+export const getClearDlqQueueDlqClearPostUrl = () => {
+
+
+  
+
+  return `/api/queue/dlq/clear`
+}
+
+export const clearDlqQueueDlqClearPost = async ( options?: RequestInit): Promise<clearDlqQueueDlqClearPostResponse> => {
+  
+  const res = await fetch(getClearDlqQueueDlqClearPostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: clearDlqQueueDlqClearPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as clearDlqQueueDlqClearPostResponse
+}
+
+
+
+/**
+ * @summary Requeue Dlq
+ */
+export type requeueDlqQueueDlqRequeuePostResponse200 = {
+  data: QueueDlqActionResponse
+  status: 200
+}
+
+export type requeueDlqQueueDlqRequeuePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type requeueDlqQueueDlqRequeuePostResponseSuccess = (requeueDlqQueueDlqRequeuePostResponse200) & {
+  headers: Headers;
+};
+export type requeueDlqQueueDlqRequeuePostResponseError = (requeueDlqQueueDlqRequeuePostResponse422) & {
+  headers: Headers;
+};
+
+export type requeueDlqQueueDlqRequeuePostResponse = (requeueDlqQueueDlqRequeuePostResponseSuccess | requeueDlqQueueDlqRequeuePostResponseError)
+
+export const getRequeueDlqQueueDlqRequeuePostUrl = () => {
+
+
+  
+
+  return `/api/queue/dlq/requeue`
+}
+
+export const requeueDlqQueueDlqRequeuePost = async (queueDlqRequeueRequest: QueueDlqRequeueRequest, options?: RequestInit): Promise<requeueDlqQueueDlqRequeuePostResponse> => {
+  
+  const res = await fetch(getRequeueDlqQueueDlqRequeuePostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      queueDlqRequeueRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: requeueDlqQueueDlqRequeuePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as requeueDlqQueueDlqRequeuePostResponse
 }
 
 

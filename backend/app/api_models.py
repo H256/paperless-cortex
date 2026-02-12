@@ -97,6 +97,24 @@ class QueueRunningResponse(BaseModel):
     started_at: Optional[int] = None
 
 
+class QueueDlqItem(BaseModel):
+    task: Optional[dict[str, Any]] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    attempt: Optional[int] = None
+    created_at: Optional[int] = None
+
+
+class QueueDlqResponse(BaseModel):
+    enabled: bool
+    items: list[QueueDlqItem] = []
+
+
+class QueueDlqActionResponse(BaseModel):
+    enabled: bool
+    ok: bool
+
+
 class TaskRunItem(BaseModel):
     id: int
     doc_id: Optional[int] = None
@@ -105,6 +123,7 @@ class TaskRunItem(BaseModel):
     status: str
     worker_id: Optional[str] = None
     attempt: int
+    checkpoint: Optional[dict[str, Any]] = None
     error_type: Optional[str] = None
     error_message: Optional[str] = None
     started_at: Optional[str] = None

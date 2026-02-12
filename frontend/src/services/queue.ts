@@ -12,6 +12,9 @@ import {
   moveTopQueueMoveTopPost,
   moveBottomQueueMoveBottomPost,
   getTaskRunsQueueTaskRunsGet,
+  getDlqQueueDlqGet,
+  clearDlqQueueDlqClearPost,
+  requeueDlqQueueDlqRequeuePost,
 } from '../api/generated/client'
 import type {
   QueueStatusResponse,
@@ -26,6 +29,9 @@ import type {
   TaskRunItem,
   TaskRunListResponse,
   GetTaskRunsQueueTaskRunsGetParams,
+  QueueDlqItem,
+  QueueDlqResponse,
+  QueueDlqActionResponse,
 } from '../api/generated/model'
 
 export type QueueStatus = QueueStatusResponse
@@ -49,6 +55,8 @@ export type QueueRunningStatus = {
 }
 export type QueueTaskRun = TaskRunItem
 export type QueueTaskRunList = TaskRunListResponse
+export type QueueDlqEntry = QueueDlqItem
+export type QueueDlqList = QueueDlqResponse
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -80,6 +88,15 @@ export const fetchQueueRunning = () =>
 
 export const fetchQueueTaskRuns = (params?: GetTaskRunsQueueTaskRunsGetParams) =>
   unwrap<QueueTaskRunList>(getTaskRunsQueueTaskRunsGet(params))
+
+export const fetchQueueDlq = (limit = 100) =>
+  unwrap<QueueDlqResponse>(getDlqQueueDlqGet({ limit }))
+
+export const clearQueueDlq = () =>
+  unwrap<QueueDlqActionResponse>(clearDlqQueueDlqClearPost())
+
+export const requeueQueueDlqItem = (index: number) =>
+  unwrap<QueueDlqActionResponse>(requeueDlqQueueDlqRequeuePost({ index }))
 
 export const fetchWorkerLockStatus = () =>
   request<QueueWorkerLockStatus>('/queue/worker-lock')

@@ -4,6 +4,7 @@
  * Paperless-NGX Cortex API
  * OpenAPI spec version: 0.1.0
  */
+import type { TaskRunItemCheckpoint } from './taskRunItemCheckpoint';
 
 export interface TaskRunItem {
   id: number;
@@ -13,6 +14,7 @@ export interface TaskRunItem {
   status: string;
   worker_id?: string | null;
   attempt: number;
+  checkpoint?: TaskRunItemCheckpoint;
   error_type?: string | null;
   error_message?: string | null;
   started_at?: string | null;

@@ -31,6 +31,7 @@ def create_task_run(
         status="running",
         worker_id=worker_id,
         payload_json=json.dumps(payload, ensure_ascii=False) if payload else None,
+        checkpoint_json=None,
         attempt=max(1, int(attempt)),
         started_at=timestamp,
         created_at=timestamp,
@@ -61,6 +62,20 @@ def finish_task_run(
     row.error_message = error_message
     row.finished_at = timestamp
     row.updated_at = timestamp
+    db.commit()
+
+
+def update_task_run_checkpoint(
+    db: Session,
+    *,
+    run_id: int,
+    checkpoint: dict[str, Any],
+) -> None:
+    row = db.get(TaskRun, run_id)
+    if not row:
+        return
+    row.checkpoint_json = json.dumps(checkpoint, ensure_ascii=False)
+    row.updated_at = _now_iso()
     db.commit()
 
 

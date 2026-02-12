@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
@@ -22,6 +24,9 @@ from app.services.queue import (
     worker_lock_status,
     reset_worker_lock,
     get_running_task,
+    peek_dead_letters,
+    clear_dead_letters,
+    requeue_dead_letter_item,
 )
 from app.services.task_runs import list_task_runs
 from app.routes.queue_helpers import queue_disabled_response
@@ -39,6 +44,8 @@ from app.api_models import (
     QueueRunningResponse,
     TaskRunListResponse,
     TaskRunItem,
+    QueueDlqResponse,
+    QueueDlqActionResponse,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -58,6 +65,10 @@ class QueueRemoveRequest(BaseModel):
 
 
 class QueueMoveEdgeRequest(BaseModel):
+    index: int
+
+
+class QueueDlqRequeueRequest(BaseModel):
     index: int
 
 
@@ -179,6 +190,30 @@ def reset_worker_lock_route(force: bool = False, settings: Settings = Depends(ge
     return {"enabled": True, **result}
 
 
+@router.get("/dlq", response_model=QueueDlqResponse)
+def get_dlq(limit: int = 100, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "items": []}
+    items = peek_dead_letters(settings, limit=limit)
+    return {"enabled": True, "items": items}
+
+
+@router.post("/dlq/clear", response_model=QueueDlqActionResponse)
+def clear_dlq(settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "ok": False}
+    clear_dead_letters(settings)
+    return {"enabled": True, "ok": True}
+
+
+@router.post("/dlq/requeue", response_model=QueueDlqActionResponse)
+def requeue_dlq(payload: QueueDlqRequeueRequest, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "ok": False}
+    ok = requeue_dead_letter_item(settings, payload.index)
+    return {"enabled": True, "ok": bool(ok)}
+
+
 @router.get("/task-runs", response_model=TaskRunListResponse)
 def get_task_runs(
     doc_id: int | None = None,
@@ -210,6 +245,11 @@ def get_task_runs(
             status=str(row.status),
             worker_id=row.worker_id,
             attempt=int(row.attempt or 1),
+            checkpoint=(
+                json.loads(row.checkpoint_json)
+                if row.checkpoint_json and str(row.checkpoint_json).strip().startswith(("{", "["))
+                else None
+            ),
             error_type=row.error_type,
             error_message=row.error_message,
             started_at=row.started_at,

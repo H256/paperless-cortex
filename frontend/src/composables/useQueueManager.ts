@@ -6,6 +6,7 @@ import {
   fetchQueueRunning,
   fetchQueueStatus,
   fetchQueueTaskRuns,
+  fetchQueueDlq,
   moveQueueItem,
   moveQueueItemBottom,
   moveQueueItemTop,
@@ -13,6 +14,8 @@ import {
   removeQueueItem,
   resetQueueStats,
   resumeQueue,
+  clearQueueDlq,
+  requeueQueueDlqItem,
 } from '../services/queue'
 
 export const useQueueManager = () => {
@@ -23,6 +26,7 @@ export const useQueueManager = () => {
   const taskRunsTask = ref('')
   const taskRunsStatus = ref('')
   const taskRunsErrorType = ref('')
+  const dlqLimit = ref(50)
 
   const statusQuery = useQuery({
     queryKey: ['queue-status'],
@@ -62,6 +66,12 @@ export const useQueueManager = () => {
         status: taskRunsStatus.value || undefined,
         error_type: taskRunsErrorType.value || undefined,
       }),
+    staleTime: 5_000,
+  })
+
+  const dlqQuery = useQuery({
+    queryKey: computed(() => ['queue-dlq', dlqLimit.value]),
+    queryFn: () => fetchQueueDlq(dlqLimit.value),
     staleTime: 5_000,
   })
 
@@ -111,6 +121,22 @@ export const useQueueManager = () => {
     mutationFn: (index: number) => removeQueueItem({ index }),
     onSuccess: invalidateQueue,
   })
+  const clearDlqMutation = useMutation({
+    mutationFn: () => clearQueueDlq(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['queue-dlq'] })
+    },
+  })
+  const requeueDlqMutation = useMutation({
+    mutationFn: (index: number) => requeueQueueDlqItem(index),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['queue-dlq'] }),
+        queryClient.invalidateQueries({ queryKey: ['queue-peek'] }),
+        queryClient.invalidateQueries({ queryKey: ['queue-status'] }),
+      ])
+    },
+  })
 
   const loading = computed(
     () =>
@@ -132,6 +158,7 @@ export const useQueueManager = () => {
       runningQuery.refetch(),
       peekQuery.refetch(),
       taskRunsQuery.refetch(),
+      dlqQuery.refetch(),
     ])
 
   const busy = computed(
@@ -143,7 +170,9 @@ export const useQueueManager = () => {
       moveMutation.isPending.value ||
       moveTopMutation.isPending.value ||
       moveBottomMutation.isPending.value ||
-      removeMutation.isPending.value,
+      removeMutation.isPending.value ||
+      clearDlqMutation.isPending.value ||
+      requeueDlqMutation.isPending.value,
   )
 
   return {
@@ -159,6 +188,9 @@ export const useQueueManager = () => {
     taskRunsTask,
     taskRunsStatus,
     taskRunsErrorType,
+    dlqItems: computed(() => dlqQuery.data.value?.items ?? []),
+    dlqLoading: computed(() => dlqQuery.isPending.value || dlqQuery.isFetching.value),
+    dlqLimit,
     loading,
     peekLoading,
     busy,
@@ -166,6 +198,9 @@ export const useQueueManager = () => {
     refresh,
     loadPeek: async () => peekQuery.refetch(),
     loadTaskRuns: async () => taskRunsQuery.refetch(),
+    loadDlq: async () => dlqQuery.refetch(),
+    clearDlq: () => clearDlqMutation.mutateAsync(),
+    requeueDlqItem: (index: number) => requeueDlqMutation.mutateAsync(index),
     clearQueue: () => clearMutation.mutateAsync(),
     resetStats: () => resetStatsMutation.mutateAsync(),
     pauseQueue: () => pauseMutation.mutateAsync(),
