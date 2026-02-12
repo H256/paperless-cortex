@@ -302,6 +302,7 @@ def _normalize_section_summary_payload(section_key: str, payload: dict[str, Any]
         summary = f"Section {section_key} summary generated with sanitization fallback."
     return {
         "section": section_key,
+        "text": summary,
         "summary": summary,
         "key_facts": key_facts,
         "key_dates": key_dates,
@@ -696,13 +697,20 @@ def upsert_page_note(
             DocumentPageNote.source == source,
         )
     )
+    notes_text_value: str | None = None
+    if isinstance(payload, dict):
+        notes_text_value = _sanitize_model_output_text(str(payload.get("text") or ""))
+        if not notes_text_value:
+            notes_text_value = _page_note_payload_to_text(payload)
+    if notes_text_value:
+        notes_text_value = notes_text_value[:12000]
     now = _now_iso()
     db.add(
         DocumentPageNote(
             doc_id=doc_id,
             page=page,
             source=source,
-            notes_text=_json_dumps(payload) if payload is not None else None,
+            notes_text=notes_text_value,
             model_name=model_name,
             status=status,
             error=error,
@@ -729,12 +737,18 @@ def replace_section_summaries(
     )
     now = _now_iso()
     for section_key, payload in summaries:
+        summary_text_value = _sanitize_model_output_text(
+            str(payload.get("text") or payload.get("summary") or "")
+        )
+        if not summary_text_value:
+            summary_text_value = f"Section {section_key} summary unavailable."
+        summary_text_value = summary_text_value[:12000]
         db.add(
             DocumentSectionSummary(
                 doc_id=doc_id,
                 section_key=section_key,
                 source=source,
-                summary_text=_json_dumps(payload),
+                summary_text=summary_text_value,
                 model_name=model_name,
                 status="ok",
                 created_at=now,
