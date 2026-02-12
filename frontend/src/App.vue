@@ -103,9 +103,9 @@
           />
         </div>
         <div class="flex flex-wrap items-center gap-4">
-          <div v-if="queueStore.status.enabled">Queue: {{ queueStore.status.length ?? 'n/a' }}</div>
-          <div v-if="queueStore.status.enabled">Done: {{ queueStore.status.done ?? 0 }}</div>
-          <div v-if="queueStore.status.enabled">Total: {{ queueStore.status.total ?? 0 }}</div>
+          <div v-if="queueStatus.enabled">Queue: {{ queueStatus.length ?? 'n/a' }}</div>
+          <div v-if="queueStatus.enabled">Done: {{ queueStatus.done ?? 0 }}</div>
+          <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
         </div>
         <img
@@ -143,18 +143,24 @@
 <script setup lang="ts">
 import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
 import ToastHost from './components/ToastHost.vue'
-import { useQueueStore } from './stores/queueStore'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
+import { fetchQueueStatus } from './services/queue'
 
-const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
 const queryClient = useQueryClient()
+const queueStatusQuery = useQuery({
+  queryKey: ['queue-status'],
+  queryFn: () => fetchQueueStatus(),
+  refetchInterval: 30_000,
+  staleTime: 5_000,
+})
+const queueStatus = computed(() => queueStatusQuery.data.value ?? { enabled: false, length: null })
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
@@ -200,7 +206,6 @@ const onErrorEvent = (event: Event) => {
 
 onMounted(() => {
   applyTheme(effectiveTheme.value)
-  queueStore.refreshStatus()
   statusStore.refresh()
   startStatusStream()
   window.addEventListener('app-error', onErrorEvent as EventListener)
@@ -230,10 +235,7 @@ const startStatusStream = () => {
     try {
       const payload = JSON.parse(event.data)
       if (payload?.status) statusStore.applyStatus(payload.status)
-      if (payload?.queue) {
-        queueStore.setStatus(payload.queue)
-        queryClient.setQueryData(['queue-status'], payload.queue)
-      }
+      if (payload?.queue) queryClient.setQueryData(['queue-status'], payload.queue)
       if (payload?.sync) queryClient.setQueryData(['sync-status'], payload.sync)
       if (payload?.embeddings) queryClient.setQueryData(['embed-status'], payload.embeddings)
       if (payload?.stats) queryClient.setQueryData(['documents-stats'], payload.stats)

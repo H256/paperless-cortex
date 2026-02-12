@@ -333,7 +333,6 @@ import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useDocumentDetailStore } from '../stores/documentDetailStore'
-import { useQueueStore } from '../stores/queueStore'
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
@@ -346,7 +345,6 @@ const router = useRouter()
 const id = Number(route.params.id)
 
 const documentStore = useDocumentDetailStore()
-const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const toastStore = useToastStore()
 const {
@@ -811,7 +809,6 @@ const loadPipelineStatus = async () => {
 const withDocOperation = async (fn: () => Promise<void>) => {
   docOpsMessage.value = ''
   await fn()
-  await queueStore.refreshStatus()
   await loadPipelineStatus()
 }
 
