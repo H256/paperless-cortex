@@ -538,3 +538,4 @@ All model names must be configurable via environment variables.
 - Next session focus: hardening pass for writeback queue UX and batch conflict-resolution strategy (doc-level conflict handling, skip/apply rules, clearer progress/error feedback during execute-pending runs).
 - Backend: added canonical per-document pipeline endpoints `GET /documents/{id}/pipeline-status` and `POST /documents/{id}/pipeline/continue` with deterministic missing-task planning.
 - Backend: refactored `process-missing` internals to reuse shared pipeline cache/evaluation helpers for better DRY/KISS and consistent task detection.
+- Frontend: wired document detail operations to canonical pipeline endpoints (status + continue), replaced local heuristic status cards with backend-driven step states, and added a single-click "Continue missing processing" action.

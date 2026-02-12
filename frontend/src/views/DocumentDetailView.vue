@@ -115,6 +115,14 @@
               Trigger single processing steps or fully reset and rebuild this document.
             </p>
           </div>
+          <button
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            :disabled="docOpsLoading || pipelineStatusLoading"
+            title="Checks missing processing steps for this document and enqueues only those tasks."
+            @click="runContinuePipeline"
+          >
+            Continue missing processing
+          </button>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
@@ -125,6 +133,18 @@
             <div class="text-xs text-slate-500 dark:text-slate-300">
               Done {{ processingDoneCount }} / {{ processingRequiredCount }} required
             </div>
+          </div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-300">
+            Preferred source: {{ toTitle(pipelinePreferredSource) }}
+          </div>
+          <div v-if="pipelineStatusLoading" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            Loading pipeline status...
+          </div>
+          <div v-else-if="pipelineStatusError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+            {{ pipelineStatusError }}
+          </div>
+          <div v-else-if="!processingStatusItems.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
+            No processing status available.
           </div>
           <div class="mt-2 grid gap-2 md:grid-cols-2">
             <div
@@ -348,6 +368,9 @@ const {
   suggestionVariants,
   suggestionVariantLoading,
   suggestionVariantError,
+  pipelineStatus,
+  pipelineStatusLoading,
+  pipelineStatusError,
 } = storeToRefs(documentStore)
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -428,77 +451,13 @@ const canWriteback = computed(() => document.value?.review_status === 'needs_rev
 type ProcessingState = 'done' | 'missing' | 'na'
 type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
 
-const preferredProcessingSource = computed(
-  () => (document.value?.preferred_processing_source === 'vision_ocr' ? 'vision_ocr' : 'paperless_ocr'),
-)
-const requiresVisionSource = computed(() => preferredProcessingSource.value === 'vision_ocr')
-const hasPreferredPageNotes = computed(() => {
-  if (preferredProcessingSource.value === 'vision_ocr') {
-    return Boolean(document.value?.has_complete_page_notes_vision)
-  }
-  return Boolean(document.value?.has_complete_page_notes_paperless)
-})
-const requiresLargeDocSteps = computed(() => Boolean(document.value?.is_large_document))
 const processingStatusItems = computed<ProcessingStatusItem[]>(() => {
-  const items: ProcessingStatusItem[] = [
-    {
-      label: 'Embeddings',
-      state: document.value?.has_embedding_for_preferred_source ? 'done' : 'missing',
-      detail: `Expected source: ${requiresVisionSource.value ? 'vision' : 'paperless'}, current: ${
-        document.value?.embedding_source || 'none'
-      }, chunks: ${document.value?.embedding_chunk_count ?? 0}.`,
-    },
-    {
-      label: 'Vision OCR',
-      state: requiresVisionSource.value
-        ? document.value?.has_complete_vision_pages
-          ? 'done'
-          : 'missing'
-        : 'na',
-      detail: requiresVisionSource.value
-        ? `Vision pages: ${document.value?.vision_pages_done ?? 0} / ${document.value?.vision_pages_expected ?? 0}.`
-        : 'Vision OCR is not the preferred processing source.',
-    },
-    {
-      label: 'Suggestions (paperless)',
-      state: document.value?.has_suggestions_paperless ? 'done' : 'missing',
-      detail: 'Suggestions generated from Paperless OCR.',
-    },
-    {
-      label: 'Suggestions (vision)',
-      state: requiresVisionSource.value
-        ? document.value?.has_suggestions_vision
-          ? 'done'
-          : 'missing'
-        : 'na',
-      detail: requiresVisionSource.value
-        ? 'Suggestions generated from Vision OCR.'
-        : 'Not required when processing source is paperless_ocr.',
-    },
-    {
-      label: `Page notes (${preferredProcessingSource.value === 'vision_ocr' ? 'vision' : 'paperless'})`,
-      state: requiresLargeDocSteps.value ? (hasPreferredPageNotes.value ? 'done' : 'missing') : 'na',
-      detail: requiresLargeDocSteps.value
-        ? `Page notes: ${
-            preferredProcessingSource.value === 'vision_ocr'
-              ? document.value?.page_notes_vision_done ?? 0
-              : document.value?.page_notes_paperless_done ?? 0
-          } / ${document.value?.page_notes_expected ?? 0}.`
-        : 'Page notes are only required for large documents.',
-    },
-    {
-      label: 'Hierarchical summary',
-      state: requiresLargeDocSteps.value
-        ? document.value?.has_hierarchical_summary
-          ? 'done'
-          : 'missing'
-        : 'na',
-      detail: requiresLargeDocSteps.value
-        ? 'Distilled multi-section summary for large documents.'
-        : 'Hierarchical summary is only required for large documents.',
-    },
-  ]
-  return items
+  if (!pipelineStatus.value?.steps?.length) return []
+  return pipelineStatus.value.steps.map((step) => ({
+    label: toTitle(step.key),
+    state: step.required ? (step.done ? 'done' : 'missing') : 'na',
+    detail: step.detail || '',
+  }))
 })
 const processingRequiredCount = computed(
   () => processingStatusItems.value.filter((item) => item.state !== 'na').length,
@@ -506,6 +465,7 @@ const processingRequiredCount = computed(
 const processingDoneCount = computed(
   () => processingStatusItems.value.filter((item) => item.state === 'done').length,
 )
+const pipelinePreferredSource = computed(() => pipelineStatus.value?.preferred_source || 'paperless_ocr')
 const processingStateLabel = (state: ProcessingState) => {
   if (state === 'done') return 'Done'
   if (state === 'missing') return 'Missing'
@@ -832,12 +792,17 @@ const loadSuggestions = async () => {
   await documentStore.loadSuggestions(id)
 }
 
+const loadPipelineStatus = async () => {
+  await documentStore.loadPipelineStatus(id)
+}
+
 const withDocOperation = async (fn: () => Promise<void>) => {
   docOpsLoading.value = true
   docOpsMessage.value = ''
   try {
     await fn()
     await queueStore.refreshStatus()
+    await loadPipelineStatus()
   } finally {
     docOpsLoading.value = false
   }
@@ -851,6 +816,7 @@ const reloadAll = async () => {
     await loadContentQuality()
     await loadPageTexts()
     await loadSuggestions()
+    await loadPipelineStatus()
   } finally {
     reloadingAll.value = false
   }
@@ -890,6 +856,23 @@ const runDocCleanup = async () => {
         : `Cleanup done: ${result.updated}/${result.processed} updated.`
     } catch (err) {
       docOpsMessage.value = errorMessage(err, 'Failed to queue cleanup')
+    }
+  })
+}
+
+const runContinuePipeline = async () => {
+  await withDocOperation(async () => {
+    try {
+      const result = await documentStore.continuePipeline(id)
+      if (!result.enabled) {
+        docOpsMessage.value = 'Queue is disabled.'
+        return
+      }
+      docOpsMessage.value = result.enqueued
+        ? `Enqueued ${result.enqueued}/${result.missing_tasks} missing tasks.`
+        : `No missing tasks.`
+    } catch (err) {
+      docOpsMessage.value = errorMessage(err, 'Failed to continue document pipeline')
     }
   })
 }
