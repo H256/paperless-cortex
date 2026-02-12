@@ -666,3 +666,4 @@ All model names must be configurable via environment variables.
 - Continue-processing UX flow migration: replaced modal-centric interaction with dedicated route/page (/processing/continue) using reusable ContinueProcessingPanel; Documents view now deep-links to the page, and post-enqueue monitoring actions (open document/queue/logs) remain available from the success state.
 - Navigation UX update: App top nav now always uses a persistent More menu pattern (no screen-size split), with primary links reordered to Dashboard/Documents/Search/Writeback and More entries ordered as Writeback/Chat/Queue/Logs/Operations.
 - Navigation UX update: app top nav now always uses persistent More behavior (no screen-size split), with primary links Dashboard/Documents/Search/Writeback and More menu order Writeback/Chat/Queue/Logs/Operations.
+- Nav hotfix: removed duplicate Writeback entry from More menu; Writeback remains only in primary navigation.
