@@ -25,6 +25,15 @@ def classify_worker_error(exc: Exception) -> str:
     return "WORKER_TASK_ERROR"
 
 
+def is_retryable_error_type(error_type: str) -> bool:
+    return error_type in {
+        "LLM_TIMEOUT",
+        "LLM_RATE_LIMIT",
+        "NETWORK_CONNECTION_ERROR",
+        "QDRANT_UPSERT_FAIL",
+    }
+
+
 def task_source_from_payload(task: dict[str, Any] | None) -> str | None:
     if not isinstance(task, dict):
         return None

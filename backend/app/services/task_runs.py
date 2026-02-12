@@ -21,6 +21,7 @@ def create_task_run(
     source: str | None,
     payload: dict[str, Any] | None,
     worker_id: str | None,
+    attempt: int = 1,
 ) -> TaskRun:
     timestamp = _now_iso()
     row = TaskRun(
@@ -30,7 +31,7 @@ def create_task_run(
         status="running",
         worker_id=worker_id,
         payload_json=json.dumps(payload, ensure_ascii=False) if payload else None,
-        attempt=1,
+        attempt=max(1, int(attempt)),
         started_at=timestamp,
         created_at=timestamp,
         updated_at=timestamp,

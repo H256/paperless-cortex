@@ -42,6 +42,7 @@ from app.services.queue import (
     is_paused,
     set_running_task,
     clear_running_task,
+    enqueue_task,
 )
 from app.services.text_pages import get_baseline_page_texts
 from app.services.page_texts_merge import collect_page_texts
@@ -55,6 +56,7 @@ from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services import vision_ocr
 from app.services.text_cleaning import clean_ocr_text
 from app.services.error_types import classify_worker_error
+from app.services.error_types import is_retryable_error_type
 from app.services.error_types import task_source_from_payload
 from app.services.logging_setup import configure_logging, log_event
 from app.services.hierarchical_summary import (
@@ -1068,6 +1070,13 @@ def main() -> None:
             run_status = "completed"
             run_error_type: str | None = None
             run_error_message: str | None = None
+            pending_retry_payload: dict | None = None
+            retry_attempt = 0
+            if isinstance(task, dict):
+                try:
+                    retry_attempt = int(task.get("retry_count") or 0)
+                except Exception:
+                    retry_attempt = 0
             try:
                 with SessionLocal() as db:
                     task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
@@ -1079,6 +1088,7 @@ def main() -> None:
                         source=source,
                         payload=task_payload,
                         worker_id=worker_token,
+                        attempt=retry_attempt + 1,
                     )
                     run_id = int(run_row.id)
                     try:
@@ -1093,12 +1103,35 @@ def main() -> None:
                             "Worker task failed",
                             doc_id=doc_id,
                             task=task_type,
+                            retry_attempt=retry_attempt + 1,
                             error_type=run_error_type,
                             error_message=run_error_message,
                         )
                         logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
                     finally:
                         duration_ms = int(max(0.0, (time.time() - run_started) * 1000))
+                        should_retry = bool(
+                            run_status == "failed"
+                            and run_error_type
+                            and is_retryable_error_type(run_error_type)
+                            and retry_attempt < settings.worker_max_retries
+                            and isinstance(task_payload, dict)
+                        )
+                        if should_retry:
+                            retry_payload = dict(task_payload)
+                            retry_payload["retry_count"] = retry_attempt + 1
+                            pending_retry_payload = retry_payload
+                            run_status = "retrying"
+                            log_event(
+                                logger,
+                                logging.WARNING,
+                                "Worker task requeued",
+                                doc_id=doc_id,
+                                task=task_type,
+                                retry_attempt=retry_attempt + 1,
+                                max_retries=settings.worker_max_retries,
+                                error_type=run_error_type,
+                            )
                         if run_id is not None:
                             finish_task_run(
                                 db,
@@ -1128,6 +1161,8 @@ def main() -> None:
                         client.srem(QUEUE_SET, task_key(task))
                     else:
                         client.srem(QUEUE_SET, str(doc_id))
+                if pending_retry_payload is not None:
+                    enqueue_task(settings, pending_retry_payload)
     finally:
         stop_event.set()
         release_worker_lock(settings, worker_token)
