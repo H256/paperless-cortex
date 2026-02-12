@@ -644,6 +644,7 @@ All model names must be configurable via environment variables.
 - Continue-processing modal UX pass: added explicit "What Happens Next" execution plan, live runtime-state block (queue enabled/length + worker activity), stronger post-enqueue success message, and clearer primary action wording ("Start processing (enqueue)") so enqueue vs worker execution is unambiguous.
 - Hierarchical summary quality fix: global summary generation now mirrors section-summary hardening (primary JSON parse -> compact retry -> deterministic fallback synthesis from section summaries), and suggestion context builder now ignores error-only/empty `hier_summary` payloads so large-doc suggestions fall back to useful page-note context instead of "global_summary_error" text.
 - Continue modal scanability pass: reduced visual noise by removing always-visible low-level missing counters from the top section and moving them into a toggleable "Detailed Missing Counters" panel, keeping default focus on docs/needs-work + coverage.
+- Continue modal detail behavior: "Detailed Missing Counters" now auto-expands only when critical missing counts exceed a threshold (currently 10), while preserving manual toggle control during the open session.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

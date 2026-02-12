@@ -89,7 +89,7 @@
           </div>
           <button
             class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-            @click="showDetailedCounters = !showDetailedCounters"
+            @click="toggleDetailedCounters"
           >
             {{ showDetailedCounters ? 'Hide details' : 'Show details' }}
           </button>
@@ -288,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 import type { ProcessMissingResponse, SyncStatusResponse } from '@/api/generated/model'
 
@@ -420,7 +420,9 @@ const previewDocs = computed<PreviewDocItem[]>(() => {
     .filter((item): item is PreviewDocItem => item !== null)
 })
 
+const AUTO_OPEN_COUNTER_THRESHOLD = 10
 const showDetailedCounters = ref(false)
+const detailsManuallyToggled = ref(false)
 
 const detailedCounters = computed(() => {
   const preview = props.processPreview
@@ -436,6 +438,45 @@ const detailedCounters = computed(() => {
     { key: 'missing_suggestions_vision', label: 'Missing suggestions (vision)', value: Number(preview.missing_suggestions_vision ?? 0) },
   ]
 })
+
+const shouldAutoOpenDetailedCounters = computed(() => {
+  const preview = props.processPreview
+  if (!preview) return false
+  const criticalCounts = [
+    Number(preview.missing_vision_ocr ?? 0),
+    Number(preview.missing_embeddings ?? 0),
+    Number(preview.missing_page_notes ?? 0),
+    Number(preview.missing_summary_hierarchical ?? 0),
+    Number(preview.missing_suggestions_vision ?? 0),
+  ]
+  return criticalCounts.some((count) => count >= AUTO_OPEN_COUNTER_THRESHOLD)
+})
+
+const syncDetailedCountersVisibility = () => {
+  if (detailsManuallyToggled.value) return
+  showDetailedCounters.value = shouldAutoOpenDetailedCounters.value
+}
+
+const toggleDetailedCounters = () => {
+  detailsManuallyToggled.value = true
+  showDetailedCounters.value = !showDetailedCounters.value
+}
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (!isOpen) return
+    detailsManuallyToggled.value = false
+    syncDetailedCountersVisibility()
+  },
+)
+
+watch(
+  () => props.processPreview,
+  () => {
+    syncDetailedCountersVisibility()
+  },
+)
 
 const strategyHint = computed(() => {
   if (props.processOptions.strategy === 'vision_first') {
