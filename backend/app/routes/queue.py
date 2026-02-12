@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.config import Settings
+from app.db import get_db
 from app.deps import get_settings
 from app.services.queue import (
     enqueue_docs,
@@ -22,6 +23,7 @@ from app.services.queue import (
     reset_worker_lock,
     get_running_task,
 )
+from app.services.task_runs import list_task_runs
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
     QueueStatusResponse,
@@ -35,6 +37,8 @@ from app.api_models import (
     QueueWorkerLockStatusResponse,
     QueueWorkerLockResetResponse,
     QueueRunningResponse,
+    TaskRunListResponse,
+    TaskRunItem,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -173,3 +177,47 @@ def reset_worker_lock_route(force: bool = False, settings: Settings = Depends(ge
         return queue_disabled_response(reset=False, had_lock=False, reason="queue_disabled")
     result = reset_worker_lock(settings, force=force)
     return {"enabled": True, **result}
+
+
+@router.get("/task-runs", response_model=TaskRunListResponse)
+def get_task_runs(
+    doc_id: int | None = None,
+    task: str | None = None,
+    status: str | None = None,
+    error_type: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    settings: Settings = Depends(get_settings),
+    db=Depends(get_db),
+):
+    if not settings.queue_enabled:
+        return {"enabled": False, "count": 0, "items": []}
+    total, rows = list_task_runs(
+        db,
+        doc_id=doc_id,
+        task=task,
+        status=status,
+        error_type=error_type,
+        limit=limit,
+        offset=offset,
+    )
+    items = [
+        TaskRunItem(
+            id=int(row.id),
+            doc_id=int(row.doc_id) if row.doc_id is not None else None,
+            task=str(row.task),
+            source=row.source,
+            status=str(row.status),
+            worker_id=row.worker_id,
+            attempt=int(row.attempt or 1),
+            error_type=row.error_type,
+            error_message=row.error_message,
+            started_at=row.started_at,
+            finished_at=row.finished_at,
+            duration_ms=int(row.duration_ms) if row.duration_ms is not None else None,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
+    return {"enabled": True, "count": total, "items": items}

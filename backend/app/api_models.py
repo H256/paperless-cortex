@@ -97,6 +97,29 @@ class QueueRunningResponse(BaseModel):
     started_at: Optional[int] = None
 
 
+class TaskRunItem(BaseModel):
+    id: int
+    doc_id: Optional[int] = None
+    task: str
+    source: Optional[str] = None
+    status: str
+    worker_id: Optional[str] = None
+    attempt: int
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    duration_ms: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class TaskRunListResponse(BaseModel):
+    enabled: bool
+    count: int
+    items: list[TaskRunItem] = []
+
+
 class ConnectionStatus(BaseModel):
     service: str
     status: str

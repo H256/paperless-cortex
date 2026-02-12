@@ -54,6 +54,9 @@ from app.services.suggestion_store import audit_suggestion_run, persist_suggesti
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services import vision_ocr
 from app.services.text_cleaning import clean_ocr_text
+from app.services.error_types import classify_worker_error
+from app.services.error_types import task_source_from_payload
+from app.services.logging_setup import configure_logging, log_event
 from app.services.hierarchical_summary import (
     generate_global_summary,
     generate_page_notes,
@@ -65,6 +68,7 @@ from app.services.hierarchical_summary import (
 )
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
+from app.services.task_runs import create_task_run, finish_task_run
 import json
 
 logger = logging.getLogger(__name__)
@@ -976,6 +980,7 @@ def _dispatch_task(settings, db: Session, task_type: str, doc_id: int, task: dic
 
 def main() -> None:
     settings = load_settings()
+    configure_logging(settings, service="worker")
     if not settings.queue_enabled:
         raise SystemExit("QUEUE_ENABLED is not set")
     client = _get_client(settings)
@@ -1059,11 +1064,61 @@ def main() -> None:
             set_running_task(settings, running_task)
             mark_in_progress(settings)
             run_started = time.time()
+            run_id: int | None = None
+            run_status = "completed"
+            run_error_type: str | None = None
+            run_error_message: str | None = None
             try:
                 with SessionLocal() as db:
-                    _dispatch_task(settings, db, task_type, doc_id, task if isinstance(task, dict) else None)
+                    task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
+                    source = task_source_from_payload(task if isinstance(task, dict) else None)
+                    run_row = create_task_run(
+                        db,
+                        doc_id=doc_id,
+                        task=task_type,
+                        source=source,
+                        payload=task_payload,
+                        worker_id=worker_token,
+                    )
+                    run_id = int(run_row.id)
+                    try:
+                        _dispatch_task(settings, db, task_type, doc_id, task if isinstance(task, dict) else None)
+                    except Exception as exc:
+                        run_status = "failed"
+                        run_error_type = classify_worker_error(exc)
+                        run_error_message = str(exc)
+                        log_event(
+                            logger,
+                            logging.ERROR,
+                            "Worker task failed",
+                            doc_id=doc_id,
+                            task=task_type,
+                            error_type=run_error_type,
+                            error_message=run_error_message,
+                        )
+                        logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
+                    finally:
+                        duration_ms = int(max(0.0, (time.time() - run_started) * 1000))
+                        if run_id is not None:
+                            finish_task_run(
+                                db,
+                                run_id=run_id,
+                                status=run_status,
+                                duration_ms=duration_ms,
+                                error_type=run_error_type,
+                                error_message=run_error_message,
+                            )
             except Exception as exc:
-                logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "Worker loop task bookkeeping failed",
+                    doc_id=doc_id,
+                    task=task_type,
+                    error_type=classify_worker_error(exc),
+                    error_message=str(exc),
+                )
+                logger.exception("Worker bookkeeping failed doc=%s task=%s", doc_id, task_type)
             finally:
                 clear_running_task(settings)
                 mark_done(settings)
@@ -1079,5 +1134,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     main()
