@@ -405,6 +405,8 @@ def _page_notes_prompt(page: int, text: str) -> str:
         "- Keep facts concise and literal.\n"
         "- Include dates, amounts, ids in key_numbers if present.\n"
         "- Do not invent information.\n"
+        "- Preserve the original document language(s); do not translate to English.\n"
+        "- If the source is multilingual, keep each extracted point in its original language.\n"
         f"Page: {page}\n"
         f"Text:\n{text}\n"
     )
@@ -421,6 +423,7 @@ def _page_notes_prompt_strict(page: int, text: str) -> str:
         "Key numbers:\n"
         "Uncertainties:\n"
         "Use bullet points under each heading.\n"
+        "Preserve the original document language(s); do not translate.\n"
         f"Page: {page}\n"
         f"Text:\n{text}\n"
     )
@@ -432,6 +435,7 @@ def _section_summary_prompt(section_key: str, page_notes_json: str) -> str:
         "Return plain text only.\n"
         "No JSON, no markdown, no XML/control tags.\n"
         "Keep it factual and concise.\n"
+        "Preserve the original document language(s); do not translate.\n"
         f"Section: {section_key}\n"
         f"Page notes:\n{page_notes_json}\n"
     )
@@ -445,6 +449,7 @@ def _section_summary_prompt_compact(section_key: str, page_notes_json: str) -> s
         '- summary max 120 words\n'
         "- no JSON\n"
         "- no markdown\n"
+        "- preserve the original document language(s); do not translate\n"
         f"Section: {section_key}\n"
         f"Page notes:\n{page_notes_json}\n"
     )
@@ -513,6 +518,7 @@ def _global_summary_prompt(section_summaries_json: str) -> str:
         "No JSON and no markdown.\n"
         "First line: one-sentence executive summary.\n"
         "Then a concise multi-sentence summary.\n"
+        "Preserve the original document language(s); do not translate.\n"
         f"Section summaries:\n{section_summaries_json}\n"
     )
 
@@ -526,6 +532,7 @@ def _global_summary_prompt_compact(section_summaries_json: str) -> str:
         "- first line executive summary\n"
         "- no JSON\n"
         "- no markdown\n"
+        "- preserve the original document language(s); do not translate\n"
         f"Section summaries:\n{section_summaries_json}\n"
     )
 
