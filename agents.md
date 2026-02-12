@@ -630,6 +630,7 @@ All model names must be configurable via environment variables.
 - Worker telemetry: embedding pipeline now records chunk-split and overflow-fallback counters into task checkpoints (`split_chunks`, `split_parts`, `overflow_fallback_calls`, `overflow_fallback_parts`), and document timeline surfaces this telemetry for embedding runs.
 - API/client: regenerated OpenAPI/Orval client for new fan-out endpoint and queue task-run `q` filter; document/queue composables now consume generated contracts.
 - Tests: added coverage for queue task-run text-query filtering, document pipeline fan-out endpoint response, embedding split telemetry summary, and overflow-fallback telemetry tracking.
+- Document timeline UX: enhanced per-document processing timeline with inline filters (`status`, free-text `q`) and compact error-message previews; implemented via extended `useDocumentTaskRuns` composable filters to keep timeline inspection DRY and reusable.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

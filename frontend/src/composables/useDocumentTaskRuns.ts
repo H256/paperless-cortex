@@ -1,14 +1,40 @@
-import { computed } from 'vue'
+import { computed, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { fetchQueueTaskRuns } from '../services/queue'
 
-export const useDocumentTaskRuns = (docId: () => number) => {
+type DocumentTaskRunFilters = {
+  limit?: Ref<number>
+  task?: Ref<string>
+  status?: Ref<string>
+  errorType?: Ref<string>
+  query?: Ref<string>
+}
+
+export const useDocumentTaskRuns = (docId: () => number, filters?: DocumentTaskRunFilters) => {
+  const limitRef = filters?.limit
+  const taskRef = filters?.task
+  const statusRef = filters?.status
+  const errorTypeRef = filters?.errorType
+  const queryRef = filters?.query
+
   const query = useQuery({
-    queryKey: computed(() => ['document-task-runs', docId()]),
+    queryKey: computed(() => [
+      'document-task-runs',
+      docId(),
+      limitRef?.value ?? 30,
+      taskRef?.value ?? '',
+      statusRef?.value ?? '',
+      errorTypeRef?.value ?? '',
+      queryRef?.value ?? '',
+    ]),
     queryFn: () =>
       fetchQueueTaskRuns({
         doc_id: docId(),
-        limit: 30,
+        limit: limitRef?.value ?? 30,
+        task: taskRef?.value || undefined,
+        status: statusRef?.value || undefined,
+        error_type: errorTypeRef?.value || undefined,
+        q: queryRef?.value || undefined,
       }),
     enabled: computed(() => Number.isFinite(docId()) && docId() > 0),
     staleTime: 5_000,

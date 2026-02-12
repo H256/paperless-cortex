@@ -227,13 +227,37 @@
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
               Processing timeline
             </div>
-            <button
-              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              :disabled="taskRunsLoading"
-              @click="refreshTaskRuns"
-            >
-              {{ taskRunsLoading ? 'Loading...' : 'Reload timeline' }}
-            </button>
+            <div class="flex items-end gap-2">
+              <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
+                Status
+                <select
+                  v-model="timelineStatusFilter"
+                  class="mt-1 h-8 w-24 rounded-md border border-slate-200 bg-white px-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="">all</option>
+                  <option value="running">running</option>
+                  <option value="retrying">retrying</option>
+                  <option value="failed">failed</option>
+                  <option value="done">done</option>
+                </select>
+              </label>
+              <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
+                Search
+                <input
+                  v-model="timelineQueryFilter"
+                  type="text"
+                  placeholder="task/error..."
+                  class="mt-1 h-8 w-32 rounded-md border border-slate-200 bg-white px-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+              </label>
+              <button
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                :disabled="taskRunsLoading"
+                @click="refreshTaskRuns"
+              >
+                {{ taskRunsLoading ? 'Loading...' : 'Reload timeline' }}
+              </button>
+            </div>
           </div>
           <div v-if="taskRunsError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
             {{ taskRunsError }}
@@ -268,7 +292,12 @@
                       {{ embeddingTelemetryLabel(run.checkpoint) }}
                     </div>
                   </td>
-                  <td class="px-2 py-1.5">{{ run.error_type || '-' }}</td>
+                  <td class="px-2 py-1.5">
+                    <div>{{ run.error_type || '-' }}</div>
+                    <div v-if="run.error_message" class="text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
+                      {{ compactErrorMessage(run.error_message) }}
+                    </div>
+                  </td>
                   <td class="px-2 py-1.5">
                     <button
                       v-if="run.status === 'failed'"
@@ -518,12 +547,17 @@ const {
   cleanup: cleanupDocumentTexts,
   resetAndReprocess: resetAndReprocessNow,
 } = useDocumentOperations(computed(() => id))
+const timelineStatusFilter = ref('')
+const timelineQueryFilter = ref('')
 const {
   taskRuns,
   taskRunsLoading,
   taskRunsError,
   refreshTaskRuns,
-} = useDocumentTaskRuns(() => id)
+} = useDocumentTaskRuns(() => id, {
+  status: timelineStatusFilter,
+  query: timelineQueryFilter,
+})
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
@@ -950,6 +984,13 @@ const embeddingTelemetryLabel = (checkpoint?: Record<string, unknown> | null) =>
   if ((splitChunks ?? 0) > 0) parts.push(`split chunks: ${splitChunks}`)
   if ((overflowCalls ?? 0) > 0) parts.push(`fallback calls: ${overflowCalls}`)
   return parts.join(' | ')
+}
+
+const compactErrorMessage = (message?: string | null) => {
+  if (!message) return ''
+  const normalized = message.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= 90) return normalized
+  return `${normalized.slice(0, 87)}...`
 }
 
 const load = async () => {
