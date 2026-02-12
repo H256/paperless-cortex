@@ -614,6 +614,8 @@ All model names must be configurable via environment variables.
 - Documents list UX: added writeback/readiness status pills in `DocumentProcessingBadges` (`Needs review`, `Reviewed`, `Local overrides`) to make local-only vs review/writeback state visible directly in table rows.
 - Critical sync fix: resolved persistent `document_notes_pkey` collisions by handling global note-id clashes during sync upsert (legacy positive local notes are re-keyed into negative local-id space before remote note insert/update), with explicit flush to avoid identity-map conflicts.
 - Local note id policy: AI/local-only notes now allocate negative IDs in both suggestion apply flow and writeback local-sync note flow, preventing future collisions with Paperless positive note IDs.
+- Follow-up critical fix: resolved remaining cross-document note-ID collisions in sync by checking global `DocumentNote` identity (`db.get`) and re-keying conflicting existing rows before applying remote note IDs; added flush after re-key to prevent identity-map conflicts in the same transaction.
+- Added regression coverage for legacy positive local note collision vs incoming remote note ID in `test_upsert_document_notes_remaps_legacy_positive_collision`.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
