@@ -152,10 +152,10 @@ import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
+import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
-import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
 const toastStore = useToastStore()
@@ -201,6 +201,7 @@ const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
 const { processOptions, batchOptions, batchIndex, batchLabel, processParams } =
   useContinueProcessOptions()
+const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const {
@@ -292,42 +293,6 @@ const cancelProcessing = async () => {
 
 const open = (id: number) => {
   router.push(`/documents/${id}`)
-}
-
-const hasDerived = (doc: DocumentRow) => {
-  return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages)
-}
-
-const visibleDocuments = computed(() => {
-  let filtered = documents.value
-  if (analysisFilter.value !== 'all') {
-    const shouldBeAnalyzed = analysisFilter.value === 'analyzed'
-    filtered = filtered.filter((doc) => hasDerived(doc) === shouldBeAnalyzed)
-  }
-  const needle = modelFilter.value.trim().toLowerCase()
-  if (!needle) return filtered
-  return filtered.filter((doc) =>
-    String(doc.analysis_model || '')
-      .toLowerCase()
-      .includes(needle),
-  )
-})
-
-const formatDate = (value?: string | null) => {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat(navigator.language).format(parsed)
-}
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return 'never'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat(navigator.language, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed)
 }
 
 const onPrevPage = async () => {
