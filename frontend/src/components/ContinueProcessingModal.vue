@@ -110,14 +110,25 @@
         v-if="!processPreviewLoading && previewDocs.length"
         class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Sample Documents With Gaps
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Sample Documents With Gaps
+          </div>
+          <div
+            v-if="highPriorityPreviewCount > 0"
+            class="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            {{ highPriorityPreviewCount }} high-priority
+          </div>
         </div>
         <div class="mt-2 max-h-40 space-y-1 overflow-auto pr-1">
           <div
-            v-for="item in previewDocs"
+            v-for="item in prioritizedPreviewDocs"
             :key="item.doc_id"
-            class="flex items-start justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
+            class="flex items-start justify-between gap-2 rounded-md border px-2 py-1.5"
+            :class="isHighPriorityPreviewDoc(item)
+              ? 'border-amber-300 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20'
+              : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'"
           >
             <div class="min-w-0">
               <div class="truncate font-semibold text-slate-800 dark:text-slate-100">
@@ -127,8 +138,16 @@
                 {{ (item.missing_tasks || []).join(', ') || '-' }}
               </div>
             </div>
-            <div class="shrink-0 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
-              {{ formatMissingSteps(item.missing_steps) }}
+            <div class="shrink-0 text-right">
+              <div
+                v-if="isHighPriorityPreviewDoc(item)"
+                class="text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+              >
+                High priority
+              </div>
+              <div class="text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                {{ formatMissingSteps(item.missing_steps) }}
+              </div>
             </div>
           </div>
         </div>
@@ -193,6 +212,14 @@
           </label>
           <div class="rounded-md border border-slate-200 bg-white p-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2">
             {{ strategyHint }}
+          </div>
+          <div
+            v-if="strategyWarnings.length"
+            class="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 sm:col-span-2"
+          >
+            <div v-for="warning in strategyWarnings" :key="warning">
+              {{ warning }}
+            </div>
           </div>
         </div>
       </div>
@@ -420,6 +447,42 @@ const previewDocs = computed<PreviewDocItem[]>(() => {
     .filter((item): item is PreviewDocItem => item !== null)
 })
 
+const _priorityTaskMarkers = [
+  'page_notes',
+  'summary_hierarchical',
+  'suggestions_vision',
+  'vision_ocr',
+  'embeddings_vision',
+]
+
+const priorityScoreForPreviewDoc = (item: PreviewDocItem) => {
+  const tasks = Array.isArray(item.missing_tasks) ? item.missing_tasks : []
+  const steps = Array.isArray(item.missing_steps) ? item.missing_steps : []
+  let score = 0
+  for (const task of tasks) {
+    const normalized = String(task || '').toLowerCase()
+    if (_priorityTaskMarkers.some((marker) => normalized.includes(marker))) score += 2
+  }
+  if (steps.some((step) => String(step || '').toLowerCase().includes('large'))) score += 3
+  return score
+}
+
+const isHighPriorityPreviewDoc = (item: PreviewDocItem) => priorityScoreForPreviewDoc(item) >= 3
+
+const prioritizedPreviewDocs = computed(() => {
+  return [...previewDocs.value].sort((a, b) => {
+    const scoreDiff = priorityScoreForPreviewDoc(b) - priorityScoreForPreviewDoc(a)
+    if (scoreDiff !== 0) return scoreDiff
+    const taskDiff = (b.missing_tasks?.length || 0) - (a.missing_tasks?.length || 0)
+    if (taskDiff !== 0) return taskDiff
+    return a.doc_id - b.doc_id
+  })
+})
+
+const highPriorityPreviewCount = computed(
+  () => prioritizedPreviewDocs.value.filter((item) => isHighPriorityPreviewDoc(item)).length,
+)
+
 const AUTO_OPEN_COUNTER_THRESHOLD = 10
 const showDetailedCounters = ref(false)
 const detailsManuallyToggled = ref(false)
@@ -489,5 +552,35 @@ const strategyHint = computed(() => {
     return 'Max coverage: run both paperless and vision flows (including dual embeddings).'
   }
   return 'Balanced: keep baseline coverage and use vision where available.'
+})
+
+const strategyWarnings = computed(() => {
+  const preview = props.processPreview
+  if (!preview) return []
+  const warnings: string[] = []
+  if (props.processOptions.strategy === 'paperless_only') {
+    const visionGaps =
+      Number(preview.missing_vision_ocr ?? 0) +
+      Number(preview.missing_embeddings_vision ?? 0) +
+      Number(preview.missing_suggestions_vision ?? 0) +
+      Number(preview.missing_page_notes ?? 0) +
+      Number(preview.missing_summary_hierarchical ?? 0)
+    if (visionGaps > 0) {
+      warnings.push(
+        `Selected strategy may leave ${visionGaps} vision-related gaps unresolved (switch to Balanced, Vision first, or Max coverage to include them).`,
+      )
+    }
+  }
+  if (props.processOptions.strategy === 'vision_first') {
+    const baselineGaps =
+      Number(preview.missing_embeddings_paperless ?? 0) +
+      Number(preview.missing_suggestions_paperless ?? 0)
+    if (baselineGaps > 0) {
+      warnings.push(
+        `Baseline paperless tasks still missing: ${baselineGaps}. Consider Balanced or Max coverage if baseline parity is required.`,
+      )
+    }
+  }
+  return warnings
 })
 </script>

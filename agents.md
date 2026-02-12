@@ -646,6 +646,7 @@ All model names must be configurable via environment variables.
 - Continue modal scanability pass: reduced visual noise by removing always-visible low-level missing counters from the top section and moving them into a toggleable "Detailed Missing Counters" panel, keeping default focus on docs/needs-work + coverage.
 - Continue modal detail behavior: "Detailed Missing Counters" now auto-expands only when critical missing counts exceed a threshold (currently 10), while preserving manual toggle control during the open session.
 - Continue-processing flow polish: after enqueue start, the preview modal now remains open in its success state (instead of closing immediately), so users can confirm enqueued docs/tasks and runtime context before closing manually.
+- Continue modal prioritization pass: sample preview docs are now ranked/highlighted by critical-gap priority (large-doc extras + vision downstream tasks), and strategy-specific risk warnings are shown when selected strategy is likely to leave relevant gaps unresolved.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
