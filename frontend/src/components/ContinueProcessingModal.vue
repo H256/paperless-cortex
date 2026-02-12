@@ -173,6 +173,27 @@
       </div>
 
       <div
+        v-if="!processPreviewLoading && processPreview"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            Expected enqueue:
+            <strong class="text-slate-900 dark:text-slate-100">up to {{ expectedEnqueueDocs }} docs</strong>
+            <span class="text-slate-500 dark:text-slate-400"> ({{ expectedEnqueueTasksLabel }})</span>
+          </div>
+          <div
+            class="rounded-md border px-2 py-0.5 text-[11px] font-semibold"
+            :class="canStartProcessing
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
+              : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300'"
+          >
+            {{ canStartProcessing ? 'Ready to enqueue' : startDisabledReason }}
+          </div>
+        </div>
+      </div>
+
+      <div
         class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div
@@ -330,10 +351,16 @@
                 processStartLoading ||
                 syncing ||
                 isSyncingNow ||
-                !queueEnabled,
+                !queueEnabled ||
+                !canStartProcessing,
             }"
             :disabled="
-              processPreviewLoading || processStartLoading || syncing || isSyncingNow || !queueEnabled
+              processPreviewLoading ||
+              processStartLoading ||
+              syncing ||
+              isSyncingNow ||
+              !queueEnabled ||
+              !canStartProcessing
             "
             @click="$emit('start')"
           >
@@ -595,6 +622,41 @@ const strategyHint = computed(() => {
     return 'Max coverage: run both paperless and vision flows (including dual embeddings).'
   }
   return 'Balanced: keep baseline coverage and use vision where available.'
+})
+
+const selectedBatchLimit = computed<number | null>(() => {
+  const value = props.batchOptions[props.batchIndex]
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value
+  return null
+})
+
+const expectedEnqueueDocs = computed(() => {
+  const missingDocs = Number(props.processPreview?.missing_docs ?? 0)
+  const limit = selectedBatchLimit.value
+  if (!Number.isFinite(missingDocs) || missingDocs <= 0) return 0
+  if (limit == null) return missingDocs
+  return Math.min(missingDocs, limit)
+})
+
+const expectedEnqueueTasksLabel = computed(() => {
+  const tasks = Number(props.processPreview?.tasks ?? 0)
+  if (!Number.isFinite(tasks) || tasks <= 0) return '0 tasks'
+  return `up to ${tasks} tasks`
+})
+
+const startDisabledReason = computed(() => {
+  if (!props.queueEnabled) return 'Queue disabled'
+  if (props.processPreviewLoading) return 'Preview loading'
+  if (props.syncing || props.isSyncingNow) return 'Sync running'
+  if (expectedEnqueueDocs.value <= 0) return 'No missing work'
+  return 'Not ready'
+})
+
+const canStartProcessing = computed(() => {
+  if (!props.queueEnabled) return false
+  if (props.processPreviewLoading) return false
+  if (props.syncing || props.isSyncingNow) return false
+  return expectedEnqueueDocs.value > 0
 })
 
 const strategyLabel = (value: ProcessOptions['strategy']) => {
