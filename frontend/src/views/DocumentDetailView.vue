@@ -338,6 +338,7 @@ import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
+import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
 
 const route = useRoute()
 const router = useRouter()
@@ -673,25 +674,6 @@ const onPdfPageChange = (value: number) => {
   delete nextQuery.bbox
   router.replace({ query: nextQuery })
   pdfHighlights.value = []
-}
-
-const conflictFieldLabel = (field: string) => {
-  if (field === 'issue_date' || field === 'document_date') return 'Issue date'
-  if (field === 'title') return 'Title'
-  if (field === 'correspondent') return 'Correspondent'
-  if (field === 'tags') return 'Tags'
-  if (field === 'note') return 'Note'
-  return field
-}
-
-const conflictValue = (value: unknown) => {
-  if (value === null || value === undefined || value === '') return '-'
-  if (typeof value === 'string') return value
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
 }
 
 const runWritebackNowForDocument = async (
