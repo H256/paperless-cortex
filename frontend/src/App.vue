@@ -150,6 +150,7 @@ import ToastHost from './components/ToastHost.vue'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
 import { fetchQueueStatus } from './services/queue'
+import { useStatusStream } from './composables/useStatusStream'
 
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
@@ -170,9 +171,8 @@ const prefersDark = ref(mediaQuery.matches)
 const effectiveTheme = computed(() =>
   theme.value === 'system' ? (prefersDark.value ? 'dark' : 'light') : theme.value,
 )
-let statusStream: EventSource | null = null
-let statusStreamRetryId: number | null = null
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+const { startStatusStream, stopStatusStream } = useStatusStream(apiBaseUrl, statusStore, queryClient)
 const primaryNavItems: NavItem[] = [
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/chat', label: 'Chat', icon: MessageCircle },
@@ -225,41 +225,4 @@ watch(theme, (value) => {
 watchEffect(() => {
   applyTheme(effectiveTheme.value)
 })
-
-const startStatusStream = () => {
-  stopStatusStream()
-  const url = `${apiBaseUrl}/status/stream`
-  statusStream = new EventSource(url)
-  statusStream.onmessage = (event) => {
-    if (!event?.data) return
-    try {
-      const payload = JSON.parse(event.data)
-      if (payload?.status) {
-        statusStore.applyStatus(payload.status)
-        queryClient.setQueryData(['runtime-status'], payload.status)
-      }
-      if (payload?.queue) queryClient.setQueryData(['queue-status'], payload.queue)
-      if (payload?.sync) queryClient.setQueryData(['sync-status'], payload.sync)
-      if (payload?.embeddings) queryClient.setQueryData(['embed-status'], payload.embeddings)
-      if (payload?.stats) queryClient.setQueryData(['documents-stats'], payload.stats)
-    } catch {
-      // ignore malformed payloads
-    }
-  }
-  statusStream.onerror = () => {
-    stopStatusStream()
-    statusStreamRetryId = window.setTimeout(startStatusStream, 5000)
-  }
-}
-
-const stopStatusStream = () => {
-  if (statusStream) {
-    statusStream.close()
-    statusStream = null
-  }
-  if (statusStreamRetryId !== null) {
-    window.clearTimeout(statusStreamRetryId)
-    statusStreamRetryId = null
-  }
-}
 </script>
