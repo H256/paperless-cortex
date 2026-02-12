@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import {
   type DocumentDetail,
   type DocumentType,
-  type DocumentPipelineStatus,
   type PageText,
   type VisionProgress,
   type Tag,
@@ -13,7 +12,6 @@ import {
   getCorrespondents,
   getDocumentLocal,
   getDocumentType,
-  getDocumentPipelineStatus,
   getPageTexts,
   getSuggestions,
   getTags,
@@ -21,7 +19,6 @@ import {
   getOcrScores,
   suggestFieldVariants,
   syncDocument,
-  continueDocumentPipeline,
 } from '../services/documents'
 import type { DocumentOcrScoreOut, TextQualityMetrics } from '@/api/generated/model'
 
@@ -82,9 +79,6 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
     suggestionVariants: {} as Record<string, unknown[]>,
     suggestionVariantLoading: {} as Record<string, boolean>,
     suggestionVariantError: {} as Record<string, string>,
-    pipelineStatus: null as DocumentPipelineStatus | null,
-    pipelineStatusLoading: false,
-    pipelineStatusError: '',
   }),
   actions: {
     async loadDocument(id: number) {
@@ -109,9 +103,6 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
         this.suggestionVariants = {}
         this.suggestionVariantLoading = {}
         this.suggestionVariantError = {}
-        this.pipelineStatus = null
-        this.pipelineStatusLoading = false
-        this.pipelineStatusError = ''
       } finally {
         this.loading = false
       }
@@ -186,29 +177,6 @@ export const useDocumentDetailStore = defineStore('documentDetail', {
       } finally {
         this.suggestionsLoading = false
       }
-    },
-    async loadPipelineStatus(id: number) {
-      this.pipelineStatusLoading = true
-      this.pipelineStatusError = ''
-      try {
-        this.pipelineStatus = await getDocumentPipelineStatus(id)
-      } catch (err: unknown) {
-        this.pipelineStatusError = errorMessage(err, 'Failed to load pipeline status')
-      } finally {
-        this.pipelineStatusLoading = false
-      }
-    },
-    async continuePipeline(id: number) {
-      return continueDocumentPipeline(id, {
-        include_vision_ocr: true,
-        include_embeddings: true,
-        include_embeddings_paperless: true,
-        include_embeddings_vision: true,
-        include_page_notes: true,
-        include_summary_hierarchical: true,
-        include_suggestions_paperless: true,
-        include_suggestions_vision: true,
-      })
     },
     async refreshSuggestions(id: number, source: 'paperless_ocr' | 'vision_ocr') {
       this.suggestionsLoading = true

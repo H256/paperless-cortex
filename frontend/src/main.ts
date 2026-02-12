@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
+import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query'
 import App from './App.vue'
 import DocumentsView from './views/DocumentsView.vue'
 import DocumentDetailView from './views/DocumentDetailView.vue'
@@ -29,6 +30,8 @@ const router = createRouter({
 })
 
 const app = createApp(App)
+const queryClient = new QueryClient()
 app.use(createPinia())
+app.use(VueQueryPlugin, { queryClient })
 app.use(router)
 app.mount('#app')

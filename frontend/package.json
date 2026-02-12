@@ -16,6 +16,7 @@
     "api:generate": "uv run --project ../backend python ../backend/scripts/export_openapi.py && orval --config orval.config.ts"
   },
   "dependencies": {
+    "@tanstack/vue-query": "^5.92.9",
     "dompurify": "^3.3.1",
     "lucide-vue-next": "^0.563.0",
     "marked": "^17.0.1",
@@ -47,8 +48,7 @@
     "vite-plugin-vue-devtools": "^8.0.5",
     "vue-tsc": "^3.2.4"
   },
-   "engines": {
+  "engines": {
     "node": "^20.19.0 || >=22.12.0"
   }
-
 }

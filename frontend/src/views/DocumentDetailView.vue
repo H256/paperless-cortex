@@ -117,7 +117,7 @@
           </div>
           <button
             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading || pipelineStatusLoading"
+            :disabled="docOpsLoading || pipelineStatusLoading || continuePipelineLoading"
             title="Checks missing processing steps for this document and enqueues only those tasks."
             @click="runContinuePipeline"
           >
@@ -336,6 +336,7 @@ import { useDocumentDetailStore } from '../stores/documentDetailStore'
 import { useQueueStore } from '../stores/queueStore'
 import { useStatusStore } from '../stores/statusStore'
 import { useToastStore } from '../stores/toastStore'
+import { useDocumentPipeline } from '../composables/useDocumentPipeline'
 import { cleanupTexts, enqueueDocumentTask, resetAndReprocessDocument } from '../services/documents'
 import type { DocumentOperationTaskPayload } from '../services/documents'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
@@ -368,10 +369,15 @@ const {
   suggestionVariants,
   suggestionVariantLoading,
   suggestionVariantError,
+} = storeToRefs(documentStore)
+const {
   pipelineStatus,
   pipelineStatusLoading,
   pipelineStatusError,
-} = storeToRefs(documentStore)
+  refreshPipelineStatus,
+  continuePipeline: continuePipelineRequest,
+  continuePipelineLoading,
+} = useDocumentPipeline(computed(() => id))
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
@@ -793,7 +799,7 @@ const loadSuggestions = async () => {
 }
 
 const loadPipelineStatus = async () => {
-  await documentStore.loadPipelineStatus(id)
+  await refreshPipelineStatus()
 }
 
 const withDocOperation = async (fn: () => Promise<void>) => {
@@ -863,7 +869,16 @@ const runDocCleanup = async () => {
 const runContinuePipeline = async () => {
   await withDocOperation(async () => {
     try {
-      const result = await documentStore.continuePipeline(id)
+      const result = await continuePipelineRequest({
+        include_vision_ocr: true,
+        include_embeddings: true,
+        include_embeddings_paperless: true,
+        include_embeddings_vision: true,
+        include_page_notes: true,
+        include_summary_hierarchical: true,
+        include_suggestions_paperless: true,
+        include_suggestions_vision: true,
+      })
       if (!result.enabled) {
         docOpsMessage.value = 'Queue is disabled.'
         return
