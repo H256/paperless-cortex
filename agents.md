@@ -670,3 +670,27 @@ All model names must be configurable via environment variables.
 - Nav UX tweak: More submenu now closes on blur/focus-out (ocusout handler) when focus leaves the menu container.
 - Continue-processing layout tweak: panel now uses full available page/container width by removing the fixed max-width constraint.
 - Continue-processing UX tweak: removed internal panel scroll (max-h/overflow-y-auto) for page-hosted usage so normal page scrolling handles overflow.
+
+## Session Handoff (2026-02-12)
+- Branch in progress: `refactor/pipeline-status-and-continue`
+- Frontend status:
+  - Continue-processing flow is now page-based at `/processing/continue` (no modal).
+  - Continue-processing panel is full-width and uses page scroll (no internal overflow scroll).
+  - Top nav uses persistent `More` behavior on all screen sizes.
+  - Main nav order: Dashboard, Documents, Search, Writeback.
+  - `More` order: Chat, Queue, Logs, Operations.
+  - `More` closes on blur/focus-out.
+- Hierarchical pipeline status:
+  - Text-first persistence is active (`notes_text`, `summary_text`), no JSON-first dependency in page/section/global summary stages.
+  - Prompting now enforces source-language preservation (no forced English).
+  - Sanitization guards strip leaked control/meta reasoning tokens from persisted hierarchy outputs.
+- Worker/robustness status:
+  - Embedding overflow guard + fallback split logic implemented (`EMBEDDING_MAX_INPUT_TOKENS`).
+  - Task-run observability + retry/checkpoint infrastructure active; queue/log inspector flows are in place.
+- Docs/config audit:
+  - `.env.example` and `.env.worker.example` include comments for recent runtime controls (`LOG_LEVEL`, `LOG_JSON`, `WORKER_MAX_RETRIES`, `EMBEDDING_MAX_INPUT_TOKENS`, `LLM_DEBUG_FULL_RESPONSE`).
+  - README updated with latest UX flow notes (continue-processing page, logs page, nav simplification).
+- Recommended first checks tomorrow:
+  1. Run a full end-to-end continue-processing trial on a large doc and verify downstream pickup visibility in `/queue` and `/logs`.
+  2. Re-run hierarchical pipeline on test docs and spot-check language consistency in `document_page_notes.notes_text` and `document_section_summaries.summary_text`.
+  3. Decide whether to keep or remove older duplicated historical bullets in this log (non-functional cleanup).
