@@ -579,6 +579,9 @@ All model names must be configurable via environment variables.
 - Frontend cleanup: extracted writeback conflict presentation helpers (`conflictFieldLabel`, `conflictValue`) from `DocumentDetailView` into shared utility `frontend/src/utils/writebackConflict.ts` to reduce in-view helper noise and improve reuse potential.
 - Writeback UX/Backend hardening: extended `POST /writeback/jobs/execute-pending` response with per-job result details (`status`, `error`, doc/call counts), then updated `WritebackDryRunView` Queue tab to show a "Last bulk run details" table so failed execute-pending runs expose actionable errors immediately.
 - Frontend refactor: extracted writeback preview rendering helpers (`rows`, field labels, value formatting) from `WritebackDryRunView` into `frontend/src/utils/writebackPreview.ts` to reduce view script noise and keep formatting logic reusable/testable.
+- Processing pipeline: added `include_sync` support to continue-processing endpoints and UI options so "Continue processing" can sync first in the same run; per-document pipeline status/continue now includes sync task planning when local doc is stale.
+- Embeddings pipeline: introduced source-aware Qdrant point IDs/deletion (`paperless` vs `vision`) so both embedding sources can coexist, plus `embeddings_mode=both` planning support for process-missing and pipeline-continue flows.
+- API/frontend alignment: regenerated OpenAPI/Orval client (including writeback + pipeline contracts), switched `frontend/src/services/writeback.ts` to generated client wrappers, and introduced Vue Query composable `frontend/src/composables/useWritebackManager.ts` for writeback preview/jobs/history/mutations in `WritebackDryRunView`.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

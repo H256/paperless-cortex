@@ -107,7 +107,7 @@
                 class="rounded-full px-2 py-1 text-[11px] font-semibold"
                 :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
               >
-                {{ item.changed ? `changed: ${item.changed_fields.map(fieldLabel).join(', ')}` : 'no changes' }}
+                {{ item.changed ? `changed: ${(item.changed_fields || []).map(fieldLabel).join(', ')}` : 'no changes' }}
               </span>
             </div>
           </div>
@@ -311,21 +311,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ExternalLink } from 'lucide-vue-next'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useToastStore } from '../stores/toastStore'
-import {
-  createWritebackJob,
-  executeWritebackJob,
-  executePendingWritebackJobs,
-  getWritebackDryRunPreview,
-  listWritebackHistory,
-  listWritebackJobs,
-  runWritebackDryRun,
-  type WritebackDryRunItem,
-  type WritebackJobSummary,
-} from '../services/writeback'
+import { useWritebackManager } from '../composables/useWritebackManager'
 import {
   rowsForWritebackItem,
   writebackDisplayValue,
@@ -335,40 +325,30 @@ import {
 const toastStore = useToastStore()
 const tabs = ['Preview', 'Queue', 'History'] as const
 const activeTab = ref<(typeof tabs)[number]>('Preview')
-
-const previewItems = ref<WritebackDryRunItem[]>([])
-const previewLoading = ref(false)
-const runLoading = ref(false)
-const queueLoading = ref(false)
-const onlyChanged = ref(true)
-const selectedSet = ref<Set<number>>(new Set())
 const errorMessage = ref('')
-
-const jobs = ref<WritebackJobSummary[]>([])
-const historyItems = ref<WritebackJobSummary[]>([])
-const jobsLoading = ref(false)
-const historyLoading = ref(false)
-const executeLoading = ref(false)
-const executeAllLoading = ref(false)
 const executeDryRunMode = ref(true)
 const confirmExecuteOpen = ref(false)
 const pendingExecuteJobId = ref<number | null>(null)
 const confirmExecuteAllOpen = ref(false)
-const lastExecuteAllResults = ref<
-  Array<{
-    job_id: number
-    status: string
-    dry_run: boolean
-    docs_selected: number
-    docs_changed: number
-    calls_count: number
-    doc_ids: number[]
-    error?: string | null
-  }>
->([])
 
-const selectedIds = computed(() => Array.from(selectedSet.value))
-const pendingCount = computed(() => jobs.value.filter((job) => job.status === 'pending').length)
+const writeback = useWritebackManager()
+const onlyChanged = writeback.onlyChanged
+const selectedSet = writeback.selectedSet
+const selectedIds = writeback.selectedIds
+const previewItems = writeback.previewItems
+const jobs = writeback.jobs
+const historyItems = writeback.historyItems
+const pendingCount = writeback.pendingCount
+const lastExecuteAllResults = writeback.lastExecuteAllResults
+
+const previewLoading = computed(() => writeback.previewQuery.isFetching.value)
+const jobsLoading = computed(() => writeback.jobsQuery.isFetching.value)
+const historyLoading = computed(() => writeback.historyQuery.isFetching.value)
+const runLoading = computed(() => writeback.runDryRunMutation.isPending.value)
+const queueLoading = computed(() => writeback.enqueueMutation.isPending.value)
+const executeLoading = computed(() => writeback.executeJobMutation.isPending.value)
+const executeAllLoading = computed(() => writeback.executeAllMutation.isPending.value)
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const baseOrigin = window.location.origin
 const paperlessBase = import.meta.env.VITE_PAPERLESS_BASE_URL || ''
@@ -377,25 +357,13 @@ const rowsFor = rowsForWritebackItem
 const fieldLabel = writebackFieldLabel
 const displayValue = writebackDisplayValue
 
-const toggleSelect = (docId: number) => {
-  const next = new Set(selectedSet.value)
-  if (next.has(docId)) next.delete(docId)
-  else next.add(docId)
-  selectedSet.value = next
-}
-
-const selectAllChanged = () => {
-  selectedSet.value = new Set(previewItems.value.filter((item) => item.changed).map((item) => item.doc_id))
-}
-
-const clearSelection = () => {
-  selectedSet.value = new Set()
-}
+const toggleSelect = writeback.toggleSelect
+const selectAllChanged = writeback.selectAllChanged
+const clearSelection = writeback.clearSelection
 
 const removeDocsFromPreview = (docIds: number[]) => {
   if (!docIds.length) return
   const idSet = new Set(docIds.map((v) => Number(v)))
-  previewItems.value = previewItems.value.filter((item) => !idSet.has(Number(item.doc_id)))
   selectedSet.value = new Set(
     Array.from(selectedSet.value).filter((docId) => !idSet.has(Number(docId))),
   )
@@ -412,44 +380,31 @@ const documentLink = (docId: number) => {
 }
 
 const loadPreview = async () => {
-  previewLoading.value = true
   errorMessage.value = ''
   try {
-    const data = await getWritebackDryRunPreview({
-      page: 1,
-      page_size: 100,
-      only_changed: onlyChanged.value,
-    })
-    previewItems.value = data.items || []
-    selectAllChanged()
+    await writeback.reloadPreview()
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : 'Preview could not be loaded'
-  } finally {
-    previewLoading.value = false
   }
 }
 
 const runDryRunNow = async () => {
-  runLoading.value = true
   try {
-    const result = await runWritebackDryRun(selectedIds.value)
+    const result = await writeback.runDryRunMutation.mutateAsync(selectedIds.value)
     toastStore.push(
-      `Dry-run planned ${result.calls.length} call(s) for ${result.docs_changed} changed document(s).`,
+      `Dry-run planned ${result.calls?.length || 0} call(s) for ${result.docs_changed} changed document(s).`,
       'success',
       'Writeback',
       2400,
     )
   } catch (err: unknown) {
     toastStore.push(err instanceof Error ? err.message : 'Dry-run failed', 'danger', 'Writeback', 2800)
-  } finally {
-    runLoading.value = false
   }
 }
 
 const enqueueSelected = async () => {
-  queueLoading.value = true
   try {
-    const job = await createWritebackJob(selectedIds.value)
+    const job = await writeback.enqueueMutation.mutateAsync(selectedIds.value)
     toastStore.push(
       `Queued job #${job.id} (${job.calls_count} planned call(s)).`,
       'success',
@@ -460,29 +415,23 @@ const enqueueSelected = async () => {
     activeTab.value = 'Queue'
   } catch (err: unknown) {
     toastStore.push(err instanceof Error ? err.message : 'Queueing failed', 'danger', 'Writeback', 2800)
-  } finally {
-    queueLoading.value = false
   }
 }
 
 const loadJobs = async () => {
-  jobsLoading.value = true
   try {
-    jobs.value = (await listWritebackJobs(150)).items || []
+    await writeback.reloadJobs()
     errorMessage.value = ''
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load writeback jobs'
     errorMessage.value = message
     toastStore.push(message, 'danger', 'Writeback', 3200)
-  } finally {
-    jobsLoading.value = false
   }
 }
 
 const executeJob = async (jobId: number, dryRun: boolean) => {
-  executeLoading.value = true
   try {
-    const job = await executeWritebackJob(jobId, dryRun)
+    const job = await writeback.executeJobMutation.mutateAsync({ jobId, dryRun })
     const failed = job.status === 'failed'
     toastStore.push(
       `Job #${job.id} ${job.status} (${job.calls_count} call(s)).`,
@@ -490,14 +439,10 @@ const executeJob = async (jobId: number, dryRun: boolean) => {
       'Writeback',
       2400,
     )
-    if (!dryRun && job.status === 'completed') {
-      removeDocsFromPreview(job.doc_ids || [])
-    }
+    if (!dryRun && job.status === 'completed') removeDocsFromPreview(job.doc_ids || [])
     await Promise.all([loadJobs(), loadHistory()])
   } catch (err: unknown) {
     toastStore.push(err instanceof Error ? err.message : 'Execution failed', 'danger', 'Writeback', 2800)
-  } finally {
-    executeLoading.value = false
   }
 }
 
@@ -524,10 +469,8 @@ const cancelExecute = () => {
 }
 
 const executeAllPending = async (dryRun: boolean) => {
-  executeAllLoading.value = true
   try {
-    const result = await executePendingWritebackJobs(dryRun, 0)
-    lastExecuteAllResults.value = result.results || []
+    const result = await writeback.executeAllMutation.mutateAsync({ dryRun, limit: 0 })
     const tone = result.failed > 0 ? 'warning' : 'success'
     toastStore.push(
       `Processed ${result.processed} pending job(s): ${result.completed} completed, ${result.failed} failed.`,
@@ -542,8 +485,6 @@ const executeAllPending = async (dryRun: boolean) => {
   } catch (err: unknown) {
     lastExecuteAllResults.value = []
     toastStore.push(err instanceof Error ? err.message : 'Run all pending failed', 'danger', 'Writeback', 3200)
-  } finally {
-    executeAllLoading.value = false
   }
 }
 
@@ -565,16 +506,13 @@ const cancelExecuteAll = () => {
 }
 
 const loadHistory = async () => {
-  historyLoading.value = true
   try {
-    historyItems.value = (await listWritebackHistory(150)).items || []
+    await writeback.reloadHistory()
     errorMessage.value = ''
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load writeback history'
     errorMessage.value = message
     toastStore.push(message, 'danger', 'Writeback', 3200)
-  } finally {
-    historyLoading.value = false
   }
 }
 
@@ -590,5 +528,9 @@ const formatDateTime = (value?: string | null) => {
 
 onMounted(async () => {
   await Promise.allSettled([loadPreview(), loadJobs(), loadHistory()])
+})
+
+watch(onlyChanged, () => {
+  void loadPreview()
 })
 </script>
