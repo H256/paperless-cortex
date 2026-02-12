@@ -74,6 +74,21 @@ class QueueDlqRequeueRequest(BaseModel):
     index: int
 
 
+def _parse_json_object(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    payload = str(raw).strip()
+    if not payload.startswith(("{", "[")):
+        return None
+    try:
+        parsed = json.loads(payload)
+    except Exception:
+        return None
+    if isinstance(parsed, dict):
+        return parsed
+    return None
+
+
 @router.get("/status", response_model=QueueStatusResponse)
 def get_queue_status(settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
@@ -255,11 +270,7 @@ def get_task_runs(
             status=str(row.status),
             worker_id=row.worker_id,
             attempt=int(row.attempt or 1),
-            checkpoint=(
-                json.loads(row.checkpoint_json)
-                if row.checkpoint_json and str(row.checkpoint_json).strip().startswith(("{", "["))
-                else None
-            ),
+            checkpoint=_parse_json_object(row.checkpoint_json),
             error_type=row.error_type,
             error_message=row.error_message,
             started_at=row.started_at,

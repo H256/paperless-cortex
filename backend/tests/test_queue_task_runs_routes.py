@@ -87,3 +87,33 @@ def test_queue_task_runs_lists_rows():
     assert item["task"] == "embeddings_vision"
     assert item["status"] == "failed"
     assert item["error_type"] == "EMBED_CONTEXT_OVERFLOW"
+
+
+def test_queue_task_runs_ignores_invalid_checkpoint_json():
+    client, session_factory = _build_api_client(queue_enabled=True)
+    with session_factory() as db:
+        db.add(
+            TaskRun(
+                doc_id=1800,
+                task="vision_ocr",
+                source="vision_ocr",
+                status="running",
+                worker_id="worker:test",
+                attempt=1,
+                checkpoint_json="{invalid-json",
+                started_at="2026-02-12T10:00:00+00:00",
+                finished_at=None,
+                duration_ms=None,
+                created_at="2026-02-12T10:00:00+00:00",
+                updated_at="2026-02-12T10:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    response = client.get("/queue/task-runs?doc_id=1800&status=running")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is True
+    assert payload["count"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["checkpoint"] is None

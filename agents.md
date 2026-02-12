@@ -602,6 +602,7 @@ All model names must be configurable via environment variables.
 - Document detail UX: operations status now explicitly indicates whether large-document mode is active and clarifies that page notes + hierarchical summary are required when applicable.
 - Documents UX: added live per-document running-progress indicators in the list table, derived from running task checkpoints (`queue/task-runs?status=running`) to show active stage progress (`Vision OCR 12/37`, `Embeddings 40/120`, etc.).
 - Document detail UX: processing timeline now offers a one-click retry action for failed task runs, re-enqueuing the same task/source with dedupe-aware feedback.
+- Hotfix: `/queue/task-runs` now safely parses malformed legacy `checkpoint_json` values (returns `checkpoint=null` instead of 500), preventing frontend "Unexpected token 'I'" errors in Processing timeline reload.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
