@@ -149,6 +149,7 @@ import { useToastStore } from '../stores/toastStore'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
 import { useContinueProcessOptions } from '../composables/useContinueProcessOptions'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
+import { useDocumentsProcessingActions } from '../composables/useDocumentsProcessingActions'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
@@ -243,53 +244,22 @@ const load = async () => {
     toastStore.push(message, 'danger', 'Error')
   }
 }
-
-const refreshAfterProcessingMutation = async () => {
-  await Promise.all([refreshProcessingOverview(), load()])
-}
-
-const openPreview = async () => {
-  try {
-    await openPreviewRequest(processParams())
-    await refreshAfterProcessingMutation()
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to prepare processing preview'
-    toastStore.push(message, 'danger', 'Processing')
-  }
-}
-
-const closePreview = () => {
-  clearPreviewState()
-}
-
-const startFromPreview = async () => {
-  try {
-    await startFromPreviewRequest(processParams())
-    if (processStartResult.value) {
-      toastStore.push(
-        `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
-        'success',
-        'Queue started',
-      )
-    }
-    clearPreviewState()
-    await refreshAfterProcessingMutation()
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to start processing'
-    toastStore.push(message, 'danger', 'Processing')
-  }
-}
-
-const cancelProcessing = async () => {
-  try {
-    await cancelProcessingRequest()
-    await clearQueueNow()
-    await refreshAfterProcessingMutation()
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to cancel processing'
-    toastStore.push(message, 'danger', 'Processing')
-  }
-}
+const { openPreview, closePreview, startFromPreview, cancelProcessing } = useDocumentsProcessingActions(
+  toastStore,
+  {
+    processStartResult,
+    openPreviewRequest,
+    startFromPreviewRequest,
+    cancelProcessingRequest,
+    clearPreviewState,
+  },
+  {
+    refreshProcessingOverview,
+    clearQueueNow,
+  },
+  load,
+  processParams,
+)
 
 const open = (id: number) => {
   router.push(`/documents/${id}`)

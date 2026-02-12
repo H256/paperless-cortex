@@ -570,6 +570,7 @@ All model names must be configurable via environment variables.
 - UX/Frontend refactor: extracted documents filter controls block from `DocumentsView` into `frontend/src/components/DocumentsFiltersPanel.vue` with explicit v-model bindings and reload emit, reducing template size and keeping filter UI concerns isolated.
 - UX/Frontend refactor: extracted documents list table + pagination from `DocumentsView` into `frontend/src/components/DocumentsTable.vue` (including sort header controls and row actions), leaving the view focused on state orchestration and handlers.
 - Frontend refactor: extracted visible-documents filtering (analysis/model filter derivation) into `frontend/src/composables/useVisibleDocuments.ts` and removed now-unused date-format helper leftovers from `DocumentsView` for a leaner view script.
+- Frontend refactor: extracted continue-processing action handlers (`openPreview`, `startFromPreview`, `cancelProcessing`, post-action refresh orchestration) from `DocumentsView` into `frontend/src/composables/useDocumentsProcessingActions.ts`, reducing view-side async workflow noise.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
