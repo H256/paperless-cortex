@@ -106,3 +106,36 @@ def list_task_runs(
         .all()
     )
     return total, rows
+
+
+def find_latest_checkpoint(
+    db: Session,
+    *,
+    doc_id: int,
+    task: str,
+    source: str | None = None,
+) -> dict[str, Any] | None:
+    query = (
+        db.query(TaskRun)
+        .filter(
+            TaskRun.doc_id == doc_id,
+            TaskRun.task == task,
+            TaskRun.checkpoint_json.isnot(None),
+        )
+        .order_by(TaskRun.id.desc())
+    )
+    if source:
+        query = query.filter(TaskRun.source == source)
+    row = query.first()
+    if not row or not row.checkpoint_json:
+        return None
+    raw = str(row.checkpoint_json).strip()
+    if not raw.startswith(("{", "[")):
+        return None
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload

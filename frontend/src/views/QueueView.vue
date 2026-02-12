@@ -360,6 +360,7 @@
               <th class="px-2 py-1">Task</th>
               <th class="px-2 py-1">Status</th>
               <th class="px-2 py-1">Error Type</th>
+              <th class="px-2 py-1">Checkpoint</th>
               <th class="px-2 py-1">Duration</th>
               <th class="px-2 py-1">Started</th>
             </tr>
@@ -378,8 +379,15 @@
                 :class="run.status === 'failed' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'"
               >
                 {{ run.status }}
+                <span
+                  v-if="hasResumeMarker(run)"
+                  class="ml-1 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                >
+                  resume
+                </span>
               </td>
               <td class="px-2 py-2">{{ run.error_type || '-' }}</td>
+              <td class="px-2 py-2">{{ checkpointLabel(run) }}</td>
               <td class="px-2 py-2">{{ run.duration_ms != null ? `${run.duration_ms} ms` : '-' }}</td>
               <td class="px-2 py-2">{{ formatIso(run.started_at) }}</td>
             </tr>
@@ -626,6 +634,23 @@ const formatIso = (value?: string | null) => {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return parsed.toLocaleString()
+}
+
+const hasResumeMarker = (run: { checkpoint?: unknown }) => {
+  const checkpoint = run.checkpoint as Record<string, unknown> | undefined
+  if (!checkpoint || typeof checkpoint !== 'object') return false
+  return Boolean(checkpoint.resume_from)
+}
+
+const checkpointLabel = (run: { checkpoint?: unknown }) => {
+  const checkpoint = run.checkpoint as Record<string, unknown> | undefined
+  if (!checkpoint || typeof checkpoint !== 'object') return '-'
+  const stage = typeof checkpoint.stage === 'string' ? checkpoint.stage : 'progress'
+  const current = typeof checkpoint.current === 'number' ? checkpoint.current : null
+  const total = typeof checkpoint.total === 'number' ? checkpoint.total : null
+  if (current != null && total != null) return `${stage} ${current}/${total}`
+  if (current != null) return `${stage} ${current}`
+  return stage
 }
 
 refresh()

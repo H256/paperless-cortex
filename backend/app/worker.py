@@ -73,7 +73,12 @@ from app.services.hierarchical_summary import (
 )
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
-from app.services.task_runs import create_task_run, finish_task_run, update_task_run_checkpoint
+from app.services.task_runs import (
+    create_task_run,
+    find_latest_checkpoint,
+    finish_task_run,
+    update_task_run_checkpoint,
+)
 import json
 
 logger = logging.getLogger(__name__)
@@ -113,6 +118,34 @@ def _set_task_checkpoint(
         update_task_run_checkpoint(db, run_id=run_id, checkpoint=payload)
     except Exception:
         logger.warning("Failed to persist task checkpoint run_id=%s stage=%s", run_id, stage)
+
+
+def _vision_ocr_batch_size(
+    *,
+    total_pages: int,
+    configured_batch_size: int,
+) -> int:
+    # Large runs checkpoint more frequently and reduce rework on retries.
+    if total_pages >= 300:
+        return min(configured_batch_size, 5)
+    if total_pages >= 120:
+        return min(configured_batch_size, 10)
+    return configured_batch_size
+
+
+def _embedding_checkpoint_batch_size(
+    *,
+    total_chunks: int,
+    configured_batch_size: int,
+) -> int:
+    # Very large chunk sets use smaller batches to report progress more often.
+    if total_chunks >= 1200:
+        return min(configured_batch_size, 4)
+    if total_chunks >= 600:
+        return min(configured_batch_size, 6)
+    if total_chunks >= 250:
+        return min(configured_batch_size, 8)
+    return configured_batch_size
 
 
 def _join_page_texts_limited(pages: Iterable[object], max_chars: int) -> str:
@@ -325,14 +358,18 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         )
         chunks = chunks[:max_chunks]
 
-    batch_size = max(1, int(settings.embedding_batch_size))
+    configured_batch_size = max(1, int(settings.embedding_batch_size))
+    batch_size = _embedding_checkpoint_batch_size(
+        total_chunks=len(chunks),
+        configured_batch_size=configured_batch_size,
+    )
     _set_task_checkpoint(
         db,
         run_id=run_id,
         stage="embedding_chunks",
         current=0,
         total=len(chunks),
-        extra={"source": embedding_source},
+        extra={"source": embedding_source, "batch_size": batch_size},
     )
     for start in range(0, len(chunks), batch_size):
         chunk_batch = chunks[start : start + batch_size]
@@ -371,7 +408,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
             stage="embedding_chunks",
             current=min(start + len(chunk_batch), len(chunks)),
             total=len(chunks),
-            extra={"source": embedding_source},
+            extra={"source": embedding_source, "batch_size": batch_size},
         )
 
     existing = db.get(DocumentEmbedding, doc.id)
@@ -561,6 +598,10 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         batch_size = configured_batch_size
 
     total_pages = len(target_pages) if target_pages is not None else int(doc.page_count or 0)
+    batch_size = _vision_ocr_batch_size(
+        total_pages=max(0, int(total_pages)),
+        configured_batch_size=max(1, int(batch_size)),
+    )
     logger.info(
         "Vision OCR start doc=%s expected_pages=%s existing_pages=%s remaining=%s batch_size=%s force=%s",
         doc_id,
@@ -597,7 +638,7 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
             stage="vision_ocr",
             current=0,
             total=len(target_pages),
-            extra={"mode": "pages"},
+            extra={"mode": "pages", "batch_size": batch_size},
         )
         for start in range(0, len(target_pages), batch_size):
             if is_cancel_requested(settings):
@@ -637,7 +678,7 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
                 stage="vision_ocr",
                 current=processed,
                 total=len(target_pages),
-                extra={"mode": "pages"},
+                extra={"mode": "pages", "batch_size": batch_size},
             )
 
     if processed_any:
@@ -1193,6 +1234,20 @@ def main() -> None:
                         attempt=retry_attempt + 1,
                     )
                     run_id = int(run_row.id)
+                    if retry_attempt > 0:
+                        previous_checkpoint = find_latest_checkpoint(
+                            db,
+                            doc_id=doc_id,
+                            task=task_type,
+                            source=source,
+                        )
+                        if previous_checkpoint:
+                            _set_task_checkpoint(
+                                db,
+                                run_id=run_id,
+                                stage="resume",
+                                extra={"resume_from": previous_checkpoint},
+                            )
                     try:
                         _dispatch_task(
                             settings,

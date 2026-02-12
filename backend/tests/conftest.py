@@ -18,6 +18,21 @@ from app.models import Base  # noqa: E402
 
 
 @pytest.fixture()
+def session_factory():
+    db_path = Path(tempfile.gettempdir()) / f"paperless_intelligence_test_{uuid.uuid4().hex}.db"
+    os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"
+    os.environ["QUEUE_ENABLED"] = "0"
+
+    engine = create_engine(
+        os.environ["DATABASE_URL"],
+        connect_args={"check_same_thread": False},
+    )
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+    return testing_session_local
+
+
+@pytest.fixture()
 def api_client(monkeypatch):
     db_path = Path(tempfile.gettempdir()) / f"paperless_intelligence_test_{uuid.uuid4().hex}.db"
     os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"

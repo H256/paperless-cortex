@@ -592,6 +592,9 @@ All model names must be configurable via environment variables.
 - Worker robustness phase 2: implemented delayed retry backoff queue handling (`enqueue_task_delayed`, `move_due_delayed_tasks`) plus Dead-Letter Queue support (`/queue/dlq`, `/queue/dlq/requeue`, `/queue/dlq/clear`) for tasks that still fail after retries.
 - Worker checkpoints: added `checkpoint_json` to `task_runs` and periodic checkpoint updates for long-running stages (vision OCR batches, embedding chunk batches, page notes, section summaries) so progress can be inspected while running.
 - UX/Observability: added Queue Manager Dead-Letter Queue panel (reload/clear/requeue) and per-document processing timeline in `DocumentDetailView` operations tab using filtered `task_runs` (status/attempt/checkpoint/error visibility).
+- Worker checkpoints phase 2: retries now attach a `resume_from` marker based on the latest persisted checkpoint for the same doc/task source; Queue history can distinguish resumed attempts from fresh runs.
+- Worker robustness phase 2: tightened progress granularity for very large runs by reducing vision OCR and embedding batch sizes adaptively, improving checkpoint frequency and lowering rework scope after failures.
+- Queue UX: task-run history now includes a checkpoint column and a compact `resume` badge for runs that restart from a previous checkpoint marker.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
