@@ -669,3 +669,4 @@ All model names must be configurable via environment variables.
 - Nav hotfix: removed duplicate Writeback entry from More menu; Writeback remains only in primary navigation.
 - Nav UX tweak: More submenu now closes on blur/focus-out (ocusout handler) when focus leaves the menu container.
 - Continue-processing layout tweak: panel now uses full available page/container width by removing the fixed max-width constraint.
+- Continue-processing UX tweak: removed internal panel scroll (max-h/overflow-y-auto) for page-hosted usage so normal page scrolling handles overflow.

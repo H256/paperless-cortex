@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-full max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+    class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900"
   >
       <div class="flex items-center justify-between">
         <div>
