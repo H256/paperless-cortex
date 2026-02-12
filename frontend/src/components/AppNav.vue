@@ -11,6 +11,7 @@
       v-if="secondaryItems.length"
       ref="moreMenuRef"
       class="relative"
+      @focusout="onMoreMenuFocusOut"
     >
       <summary
         class="inline-flex cursor-pointer list-none items-center gap-2 rounded-full px-3 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
@@ -68,5 +69,13 @@ const secondaryActive = computed(() =>
 
 const closeMoreMenu = () => {
   if (moreMenuRef.value) moreMenuRef.value.open = false
+}
+
+const onMoreMenuFocusOut = (event: FocusEvent) => {
+  const container = moreMenuRef.value
+  if (!container) return
+  const nextTarget = event.relatedTarget as Node | null
+  if (nextTarget && container.contains(nextTarget)) return
+  closeMoreMenu()
 }
 </script>
