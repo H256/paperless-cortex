@@ -38,6 +38,7 @@ import type {
   EmbeddingIngestResponse,
   EmbeddingSearchResponse,
   EmbeddingStatusResponse,
+  GetDelayedQueueQueueDelayedGetParams,
   GetDlqQueueDlqGetParams,
   GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
   GetDocumentPageTextsDocumentsDocIdPageTextsGetParams,
@@ -58,6 +59,7 @@ import type {
   ProcessMissingDocumentsProcessMissingPostParams,
   ProcessMissingResponse,
   QueueCancelResponse,
+  QueueDelayedResponse,
   QueueDlqActionResponse,
   QueueDlqRequeueRequest,
   QueueDlqResponse,
@@ -3007,6 +3009,62 @@ export const getDlqQueueDlqGet = async (params?: GetDlqQueueDlqGetParams, option
   
   const data: getDlqQueueDlqGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDlqQueueDlqGetResponse
+}
+
+
+
+/**
+ * @summary Get Delayed Queue
+ */
+export type getDelayedQueueQueueDelayedGetResponse200 = {
+  data: QueueDelayedResponse
+  status: 200
+}
+
+export type getDelayedQueueQueueDelayedGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDelayedQueueQueueDelayedGetResponseSuccess = (getDelayedQueueQueueDelayedGetResponse200) & {
+  headers: Headers;
+};
+export type getDelayedQueueQueueDelayedGetResponseError = (getDelayedQueueQueueDelayedGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDelayedQueueQueueDelayedGetResponse = (getDelayedQueueQueueDelayedGetResponseSuccess | getDelayedQueueQueueDelayedGetResponseError)
+
+export const getGetDelayedQueueQueueDelayedGetUrl = (params?: GetDelayedQueueQueueDelayedGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue/delayed?${stringifiedParams}` : `/api/queue/delayed`
+}
+
+export const getDelayedQueueQueueDelayedGet = async (params?: GetDelayedQueueQueueDelayedGetParams, options?: RequestInit): Promise<getDelayedQueueQueueDelayedGetResponse> => {
+  
+  const res = await fetch(getGetDelayedQueueQueueDelayedGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDelayedQueueQueueDelayedGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDelayedQueueQueueDelayedGetResponse
 }
 
 

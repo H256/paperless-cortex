@@ -597,6 +597,9 @@ All model names must be configurable via environment variables.
 - Queue UX: task-run history now includes a checkpoint column and a compact `resume` badge for runs that restart from a previous checkpoint marker.
 - Worker resume semantics phase 3: retry runs now actually resume long stages from checkpoint where safe (vision OCR page offset, embedding chunk offset without deleting prior points, page-notes page offset). Hierarchical section summaries resume only when persisted section rows prove consistency; otherwise stage restarts from section 0 to avoid partial-loss corruption.
 - Tests: added checkpoint resume-selection coverage in `backend/tests/test_worker_resume_checkpoint.py`.
+- Queue observability UX: added delayed-retry queue visibility (`GET /queue/delayed`) with due timestamps/remaining backoff, surfaced in Queue Manager as a dedicated "Delayed retries" panel.
+- Continue-processing UX: added a compact pipeline-coverage checklist in `ContinueProcessingModal` (paperless baseline, vision pipeline, large-doc extras, overall docs with gaps) to make missing scope clearer before enqueue.
+- Document detail UX: operations status now explicitly indicates whether large-document mode is active and clarifies that page notes + hierarchical summary are required when applicable.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

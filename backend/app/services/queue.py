@@ -609,6 +609,34 @@ def peek_dead_letters(settings: Settings, limit: int = 100) -> list[dict]:
     return items
 
 
+def peek_delayed_queue(settings: Settings, limit: int = 50) -> list[dict]:
+    client = _get_client(settings)
+    if not client:
+        return []
+    now = time.time()
+    raw = client.zrange(DELAYED_QUEUE_KEY, 0, max(0, limit - 1), withscores=True)
+    items: list[dict] = []
+    for entry, score in raw:
+        task_payload: dict | None = None
+        try:
+            parsed = __import__("json").loads(entry)
+            if isinstance(parsed, dict):
+                task_payload = parsed
+        except Exception:
+            task_payload = None
+        due_at = int(score)
+        due_in = max(0, int(round(score - now)))
+        items.append(
+            {
+                "task": task_payload,
+                "raw": None if task_payload is not None else str(entry),
+                "due_at": due_at,
+                "due_in_seconds": due_in,
+            }
+        )
+    return items
+
+
 def clear_dead_letters(settings: Settings) -> None:
     client = _get_client(settings)
     if not client:

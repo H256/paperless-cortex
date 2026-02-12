@@ -115,6 +115,18 @@ class QueueDlqActionResponse(BaseModel):
     ok: bool
 
 
+class QueueDelayedItem(BaseModel):
+    task: Optional[dict[str, Any]] = None
+    raw: Optional[str] = None
+    due_at: Optional[int] = None
+    due_in_seconds: Optional[int] = None
+
+
+class QueueDelayedResponse(BaseModel):
+    enabled: bool
+    items: list[QueueDelayedItem] = []
+
+
 class TaskRunItem(BaseModel):
     id: int
     doc_id: Optional[int] = None

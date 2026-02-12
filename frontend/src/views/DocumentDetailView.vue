@@ -137,6 +137,9 @@
           <div class="mt-1 text-xs text-slate-500 dark:text-slate-300">
             Preferred source: {{ toTitle(pipelinePreferredSource) }}
           </div>
+          <div class="mt-1 text-xs" :class="isLargeDocumentMode ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-300'">
+            {{ largeDocumentHint }}
+          </div>
           <div v-if="pipelineStatusLoading" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
             Loading pipeline status...
           </div>
@@ -539,6 +542,13 @@ const processingDoneCount = computed(
   () => processingStatusItems.value.filter((item) => item.state === 'done').length,
 )
 const pipelinePreferredSource = computed(() => pipelineStatus.value?.preferred_source || 'paperless_ocr')
+const isLargeDocumentMode = computed(() => Boolean(pipelineStatus.value?.is_large_document))
+const largeDocumentHint = computed(() => {
+  if (isLargeDocumentMode.value) {
+    return 'Large-document mode active: page notes and hierarchical summary are required for complete processing.'
+  }
+  return 'Standard mode: large-document extras are not required for this document.'
+})
 const processingStateLabel = (state: ProcessingState) => {
   if (state === 'done') return 'Done'
   if (state === 'missing') return 'Missing'

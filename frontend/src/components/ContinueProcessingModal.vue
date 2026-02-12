@@ -120,6 +120,30 @@
       </div>
 
       <div
+        v-if="!processPreviewLoading && processPreview"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Pipeline coverage
+        </div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+          <div
+            v-for="item in coverageItems"
+            :key="item.key"
+            class="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
+          >
+            <span>{{ item.label }}</span>
+            <span
+              class="font-semibold"
+              :class="item.missing > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'"
+            >
+              {{ item.missing > 0 ? `${item.missing} missing` : 'covered' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div
         class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div
@@ -338,5 +362,39 @@ const emit = defineEmits<{
 const batchIndexModel = computed({
   get: () => props.batchIndex,
   set: (value: number) => emit('update:batchIndex', value),
+})
+
+const coverageItems = computed(() => {
+  const preview = props.processPreview
+  if (!preview) return []
+  return [
+    {
+      key: 'paperless',
+      label: 'Paperless baseline',
+      missing:
+        Number(preview.missing_embeddings_paperless ?? 0) +
+        Number(preview.missing_suggestions_paperless ?? 0),
+    },
+    {
+      key: 'vision',
+      label: 'Vision pipeline',
+      missing:
+        Number(preview.missing_vision_ocr ?? 0) +
+        Number(preview.missing_embeddings_vision ?? 0) +
+        Number(preview.missing_suggestions_vision ?? 0),
+    },
+    {
+      key: 'large',
+      label: 'Large-document extras',
+      missing:
+        Number(preview.missing_page_notes ?? 0) +
+        Number(preview.missing_summary_hierarchical ?? 0),
+    },
+    {
+      key: 'overall',
+      label: 'Overall docs with gaps',
+      missing: Number(preview.missing_docs ?? 0),
+    },
+  ]
 })
 </script>

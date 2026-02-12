@@ -6,6 +6,7 @@ import {
   fetchQueueRunning,
   fetchQueueStatus,
   fetchQueueTaskRuns,
+  fetchQueueDelayed,
   fetchQueueDlq,
   moveQueueItem,
   moveQueueItemBottom,
@@ -27,6 +28,7 @@ export const useQueueManager = () => {
   const taskRunsStatus = ref('')
   const taskRunsErrorType = ref('')
   const dlqLimit = ref(50)
+  const delayedLimit = ref(50)
 
   const statusQuery = useQuery({
     queryKey: ['queue-status'],
@@ -72,6 +74,12 @@ export const useQueueManager = () => {
   const dlqQuery = useQuery({
     queryKey: computed(() => ['queue-dlq', dlqLimit.value]),
     queryFn: () => fetchQueueDlq(dlqLimit.value),
+    staleTime: 5_000,
+  })
+
+  const delayedQuery = useQuery({
+    queryKey: computed(() => ['queue-delayed', delayedLimit.value]),
+    queryFn: () => fetchQueueDelayed(delayedLimit.value),
     staleTime: 5_000,
   })
 
@@ -158,6 +166,7 @@ export const useQueueManager = () => {
       runningQuery.refetch(),
       peekQuery.refetch(),
       taskRunsQuery.refetch(),
+      delayedQuery.refetch(),
       dlqQuery.refetch(),
     ])
 
@@ -191,6 +200,9 @@ export const useQueueManager = () => {
     dlqItems: computed(() => dlqQuery.data.value?.items ?? []),
     dlqLoading: computed(() => dlqQuery.isPending.value || dlqQuery.isFetching.value),
     dlqLimit,
+    delayedItems: computed(() => delayedQuery.data.value?.items ?? []),
+    delayedLoading: computed(() => delayedQuery.isPending.value || delayedQuery.isFetching.value),
+    delayedLimit,
     loading,
     peekLoading,
     busy,
@@ -198,6 +210,7 @@ export const useQueueManager = () => {
     refresh,
     loadPeek: async () => peekQuery.refetch(),
     loadTaskRuns: async () => taskRunsQuery.refetch(),
+    loadDelayed: async () => delayedQuery.refetch(),
     loadDlq: async () => dlqQuery.refetch(),
     clearDlq: () => clearDlqMutation.mutateAsync(),
     requeueDlqItem: (index: number) => requeueDlqMutation.mutateAsync(index),

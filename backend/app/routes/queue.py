@@ -25,6 +25,7 @@ from app.services.queue import (
     reset_worker_lock,
     get_running_task,
     peek_dead_letters,
+    peek_delayed_queue,
     clear_dead_letters,
     requeue_dead_letter_item,
 )
@@ -46,6 +47,7 @@ from app.api_models import (
     TaskRunItem,
     QueueDlqResponse,
     QueueDlqActionResponse,
+    QueueDelayedResponse,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -195,6 +197,14 @@ def get_dlq(limit: int = 100, settings: Settings = Depends(get_settings)):
     if not settings.queue_enabled:
         return {"enabled": False, "items": []}
     items = peek_dead_letters(settings, limit=limit)
+    return {"enabled": True, "items": items}
+
+
+@router.get("/delayed", response_model=QueueDelayedResponse)
+def get_delayed_queue(limit: int = 100, settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "items": []}
+    items = peek_delayed_queue(settings, limit=limit)
     return {"enabled": True, "items": items}
 
 

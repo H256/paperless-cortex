@@ -12,6 +12,7 @@ import {
   moveTopQueueMoveTopPost,
   moveBottomQueueMoveBottomPost,
   getTaskRunsQueueTaskRunsGet,
+  getDelayedQueueQueueDelayedGet,
   getDlqQueueDlqGet,
   clearDlqQueueDlqClearPost,
   requeueDlqQueueDlqRequeuePost,
@@ -29,6 +30,8 @@ import type {
   TaskRunItem,
   TaskRunListResponse,
   GetTaskRunsQueueTaskRunsGetParams,
+  QueueDelayedItem,
+  QueueDelayedResponse,
   QueueDlqItem,
   QueueDlqResponse,
   QueueDlqActionResponse,
@@ -55,6 +58,8 @@ export type QueueRunningStatus = {
 }
 export type QueueTaskRun = TaskRunItem
 export type QueueTaskRunList = TaskRunListResponse
+export type QueueDelayedEntry = QueueDelayedItem
+export type QueueDelayedList = QueueDelayedResponse
 export type QueueDlqEntry = QueueDlqItem
 export type QueueDlqList = QueueDlqResponse
 
@@ -88,6 +93,9 @@ export const fetchQueueRunning = () =>
 
 export const fetchQueueTaskRuns = (params?: GetTaskRunsQueueTaskRunsGetParams) =>
   unwrap<QueueTaskRunList>(getTaskRunsQueueTaskRunsGet(params))
+
+export const fetchQueueDelayed = (limit = 100) =>
+  unwrap<QueueDelayedResponse>(getDelayedQueueQueueDelayedGet({ limit }))
 
 export const fetchQueueDlq = (limit = 100) =>
   unwrap<QueueDlqResponse>(getDlqQueueDlqGet({ limit }))

@@ -400,6 +400,61 @@
     </section>
 
     <section
+      class="mt-6 rounded-xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Delayed retries</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Retry tasks waiting for backoff timeout before re-entering the queue.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
+            Limit
+            <input
+              type="number"
+              min="1"
+              max="500"
+              v-model.number="delayedLimit"
+              class="mt-1 h-9 w-20 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="delayedLoading"
+            @click="loadDelayed"
+          >
+            <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': delayedLoading }" />
+            {{ delayedLoading ? 'Loading...' : 'Reload' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="delayedItems.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        {{ delayedLoading ? 'Loading delayed retries...' : 'No delayed retry tasks.' }}
+      </div>
+      <div v-else class="mt-4 overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead class="text-left text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="px-2 py-1">Task</th>
+              <th class="px-2 py-1">Due In</th>
+              <th class="px-2 py-1">Due At</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in delayedItems" :key="index" class="border-t border-slate-100 dark:border-slate-800">
+              <td class="px-2 py-1.5">{{ delayedTaskLabel(item) }} (doc {{ delayedDocId(item) }})</td>
+              <td class="px-2 py-1.5">{{ formatDueIn(item.due_in_seconds) }}</td>
+              <td class="px-2 py-1.5">{{ item.due_at ? formatStartedAt(item.due_at) : '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section
       class="mt-6 rounded-xl border border-rose-200 bg-rose-50/40 p-6 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20"
     >
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -505,6 +560,9 @@ const {
   taskRunsTask,
   taskRunsStatus,
   taskRunsErrorType,
+  delayedItems,
+  delayedLoading,
+  delayedLimit,
   dlqItems,
   dlqLoading,
   dlqLimit,
@@ -515,6 +573,7 @@ const {
   refresh,
   loadPeek,
   loadTaskRuns,
+  loadDelayed,
   loadDlq,
   clearDlq: clearDlqRequest,
   requeueDlqItem: requeueDlqItemRequest,
@@ -636,6 +695,15 @@ const formatIso = (value?: string | null) => {
   return parsed.toLocaleString()
 }
 
+const formatDueIn = (value?: number | null) => {
+  if (value == null) return '-'
+  const seconds = Math.max(0, Math.floor(value))
+  if (seconds < 60) return `${seconds}s`
+  const mins = Math.floor(seconds / 60)
+  const rem = seconds % 60
+  return `${mins}m ${rem}s`
+}
+
 const hasResumeMarker = (run: { checkpoint?: unknown }) => {
   const checkpoint = run.checkpoint as Record<string, unknown> | undefined
   if (!checkpoint || typeof checkpoint !== 'object') return false
@@ -651,6 +719,22 @@ const checkpointLabel = (run: { checkpoint?: unknown }) => {
   if (current != null && total != null) return `${stage} ${current}/${total}`
   if (current != null) return `${stage} ${current}`
   return stage
+}
+
+const delayedTaskLabel = (item: { task?: unknown }) => {
+  const task = item.task
+  if (!task || typeof task !== 'object') return 'unknown'
+  const value = (task as Record<string, unknown>).task
+  return typeof value === 'string' && value.trim() ? value : 'unknown'
+}
+
+const delayedDocId = (item: { task?: unknown }) => {
+  const task = item.task
+  if (!task || typeof task !== 'object') return '-'
+  const value = (task as Record<string, unknown>).doc_id
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'string' && value.trim()) return value
+  return '-'
 }
 
 refresh()
