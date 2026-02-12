@@ -606,6 +606,9 @@ All model names must be configurable via environment variables.
 - Hotfix: task-run service calls now degrade gracefully when `task_runs` table is missing (return empty list / skip bookkeeping) to prevent hard 500s before migrations are applied.
 - Continue-processing UX: `process-missing` now returns lightweight preview details (`missing_by_step` + `preview_docs` with missing task list), and the modal shows a concrete sample list of affected documents for faster triage before enqueue.
 - Queue UX: added bulk action "Retry failed (filtered)" in task-run history, deduping by doc/task/source and re-enqueuing supported per-document tasks through existing operations endpoint.
+- Sync hardening: replaced `Document.notes` clear+reinsert with idempotent merge-by-note-id in `_upsert_document`, preventing duplicate PK collisions (`document_notes_pkey`) during repeated sync/continue runs.
+- Worker resilience: added explicit DB rollback before task-run bookkeeping after task execution failures and ensured running-task marker is cleared on worker shutdown, preventing pending-rollback cascades and stale "running" UI state after exceptions/interrupts.
+- Tests: added `backend/tests/test_sync_upsert_notes.py` to verify note upsert idempotency with stable note IDs.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

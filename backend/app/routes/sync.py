@@ -48,6 +48,39 @@ from app.services.embedding_init import ensure_embedding_collection
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
+def _merge_document_notes(doc: Document, incoming_notes: list) -> None:
+    existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
+    incoming_ids: set[int] = set()
+
+    for note in incoming_notes:
+        note_id = int(note.id)
+        incoming_ids.add(note_id)
+        user = note.user or {}
+        existing = existing_by_id.get(note_id)
+        if existing:
+            existing.note = note.note
+            existing.created = note.created
+            existing.user_id = user.get("id")
+            existing.user_username = user.get("username")
+            existing.user_first_name = user.get("first_name")
+            existing.user_last_name = user.get("last_name")
+            continue
+        doc.notes.append(
+            DocumentNote(
+                id=note_id,
+                note=note.note,
+                created=note.created,
+                user_id=user.get("id"),
+                user_username=user.get("username"),
+                user_first_name=user.get("first_name"),
+                user_last_name=user.get("last_name"),
+            )
+        )
+
+    for stale in [note for note in list(doc.notes or []) if int(note.id) not in incoming_ids]:
+        doc.notes.remove(stale)
+
+
 @router.post("/documents", response_model=SyncDocumentsResponse)
 def sync_documents(
     page_size: int = 50,
@@ -258,20 +291,7 @@ def _upsert_document(
                 db.merge(doc_type)
             cache["document_types"].add(data.document_type)
 
-    doc.notes.clear()
-    for note in data.notes:
-        user = note.user or {}
-        doc.notes.append(
-            DocumentNote(
-                id=note.id,
-                note=note.note,
-                created=note.created,
-                user_id=user.get("id"),
-                user_username=user.get("username"),
-                user_first_name=user.get("first_name"),
-                user_last_name=user.get("last_name"),
-            )
-        )
+    _merge_document_notes(doc, data.notes)
 
     doc.tags.clear()
     for tag_id in data.tags or []:

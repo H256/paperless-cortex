@@ -1417,6 +1417,10 @@ def main() -> None:
                             run_id=run_id,
                         )
                     except Exception as exc:
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
                         run_status = "failed"
                         run_error_type = classify_worker_error(exc)
                         run_error_message = str(exc)
@@ -1464,6 +1468,10 @@ def main() -> None:
                                 "attempt": retry_attempt + 1,
                             }
                         if run_id is not None:
+                            try:
+                                db.rollback()
+                            except Exception:
+                                pass
                             finish_task_run(
                                 db,
                                 run_id=run_id,
@@ -1504,6 +1512,7 @@ def main() -> None:
                     )
     finally:
         stop_event.set()
+        clear_running_task(settings)
         release_worker_lock(settings, worker_token)
 
 
