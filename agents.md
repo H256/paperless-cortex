@@ -631,6 +631,7 @@ All model names must be configurable via environment variables.
 - API/client: regenerated OpenAPI/Orval client for new fan-out endpoint and queue task-run `q` filter; document/queue composables now consume generated contracts.
 - Tests: added coverage for queue task-run text-query filtering, document pipeline fan-out endpoint response, embedding split telemetry summary, and overflow-fallback telemetry tracking.
 - Document timeline UX: enhanced per-document processing timeline with inline filters (`status`, free-text `q`) and compact error-message previews; implemented via extended `useDocumentTaskRuns` composable filters to keep timeline inspection DRY and reusable.
+- Queue run-history UX: made rows actionable by adding direct jump-to-document buttons and one-click copy for raw error messages, reducing context switching during failure triage.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

@@ -394,7 +394,16 @@
               class="border-t border-slate-100 dark:border-slate-800"
             >
               <td class="px-2 py-2 font-semibold text-slate-700 dark:text-slate-200">#{{ run.id }}</td>
-              <td class="px-2 py-2">{{ run.doc_id ?? '-' }}</td>
+              <td class="px-2 py-2">
+                <button
+                  v-if="run.doc_id"
+                  class="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  @click="openDocument(run.doc_id)"
+                >
+                  {{ run.doc_id }}
+                </button>
+                <span v-else>-</span>
+              </td>
               <td class="px-2 py-2">{{ run.task }}</td>
               <td
                 class="px-2 py-2 font-semibold"
@@ -409,7 +418,16 @@
                 </span>
               </td>
               <td class="px-2 py-2">{{ run.error_type || '-' }}</td>
-              <td class="px-2 py-2" :title="run.error_message || '-'">{{ compactMessage(run.error_message) }}</td>
+              <td class="px-2 py-2" :title="run.error_message || '-'">
+                <div>{{ compactMessage(run.error_message) }}</div>
+                <button
+                  v-if="run.error_message"
+                  class="mt-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  @click="copyError(run.error_message)"
+                >
+                  copy
+                </button>
+              </td>
               <td class="px-2 py-2">{{ checkpointLabel(run) }}</td>
               <td class="px-2 py-2">{{ run.duration_ms != null ? `${run.duration_ms} ms` : '-' }}</td>
               <td class="px-2 py-2" :title="formatDateTime(run.started_at) || '-'">{{ formatRelativeTime(run.started_at) }}</td>
@@ -554,6 +572,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useQueueManager } from '../composables/useQueueManager'
 import type { QueueTaskRun } from '../services/queue'
@@ -574,8 +593,11 @@ import {
   formatCheckpointLabel as formatTaskCheckpointLabel,
   hasResumeMarker as taskRunHasResumeMarker,
 } from '../utils/taskRunCheckpoint'
+import { useToastStore } from '../stores/toastStore'
 
 const docIdFilter = ref('')
+const router = useRouter()
+const toastStore = useToastStore()
 type QueueListItem = { doc_id?: number | null; task?: string | null; raw?: string | null }
 const {
   status,
@@ -719,6 +741,19 @@ const requeueDlqItem = async (index: number) => {
 
 const retryFailedTaskRuns = async () => {
   await retryFailedRunsRequest(taskRuns.value)
+}
+
+const openDocument = (docId: number) => {
+  router.push(`/documents/${docId}`)
+}
+
+const copyError = async (message: string) => {
+  try {
+    await navigator.clipboard.writeText(message)
+    toastStore.push('Error message copied.', 'success', 'Queue', 1200)
+  } catch {
+    toastStore.push('Failed to copy error message.', 'danger', 'Queue', 1800)
+  }
 }
 
 const formatStartedAt = (unixTs: number) => new Date(unixTs * 1000).toLocaleString()
