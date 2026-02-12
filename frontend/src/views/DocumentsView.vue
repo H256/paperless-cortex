@@ -300,34 +300,7 @@
                 </a>
               </td>
               <td class="px-6 py-3">
-                <div
-                  class="flex flex-nowrap items-center gap-1 text-xs text-slate-400 whitespace-nowrap"
-                >
-                  <template v-if="missingIcons(doc).length">
-                    <div
-                      v-for="item in missingIcons(doc)"
-                      :key="item.label"
-                      class="inline-flex items-center gap-1"
-                      :title="`Missing ${item.label}`"
-                    >
-                      <component :is="item.icon" class="h-3 w-3 text-amber-500" />
-                      <span class="sr-only">Missing {{ item.label }}</span>
-                    </div>
-                    <div
-                      v-if="fulfilledCount(doc) > 0"
-                      class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
-                      :title="fulfilledTooltip(doc)"
-                    >
-                      +{{ fulfilledCount(doc) }}
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="inline-flex items-center gap-1" title="All processed">
-                      <CheckCircle class="h-3 w-3 text-emerald-500" />
-                      <span class="sr-only">All processed</span>
-                    </div>
-                  </template>
-                </div>
+                <DocumentProcessingBadges :doc="doc" />
               </td>
             </tr>
           </tbody>
@@ -385,19 +358,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref, type Component } from 'vue'
+import { computed, onMounted, watch, ref } from 'vue'
 import {
-  CheckCircle,
   ChevronDown,
   Database,
   ExternalLink,
-  Eye,
-  Layers,
-  Lightbulb,
   Loader2,
   Pencil,
   RefreshCw,
-  ScanText,
   XCircle,
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
@@ -409,6 +377,7 @@ import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
+import DocumentProcessingBadges from '../components/DocumentProcessingBadges.vue'
 import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
@@ -564,46 +533,6 @@ const correspondentLabel = (id?: number | null, name?: string | null) => {
 
 const hasDerived = (doc: DocumentRow) => {
   return Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages)
-}
-
-const missingIcons = (doc: DocumentRow) => {
-  const items: { label: string; icon: Component }[] = []
-  if (!doc.has_embeddings) items.push({ label: 'Embeddings', icon: Layers })
-  if (!doc.has_vision_pages) items.push({ label: 'Vision OCR', icon: ScanText })
-  if (!doc.has_suggestions_paperless)
-    items.push({ label: 'Suggestions (paperless)', icon: Lightbulb })
-  if (doc.has_vision_pages && !doc.has_suggestions_vision)
-    items.push({ label: 'Suggestions (vision)', icon: Eye })
-  if (!doc.local_cached) items.push({ label: 'Local cache', icon: RefreshCw })
-  const order = new Map<string, number>([
-    ['Embeddings', 1],
-    ['Vision OCR', 2],
-    ['Suggestions (paperless)', 3],
-    ['Suggestions (vision)', 4],
-    ['Local cache', 5],
-  ])
-  return items.sort((a, b) => (order.get(a.label) ?? 99) - (order.get(b.label) ?? 99))
-}
-
-const fulfilledTooltip = (doc: DocumentRow) => {
-  const done: string[] = []
-  if (doc.has_embeddings) done.push('Embeddings')
-  if (doc.has_vision_pages) done.push('Vision OCR')
-  if (doc.has_suggestions_paperless) done.push('Suggestions (paperless)')
-  if (doc.has_vision_pages && doc.has_suggestions_vision) done.push('Suggestions (vision)')
-  if (doc.local_cached) done.push('Local cache')
-  if (!done.length) return 'Nothing processed yet'
-  return `Done: ${done.join(', ')}`
-}
-
-const fulfilledCount = (doc: DocumentRow) => {
-  let count = 0
-  if (doc.has_embeddings) count += 1
-  if (doc.has_vision_pages) count += 1
-  if (doc.has_suggestions_paperless) count += 1
-  if (doc.has_vision_pages && doc.has_suggestions_vision) count += 1
-  if (doc.local_cached) count += 1
-  return count
 }
 
 const visibleDocuments = computed(() => {

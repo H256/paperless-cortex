@@ -566,6 +566,7 @@ All model names must be configurable via environment variables.
 - Frontend refactor: extracted processing ETA/progress/queue metric derivations from `DocumentsView` into `frontend/src/composables/useProcessingMetrics.ts`, reducing duplicated time/rate math in the view and keeping state orchestration focused.
 - Frontend refactor: extracted continue-processing option state and API payload mapping (batch slider + checkbox set) into `frontend/src/composables/useContinueProcessOptions.ts`, further slimming `DocumentsView` orchestration code.
 - Frontend architecture: split document detail data responsibilities into dedicated composables: `useDocumentDetailCoreData` (document/meta/page-text/quality/OCR) and `useDocumentSuggestions` (suggestions/variants/apply flows), with `useDocumentDetailData` retained as a thin composition wrapper for stable view integration.
+- UX/Frontend refactor: extracted document row processing-status icon rendering from `DocumentsView` into reusable component `frontend/src/components/DocumentProcessingBadges.vue`, removing view-local icon ordering/count/tooltip helpers and improving `DocumentsView` readability.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
