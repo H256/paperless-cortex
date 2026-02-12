@@ -562,6 +562,7 @@ All model names must be configurable via environment variables.
 - Frontend refactor: `DocumentDetailView` now consumes `useDocumentDetailData` directly (document/meta/page-text/quality/OCR/suggestions + variant/application flows), with explicit per-doc loader wrappers for readability and reduced cross-layer coupling.
 - Frontend architecture: added `usePaperlessBaseUrl` composable backed by Vue Query runtime status (`runtime-status`) and migrated `DocumentsView`, `DocumentDetailView`, and `SearchView` to it, removing direct `statusStore` dependency for Paperless URL link rendering.
 - App SSE integration: `App.vue` now updates the `runtime-status` query cache on status stream events so shared runtime URL consumers stay in sync without view-level store coupling.
+- UX/Frontend refactor: extracted the large continue-processing preview modal from `DocumentsView` into reusable component `frontend/src/components/ContinueProcessingModal.vue`, reducing `DocumentsView` template noise while preserving existing behavior/options and start/close flow.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
