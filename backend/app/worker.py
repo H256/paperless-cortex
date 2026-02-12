@@ -276,10 +276,30 @@ def _build_distilled_context_from_page_notes(
     parts: list[str] = []
     used = 0
     for row in rows:
-        payload = row.notes_json or ""
-        if not payload:
+        raw = (row.notes_text or "").strip()
+        if not raw:
             continue
-        block = f"Page {row.page}: {payload}"
+        text = raw
+        try:
+            payload_obj = json.loads(raw)
+            if isinstance(payload_obj, dict):
+                direct = str(payload_obj.get("text") or "").strip()
+                if direct:
+                    text = direct
+                else:
+                    parts_list: list[str] = []
+                    for key in ("facts", "entities", "references", "key_numbers", "uncertainties"):
+                        values = payload_obj.get(key)
+                        if isinstance(values, list):
+                            cleaned = [str(v).strip() for v in values if str(v).strip()]
+                            if cleaned:
+                                parts_list.append(f"{key}: " + "; ".join(cleaned[:12]))
+                    text = "\n".join(parts_list).strip() or raw
+        except Exception:
+            text = raw
+        if not text:
+            continue
+        block = f"Page {row.page}: {text}"
         sep = "\n\n" if parts else ""
         remaining = max_chars - used - len(sep)
         if remaining <= 0:
@@ -321,9 +341,20 @@ def _build_distilled_context_from_hier_summary(
     if payload_source and payload_source != source:
         return ""
 
-    blocks: list[str] = []
-    executive = str(payload.get("executive_summary") or "").strip()
     summary = str(payload.get("summary") or "").strip()
+    executive = str(payload.get("executive_summary") or "").strip()
+    key_facts = payload.get("key_facts") if isinstance(payload.get("key_facts"), list) else []
+    key_entities = payload.get("key_entities") if isinstance(payload.get("key_entities"), list) else []
+    key_numbers = payload.get("key_numbers") if isinstance(payload.get("key_numbers"), list) else []
+    key_dates = payload.get("key_dates") if isinstance(payload.get("key_dates"), list) else []
+    has_signal = bool(summary or executive or key_facts or key_entities or key_numbers or key_dates)
+    if not has_signal:
+        notes = payload.get("confidence_notes") if isinstance(payload.get("confidence_notes"), list) else []
+        note_text = " ".join(str(item).strip() for item in notes if str(item).strip()).lower()
+        if "global_summary_error" in note_text or "fallback_due_to_json_parse_error" in note_text:
+            return ""
+
+    blocks: list[str] = []
     if executive:
         blocks.append(f"Executive summary: {executive}")
     if summary:
@@ -941,7 +972,7 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
     page_to_note: dict[int, dict] = {}
     for row in note_rows:
         try:
-            payload = json.loads(row.notes_json or "{}")
+            payload = json.loads(row.notes_text or "{}")
             if isinstance(payload, dict):
                 page_to_note[int(row.page)] = payload
         except Exception:
@@ -972,7 +1003,7 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
         )
         for row in persisted_rows:
             try:
-                payload = json.loads(row.summary_json or "{}")
+                payload = json.loads(row.summary_text or "{}")
             except Exception:
                 continue
             if isinstance(payload, dict):

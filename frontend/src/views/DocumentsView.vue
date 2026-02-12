@@ -86,9 +86,13 @@
     :process-start-loading="processStartLoading"
     :syncing="syncing"
     :is-syncing-now="isSyncingNow"
+    :queue-enabled="Boolean(queueStatus.enabled)"
+    :queue-length="typeof queueStatus.length === 'number' ? queueStatus.length : null"
+    :processing-active="isProcessing"
     @update:batch-index="batchIndex = $event"
     @close="closePreview"
     @start="startFromPreview"
+    @open-doc="openDocFromPreview"
   />
 </template>
 
@@ -209,6 +213,11 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
 )
 
 const open = (id: number) => {
+  router.push(`/documents/${id}`)
+}
+
+const openDocFromPreview = (id: number) => {
+  closePreview()
   router.push(`/documents/${id}`)
 }
 

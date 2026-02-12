@@ -17,6 +17,10 @@ def _llm_debug_enabled() -> bool:
     return os.getenv("LLM_DEBUG", "0") == "1"
 
 
+def _llm_debug_full_response_enabled() -> bool:
+    return os.getenv("LLM_DEBUG_FULL_RESPONSE", "0") == "1"
+
+
 def _snippet(value: object, max_len: int = 500) -> str:
     text = str(value or "").replace("\r", " ").replace("\n", "\\n")
     if len(text) <= max_len:
@@ -111,6 +115,7 @@ def chat_completion(
 ) -> str:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
     debug_enabled = _llm_debug_enabled()
+    debug_full_response = _llm_debug_full_response_enabled()
     if debug_enabled:
         logger.info(
             "LLM chat request model=%s purpose=%s timeout=%s max_tokens=%s msg_count=%s",
@@ -155,7 +160,10 @@ def chat_completion(
         raise RuntimeError("LLM response missing content")
     result = str(content).strip()
     if debug_enabled:
-        logger.info("LLM chat response model=%s snippet=%s", model, _snippet(result))
+        if debug_full_response:
+            logger.info("LLM chat response model=%s full=%s", model, result)
+        else:
+            logger.info("LLM chat response model=%s snippet=%s", model, _snippet(result))
     return result
 
 

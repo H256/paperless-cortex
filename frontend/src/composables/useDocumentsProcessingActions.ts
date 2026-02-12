@@ -57,7 +57,6 @@ export const useDocumentsProcessingActions = (
           'Queue started',
         )
       }
-      continueApi.clearPreviewState()
       await refreshAfterProcessingMutation()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start processing'
