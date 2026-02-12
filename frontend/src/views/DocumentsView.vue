@@ -71,47 +71,19 @@
     />
   </section>
 
-  <ContinueProcessingModal
-    :open="showPreviewModal"
-    :sync-status="syncStatus"
-    :progress-percent="progressPercent"
-    :eta-text="etaText"
-    :process-preview-loading="processPreviewLoading"
-    :process-preview="processPreview"
-    :process-options="processOptions"
-    :batch-index="batchIndex"
-    :batch-options="batchOptions"
-    :batch-label="batchLabel"
-    :process-start-result="processStartResult"
-    :process-start-loading="processStartLoading"
-    :syncing="syncing"
-    :is-syncing-now="isSyncingNow"
-    :queue-enabled="Boolean(queueStatus.enabled)"
-    :queue-length="typeof queueStatus.length === 'number' ? queueStatus.length : null"
-    :processing-active="isProcessing"
-    @update:batch-index="batchIndex = $event"
-    @close="closePreview"
-    @start="startFromPreview"
-    @open-doc="openDocFromPreview"
-  />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
-import { useContinueProcessing } from '../composables/useContinueProcessing'
-import { useContinueProcessOptions } from '../composables/useContinueProcessOptions'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
-import { useDocumentsProcessingActions } from '../composables/useDocumentsProcessingActions'
 import { useDocumentsTableControls } from '../composables/useDocumentsTableControls'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
-import { usePreviewAutoRefresh } from '../composables/usePreviewAutoRefresh'
 import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
-import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
@@ -142,25 +114,11 @@ const {
   lastSynced,
   refresh: refreshProcessingOverview,
   clearQueueNow,
+  cancelSyncAndEmbeddings,
 } = useProcessingOverview()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
-const {
-  processPreview,
-  processPreviewLoading,
-  processStartResult,
-  processStartLoading,
-  showPreviewModal,
-  continueProcessingRunning,
-  openPreview: openPreviewRequest,
-  refreshProcessPreview,
-  startFromPreview: startFromPreviewRequest,
-  cancelProcessing: cancelProcessingRequest,
-  closePreview: clearPreviewState,
-} = useContinueProcessing()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
-const { processOptions, batchOptions, batchIndex, batchLabel, processParams } =
-  useContinueProcessOptions()
 const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
 const { runningByDocId } = useRunningTaskProgress()
 
@@ -179,7 +137,6 @@ const {
   processingPercent,
   processingEtaText,
 } = useProcessingMetrics(syncStatus, embedStatus, queueStatus)
-const syncing = computed(() => isProcessing.value)
 
 const load = async () => {
   try {
@@ -189,22 +146,21 @@ const load = async () => {
     toastStore.push(message, 'danger', 'Error')
   }
 }
-const { openPreview, closePreview, startFromPreview, cancelProcessing, processingKickoffPending } = useDocumentsProcessingActions(
-  toastStore,
-  {
-    processStartResult,
-    openPreviewRequest,
-    startFromPreviewRequest,
-    cancelProcessingRequest,
-    clearPreviewState,
-  },
-  {
-    refreshProcessingOverview,
-    clearQueueNow,
-  },
-  load,
-  processParams,
-)
+const processingKickoffPending = ref(false)
+const continueProcessingRunning = computed(() => false)
+const openPreview = async () => {
+  await router.push('/processing/continue')
+}
+const cancelProcessing = async () => {
+  try {
+    await cancelSyncAndEmbeddings()
+    await clearQueueNow()
+    await Promise.all([refreshProcessingOverview(), load()])
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to cancel processing'
+    toastStore.push(message, 'danger', 'Processing')
+  }
+}
 const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
   ordering,
   page,
@@ -216,20 +172,8 @@ const open = (id: number) => {
   router.push(`/documents/${id}`)
 }
 
-const openDocFromPreview = (id: number) => {
-  closePreview()
-  router.push(`/documents/${id}`)
-}
-
 onMounted(async () => {
   await load()
 })
-usePreviewAutoRefresh(
-  processOptions,
-  batchIndex,
-  showPreviewModal,
-  processParams,
-  refreshProcessPreview,
-)
 
 </script>

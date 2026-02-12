@@ -174,16 +174,16 @@ const effectiveTheme = computed(() =>
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const { startStatusStream, stopStatusStream } = useStatusStream(apiBaseUrl, statusStore, queryClient)
 const primaryNavItems: NavItem[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
   { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/chat', label: 'Chat', icon: MessageCircle },
-  { to: '/queue', label: 'Queue', icon: List },
+  { to: '/search', label: 'Search', icon: Search },
+  { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
 ]
 
 const secondaryNavItems: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: ChartPie },
+  { to: '/chat', label: 'Chat', icon: MessageCircle },
+  { to: '/queue', label: 'Queue', icon: List },
   { to: '/logs', label: 'Logs', icon: FileSearch },
-  { to: '/search', label: 'Search', icon: Search },
-  { to: '/writeback', label: 'Writeback', icon: ClipboardCheck },
   { to: '/operations', label: 'Operations', icon: Wrench },
 ]
 

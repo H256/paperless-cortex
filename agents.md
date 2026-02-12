@@ -650,6 +650,10 @@ All model names must be configurable via environment variables.
 - Continue modal actionability pass: preview doc rows are now directly clickable (open document detail), and detailed counters gained an "only non-zero" filter to reduce low-value noise during troubleshooting.
 - Continue modal decision assist: added computed strategy recommendation based on current missing-work profile (vision/paperless/large-doc gaps) with one-click "Use recommended" action to reduce manual strategy guesswork.
 - Continue modal readiness pass: added explicit enqueue readiness/status line ("Ready to enqueue" vs reason), expected enqueue docs/tasks summary based on selected batch limit, and disabled start action when no missing work would be enqueued.
+- Continue modal scope clarity: added an explicit execution-scope matrix (included/excluded) for sync, paperless baseline tasks, vision tasks, large-doc extras, and dual-embedding coverage based on selected strategy/options.
+- Continue modal monitoring shortcut: post-enqueue success panel now provides direct actions to open Queue and Logs views, reducing navigation friction when moving from planning to live monitoring.
+- Continue modal layout fix: increased modal max width and added internal vertical scrolling (`max-h` + `overflow-y-auto`) so full content remains usable on smaller screens.
+- Continue processing UI extraction: split monolithic modal into reusable `ContinueProcessingPanel` (all controls/content) plus thin `ContinueProcessingModal` wrapper (overlay/open state). This enables straightforward reuse on a dedicated route/page without duplicating logic.
 - Section summary sanitization hardening: normalized section-summary payloads (primary/compact/fallback) now strip control/meta/prompt-echo content (including `<|channel|>...`, "we need to extract...", "given OCR text..."), so contaminated reasoning text no longer propagates into persisted section summaries and downstream suggestions.
 - Debug observability tweak: added optional full-response LLM logging via `LLM_DEBUG_FULL_RESPONSE=1` (used with `LLM_DEBUG=1`) so model outputs are logged untruncated for JSON/debug investigations.
 - Hierarchical pipeline refactor (text-first): page notes, section summaries, and global summary generation now rely on plain-text model outputs (no JSON parsing dependency in these stages). Structured JSON extraction remains primarily in suggestion generation; hierarchy stages store/propagate sanitized text-first payloads for robustness across model changes.
@@ -659,3 +663,28 @@ All model names must be configurable via environment variables.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
+- Validate full end-to-end continue-processing runs on large documents (pickup visibility in `/queue` and troubleshooting in `/logs`) after latest UX flow move to `/processing/continue`.
+
+## Session Handoff (2026-02-12)
+- Branch in progress: `refactor/pipeline-status-and-continue`
+- Frontend status:
+  - Continue-processing flow is now page-based at `/processing/continue` (no modal).
+  - Continue-processing panel is full-width and uses page scroll (no internal overflow scroll).
+  - Top nav uses persistent `More` behavior on all screen sizes.
+  - Main nav order: Dashboard, Documents, Search, Writeback.
+  - `More` order: Chat, Queue, Logs, Operations.
+  - `More` closes on blur/focus-out.
+- Hierarchical pipeline status:
+  - Text-first persistence is active (`notes_text`, `summary_text`), no JSON-first dependency in page/section/global summary stages.
+  - Prompting now enforces source-language preservation (no forced English).
+  - Sanitization guards strip leaked control/meta reasoning tokens from persisted hierarchy outputs.
+- Worker/robustness status:
+  - Embedding overflow guard + fallback split logic implemented (`EMBEDDING_MAX_INPUT_TOKENS`).
+  - Task-run observability + retry/checkpoint infrastructure active; queue/log inspector flows are in place.
+- Docs/config audit:
+  - `.env.example` and `.env.worker.example` include comments for recent runtime controls (`LOG_LEVEL`, `LOG_JSON`, `WORKER_MAX_RETRIES`, `EMBEDDING_MAX_INPUT_TOKENS`, `LLM_DEBUG_FULL_RESPONSE`).
+  - README updated with latest UX flow notes (continue-processing page, logs page, nav simplification).
+- Recommended first checks tomorrow:
+  1. Run a full end-to-end continue-processing trial on a large doc and verify downstream pickup visibility in `/queue` and `/logs`.
+  2. Re-run hierarchical pipeline on test docs and spot-check language consistency in `document_page_notes.notes_text` and `document_section_summaries.summary_text`.
+  3. Decide whether to keep or remove older duplicated historical bullets in this log (non-functional cleanup).

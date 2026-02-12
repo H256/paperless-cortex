@@ -123,6 +123,8 @@ Notes:
   - Document detail: text quality, page texts, suggestions side-by-side with field variants and apply.
   - Semantic search page with source filter, quality slider, dedupe/rerank.
   - Queue management page.
+  - Dedicated **Continue Processing** page (`/processing/continue`) with missing-work preview, strategy selection, readiness checks, and direct links to Queue/Logs/Document after enqueue.
+  - Log Inspector page (`/logs`) with task-run filters and troubleshooting helpers.
   - Footer status lights for Web / Worker / LLM text / embeddings / vision.
   - Generate API client (Orval): `ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate`
 
@@ -152,3 +154,10 @@ Notes:
 - Vision OCR is optional and controlled by env (`ENABLE_VISION_OCR`, `VISION_MODEL`).  
 - Re-process uses full vision OCR to improve handwritten/low-quality pages.
 - TLS verification can be disabled for internal certs via `HTTPX_VERIFY_TLS=0`.
+
+## Latest Session Highlights (2026-02-12)
+- Continue-processing UI moved from modal to dedicated page for better usability on long/complex runs.
+- Navigation simplified: main links are `Dashboard`, `Documents`, `Search`, `Writeback`; additional pages are under `More`.
+- `More` submenu now closes on blur/focus-out.
+- Hierarchical pipeline hardened to text-first storage (`notes_text`, `summary_text`) and language-preserving prompts (no forced English output).
+- LLM debugging can include full raw responses when needed (`LLM_DEBUG=1` + `LLM_DEBUG_FULL_RESPONSE=1`).

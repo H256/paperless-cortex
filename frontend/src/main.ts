@@ -8,6 +8,7 @@ import DocumentDetailView from './views/DocumentDetailView.vue'
 import DashboardView from './views/DashboardView.vue'
 import QueueView from './views/QueueView.vue'
 import LogInspectorView from './views/LogInspectorView.vue'
+import ContinueProcessingView from './views/ContinueProcessingView.vue'
 import SearchView from './views/SearchView.vue'
 import ChatView from './views/ChatView.vue'
 import MaintenanceView from './views/MaintenanceView.vue'
@@ -24,6 +25,7 @@ const router = createRouter({
     { path: '/search', component: SearchView },
     { path: '/queue', component: QueueView },
     { path: '/logs', component: LogInspectorView },
+    { path: '/processing/continue', component: ContinueProcessingView },
     { path: '/chat', component: ChatView },
     { path: '/operations', component: MaintenanceView },
     { path: '/writeback', component: WritebackDryRunView },
