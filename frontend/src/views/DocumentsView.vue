@@ -114,7 +114,11 @@
             class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">All</option>
-            <option v-for="c in correspondents" :key="c.id" :value="String(c.id)">
+            <option
+              v-for="c in correspondents"
+              :key="c.id ?? `corr-${c.name}`"
+              :value="c.id != null ? String(c.id) : ''"
+            >
               {{ c.name }}
             </option>
           </select>
@@ -126,7 +130,7 @@
             class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">All</option>
-            <option v-for="t in tags" :key="t.id" :value="String(t.id)">
+            <option v-for="t in tags" :key="t.id ?? `tag-${t.name}`" :value="t.id != null ? String(t.id) : ''">
               {{ t.name }}
             </option>
           </select>
@@ -252,9 +256,9 @@
           <tbody>
             <tr
               v-for="doc in visibleDocuments"
-              :key="doc.id"
+              :key="doc.id ?? `${doc.title}-${doc.created ?? ''}`"
               class="border-b border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-              @click="open(doc.id)"
+              @click="openDoc(doc)"
             >
               <td class="px-6 py-3 text-slate-900 dark:text-slate-100">{{ doc.title }}</td>
               <td class="px-6 py-3 text-slate-600">
@@ -287,7 +291,7 @@
                 <a
                   v-if="paperlessBaseUrl"
                   class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-                  :href="paperlessDocUrl(doc.id)"
+                  :href="paperlessDocUrl(doc.id ?? 0)"
                   target="_blank"
                   rel="noopener"
                   @click.stop
@@ -920,6 +924,11 @@ const cancelProcessing = async () => {
 
 const open = (id: number) => {
   router.push(`/documents/${id}`)
+}
+
+const openDoc = (doc: DocumentRow) => {
+  if (typeof doc.id !== 'number') return
+  open(doc.id)
 }
 
 const correspondentLabel = (id?: number | null, name?: string | null) => {
