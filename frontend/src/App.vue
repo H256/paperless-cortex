@@ -143,18 +143,18 @@
 <script setup lang="ts">
 import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
 import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
 import ToastHost from './components/ToastHost.vue'
 import { useQueueStore } from './stores/queueStore'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
-import { useDocumentsStore } from './stores/documentsStore'
 
 const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
-const documentsStore = useDocumentsStore()
+const queryClient = useQueryClient()
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
@@ -230,10 +230,13 @@ const startStatusStream = () => {
     try {
       const payload = JSON.parse(event.data)
       if (payload?.status) statusStore.applyStatus(payload.status)
-      if (payload?.queue) queueStore.setStatus(payload.queue)
-      if (payload?.sync) documentsStore.setSyncStatus(payload.sync)
-      if (payload?.embeddings) documentsStore.setEmbedStatus(payload.embeddings)
-      if (payload?.stats) documentsStore.setStats(payload.stats)
+      if (payload?.queue) {
+        queueStore.setStatus(payload.queue)
+        queryClient.setQueryData(['queue-status'], payload.queue)
+      }
+      if (payload?.sync) queryClient.setQueryData(['sync-status'], payload.sync)
+      if (payload?.embeddings) queryClient.setQueryData(['embed-status'], payload.embeddings)
+      if (payload?.stats) queryClient.setQueryData(['documents-stats'], payload.stats)
     } catch {
       // ignore malformed payloads
     }

@@ -554,6 +554,7 @@ All model names must be configurable via environment variables.
 - Frontend architecture: added `useDocumentOperations` composable for document-level operations-tab mutations (enqueue task, cleanup texts, reset+reprocess) with shared queue/pipeline query invalidation.
 - Frontend refactor: removed direct document-operations service calls from `DocumentDetailView` and wired operations through `useDocumentOperations`, leaving the view focused on orchestration/UI messages while preserving existing queue/pipeline refresh behavior.
 - Frontend architecture: added `useProcessingOverview` (Vue Query) for sync/embed/stats/queue status plus cancel+clear orchestration; `DocumentsView` now consumes this composable and no longer depends on `documentsStore`/`queueStore` status refs.
+- Frontend architecture: removed now-obsolete `documentsStore` and switched `App.vue` SSE fan-out to update Vue Query caches directly (`sync-status`, `embed-status`, `documents-stats`, `queue-status`) while keeping footer queue store updates for global status display.
 
 ## TODO / Known Issues
 - Worker robustness: handle embedding context overflow for large chunks (example doc `1491`, request `5197` tokens > model context `4096` in `embeddings_vision`). Add a guard/fallback split path before `embed_texts` so overlong chunks are re-split/truncated deterministically instead of failing the task.
