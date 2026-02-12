@@ -94,9 +94,16 @@
             {{ showDetailedCounters ? 'Hide details' : 'Show details' }}
           </button>
         </div>
+        <label
+          v-if="showDetailedCounters"
+          class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400"
+        >
+          <input v-model="showOnlyNonZeroCounters" type="checkbox" class="h-3.5 w-3.5" />
+          Show only non-zero
+        </label>
         <div v-if="showDetailedCounters" class="mt-2 grid gap-2 sm:grid-cols-2">
           <div
-            v-for="item in detailedCounters"
+            v-for="item in visibleDetailedCounters"
             :key="item.key"
             class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
           >
@@ -131,8 +138,20 @@
               : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'"
           >
             <div class="min-w-0">
-              <div class="truncate font-semibold text-slate-800 dark:text-slate-100">
-                #{{ item.doc_id }} {{ item.title || 'Untitled' }}
+              <div class="flex items-center gap-2">
+                <button
+                  class="truncate text-left font-semibold text-slate-800 underline-offset-2 hover:underline dark:text-slate-100"
+                  :title="`Open document ${item.doc_id}`"
+                  @click="$emit('open-doc', item.doc_id)"
+                >
+                  #{{ item.doc_id }} {{ item.title || 'Untitled' }}
+                </button>
+                <span
+                  v-if="isHighPriorityPreviewDoc(item)"
+                  class="shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                >
+                  priority
+                </span>
               </div>
               <div class="truncate text-[11px] text-slate-500 dark:text-slate-400">
                 {{ (item.missing_tasks || []).join(', ') || '-' }}
@@ -354,6 +373,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   start: []
+  'open-doc': [docId: number]
   'update:batchIndex': [value: number]
 }>()
 
@@ -486,6 +506,7 @@ const highPriorityPreviewCount = computed(
 const AUTO_OPEN_COUNTER_THRESHOLD = 10
 const showDetailedCounters = ref(false)
 const detailsManuallyToggled = ref(false)
+const showOnlyNonZeroCounters = ref(true)
 
 const detailedCounters = computed(() => {
   const preview = props.processPreview
@@ -500,6 +521,11 @@ const detailedCounters = computed(() => {
     { key: 'missing_suggestions_paperless', label: 'Missing suggestions (baseline)', value: Number(preview.missing_suggestions_paperless ?? 0) },
     { key: 'missing_suggestions_vision', label: 'Missing suggestions (vision)', value: Number(preview.missing_suggestions_vision ?? 0) },
   ]
+})
+
+const visibleDetailedCounters = computed(() => {
+  if (!showOnlyNonZeroCounters.value) return detailedCounters.value
+  return detailedCounters.value.filter((item) => Number(item.value) > 0)
 })
 
 const shouldAutoOpenDetailedCounters = computed(() => {

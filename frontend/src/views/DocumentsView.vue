@@ -92,6 +92,7 @@
     @update:batch-index="batchIndex = $event"
     @close="closePreview"
     @start="startFromPreview"
+    @open-doc="openDocFromPreview"
   />
 </template>
 
@@ -212,6 +213,11 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
 )
 
 const open = (id: number) => {
+  router.push(`/documents/${id}`)
+}
+
+const openDocFromPreview = (id: number) => {
+  closePreview()
   router.push(`/documents/${id}`)
 }
 
