@@ -663,3 +663,4 @@ All model names must be configurable via environment variables.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
+- Continue-processing UX flow migration: replaced modal-centric interaction with dedicated route/page (/processing/continue) using reusable ContinueProcessingPanel; Documents view now deep-links to the page, and post-enqueue monitoring actions (open document/queue/logs) remain available from the success state.
