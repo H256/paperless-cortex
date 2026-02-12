@@ -16,6 +16,7 @@ from app.services import paperless
 from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
     chunk_document_with_pages,
+    enforce_embedding_chunk_budget,
     delete_points_for_doc,
     embed_texts,
     make_point_id,
@@ -280,7 +281,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         if normalized_vision_pages
         else []
     )
-    chunks = baseline_chunks + vision_chunks
+    chunks = enforce_embedding_chunk_budget(settings, baseline_chunks + vision_chunks)
     max_chunks = max(0, int(settings.embedding_max_chunks_per_doc))
     if max_chunks > 0 and len(chunks) > max_chunks:
         logger.warning(
