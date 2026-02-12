@@ -276,7 +276,7 @@ def _build_distilled_context_from_page_notes(
     parts: list[str] = []
     used = 0
     for row in rows:
-        raw = (row.notes_json or "").strip()
+        raw = (row.notes_text or "").strip()
         if not raw:
             continue
         text = raw
@@ -972,7 +972,7 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
     page_to_note: dict[int, dict] = {}
     for row in note_rows:
         try:
-            payload = json.loads(row.notes_json or "{}")
+            payload = json.loads(row.notes_text or "{}")
             if isinstance(payload, dict):
                 page_to_note[int(row.page)] = payload
         except Exception:
@@ -1003,7 +1003,7 @@ def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: st
         )
         for row in persisted_rows:
             try:
-                payload = json.loads(row.summary_json or "{}")
+                payload = json.loads(row.summary_text or "{}")
             except Exception:
                 continue
             if isinstance(payload, dict):

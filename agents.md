@@ -653,6 +653,7 @@ All model names must be configurable via environment variables.
 - Section summary sanitization hardening: normalized section-summary payloads (primary/compact/fallback) now strip control/meta/prompt-echo content (including `<|channel|>...`, "we need to extract...", "given OCR text..."), so contaminated reasoning text no longer propagates into persisted section summaries and downstream suggestions.
 - Debug observability tweak: added optional full-response LLM logging via `LLM_DEBUG_FULL_RESPONSE=1` (used with `LLM_DEBUG=1`) so model outputs are logged untruncated for JSON/debug investigations.
 - Hierarchical pipeline refactor (text-first): page notes, section summaries, and global summary generation now rely on plain-text model outputs (no JSON parsing dependency in these stages). Structured JSON extraction remains primarily in suggestion generation; hierarchy stages store/propagate sanitized text-first payloads for robustness across model changes.
+- DB naming alignment: renamed hierarchy storage columns via Alembic migration (`document_page_notes.notes_json` -> `notes_text`, `document_section_summaries.summary_json` -> `summary_text`) and updated backend model/runtime references accordingly.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
