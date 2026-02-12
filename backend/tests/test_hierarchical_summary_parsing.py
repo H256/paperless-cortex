@@ -8,6 +8,7 @@ from app.services.hierarchical_summary import (
     _looks_like_prompt_echo_or_meta,
     _parse_page_notes_text,
     _sanitize_model_output_text,
+    generate_global_summary,
     generate_section_summary,
     generate_page_notes,
 )
@@ -198,5 +199,44 @@ def test_generate_section_summary_falls_back_when_json_never_parses(monkeypatch)
     )
     assert payload["section"] == "10-12"
     assert payload["summary"]
+    assert payload["confidence_notes"]
+    assert calls["count"] >= 2
+
+
+def test_generate_global_summary_falls_back_when_json_never_parses(monkeypatch):
+    class StubSettings:
+        text_model = "stub"
+        global_summary_max_input_tokens = 6000
+        global_summary_timeout_seconds = 30
+        summary_max_output_tokens = 700
+
+    monkeypatch.setattr(
+        "app.services.hierarchical_summary.ensure_text_llm_ready",
+        lambda _settings: None,
+    )
+
+    calls = {"count": 0}
+
+    def _fake_chat(*_args, **_kwargs):
+        calls["count"] += 1
+        return "non-json response"
+
+    monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
+    payload = generate_global_summary(
+        StubSettings(),
+        section_summaries=[
+            {
+                "section": "1-3",
+                "summary": "Invoice dated 2026-02-10 amount 49,00 EUR",
+                "key_facts": ["Invoice present"],
+                "key_entities": ["PSD Bank"],
+                "key_numbers": ["49,00 EUR"],
+                "key_dates": ["2026-02-10"],
+            }
+        ],
+    )
+    assert payload["summary"]
+    assert payload["executive_summary"]
+    assert payload["key_facts"]
     assert payload["confidence_notes"]
     assert calls["count"] >= 2

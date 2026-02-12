@@ -321,9 +321,20 @@ def _build_distilled_context_from_hier_summary(
     if payload_source and payload_source != source:
         return ""
 
-    blocks: list[str] = []
-    executive = str(payload.get("executive_summary") or "").strip()
     summary = str(payload.get("summary") or "").strip()
+    executive = str(payload.get("executive_summary") or "").strip()
+    key_facts = payload.get("key_facts") if isinstance(payload.get("key_facts"), list) else []
+    key_entities = payload.get("key_entities") if isinstance(payload.get("key_entities"), list) else []
+    key_numbers = payload.get("key_numbers") if isinstance(payload.get("key_numbers"), list) else []
+    key_dates = payload.get("key_dates") if isinstance(payload.get("key_dates"), list) else []
+    has_signal = bool(summary or executive or key_facts or key_entities or key_numbers or key_dates)
+    if not has_signal:
+        notes = payload.get("confidence_notes") if isinstance(payload.get("confidence_notes"), list) else []
+        note_text = " ".join(str(item).strip() for item in notes if str(item).strip()).lower()
+        if "global_summary_error" in note_text or "fallback_due_to_json_parse_error" in note_text:
+            return ""
+
+    blocks: list[str] = []
     if executive:
         blocks.append(f"Executive summary: {executive}")
     if summary:

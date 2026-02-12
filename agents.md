@@ -642,6 +642,7 @@ All model names must be configurable via environment variables.
 - Document operations UX follow-up: improved per-document "Continue missing processing" feedback by adding explicit enqueue/pickup status banner ("checking", "waiting for worker pickup", "picked up") plus temporary auto-refresh while waiting; also updated document-list running badges to include `retrying` task-runs so active retry progress is visible.
 - Document timeline UX follow-up: added one-click "Copy error" action per task-run row in document Operations timeline, mirroring queue troubleshooting flows and reducing context switching during failure triage.
 - Continue-processing modal UX pass: added explicit "What Happens Next" execution plan, live runtime-state block (queue enabled/length + worker activity), stronger post-enqueue success message, and clearer primary action wording ("Start processing (enqueue)") so enqueue vs worker execution is unambiguous.
+- Hierarchical summary quality fix: global summary generation now mirrors section-summary hardening (primary JSON parse -> compact retry -> deterministic fallback synthesis from section summaries), and suggestion context builder now ignores error-only/empty `hier_summary` payloads so large-doc suggestions fall back to useful page-note context instead of "global_summary_error" text.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

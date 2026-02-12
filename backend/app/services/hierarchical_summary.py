@@ -392,6 +392,21 @@ def _global_summary_prompt(section_summaries_json: str) -> str:
     )
 
 
+def _global_summary_prompt_compact(section_summaries_json: str) -> str:
+    return (
+        "Aggregate section summaries into a concise document-level summary.\n"
+        "Return only valid JSON and keep output compact.\n"
+        "Rules:\n"
+        '- summary max 160 words\n'
+        '- executive_summary max 80 words\n'
+        '- each list max 8 entries\n'
+        "- do not include markdown or prose outside JSON\n"
+        "Schema:\n"
+        '{ "summary": string, "executive_summary": string, "key_facts": [string], "key_dates": [string], "key_entities": [string], "key_numbers": [string], "open_questions": [string], "confidence_notes": [string] }\n'
+        f"Section summaries JSON:\n{section_summaries_json}\n"
+    )
+
+
 def generate_page_notes(
     settings: Settings,
     *,
@@ -488,12 +503,30 @@ def generate_global_summary(
     ensure_text_llm_ready(settings)
     payload = _json_dumps(section_summaries)
     payload = _truncate_for_tokens(payload, max_input_tokens=settings.global_summary_max_input_tokens)
-    return _chat_json_response(
-        settings,
-        prompt=_global_summary_prompt(payload),
-        timeout=settings.global_summary_timeout_seconds,
-        max_tokens=settings.summary_max_output_tokens,
-    )
+    try:
+        return _chat_json_response(
+            settings,
+            prompt=_global_summary_prompt(payload),
+            timeout=settings.global_summary_timeout_seconds,
+            max_tokens=settings.summary_max_output_tokens,
+        )
+    except Exception as exc:
+        logger.warning("Global summary primary parse failed error=%s", exc)
+        try:
+            compact_raw = _chat_response(
+                settings,
+                prompt=_global_summary_prompt_compact(payload),
+                timeout=settings.global_summary_timeout_seconds,
+                max_tokens=max(300, int(settings.summary_max_output_tokens * 0.75)),
+                json_mode=False,
+            )
+            return _extract_json_dict(compact_raw)
+        except Exception as retry_exc:
+            logger.warning("Global summary compact retry failed error=%s", retry_exc)
+            return _best_effort_global_summary(
+                section_summaries=section_summaries,
+                reason=f"fallback_due_to_json_parse_error:{retry_exc}",
+            )
 
 
 def upsert_page_note(
@@ -673,4 +706,70 @@ def _best_effort_section_summary(
         "key_numbers": numbers_u,
         "open_questions": [],
         "confidence_notes": [reason],
+    }
+
+
+def _best_effort_global_summary(
+    *,
+    section_summaries: list[dict[str, Any]],
+    reason: str,
+) -> dict[str, Any]:
+    summaries: list[str] = []
+    facts: list[str] = []
+    entities: list[str] = []
+    numbers: list[str] = []
+    dates: list[str] = []
+    open_questions: list[str] = []
+    confidence_notes: list[str] = []
+
+    for section in section_summaries:
+        if not isinstance(section, dict):
+            continue
+        summary = str(section.get("summary") or "").strip()
+        if summary:
+            summaries.append(summary)
+            dates.extend(_DATE_TOKEN_RE.findall(summary))
+            numbers.extend(_NUMBER_TOKEN_RE.findall(summary))
+        for key, target in (
+            ("key_facts", facts),
+            ("key_entities", entities),
+            ("key_numbers", numbers),
+            ("key_dates", dates),
+            ("open_questions", open_questions),
+            ("confidence_notes", confidence_notes),
+        ):
+            values = section.get(key)
+            if not isinstance(values, list):
+                continue
+            for value in values:
+                text = str(value).strip()
+                if text:
+                    target.append(text)
+
+    uniq = lambda values: list(dict.fromkeys(v for v in values if v))
+    facts_u = uniq(facts)[:20]
+    entities_u = uniq(entities)[:20]
+    numbers_u = uniq(numbers)[:24]
+    dates_u = uniq(dates)[:20]
+    open_q_u = uniq(open_questions)[:12]
+    confidence_u = uniq(confidence_notes)[:8]
+
+    summary_text = " ".join(summaries[:3]).strip()
+    if not summary_text:
+        summary_text = "Document summary synthesized from section summaries using deterministic fallback."
+    executive = summaries[0].strip() if summaries else summary_text
+    if len(executive) > 320:
+        executive = executive[:317].rstrip() + "..."
+
+    notes = [reason]
+    notes.extend(confidence_u[:3])
+    return {
+        "summary": summary_text,
+        "executive_summary": executive,
+        "key_facts": facts_u,
+        "key_dates": dates_u,
+        "key_entities": entities_u,
+        "key_numbers": numbers_u,
+        "open_questions": open_q_u,
+        "confidence_notes": uniq(notes),
     }
