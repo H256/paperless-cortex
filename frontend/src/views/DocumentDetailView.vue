@@ -204,7 +204,7 @@
               </thead>
               <tbody>
                 <tr v-for="run in taskRuns" :key="run.id" class="border-t border-slate-100 dark:border-slate-700">
-                  <td class="px-2 py-1.5">{{ toDateTime(run.started_at) }}</td>
+                  <td class="px-2 py-1.5" :title="toDateTime(run.started_at)">{{ toRelativeTime(run.started_at) }}</td>
                   <td class="px-2 py-1.5">{{ run.task }}</td>
                   <td class="px-2 py-1.5" :class="run.status === 'failed' ? 'text-rose-700 dark:text-rose-300 font-semibold' : 'text-slate-700 dark:text-slate-200'">
                     {{ run.status }}
@@ -402,6 +402,7 @@ import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
+import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 
 const route = useRoute()
 const router = useRouter()
@@ -839,19 +840,13 @@ const formatDate = (value?: string | null) => {
   return new Intl.DateTimeFormat(navigator.language).format(parsed)
 }
 
-const formatDateTime = (value?: string | null) => {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat(navigator.language, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed)
-}
-
 const toDateTime = (value?: string | null) => {
   if (!value) return '-'
   return formatDateTime(value) || value
+}
+
+const toRelativeTime = (value?: string | null) => {
+  return formatRelativeTime(value)
 }
 
 const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {

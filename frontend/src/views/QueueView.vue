@@ -396,7 +396,7 @@
               <td class="px-2 py-2">{{ run.error_type || '-' }}</td>
               <td class="px-2 py-2">{{ checkpointLabel(run) }}</td>
               <td class="px-2 py-2">{{ run.duration_ms != null ? `${run.duration_ms} ms` : '-' }}</td>
-              <td class="px-2 py-2">{{ formatIso(run.started_at) }}</td>
+              <td class="px-2 py-2" :title="formatDateTime(run.started_at) || '-'">{{ formatRelativeTime(run.started_at) }}</td>
             </tr>
           </tbody>
         </table>
@@ -551,6 +551,7 @@ import {
   Trash2,
   X,
 } from 'lucide-vue-next'
+import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 
 const docIdFilter = ref('')
 type QueueListItem = { doc_id?: number | null; task?: string | null; raw?: string | null }
@@ -702,13 +703,6 @@ const formatRuntime = (unixTs: number) => {
   return `${hours}h ${remMins}m`
 }
 
-const formatIso = (value?: string | null) => {
-  if (!value) return '-'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString()
-}
-
 const formatDueIn = (value?: number | null) => {
   if (value == null) return '-'
   const seconds = Math.max(0, Math.floor(value))
@@ -753,3 +747,4 @@ const delayedDocId = (item: { task?: unknown }) => {
 
 refresh()
 </script>
+
