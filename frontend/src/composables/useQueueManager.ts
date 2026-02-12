@@ -234,6 +234,18 @@ export const useQueueManager = () => {
       requeueDlqMutation.isPending.value ||
       retryFailedRunsMutation.isPending.value,
   )
+  const lastRefreshedAt = computed(() => {
+    const stamps = [
+      statusQuery.dataUpdatedAt.value,
+      runningQuery.dataUpdatedAt.value,
+      peekQuery.dataUpdatedAt.value,
+      taskRunsQuery.dataUpdatedAt.value,
+      delayedQuery.dataUpdatedAt.value,
+      dlqQuery.dataUpdatedAt.value,
+    ].filter((stamp) => typeof stamp === 'number' && stamp > 0) as number[]
+    if (!stamps.length) return null
+    return new Date(Math.max(...stamps)).toISOString()
+  })
 
   return {
     status: computed(() => statusQuery.data.value ?? { enabled: false, length: null }),
@@ -257,6 +269,7 @@ export const useQueueManager = () => {
     loading,
     peekLoading,
     busy,
+    lastRefreshedAt,
     error,
     refresh,
     loadPeek: async () => peekQuery.refetch(),

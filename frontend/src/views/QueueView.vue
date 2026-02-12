@@ -8,6 +8,11 @@
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Control processing order and check what is coming next.
         </p>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {{ shouldAutoRefreshQueue ? 'Auto-refresh active (5s).' : 'Auto-refresh idle.' }}
+          Last update: {{ formatRelativeTime(lastRefreshedAt) }}
+          <span class="opacity-70">({{ formatDateTime(lastRefreshedAt) || '-' }})</span>
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button
@@ -582,6 +587,7 @@ const {
   loading,
   peekLoading,
   busy,
+  lastRefreshedAt,
   error,
   refresh,
   loadPeek,
