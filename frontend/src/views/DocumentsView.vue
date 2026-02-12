@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   Loader2,
   RefreshCw,
@@ -154,6 +154,7 @@ import { useDocumentsTableControls } from '../composables/useDocumentsTableContr
 import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
+import { usePreviewAutoRefresh } from '../composables/usePreviewAutoRefresh'
 import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import ContinueProcessingModal from '../components/ContinueProcessingModal.vue'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
@@ -260,27 +261,12 @@ const open = (id: number) => {
 onMounted(async () => {
   await load()
 })
-
-watch(
-  () => ({ ...processOptions }),
-  async () => {
-    if (!showPreviewModal.value) return
-    try {
-      await refreshProcessPreview(processParams())
-    } catch {
-      // Keep current preview shown when transient refresh fails.
-    }
-  },
-  { deep: true },
+usePreviewAutoRefresh(
+  processOptions,
+  batchIndex,
+  showPreviewModal,
+  processParams,
+  refreshProcessPreview,
 )
-
-watch(batchIndex, async () => {
-  if (!showPreviewModal.value) return
-  try {
-    await refreshProcessPreview(processParams())
-  } catch {
-    // Keep current preview shown when transient refresh fails.
-  }
-})
 
 </script>
