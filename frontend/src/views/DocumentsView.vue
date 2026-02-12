@@ -671,6 +671,7 @@ import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
+import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
@@ -678,7 +679,6 @@ const documentsStore = useDocumentsStore()
 const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const toastStore = useToastStore()
-
 const {
   documents,
   page,
@@ -692,6 +692,10 @@ const {
   selectedReviewStatus,
   dateFrom,
   dateTo,
+  refetchDocuments,
+} = useDocumentsCatalog()
+
+const {
   syncing,
   lastSynced,
   syncStatus,
@@ -866,7 +870,7 @@ const processingEtaText = computed(() => {
 
 const load = async () => {
   try {
-    await documentsStore.load()
+    await refetchDocuments()
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to load documents'
     toastStore.push(message, 'danger', 'Error')
@@ -1014,7 +1018,6 @@ const formatDateTime = (value?: string | null) => {
 }
 
 onMounted(async () => {
-  await documentsStore.fetchMeta()
   await load()
 })
 
@@ -1040,7 +1043,4 @@ watch(batchIndex, async () => {
   }
 })
 
-watch(ordering, async () => {
-  await load()
-})
 </script>

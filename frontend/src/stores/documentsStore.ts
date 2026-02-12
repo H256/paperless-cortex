@@ -1,11 +1,8 @@
 import { defineStore } from 'pinia'
 import {
-  getCorrespondents,
   getEmbedStatus,
   getStats,
   getSyncStatus,
-  getTags,
-  listDocuments,
   deleteEmbeddings,
   deleteSuggestions,
   deleteVisionOcr,
@@ -15,30 +12,14 @@ import {
   syncDocuments,
 } from '../services/documents'
 import type {
-  DocumentRow,
   DocumentStats,
   SyncStatus,
   EmbedStatus,
-  Tag,
-  Correspondent,
 } from '../services/documents'
 import type { SyncDocumentsSyncDocumentsPostParams } from '@/api/generated/model'
-import { toOptionalNumber } from '../utils/number'
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
-    documents: [] as DocumentRow[],
-    page: 1,
-    pageSize: 20,
-    ordering: '-date',
-    totalCount: 0,
-    tags: [] as Tag[],
-    correspondents: [] as Correspondent[],
-    selectedTag: '',
-    selectedCorrespondent: '',
-    selectedReviewStatus: 'all' as 'all' | 'unreviewed' | 'reviewed' | 'needs_review',
-    dateFrom: '',
-    dateTo: '',
     syncing: false,
     embedding: false,
     lastSynced: null as string | null,
@@ -78,32 +59,6 @@ export const useDocumentsStore = defineStore('documents', {
     },
     setStats(stats: DocumentStats) {
       this.stats = stats
-    },
-    async load() {
-      const {
-        page,
-        pageSize,
-        ordering,
-        selectedCorrespondent,
-        selectedTag,
-        selectedReviewStatus,
-        dateFrom,
-        dateTo,
-      } =
-        this
-      const data = await listDocuments({
-        page,
-        page_size: pageSize,
-        ordering,
-        correspondent__id: toOptionalNumber(selectedCorrespondent),
-        tags__id: toOptionalNumber(selectedTag),
-        document_date__gte: dateFrom || undefined,
-        document_date__lte: dateTo || undefined,
-        include_derived: true,
-        review_status: selectedReviewStatus,
-      })
-      this.documents = data.results ?? []
-      this.totalCount = data.count ?? this.documents.length
     },
     async fetchStats() {
       try {
@@ -147,30 +102,16 @@ export const useDocumentsStore = defineStore('documents', {
         }
       }
     },
-    async fetchMeta() {
-      const [tagsResp, corrResp] = await Promise.allSettled([getTags(), getCorrespondents()])
-      if (tagsResp.status === 'fulfilled') {
-        this.tags = tagsResp.value.results ?? []
-      } else {
-        this.tags = []
-      }
-      if (corrResp.status === 'fulfilled') {
-        this.correspondents = corrResp.value.results ?? []
-      } else {
-        this.correspondents = []
-      }
-    },
     async sync() {
       this.syncing = true
       try {
         await syncDocuments({
-          page_size: this.pageSize,
+          page_size: 200,
           incremental: this.incremental,
-          page: this.page,
+          page: 1,
           page_only: this.pageOnly,
         })
         await this.fetchSyncStatus()
-        await this.load()
       } finally {
         this.syncing = false
       }
@@ -192,7 +133,6 @@ export const useDocumentsStore = defineStore('documents', {
         await processMissing()
         await this.fetchSyncStatus()
         await this.fetchEmbedStatus()
-        await this.load()
       } finally {
         this.syncing = false
       }
