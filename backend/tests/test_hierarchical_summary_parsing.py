@@ -8,6 +8,7 @@ from app.services.hierarchical_summary import (
     _looks_like_prompt_echo_or_meta,
     _parse_page_notes_text,
     _sanitize_model_output_text,
+    _normalize_section_summary_payload,
     generate_global_summary,
     generate_section_summary,
     generate_page_notes,
@@ -240,3 +241,23 @@ def test_generate_global_summary_falls_back_when_json_never_parses(monkeypatch):
     assert payload["key_facts"]
     assert payload["confidence_notes"]
     assert calls["count"] >= 2
+
+
+def test_section_summary_normalizer_drops_meta_thinking_lines():
+    payload = _normalize_section_summary_payload(
+        "1-7",
+        {
+            "section": "1-7",
+            "summary": "<|channel|>analysis<|message|>We need to extract structured page notes from OCR text.",
+            "key_facts": [
+                "<|channel|>analysis<|message|>We need to extract structured page notes from OCR text.",
+                "Given OCR text:",
+                "Stand 2025-06",
+            ],
+            "key_numbers": ["06", "260", "886"],
+            "confidence_notes": ["fallback_due_to_json_parse_error:No JSON object found in response"],
+        },
+    )
+    assert "<|channel|>" not in payload["summary"]
+    assert "extract structured page notes" not in payload["summary"].lower()
+    assert all("given ocr text" not in item.lower() for item in payload["key_facts"])

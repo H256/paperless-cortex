@@ -48,6 +48,23 @@ _PROMPT_ECHO_MARKERS = (
     "uncertainties:",
     "do not invent information",
 )
+_SUMMARY_META_MARKERS = (
+    "we need to extract structured page notes",
+    "given ocr text",
+    "interpretation:",
+    "return plain text with exactly these headings",
+    "facts:",
+    "entities:",
+    "references:",
+    "key numbers:",
+    "uncertainties:",
+)
+_SUMMARY_META_STRONG_MARKERS = (
+    "we need to extract structured page notes",
+    "return plain text with exactly these headings",
+    "extract structured page notes from ocr text",
+    "given ocr text",
+)
 
 
 def _now_iso() -> str:
@@ -231,6 +248,70 @@ def _looks_like_prompt_echo_or_meta(text: str) -> bool:
     return marker_hits >= 3
 
 
+def _is_summary_meta_text(text: str) -> bool:
+    normalized = " ".join((text or "").lower().split())
+    if not normalized:
+        return True
+    if "<|channel|>" in normalized or "<|message|>" in normalized:
+        return True
+    if any(marker in normalized for marker in _SUMMARY_META_STRONG_MARKERS):
+        return True
+    if _looks_like_prompt_echo_or_meta(normalized):
+        return True
+    hits = sum(1 for marker in _SUMMARY_META_MARKERS if marker in normalized)
+    return hits >= 2
+
+
+def _sanitize_summary_value(value: Any, *, max_chars: int = 360) -> str:
+    text = _sanitize_model_output_text(str(value or ""))
+    text = " ".join(text.split()).strip()
+    if not text:
+        return ""
+    if _is_summary_meta_text(text):
+        return ""
+    if len(text) > max_chars:
+        text = text[: max_chars - 3].rstrip() + "..."
+    return text
+
+
+def _sanitize_summary_list(values: Any, *, max_items: int, max_chars: int) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        text = _sanitize_summary_value(value, max_chars=max_chars)
+        if not text:
+            continue
+        cleaned.append(text)
+        if len(cleaned) >= max_items:
+            break
+    return list(dict.fromkeys(cleaned))
+
+
+def _normalize_section_summary_payload(section_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+    summary = _sanitize_summary_value(payload.get("summary"), max_chars=700)
+    key_facts = _sanitize_summary_list(payload.get("key_facts"), max_items=10, max_chars=320)
+    key_dates = _sanitize_summary_list(payload.get("key_dates"), max_items=10, max_chars=120)
+    key_entities = _sanitize_summary_list(payload.get("key_entities"), max_items=10, max_chars=180)
+    key_numbers = _sanitize_summary_list(payload.get("key_numbers"), max_items=16, max_chars=120)
+    open_questions = _sanitize_summary_list(payload.get("open_questions"), max_items=10, max_chars=220)
+    confidence_notes = _sanitize_summary_list(payload.get("confidence_notes"), max_items=8, max_chars=240)
+    if not summary:
+        summary = " ".join(key_facts[:3]).strip()
+    if not summary:
+        summary = f"Section {section_key} summary generated with sanitization fallback."
+    return {
+        "section": section_key,
+        "summary": summary,
+        "key_facts": key_facts,
+        "key_dates": key_dates,
+        "key_entities": key_entities,
+        "key_numbers": key_numbers,
+        "open_questions": open_questions,
+        "confidence_notes": confidence_notes,
+    }
+
+
 def _chat_json_response(
     settings: Settings,
     *,
@@ -336,6 +417,8 @@ def _compact_text_items(values: Any, *, max_items: int, max_chars: int) -> list[
         text = _sanitize_model_output_text(str(value or ""))
         text = " ".join(text.split()).strip()
         if not text:
+            continue
+        if _is_summary_meta_text(text):
             continue
         if len(text) > max_chars:
             text = text[: max_chars - 3].rstrip() + "..."
@@ -467,8 +550,9 @@ def generate_section_summary(
             timeout=settings.section_summary_timeout_seconds,
             max_tokens=settings.summary_max_output_tokens,
         )
-        parsed["section"] = section_key
-        return parsed
+        if not isinstance(parsed, dict):
+            raise ValueError("Invalid section summary payload")
+        return _normalize_section_summary_payload(section_key, parsed)
     except Exception as exc:
         logger.warning("Section summary primary parse failed section=%s error=%s", section_key, exc)
         try:
@@ -480,8 +564,7 @@ def generate_section_summary(
                 json_mode=False,
             )
             parsed = _extract_json_dict(compact_raw)
-            parsed["section"] = section_key
-            return parsed
+            return _normalize_section_summary_payload(section_key, parsed)
         except Exception as retry_exc:
             logger.warning(
                 "Section summary compact retry failed section=%s error=%s",
@@ -671,7 +754,7 @@ def _best_effort_section_summary(
         note_facts = note.get("facts") if isinstance(note, dict) else []
         if isinstance(note_facts, list):
             for item in note_facts:
-                text = str(item).strip()
+                text = _sanitize_summary_value(item, max_chars=320)
                 if text:
                     facts.append(text)
                     dates.extend(_DATE_TOKEN_RE.findall(text))
@@ -679,13 +762,13 @@ def _best_effort_section_summary(
         note_entities = note.get("entities") if isinstance(note, dict) else []
         if isinstance(note_entities, list):
             for item in note_entities:
-                text = str(item).strip()
+                text = _sanitize_summary_value(item, max_chars=180)
                 if text:
                     entities.append(text)
         note_numbers = note.get("key_numbers") if isinstance(note, dict) else []
         if isinstance(note_numbers, list):
             for item in note_numbers:
-                text = str(item).strip()
+                text = _sanitize_summary_value(item, max_chars=120)
                 if text:
                     numbers.append(text)
 
@@ -697,7 +780,7 @@ def _best_effort_section_summary(
     summary = " ".join(facts_u[:4]).strip()
     if not summary:
         summary = f"Section {section_key} was summarized using deterministic fallback due to malformed model JSON."
-    return {
+    payload = {
         "section": section_key,
         "summary": summary,
         "key_facts": facts_u,
@@ -707,6 +790,7 @@ def _best_effort_section_summary(
         "open_questions": [],
         "confidence_notes": [reason],
     }
+    return _normalize_section_summary_payload(section_key, payload)
 
 
 def _best_effort_global_summary(
