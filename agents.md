@@ -620,6 +620,8 @@ All model names must be configurable via environment variables.
 - Queue/detail timeline UX: standardized relative task-run start timestamps ("15m ago") with shared formatter utility (`frontend/src/utils/dateTime.ts`) and kept absolute datetime in hover tooltips, reducing repeated view-local date/time helpers.
 - Queue/detail timeline UX: added shared `useAutoRefresh` polling composable and wired Queue Manager + Document Detail timeline to auto-refresh while work is active/running, so users see live progress without manual reload clicks.
 - Document detail UX: added a header-level live "Processing now" badge (task + checkpoint stage/progress) based on active task-run state to make ongoing background work immediately visible.
+- Backend robustness: hardened task-run service methods against stale failed SQLAlchemy session state (`PendingRollbackError`) by normalizing session readiness before bookkeeping/list queries; added regression tests proving `finish_task_run` and `list_task_runs` recover after prior failed transactions.
+- Frontend DRY: extracted shared checkpoint formatting/resume-marker helpers into `frontend/src/utils/taskRunCheckpoint.ts` and reused them in Queue view, Document detail timeline, and running-progress composable to remove duplicated checkpoint parsing logic.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

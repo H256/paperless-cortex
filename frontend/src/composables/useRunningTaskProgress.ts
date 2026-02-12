@@ -1,24 +1,7 @@
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { fetchQueueTaskRuns } from '../services/queue'
-
-const stageLabel = (stage: string) => {
-  if (stage === 'vision_ocr') return 'Vision OCR'
-  if (stage === 'embedding_chunks') return 'Embeddings'
-  if (stage === 'page_notes') return 'Page notes'
-  if (stage === 'summary_sections') return 'Hier summary'
-  return stage
-}
-
-const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
-  if (!checkpoint || typeof checkpoint !== 'object') return 'Running'
-  const stage = typeof checkpoint.stage === 'string' ? checkpoint.stage : 'progress'
-  const current = typeof checkpoint.current === 'number' ? checkpoint.current : null
-  const total = typeof checkpoint.total === 'number' ? checkpoint.total : null
-  const label = stageLabel(stage)
-  if (current != null && total != null && total > 0) return `${label} ${current}/${total}`
-  return label
-}
+import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 
 export const useRunningTaskProgress = () => {
   const runningQuery = useQuery({
@@ -38,7 +21,10 @@ export const useRunningTaskProgress = () => {
     for (const run of items) {
       if (typeof run.doc_id !== 'number' || run.doc_id <= 0) continue
       if (map[run.doc_id]) continue
-      map[run.doc_id] = checkpointLabel(run.checkpoint as Record<string, unknown> | null | undefined)
+      map[run.doc_id] = formatCheckpointLabel(
+        run.checkpoint as Record<string, unknown> | null | undefined,
+        'Running',
+      )
     }
     return map
   })
@@ -48,4 +34,3 @@ export const useRunningTaskProgress = () => {
     runningLoading: computed(() => runningQuery.isPending.value || runningQuery.isFetching.value),
   }
 }
-

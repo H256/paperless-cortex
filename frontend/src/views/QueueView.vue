@@ -553,6 +553,10 @@ import {
   X,
 } from 'lucide-vue-next'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
+import {
+  formatCheckpointLabel as formatTaskCheckpointLabel,
+  hasResumeMarker as taskRunHasResumeMarker,
+} from '../utils/taskRunCheckpoint'
 
 const docIdFilter = ref('')
 type QueueListItem = { doc_id?: number | null; task?: string | null; raw?: string | null }
@@ -719,20 +723,13 @@ const formatDueIn = (value?: number | null) => {
 }
 
 const hasResumeMarker = (run: { checkpoint?: unknown }) => {
-  const checkpoint = run.checkpoint as Record<string, unknown> | undefined
-  if (!checkpoint || typeof checkpoint !== 'object') return false
-  return Boolean(checkpoint.resume_from)
+  const checkpoint = run.checkpoint as Record<string, unknown> | null | undefined
+  return taskRunHasResumeMarker(checkpoint)
 }
 
 const checkpointLabel = (run: { checkpoint?: unknown }) => {
-  const checkpoint = run.checkpoint as Record<string, unknown> | undefined
-  if (!checkpoint || typeof checkpoint !== 'object') return '-'
-  const stage = typeof checkpoint.stage === 'string' ? checkpoint.stage : 'progress'
-  const current = typeof checkpoint.current === 'number' ? checkpoint.current : null
-  const total = typeof checkpoint.total === 'number' ? checkpoint.total : null
-  if (current != null && total != null) return `${stage} ${current}/${total}`
-  if (current != null) return `${stage} ${current}`
-  return stage
+  const checkpoint = run.checkpoint as Record<string, unknown> | null | undefined
+  return formatTaskCheckpointLabel(checkpoint, '-')
 }
 
 const delayedTaskLabel = (item: { task?: unknown }) => {

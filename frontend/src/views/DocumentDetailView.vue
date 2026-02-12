@@ -410,6 +410,7 @@ import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
+import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 
 const route = useRoute()
 const router = useRouter()
@@ -873,14 +874,7 @@ const toRelativeTime = (value?: string | null) => {
 }
 
 const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
-  if (!checkpoint || typeof checkpoint !== 'object') return '-'
-  const stage = typeof checkpoint.stage === 'string' ? checkpoint.stage : 'progress'
-  const current = typeof checkpoint.current === 'number' ? checkpoint.current : null
-  const total = typeof checkpoint.total === 'number' ? checkpoint.total : null
-  if (current !== null && total !== null && total > 0) {
-    return `${stage} ${current}/${total}`
-  }
-  return stage
+  return formatCheckpointLabel(checkpoint, '-')
 }
 
 const load = async () => {
