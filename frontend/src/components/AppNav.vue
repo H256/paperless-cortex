@@ -7,19 +7,10 @@
       </span>
     </RouterLink>
 
-    <div v-if="secondaryItems.length" class="hidden items-center gap-2 xl:flex">
-      <RouterLink v-for="item in secondaryItems" :key="item.to" :to="item.to" v-slot="{ isActive }">
-        <span :class="linkClass(isActive)">
-          <component :is="item.icon" class="h-4 w-4" />
-          {{ item.label }}
-        </span>
-      </RouterLink>
-    </div>
-
     <details
       v-if="secondaryItems.length"
       ref="moreMenuRef"
-      class="relative xl:hidden"
+      class="relative"
     >
       <summary
         class="inline-flex cursor-pointer list-none items-center gap-2 rounded-full px-3 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
