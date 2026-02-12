@@ -144,6 +144,34 @@
       </div>
 
       <div
+        v-if="!processPreviewLoading && previewDocs.length"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Sample Documents With Gaps
+        </div>
+        <div class="mt-2 max-h-40 space-y-1 overflow-auto pr-1">
+          <div
+            v-for="item in previewDocs"
+            :key="item.doc_id"
+            class="flex items-start justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
+          >
+            <div class="min-w-0">
+              <div class="truncate font-semibold text-slate-800 dark:text-slate-100">
+                #{{ item.doc_id }} {{ item.title || 'Untitled' }}
+              </div>
+              <div class="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                {{ (item.missing_tasks || []).join(', ') || '-' }}
+              </div>
+            </div>
+            <div class="shrink-0 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+              {{ formatMissingSteps(item.missing_steps) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
         class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div
@@ -336,6 +364,13 @@ type ProcessOptions = {
   includeSuggestionsVision: boolean
 }
 
+type PreviewDocItem = {
+  doc_id: number
+  title: string
+  missing_steps: string[]
+  missing_tasks: string[]
+}
+
 const props = defineProps<{
   open: boolean
   syncStatus: SyncStatusResponse
@@ -367,28 +402,22 @@ const batchIndexModel = computed({
 const coverageItems = computed(() => {
   const preview = props.processPreview
   if (!preview) return []
+  const stepCounts = (preview.missing_by_step || {}) as Record<string, number>
   return [
     {
       key: 'paperless',
       label: 'Paperless baseline',
-      missing:
-        Number(preview.missing_embeddings_paperless ?? 0) +
-        Number(preview.missing_suggestions_paperless ?? 0),
+      missing: Number(stepCounts.paperless ?? 0),
     },
     {
       key: 'vision',
       label: 'Vision pipeline',
-      missing:
-        Number(preview.missing_vision_ocr ?? 0) +
-        Number(preview.missing_embeddings_vision ?? 0) +
-        Number(preview.missing_suggestions_vision ?? 0),
+      missing: Number(stepCounts.vision ?? 0),
     },
     {
       key: 'large',
       label: 'Large-document extras',
-      missing:
-        Number(preview.missing_page_notes ?? 0) +
-        Number(preview.missing_summary_hierarchical ?? 0),
+      missing: Number(stepCounts.large ?? 0),
     },
     {
       key: 'overall',
@@ -396,5 +425,36 @@ const coverageItems = computed(() => {
       missing: Number(preview.missing_docs ?? 0),
     },
   ]
+})
+
+const formatMissingSteps = (value?: unknown) => {
+  if (!Array.isArray(value) || value.length === 0) return 'steps: -'
+  return `steps: ${value.map((entry) => String(entry)).join(', ')}`
+}
+
+const previewDocs = computed<PreviewDocItem[]>(() => {
+  const raw = props.processPreview?.preview_docs
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((entry): PreviewDocItem | null => {
+      if (!entry || typeof entry !== 'object') return null
+      const obj = entry as Record<string, unknown>
+      const docId = Number(obj.doc_id)
+      if (!Number.isFinite(docId) || docId <= 0) return null
+      const title = typeof obj.title === 'string' && obj.title.trim() ? obj.title : `Document ${docId}`
+      const missingSteps = Array.isArray(obj.missing_steps)
+        ? obj.missing_steps.map((item) => String(item)).filter(Boolean)
+        : []
+      const missingTasks = Array.isArray(obj.missing_tasks)
+        ? obj.missing_tasks.map((item) => String(item)).filter(Boolean)
+        : []
+      return {
+        doc_id: docId,
+        title,
+        missing_steps: missingSteps,
+        missing_tasks: missingTasks,
+      }
+    })
+    .filter((item): item is PreviewDocItem => item !== null)
 })
 </script>

@@ -18,6 +18,27 @@ import {
   clearQueueDlq,
   requeueQueueDlqItem,
 } from '../services/queue'
+import { enqueueDocumentTask, type DocumentOperationTaskPayload } from '../services/documents'
+
+type RetryableTaskRun = {
+  doc_id?: number | null
+  task?: string | null
+  source?: string | null
+  status?: string | null
+}
+
+const ALLOWED_RETRY_TASKS = new Set<DocumentOperationTaskPayload['task']>([
+  'sync',
+  'vision_ocr',
+  'cleanup_texts',
+  'embeddings_paperless',
+  'embeddings_vision',
+  'page_notes_paperless',
+  'page_notes_vision',
+  'summary_hierarchical',
+  'suggestions_paperless',
+  'suggestions_vision',
+])
 
 export const useQueueManager = () => {
   const queryClient = useQueryClient()
@@ -145,6 +166,35 @@ export const useQueueManager = () => {
       ])
     },
   })
+  const retryFailedRunsMutation = useMutation({
+    mutationFn: async (runs: RetryableTaskRun[]) => {
+      const dedupe = new Set<string>()
+      let retried = 0
+      for (const run of runs) {
+        if (run.status !== 'failed') continue
+        if (typeof run.doc_id !== 'number' || run.doc_id <= 0) continue
+        const task = String(run.task || '').trim() as DocumentOperationTaskPayload['task']
+        if (!ALLOWED_RETRY_TASKS.has(task)) continue
+        const source = run.source === 'paperless_ocr' || run.source === 'vision_ocr' ? run.source : undefined
+        const key = `${run.doc_id}:${task}:${source || ''}`
+        if (dedupe.has(key)) continue
+        dedupe.add(key)
+        const result = await enqueueDocumentTask(run.doc_id, {
+          task,
+          source,
+        })
+        if (result.enqueued) retried += 1
+      }
+      return { retried, attempted: dedupe.size }
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['queue-peek'] }),
+        queryClient.invalidateQueries({ queryKey: ['queue-task-runs'] }),
+        queryClient.invalidateQueries({ queryKey: ['queue-status'] }),
+      ])
+    },
+  })
 
   const loading = computed(
     () =>
@@ -181,7 +231,8 @@ export const useQueueManager = () => {
       moveBottomMutation.isPending.value ||
       removeMutation.isPending.value ||
       clearDlqMutation.isPending.value ||
-      requeueDlqMutation.isPending.value,
+      requeueDlqMutation.isPending.value ||
+      retryFailedRunsMutation.isPending.value,
   )
 
   return {
@@ -214,6 +265,7 @@ export const useQueueManager = () => {
     loadDlq: async () => dlqQuery.refetch(),
     clearDlq: () => clearDlqMutation.mutateAsync(),
     requeueDlqItem: (index: number) => requeueDlqMutation.mutateAsync(index),
+    retryFailedRuns: (runs: RetryableTaskRun[]) => retryFailedRunsMutation.mutateAsync(runs),
     clearQueue: () => clearMutation.mutateAsync(),
     resetStats: () => resetStatsMutation.mutateAsync(),
     pauseQueue: () => pauseMutation.mutateAsync(),

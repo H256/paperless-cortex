@@ -495,6 +495,8 @@ class ProcessMissingResponse(BaseModel):
     missing_summary_hierarchical: Optional[int] = None
     missing_suggestions_paperless: Optional[int] = None
     missing_suggestions_vision: Optional[int] = None
+    missing_by_step: dict[str, int] = {}
+    preview_docs: list[dict[str, Any]] = []
 
 
 class PipelineStepStatus(BaseModel):

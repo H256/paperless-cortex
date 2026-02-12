@@ -78,6 +78,8 @@ export * from './peekQueuePeekGetParams';
 export * from './pipelineStepStatus';
 export * from './processMissingDocumentsProcessMissingPostParams';
 export * from './processMissingResponse';
+export * from './processMissingResponseMissingByStep';
+export * from './processMissingResponsePreviewDocsItem';
 export * from './queueCancelResponse';
 export * from './queueDelayedItem';
 export * from './queueDelayedItemTask';

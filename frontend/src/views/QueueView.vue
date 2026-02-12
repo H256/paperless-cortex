@@ -345,6 +345,13 @@
             <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': taskRunsLoading }" />
             {{ taskRunsLoading ? 'Loading...' : 'Reload' }}
           </button>
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 shadow-sm hover:border-amber-300 disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+            :disabled="taskRunsLoading || failedTaskRuns.length === 0 || busy"
+            @click="retryFailedTaskRuns"
+          >
+            Retry failed (filtered)
+          </button>
         </div>
       </div>
 
@@ -577,6 +584,7 @@ const {
   loadDlq,
   clearDlq: clearDlqRequest,
   requeueDlqItem: requeueDlqItemRequest,
+  retryFailedRuns: retryFailedRunsRequest,
   clearQueue: clearQueueRequest,
   resetStats: resetStatsRequest,
   pauseQueue: pauseQueueRequest,
@@ -593,6 +601,8 @@ const filteredItems = computed(() => {
   if (!needle) return items
   return items.filter(({ item }) => item.doc_id != null && String(item.doc_id).includes(needle))
 })
+
+const failedTaskRuns = computed(() => taskRuns.value.filter((run) => run.status === 'failed'))
 
 const TASK_MAP: Record<string, { label: string; description: string }> = {
   sync: { label: 'Sync document', description: 'Fetch latest metadata from Paperless.' },
@@ -673,6 +683,10 @@ const clearDlq = async () => {
 
 const requeueDlqItem = async (index: number) => {
   await requeueDlqItemRequest(index)
+}
+
+const retryFailedTaskRuns = async () => {
+  await retryFailedRunsRequest(taskRuns.value)
 }
 
 const formatStartedAt = (unixTs: number) => new Date(unixTs * 1000).toLocaleString()

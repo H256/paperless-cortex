@@ -6185,6 +6185,23 @@
               }
             ],
             "title": "Missing Suggestions Vision"
+          },
+          "missing_by_step": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Missing By Step",
+            "default": {}
+          },
+          "preview_docs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Preview Docs",
+            "default": []
           }
         },
         "type": "object",

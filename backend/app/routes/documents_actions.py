@@ -351,6 +351,9 @@ def process_missing(
     missing_sugg_v = 0
     checked_docs = 0
     selected_for_run = 0
+    missing_by_step = {"paperless": 0, "vision": 0, "large": 0}
+    preview_docs: list[dict[str, Any]] = []
+    preview_docs_limit = 20
     for doc in docs:
         if should_skip_doc(doc):
             continue
@@ -378,8 +381,31 @@ def process_missing(
             missing_sugg_p += 1
         if evaluation["needs_suggestions_vision"]:
             missing_sugg_v += 1
+        missing_steps: list[str] = []
+        if evaluation["needs_embeddings_paperless"] or evaluation["needs_suggestions_paperless"]:
+            missing_steps.append("paperless")
+            missing_by_step["paperless"] += 1
+        if (
+            evaluation["needs_vision"]
+            or evaluation["needs_embeddings_vision"]
+            or evaluation["needs_suggestions_vision"]
+        ):
+            missing_steps.append("vision")
+            missing_by_step["vision"] += 1
+        if evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]:
+            missing_steps.append("large")
+            missing_by_step["large"] += 1
         if tasks:
             missing_docs += 1
+            if len(preview_docs) < preview_docs_limit:
+                preview_docs.append(
+                    {
+                        "doc_id": int(doc.id),
+                        "title": str(doc.title or f"Document {doc.id}"),
+                        "missing_steps": missing_steps,
+                        "missing_tasks": [str(task.get("task") or "") for task in tasks if isinstance(task, dict)],
+                    }
+                )
         if limit is not None and selected_for_run >= limit:
             continue
         if tasks:
@@ -400,6 +426,8 @@ def process_missing(
         "missing_summary_hierarchical": missing_summary_hier,
         "missing_suggestions_paperless": missing_sugg_p,
         "missing_suggestions_vision": missing_sugg_v,
+        "missing_by_step": missing_by_step,
+        "preview_docs": preview_docs,
         "selected": selected_for_run,
         "enqueued": enqueued_docs,
         "tasks": enqueued_tasks,

@@ -4,6 +4,8 @@
  * Paperless-NGX Cortex API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProcessMissingResponseMissingByStep } from './processMissingResponseMissingByStep';
+import type { ProcessMissingResponsePreviewDocsItem } from './processMissingResponsePreviewDocsItem';
 
 export interface ProcessMissingResponse {
   enabled: boolean;
@@ -21,4 +23,6 @@ export interface ProcessMissingResponse {
   missing_summary_hierarchical?: number | null;
   missing_suggestions_paperless?: number | null;
   missing_suggestions_vision?: number | null;
+  missing_by_step?: ProcessMissingResponseMissingByStep;
+  preview_docs?: ProcessMissingResponsePreviewDocsItem[];
 }

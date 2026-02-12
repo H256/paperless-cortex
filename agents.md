@@ -604,6 +604,8 @@ All model names must be configurable via environment variables.
 - Document detail UX: processing timeline now offers a one-click retry action for failed task runs, re-enqueuing the same task/source with dedupe-aware feedback.
 - Hotfix: `/queue/task-runs` now safely parses malformed legacy `checkpoint_json` values (returns `checkpoint=null` instead of 500), preventing frontend "Unexpected token 'I'" errors in Processing timeline reload.
 - Hotfix: task-run service calls now degrade gracefully when `task_runs` table is missing (return empty list / skip bookkeeping) to prevent hard 500s before migrations are applied.
+- Continue-processing UX: `process-missing` now returns lightweight preview details (`missing_by_step` + `preview_docs` with missing task list), and the modal shows a concrete sample list of affected documents for faster triage before enqueue.
+- Queue UX: added bulk action "Retry failed (filtered)" in task-run history, deduping by doc/task/source and re-enqueuing supported per-document tasks through existing operations endpoint.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
