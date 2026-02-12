@@ -612,6 +612,8 @@ All model names must be configurable via environment variables.
 - Queue robustness: hardened running-state handling by clamping `in_progress` decrement at zero and auto-clearing stale running markers when lock/heartbeat are absent, reducing orphaned "running" UI states after crashes/interrupted workers.
 - Continue-processing UX simplification: replaced checkbox-heavy source/task toggles with a single guided strategy selector (`balanced`, `vision_first`, `paperless_only`, `max_coverage`) in `useContinueProcessOptions` + `ContinueProcessingModal`, while preserving backend-compatible query payload mapping.
 - Documents list UX: added writeback/readiness status pills in `DocumentProcessingBadges` (`Needs review`, `Reviewed`, `Local overrides`) to make local-only vs review/writeback state visible directly in table rows.
+- Critical sync fix: resolved persistent `document_notes_pkey` collisions by handling global note-id clashes during sync upsert (legacy positive local notes are re-keyed into negative local-id space before remote note insert/update), with explicit flush to avoid identity-map conflicts.
+- Local note id policy: AI/local-only notes now allocate negative IDs in both suggestion apply flow and writeback local-sync note flow, preventing future collisions with Paperless positive note IDs.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

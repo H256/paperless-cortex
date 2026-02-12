@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
@@ -45,6 +46,19 @@ router = APIRouter(prefix="/writeback", tags=["writeback"])
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _next_local_note_id(db: Session) -> int:
+    min_id = db.query(func.min(DocumentNote.id)).scalar()
+    if min_id is None:
+        return -1
+    try:
+        value = int(min_id)
+    except Exception:
+        return -1
+    if value >= 0:
+        return -1
+    return value - 1
 
 
 def _missing_writeback_jobs_table(exc: Exception) -> bool:
@@ -534,6 +548,7 @@ def _sync_local_field_from_paperless(
         if remote_note_id and remote_note_text:
             db.add(
                 DocumentNote(
+                    id=_next_local_note_id(db),
                     document_id=local_doc.id,
                     note=remote_note_text,
                     created=_now_iso(),

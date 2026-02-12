@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+from sqlalchemy import func
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -48,7 +49,20 @@ from app.services.embedding_init import ensure_embedding_collection
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
-def _merge_document_notes(doc: Document, incoming_notes: list) -> None:
+def _next_local_note_id(db: Session) -> int:
+    min_id = db.query(func.min(DocumentNote.id)).scalar()
+    if min_id is None:
+        return -1
+    try:
+        value = int(min_id)
+    except Exception:
+        return -1
+    if value >= 0:
+        return -1
+    return value - 1
+
+
+def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> None:
     existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
     incoming_ids: set[int] = set()
 
@@ -57,6 +71,12 @@ def _merge_document_notes(doc: Document, incoming_notes: list) -> None:
         incoming_ids.add(note_id)
         user = note.user or {}
         existing = existing_by_id.get(note_id)
+        if existing is None:
+            # Resolve collisions where legacy local AI notes used positive ids that now overlap with Paperless ids.
+            global_note = db.get(DocumentNote, note_id)
+            if global_note is not None and int(global_note.document_id) != int(doc.id):
+                global_note.id = _next_local_note_id(db)
+                db.flush()
         if existing:
             existing.note = note.note
             existing.created = note.created
@@ -291,7 +311,7 @@ def _upsert_document(
                 db.merge(doc_type)
             cache["document_types"].add(data.document_type)
 
-    _merge_document_notes(doc, data.notes)
+    _merge_document_notes(db, doc, data.notes)
 
     doc.tags.clear()
     for tag_id in data.tags or []:
