@@ -869,11 +869,20 @@ const load = async () => {
   }
 }
 
-const openPreview = async () => {
-  await openPreviewRequest(processParams())
+const refreshAfterProcessingMutation = async () => {
   await documentsStore.fetchSyncStatus()
   await documentsStore.fetchEmbedStatus()
   await load()
+}
+
+const openPreview = async () => {
+  try {
+    await openPreviewRequest(processParams())
+    await refreshAfterProcessingMutation()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to prepare processing preview'
+    toastStore.push(message, 'danger', 'Processing')
+  }
 }
 
 const closePreview = () => {
@@ -881,26 +890,32 @@ const closePreview = () => {
 }
 
 const startFromPreview = async () => {
-  await startFromPreviewRequest(processParams())
-  if (processStartResult.value) {
-    toastStore.push(
-      `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
-      'success',
-      'Queue started',
-    )
+  try {
+    await startFromPreviewRequest(processParams())
+    if (processStartResult.value) {
+      toastStore.push(
+        `Enqueued ${processStartResult.value.enqueued ?? 0} docs (${processStartResult.value.tasks ?? 0} tasks).`,
+        'success',
+        'Queue started',
+      )
+    }
+    clearPreviewState()
+    await refreshAfterProcessingMutation()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to start processing'
+    toastStore.push(message, 'danger', 'Processing')
   }
-  clearPreviewState()
-  await documentsStore.fetchSyncStatus()
-  await documentsStore.fetchEmbedStatus()
-  await load()
 }
 
 const cancelProcessing = async () => {
-  await cancelProcessingRequest()
-  await queueStore.clear()
-  await documentsStore.fetchSyncStatus()
-  await documentsStore.fetchEmbedStatus()
-  await load()
+  try {
+    await cancelProcessingRequest()
+    await queueStore.clear()
+    await refreshAfterProcessingMutation()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to cancel processing'
+    toastStore.push(message, 'danger', 'Processing')
+  }
 }
 
 const open = (id: number) => {
@@ -998,14 +1013,22 @@ watch(
   () => ({ ...processOptions }),
   async () => {
     if (!showPreviewModal.value) return
-    await refreshProcessPreview(processParams())
+    try {
+      await refreshProcessPreview(processParams())
+    } catch {
+      // Keep current preview shown when transient refresh fails.
+    }
   },
   { deep: true },
 )
 
 watch(batchIndex, async () => {
   if (!showPreviewModal.value) return
-  await refreshProcessPreview(processParams())
+  try {
+    await refreshProcessPreview(processParams())
+  } catch {
+    // Keep current preview shown when transient refresh fails.
+  }
 })
 
 watch(ordering, async () => {
