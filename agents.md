@@ -539,3 +539,4 @@ All model names must be configurable via environment variables.
 - Backend: added canonical per-document pipeline endpoints `GET /documents/{id}/pipeline-status` and `POST /documents/{id}/pipeline/continue` with deterministic missing-task planning.
 - Backend: refactored `process-missing` internals to reuse shared pipeline cache/evaluation helpers for better DRY/KISS and consistent task detection.
 - Frontend: wired document detail operations to canonical pipeline endpoints (status + continue), replaced local heuristic status cards with backend-driven step states, and added a single-click "Continue missing processing" action.
+- Backend: set canonical pipeline defaults to include large-document steps (`page_notes` + `summary_hierarchical`) so status and default continue/reprocess runs no longer miss large-doc processing.

@@ -79,8 +79,8 @@ class _PipelineOptions(BaseModel):
     include_embeddings: bool = True
     include_embeddings_paperless: bool = True
     include_embeddings_vision: bool = True
-    include_page_notes: bool = False
-    include_summary_hierarchical: bool = False
+    include_page_notes: bool = True
+    include_summary_hierarchical: bool = True
     include_suggestions_paperless: bool = True
     include_suggestions_vision: bool = True
     embeddings_mode: str = "auto"
@@ -278,8 +278,8 @@ def process_missing(
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
     include_embeddings_vision: bool = True,
-    include_page_notes: bool = False,
-    include_summary_hierarchical: bool = False,
+    include_page_notes: bool = True,
+    include_summary_hierarchical: bool = True,
     include_suggestions_paperless: bool = True,
     include_suggestions_vision: bool = True,
     embeddings_mode: str = "auto",
