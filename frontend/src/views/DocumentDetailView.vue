@@ -382,7 +382,8 @@ const {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
-const pdfHighlights = ref<number[][]>([])
+type BBox = [number, number, number, number]
+const pdfHighlights = ref<BBox[]>([])
 const tabs = [
   { key: 'meta', label: 'Metadata' },
   { key: 'text', label: 'Text & quality' },
@@ -483,13 +484,13 @@ const processingBadgeClass = (state: ProcessingState) => {
   return 'text-slate-400 dark:text-slate-500'
 }
 
-const parseBBox = (value: unknown): number[] | null => {
+const parseBBox = (value: unknown): BBox | null => {
   if (!value) return null
   const raw = Array.isArray(value) ? value[0] : value
   if (typeof raw !== 'string') return null
   const parts = raw.split(',').map((part) => Number(part.trim()))
   if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return null
-  return parts as number[]
+  return parts as BBox
 }
 
 const paperlessBaseUrl = computed(
@@ -572,12 +573,12 @@ const currentTagNames = computed(() =>
 
 const currentCorrespondentName = computed(() => {
   if (!document.value) return ''
-  return (
+  const value =
     document.value.correspondent_name ??
     correspondents.value.find((c) => c.id === document.value?.correspondent)?.name ??
     document.value.correspondent ??
     ''
-  )
+  return String(value)
 })
 
 const currentValues = computed(() => ({

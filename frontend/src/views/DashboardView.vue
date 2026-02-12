@@ -411,7 +411,7 @@ import { getDashboard } from '../services/documents'
 type DashboardCount = { id?: number | null; name: string; count: number }
 type PageCountBucket = { label: string; count: number }
 type DashboardPayload = {
-  stats: {
+  stats?: {
     total: number
     processed: number
     unprocessed: number
@@ -420,14 +420,14 @@ type DashboardPayload = {
     suggestions: number
     fully_processed: number
   }
-  correspondents: DashboardCount[]
-  top_correspondents: DashboardCount[]
-  tags: DashboardCount[]
-  top_tags: DashboardCount[]
-  page_counts: PageCountBucket[]
-  document_types: DashboardCount[]
-  unprocessed_by_correspondent: DashboardCount[]
-  monthly_processing: { label: string; total: number; processed: number; unprocessed: number }[]
+  correspondents?: DashboardCount[]
+  top_correspondents?: DashboardCount[]
+  tags?: DashboardCount[]
+  top_tags?: DashboardCount[]
+  page_counts?: PageCountBucket[]
+  document_types?: DashboardCount[]
+  unprocessed_by_correspondent?: DashboardCount[]
+  monthly_processing?: { label: string; total: number; processed: number; unprocessed: number }[]
 }
 
 const loading = ref(false)
@@ -549,4 +549,3 @@ const load = async () => {
 
 onMounted(load)
 </script>
-

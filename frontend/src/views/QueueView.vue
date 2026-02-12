@@ -297,12 +297,13 @@ import {
 
 const queueStore = useQueueStore()
 const docIdFilter = ref('')
+type QueueListItem = { doc_id?: number | null; task?: string | null; raw?: string | null }
 
 const filteredItems = computed(() => {
   const needle = docIdFilter.value.trim()
   const items = queueStore.peekItems.map((item, index) => ({ item, index }))
   if (!needle) return items
-  return items.filter(({ item }) => item.doc_id && String(item.doc_id).includes(needle))
+  return items.filter(({ item }) => item.doc_id != null && String(item.doc_id).includes(needle))
 })
 
 const TASK_MAP: Record<string, { label: string; description: string }> = {
@@ -331,8 +332,8 @@ const TASK_MAP: Record<string, { label: string; description: string }> = {
   full: { label: 'Full pipeline', description: 'Sync, OCR, embeddings, and suggestions.' },
 }
 
-const itemTitle = (item: { doc_id?: number; task?: string; raw?: string }) => {
-  if (item.doc_id) {
+const itemTitle = (item: QueueListItem) => {
+  if (item.doc_id != null) {
     const key = item.task || 'full'
     const label = TASK_MAP[key]?.label || key
     return `Doc ${item.doc_id} - ${label}`
@@ -340,9 +341,9 @@ const itemTitle = (item: { doc_id?: number; task?: string; raw?: string }) => {
   return item.raw || 'Unknown item'
 }
 
-const itemDescription = (item: { doc_id?: number; task?: string; raw?: string }) => {
+const itemDescription = (item: QueueListItem) => {
   const key = item.task || 'full'
-  if (item.doc_id && TASK_MAP[key]) return TASK_MAP[key].description
+  if (item.doc_id != null && TASK_MAP[key]) return TASK_MAP[key].description
   return item.raw ? 'Custom queue payload' : 'Unknown queue item'
 }
 

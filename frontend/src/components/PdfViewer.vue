@@ -232,7 +232,7 @@ const renderPage = async (pageNumber: number) => {
       // ignore cancellation errors
     }
   }
-  const task = page.render({ canvasContext: ctx, viewport })
+  const task = page.render({ canvas, canvasContext: ctx, viewport })
   renderTask.value = task
   try {
     await task.promise
