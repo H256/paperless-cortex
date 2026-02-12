@@ -564,6 +564,7 @@ All model names must be configurable via environment variables.
 - App SSE integration: `App.vue` now updates the `runtime-status` query cache on status stream events so shared runtime URL consumers stay in sync without view-level store coupling.
 - UX/Frontend refactor: extracted the large continue-processing preview modal from `DocumentsView` into reusable component `frontend/src/components/ContinueProcessingModal.vue`, reducing `DocumentsView` template noise while preserving existing behavior/options and start/close flow.
 - Frontend refactor: extracted processing ETA/progress/queue metric derivations from `DocumentsView` into `frontend/src/composables/useProcessingMetrics.ts`, reducing duplicated time/rate math in the view and keeping state orchestration focused.
+- Frontend refactor: extracted continue-processing option state and API payload mapping (batch slider + checkbox set) into `frontend/src/composables/useContinueProcessOptions.ts`, further slimming `DocumentsView` orchestration code.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
