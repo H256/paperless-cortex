@@ -639,6 +639,7 @@ All model names must be configurable via environment variables.
 - Tests: extended `test_hierarchical_summary_parsing.py` with truncated-JSON repair, deterministic section fallback, and `generate_section_summary` fallback-path coverage.
 - Hierarchical summary robustness (follow-up): reduced section prompt bloat via deterministic page-note compaction (`facts/entities/references/key_numbers` caps per page + token-budgeted page inclusion), improved JSON extraction to decode the first valid object even with trailing noise, and added parsing/compaction regression tests.
 - Page-notes guardrail hardening: added model-output sanitization for control/meta tokens (e.g. `<|channel|>...`), prompt-echo/meta detection, strict retry prompt for contaminated page-note responses, and section-compaction sanitization so leaked meta content is not persisted or forwarded into section summaries.
+- Document operations UX follow-up: improved per-document "Continue missing processing" feedback by adding explicit enqueue/pickup status banner ("checking", "waiting for worker pickup", "picked up") plus temporary auto-refresh while waiting; also updated document-list running badges to include `retrying` task-runs so active retry progress is visible.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).

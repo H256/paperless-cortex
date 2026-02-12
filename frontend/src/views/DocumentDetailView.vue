@@ -127,8 +127,20 @@
             title="Checks missing processing steps for this document and enqueues only those tasks."
             @click="runContinuePipeline"
           >
-            Continue missing processing
+            {{ continuePipelineLoading ? 'Checking + enqueueing...' : 'Continue missing processing' }}
           </button>
+        </div>
+        <div
+          v-if="continuePipelineLoading || continueQueuedWaiting"
+          class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+        >
+          <span v-if="continuePipelineLoading">Checking missing steps and enqueueing tasks...</span>
+          <span v-else-if="continueQueuedWaiting && !hasActiveTaskRuns">
+            Tasks enqueued. Waiting for worker pickup...
+          </span>
+          <span v-else>
+            Worker picked up tasks. Progress is visible in timeline and fan-out below.
+          </span>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
@@ -633,6 +645,8 @@ const writebackConflicts = ref<WritebackConflictField[]>([])
 const writebackResolutions = ref<Record<string, 'skip' | 'use_paperless' | 'use_local'>>({})
 const writebackErrorOpen = ref(false)
 const writebackErrorMessage = ref('')
+const continueQueuedWaiting = ref(false)
+const continueQueuedExpireAt = ref(0)
 const canWriteback = computed(() => document.value?.review_status === 'needs_review')
 type ProcessingState = 'done' | 'missing' | 'na'
 type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
@@ -660,6 +674,9 @@ const pipelineFanoutItems = computed(() => pipelineFanout.value?.items || [])
 const activeRun = computed(() =>
   taskRuns.value.find((run) => run.status === 'running' || run.status === 'retrying') ?? null,
 )
+const hasActiveTaskRuns = computed(() =>
+  taskRuns.value.some((run) => run.status === 'running' || run.status === 'retrying'),
+)
 const activeRunLabel = computed(() => {
   const run = activeRun.value
   if (!run) return ''
@@ -670,9 +687,7 @@ const activeRunLabel = computed(() => {
   )
   return stage !== '-' ? `${run.task} (${stage})` : run.task
 })
-const shouldAutoRefreshTimeline = computed(() =>
-  taskRuns.value.some((run) => run.status === 'running' || run.status === 'retrying'),
-)
+const shouldAutoRefreshTimeline = computed(() => hasActiveTaskRuns.value || continueQueuedWaiting.value)
 const pipelinePreferredSource = computed(() => pipelineStatus.value?.preferred_source || 'paperless_ocr')
 const isLargeDocumentMode = computed(() => Boolean(pipelineStatus.value?.is_large_document))
 const largeDocumentHint = computed(() => {
@@ -1104,6 +1119,8 @@ const runDocCleanup = async () => {
 const runContinuePipeline = async () => {
   await withDocOperation(async () => {
     try {
+      continueQueuedWaiting.value = false
+      continueQueuedExpireAt.value = 0
       const result = await continuePipelineRequest({
         include_vision_ocr: true,
         include_embeddings: true,
@@ -1121,8 +1138,15 @@ const runContinuePipeline = async () => {
       docOpsMessage.value = result.enqueued
         ? `Enqueued ${result.enqueued}/${result.missing_tasks} missing tasks.`
         : `No missing tasks.`
+      if ((result.enqueued || 0) > 0) {
+        continueQueuedWaiting.value = true
+        continueQueuedExpireAt.value = Date.now() + 120_000
+        await Promise.all([refreshTaskRuns(), loadPipelineStatus(), refreshPipelineFanout()])
+      }
     } catch (err) {
       docOpsMessage.value = errorMessage(err, 'Failed to continue document pipeline')
+      continueQueuedWaiting.value = false
+      continueQueuedExpireAt.value = 0
     }
   })
 }
@@ -1152,11 +1176,25 @@ useAutoRefresh({
   enabled: shouldAutoRefreshTimeline,
   intervalMs: 5000,
   onTick: async () => {
+    if (continueQueuedWaiting.value && continueQueuedExpireAt.value > 0 && Date.now() >= continueQueuedExpireAt.value) {
+      continueQueuedWaiting.value = false
+      continueQueuedExpireAt.value = 0
+    }
     await refreshTaskRuns()
     await loadPipelineStatus()
     await refreshPipelineFanout()
   },
 })
+
+watch(
+  activeRun,
+  (run) => {
+    if (run && continueQueuedWaiting.value) {
+      continueQueuedWaiting.value = false
+      continueQueuedExpireAt.value = 0
+    }
+  },
+)
 
 onMounted(async () => {
   syncPdfFromQuery()

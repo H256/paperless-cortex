@@ -8,8 +8,7 @@ export const useRunningTaskProgress = () => {
     queryKey: ['queue-task-runs-running-docs'],
     queryFn: () =>
       fetchQueueTaskRuns({
-        status: 'running',
-        limit: 300,
+        limit: 500,
       }),
     refetchInterval: 15_000,
     staleTime: 5_000,
@@ -19,6 +18,8 @@ export const useRunningTaskProgress = () => {
     const map: Record<number, string> = {}
     const items = runningQuery.data.value?.items ?? []
     for (const run of items) {
+      const status = String(run.status || '').toLowerCase()
+      if (status !== 'running' && status !== 'retrying') continue
       if (typeof run.doc_id !== 'number' || run.doc_id <= 0) continue
       if (map[run.doc_id]) continue
       map[run.doc_id] = formatCheckpointLabel(
