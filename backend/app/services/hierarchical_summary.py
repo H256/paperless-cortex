@@ -18,6 +18,19 @@ from app.services.text_cleaning import estimate_tokens
 
 logger = logging.getLogger(__name__)
 _PAGE_NOTES_CONTENT_KEYS = ("facts", "entities", "references", "key_numbers")
+_PAGE_NOTES_ALL_KEYS = (*_PAGE_NOTES_CONTENT_KEYS, "uncertainties")
+_PAGE_NOTES_SECTION_ALIASES: dict[str, tuple[str, ...]] = {
+    "facts": ("facts", "fakten"),
+    "entities": ("entities", "entitaeten"),
+    "references": ("references", "referenzen", "belege"),
+    "key_numbers": ("key numbers", "key_numbers", "zahlen", "kennzahlen"),
+    "uncertainties": ("uncertainties", "unsicherheiten"),
+}
+_PAGE_NOTES_HEADING_TO_KEY: dict[str, str] = {
+    re.sub(r"[^a-z0-9]+", " ", alias.lower()).strip(): key
+    for key, aliases in _PAGE_NOTES_SECTION_ALIASES.items()
+    for alias in aliases
+}
 _BULLET_PREFIX_RE = re.compile(r"^(?:[-*]|\u2022|\d+[.)])\s*")
 _NUMBER_TOKEN_RE = re.compile(
     r"\b(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?(?:\s?(?:EUR|USD|CHF|%))?|\d{4}-\d{2}-\d{2})\b"
@@ -42,6 +55,14 @@ def _extract_json_dict(text: str) -> dict[str, Any]:
     raise ValueError("No JSON object found in response")
 
 
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _normalize_heading(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
+
+
 def _normalize_list(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
@@ -58,14 +79,9 @@ def _coerce_page_notes_payload(
     payload: dict[str, Any],
     raw_fallback: str | None = None,
 ) -> dict[str, Any]:
-    result = {
-        "page": int(page),
-        "facts": _normalize_list(payload.get("facts")),
-        "entities": _normalize_list(payload.get("entities")),
-        "references": _normalize_list(payload.get("references")),
-        "key_numbers": _normalize_list(payload.get("key_numbers")),
-        "uncertainties": _normalize_list(payload.get("uncertainties")),
-    }
+    result = {"page": int(page)}
+    for key in _PAGE_NOTES_ALL_KEYS:
+        result[key] = _normalize_list(payload.get(key))
     if raw_fallback and not any(result[key] for key in _PAGE_NOTES_CONTENT_KEYS):
         compact = " ".join((raw_fallback or "").split())
         if compact:
@@ -89,32 +105,14 @@ def _best_effort_page_notes_from_text(page: int, raw_text: str) -> dict[str, Any
 
 
 def _parse_page_notes_text(page: int, text: str) -> dict[str, Any]:
-    section_aliases = {
-        "facts": ("facts", "fakten"),
-        "entities": ("entities", "entitaeten"),
-        "references": ("references", "referenzen", "belege"),
-        "key_numbers": ("key numbers", "key_numbers", "zahlen", "kennzahlen"),
-        "uncertainties": ("uncertainties", "unsicherheiten"),
-    }
-    heading_to_key: dict[str, str] = {}
-    for key, aliases in section_aliases.items():
-        for alias in aliases:
-            heading_to_key[alias] = key
-
-    values: dict[str, list[str]] = {
-        "facts": [],
-        "entities": [],
-        "references": [],
-        "key_numbers": [],
-        "uncertainties": [],
-    }
+    values: dict[str, list[str]] = {key: [] for key in _PAGE_NOTES_ALL_KEYS}
     current_key: str | None = None
     for raw_line in (text or "").splitlines():
         line = raw_line.strip()
         if not line:
             continue
-        heading = line.rstrip(":").strip().lower()
-        resolved = heading_to_key.get(heading)
+        heading = _normalize_heading(line.rstrip(":").strip())
+        resolved = _PAGE_NOTES_HEADING_TO_KEY.get(heading)
         if resolved:
             current_key = resolved
             continue
@@ -137,6 +135,49 @@ def _truncate_for_tokens(text: str, max_input_tokens: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + "\n[TRUNCATED]"
+
+
+def _raw_preview(raw: str | None, max_chars: int = 500) -> str:
+    preview = str(raw or "").replace("\n", "\\n")
+    if len(preview) > max_chars:
+        return preview[:max_chars] + "...<truncated>"
+    return preview
+
+
+def _chat_json_response(
+    settings: Settings,
+    *,
+    prompt: str,
+    timeout: int,
+    max_tokens: int,
+) -> dict[str, Any]:
+    raw = _chat_response(
+        settings,
+        prompt=prompt,
+        timeout=timeout,
+        max_tokens=max_tokens,
+        json_mode=True,
+    )
+    return _extract_json_dict(raw)
+
+
+def _chat_response(
+    settings: Settings,
+    *,
+    prompt: str,
+    timeout: int,
+    max_tokens: int,
+    json_mode: bool,
+) -> str:
+    return llm_client.chat_completion(
+        settings,
+        model=settings.text_model or "",
+        messages=[{"role": "user", "content": prompt}],
+        timeout=timeout,
+        max_tokens=max_tokens,
+        temperature=0.0,
+        json_mode=json_mode,
+    )
 
 
 def _page_notes_prompt(page: int, text: str) -> str:
@@ -187,13 +228,11 @@ def generate_page_notes(
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
     cleaned = _truncate_for_tokens(text, max_input_tokens=6000)
-    raw = llm_client.chat_completion(
+    raw = _chat_response(
         settings,
-        model=settings.text_model or "",
-        messages=[{"role": "user", "content": _page_notes_prompt(page, cleaned)}],
+        prompt=_page_notes_prompt(page, cleaned),
         timeout=settings.page_notes_timeout_seconds,
         max_tokens=settings.page_notes_max_output_tokens,
-        temperature=0.0,
         json_mode=False,
     )
     if not str(raw or "").strip():
@@ -203,14 +242,11 @@ def generate_page_notes(
         return _coerce_page_notes_payload(page, parsed, raw_fallback=raw)
     except Exception as exc:
         if os.getenv("LLM_DEBUG") == "1":
-            preview = str(raw or "").replace("\n", "\\n")
-            if len(preview) > 500:
-                preview = preview[:500] + "...<truncated>"
             logger.warning(
                 "Page notes JSON parse failed page=%s error=%s raw_snippet=%s",
                 page,
                 exc,
-                preview,
+                _raw_preview(raw),
             )
         return _parse_page_notes_text(page, raw)
 
@@ -222,18 +258,14 @@ def generate_section_summary(
     page_notes: list[dict[str, Any]],
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    payload = json.dumps(page_notes, ensure_ascii=False)
+    payload = _json_dumps(page_notes)
     payload = _truncate_for_tokens(payload, max_input_tokens=settings.section_summary_max_input_tokens)
-    raw = llm_client.chat_completion(
+    parsed = _chat_json_response(
         settings,
-        model=settings.text_model or "",
-        messages=[{"role": "user", "content": _section_summary_prompt(section_key, payload)}],
+        prompt=_section_summary_prompt(section_key, payload),
         timeout=settings.section_summary_timeout_seconds,
         max_tokens=settings.summary_max_output_tokens,
-        temperature=0.0,
-        json_mode=True,
     )
-    parsed = _extract_json_dict(raw)
     parsed["section"] = section_key
     return parsed
 
@@ -244,18 +276,14 @@ def generate_global_summary(
     section_summaries: list[dict[str, Any]],
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    payload = json.dumps(section_summaries, ensure_ascii=False)
+    payload = _json_dumps(section_summaries)
     payload = _truncate_for_tokens(payload, max_input_tokens=settings.global_summary_max_input_tokens)
-    raw = llm_client.chat_completion(
+    return _chat_json_response(
         settings,
-        model=settings.text_model or "",
-        messages=[{"role": "user", "content": _global_summary_prompt(payload)}],
+        prompt=_global_summary_prompt(payload),
         timeout=settings.global_summary_timeout_seconds,
         max_tokens=settings.summary_max_output_tokens,
-        temperature=0.0,
-        json_mode=True,
     )
-    return _extract_json_dict(raw)
 
 
 def upsert_page_note(
@@ -282,7 +310,7 @@ def upsert_page_note(
             doc_id=doc_id,
             page=page,
             source=source,
-            notes_json=json.dumps(payload, ensure_ascii=False) if payload is not None else None,
+            notes_json=_json_dumps(payload) if payload is not None else None,
             model_name=model_name,
             status=status,
             error=error,
@@ -314,7 +342,7 @@ def replace_section_summaries(
                 doc_id=doc_id,
                 section_key=section_key,
                 source=source,
-                summary_json=json.dumps(payload, ensure_ascii=False),
+                summary_json=_json_dumps(payload),
                 model_name=model_name,
                 status="ok",
                 created_at=now,
@@ -325,14 +353,19 @@ def replace_section_summaries(
 
 
 def group_page_ranges(pages: list[int], section_pages: int) -> list[tuple[int, int]]:
-    if not pages:
+    section_pages = max(1, int(section_pages))
+    sorted_pages = _sorted_unique_positive_pages(pages)
+    if not sorted_pages:
         return []
-    sorted_pages = sorted(set(int(page) for page in pages if int(page) > 0))
     ranges: list[tuple[int, int]] = []
     for i in range(0, len(sorted_pages), section_pages):
         chunk = sorted_pages[i : i + section_pages]
         ranges.append((chunk[0], chunk[-1]))
     return ranges
+
+
+def _sorted_unique_positive_pages(pages: list[int]) -> list[int]:
+    return sorted(set(int(page) for page in pages if int(page) > 0))
 
 
 def group_notes_into_sections(
@@ -341,6 +374,8 @@ def group_notes_into_sections(
     max_pages: int,
     max_input_tokens: int,
 ) -> list[tuple[str, list[dict[str, Any]]]]:
+    max_pages = max(1, int(max_pages))
+    max_input_tokens = max(1, int(max_input_tokens))
     if not notes:
         return []
     ordered = sorted(notes, key=lambda item: item[0])
@@ -360,7 +395,7 @@ def group_notes_into_sections(
         current_tokens = 0
 
     for page, note_payload in ordered:
-        note_json = json.dumps(note_payload, ensure_ascii=False)
+        note_json = _json_dumps(note_payload)
         note_tokens = estimate_tokens(note_json)
         exceeds_pages = len(current_pages) >= max_pages
         exceeds_tokens = current_tokens + note_tokens > max_input_tokens

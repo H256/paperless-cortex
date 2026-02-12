@@ -21,6 +21,7 @@ from app.models import (
 )
 from app.services.queue import enqueue_task, enqueue_task_sequence
 from app.services.embeddings import delete_points_for_doc
+from app.services.hierarchical_summary import is_large_document
 from app.services.page_text_store import reclean_page_texts
 from app.services.queue_tasks import build_task_sequence
 from app.services import paperless
@@ -105,6 +106,10 @@ def process_missing(
     dry_run: bool = False,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
+    include_embeddings_paperless: bool = True,
+    include_embeddings_vision: bool = True,
+    include_page_notes: bool = False,
+    include_summary_hierarchical: bool = False,
     include_suggestions_paperless: bool = True,
     include_suggestions_vision: bool = True,
     embeddings_mode: str = "auto",
@@ -151,13 +156,26 @@ def process_missing(
     missing_docs = 0
     missing_vision = 0
     missing_embeddings = 0
+    missing_embeddings_paperless = 0
     missing_embeddings_vision = 0
+    missing_page_notes = 0
+    missing_summary_hier = 0
     missing_sugg_p = 0
     missing_sugg_v = 0
+    checked_docs = 0
+    page_notes_rows = db.query(DocumentPageNote).all()
+    page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = {}
+    for row in page_notes_rows:
+        page_notes_by_doc_source.setdefault((int(row.doc_id), str(row.source)), []).append(row)
+    hier_summaries = {
+        int(row.doc_id): row
+        for row in db.query(DocumentSuggestion).filter(DocumentSuggestion.source == "hier_summary").all()
+    }
     selected_for_run = 0
     for doc in docs:
         if should_skip_doc(doc):
             continue
+        checked_docs += 1
         tasks: list[dict] = []
         doc_modified = parse_iso(doc.modified) or parse_iso(doc.created)
         embedding = embeddings.get(doc.id)
@@ -175,36 +193,95 @@ def process_missing(
             or not vision_updated_at
             or (doc_modified and vision_updated_at < doc_modified)
         )
-        needs_embeddings = include_embeddings and (
-            not embedded_at
-            or (doc_modified and embedded_at < doc_modified)
-            or (embeddings_mode == "vision" and not has_vision_embedding)
+        embeddings_stale = bool(not embedded_at or (doc_modified and embedded_at < doc_modified))
+        wants_paperless_embeddings = bool(include_embeddings and include_embeddings_paperless)
+        wants_vision_embeddings = bool(
+            include_embeddings
+            and include_embeddings_vision
+            and settings.enable_vision_ocr
+            and (has_complete_vision or include_vision_ocr)
         )
-        needs_embeddings_vision = include_embeddings and embeddings_mode == "vision" and not has_vision_embedding
+        target_embedding_source: str | None = None
+        if include_embeddings:
+            if embeddings_mode == "vision":
+                target_embedding_source = "vision" if wants_vision_embeddings else None
+            elif embeddings_mode == "paperless":
+                target_embedding_source = "paperless" if wants_paperless_embeddings else None
+            else:
+                # Auto mode with explicit checkboxes:
+                # if both selected, prefer vision as active retrieval embedding source.
+                if wants_vision_embeddings:
+                    target_embedding_source = "vision"
+                elif wants_paperless_embeddings:
+                    target_embedding_source = "paperless"
+        needs_embeddings = bool(
+            target_embedding_source and (
+                embedding_source != target_embedding_source or embeddings_stale
+            )
+        )
+        needs_embeddings_paperless = needs_embeddings and target_embedding_source == "paperless"
+        needs_embeddings_vision = needs_embeddings and target_embedding_source == "vision"
         needs_sugg_p = include_suggestions_paperless and (
             not sugg_p_at or (doc_modified and sugg_p_at < doc_modified)
         )
         needs_sugg_v = include_suggestions_vision and (
             not sugg_v_at or (doc_modified and sugg_v_at < doc_modified)
         )
+        page_notes_source = "vision_ocr" if settings.enable_vision_ocr and include_vision_ocr else "paperless_ocr"
+        page_notes_task = "page_notes_vision" if page_notes_source == "vision_ocr" else "page_notes_paperless"
+        note_rows = page_notes_by_doc_source.get((int(doc.id), page_notes_source), [])
+        ok_notes = [row for row in note_rows if row.status == "ok"]
+        note_pages = {
+            int(row.page)
+            for row in ok_notes
+            if getattr(row, "page", None) is not None and int(row.page) > 0
+        }
+        expected_note_pages = int(doc.page_count or 0)
+        notes_complete = len(note_pages) > 0 if expected_note_pages <= 0 else len(note_pages) >= expected_note_pages
+        notes_latest_raw = max(
+            (parse_iso(row.processed_at) or parse_iso(row.created_at) for row in ok_notes),
+            default=None,
+        )
+        notes_stale = (
+            not notes_latest_raw
+            or (doc_modified and notes_latest_raw < doc_modified)
+            or (
+                page_notes_source == "vision_ocr"
+                and vision_updated_at is not None
+                and notes_latest_raw < vision_updated_at
+            )
+        )
+        large_doc = is_large_document(
+            page_count=doc.page_count,
+            total_text=doc.content,
+            threshold_pages=settings.large_doc_page_threshold,
+        )
+        evaluate_page_notes = include_page_notes or include_summary_hierarchical
+        needs_page_notes = evaluate_page_notes and large_doc and (not notes_complete or bool(notes_stale))
+        summary_row = hier_summaries.get(int(doc.id))
+        summary_at = parse_iso(summary_row.created_at) if summary_row else None
+        needs_summary = include_summary_hierarchical and large_doc and (
+            not summary_at or (doc_modified and summary_at < doc_modified) or (notes_latest_raw and summary_at < notes_latest_raw)
+        )
         if needs_vision:
             missing_vision += 1
             tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
         if needs_embeddings:
             missing_embeddings += 1
-            if embeddings_mode == "vision":
+            if needs_embeddings_vision:
+                missing_embeddings_vision += 1
                 tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-            elif embeddings_mode == "paperless":
+            elif needs_embeddings_paperless:
+                missing_embeddings_paperless += 1
                 tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-            else:
-                tasks.append(
-                    {
-                        "doc_id": doc.id,
-                        "task": "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless",
-                    }
-                )
-        if needs_embeddings_vision:
-            missing_embeddings_vision += 1
+        if evaluate_page_notes and needs_page_notes:
+            missing_page_notes += 1
+        if needs_summary:
+            missing_summary_hier += 1
+        if needs_page_notes and (include_page_notes or needs_summary):
+            tasks.append({"doc_id": doc.id, "task": page_notes_task})
+        if needs_summary:
+            tasks.append({"doc_id": doc.id, "task": "summary_hierarchical", "source": page_notes_source})
         if needs_sugg_p:
             missing_sugg_p += 1
             tasks.append({"doc_id": doc.id, "task": "suggestions_paperless"})
@@ -223,10 +300,14 @@ def process_missing(
 
     return {
         "enabled": True,
-        "docs": missing_docs,
-        "missing_vision": missing_vision,
+        "docs": checked_docs,
+        "missing_docs": missing_docs,
+        "missing_vision_ocr": missing_vision,
         "missing_embeddings": missing_embeddings,
-        "missing_vision_embeddings": missing_embeddings_vision,
+        "missing_embeddings_paperless": missing_embeddings_paperless,
+        "missing_embeddings_vision": missing_embeddings_vision,
+        "missing_page_notes": missing_page_notes,
+        "missing_summary_hierarchical": missing_summary_hier,
         "missing_suggestions_paperless": missing_sugg_p,
         "missing_suggestions_vision": missing_sugg_v,
         "selected": selected_for_run,

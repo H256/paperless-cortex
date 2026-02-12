@@ -118,6 +118,36 @@
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+              Processing status
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-300">
+              Done {{ processingDoneCount }} / {{ processingRequiredCount }} required
+            </div>
+          </div>
+          <div class="mt-2 grid gap-2 md:grid-cols-2">
+            <div
+              v-for="item in processingStatusItems"
+              :key="item.label"
+              class="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
+            >
+              <span class="text-slate-700 dark:text-slate-200">{{ item.label }}</span>
+              <span
+                class="inline-flex items-center gap-1 font-semibold"
+                :class="processingBadgeClass(item.state)"
+                :title="item.detail"
+              >
+                <CheckCircle v-if="item.state === 'done'" class="h-3.5 w-3.5" />
+                <AlertTriangle v-else-if="item.state === 'missing'" class="h-3.5 w-3.5" />
+                <MinusCircle v-else class="h-3.5 w-3.5" />
+                {{ processingStateLabel(item.state) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
           <label class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300">
             <input type="checkbox" v-model="docCleanupClearFirst" />
             Clear clean fields first
@@ -272,7 +302,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ClipboardCheck, ExternalLink, RefreshCw } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import IconButton from '../components/IconButton.vue'
@@ -395,6 +425,97 @@ const writebackResolutions = ref<Record<string, 'skip' | 'use_paperless' | 'use_
 const writebackErrorOpen = ref(false)
 const writebackErrorMessage = ref('')
 const canWriteback = computed(() => document.value?.review_status === 'needs_review')
+type ProcessingState = 'done' | 'missing' | 'na'
+type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
+
+const preferredProcessingSource = computed(
+  () => (document.value?.preferred_processing_source === 'vision_ocr' ? 'vision_ocr' : 'paperless_ocr'),
+)
+const requiresVisionSource = computed(() => preferredProcessingSource.value === 'vision_ocr')
+const hasPreferredPageNotes = computed(() => {
+  if (preferredProcessingSource.value === 'vision_ocr') {
+    return Boolean(document.value?.has_complete_page_notes_vision)
+  }
+  return Boolean(document.value?.has_complete_page_notes_paperless)
+})
+const requiresLargeDocSteps = computed(() => Boolean(document.value?.is_large_document))
+const processingStatusItems = computed<ProcessingStatusItem[]>(() => {
+  const items: ProcessingStatusItem[] = [
+    {
+      label: 'Embeddings',
+      state: document.value?.has_embedding_for_preferred_source ? 'done' : 'missing',
+      detail: `Expected source: ${requiresVisionSource.value ? 'vision' : 'paperless'}, current: ${
+        document.value?.embedding_source || 'none'
+      }, chunks: ${document.value?.embedding_chunk_count ?? 0}.`,
+    },
+    {
+      label: 'Vision OCR',
+      state: requiresVisionSource.value
+        ? document.value?.has_complete_vision_pages
+          ? 'done'
+          : 'missing'
+        : 'na',
+      detail: requiresVisionSource.value
+        ? `Vision pages: ${document.value?.vision_pages_done ?? 0} / ${document.value?.vision_pages_expected ?? 0}.`
+        : 'Vision OCR is not the preferred processing source.',
+    },
+    {
+      label: 'Suggestions (paperless)',
+      state: document.value?.has_suggestions_paperless ? 'done' : 'missing',
+      detail: 'Suggestions generated from Paperless OCR.',
+    },
+    {
+      label: 'Suggestions (vision)',
+      state: requiresVisionSource.value
+        ? document.value?.has_suggestions_vision
+          ? 'done'
+          : 'missing'
+        : 'na',
+      detail: requiresVisionSource.value
+        ? 'Suggestions generated from Vision OCR.'
+        : 'Not required when processing source is paperless_ocr.',
+    },
+    {
+      label: `Page notes (${preferredProcessingSource.value === 'vision_ocr' ? 'vision' : 'paperless'})`,
+      state: requiresLargeDocSteps.value ? (hasPreferredPageNotes.value ? 'done' : 'missing') : 'na',
+      detail: requiresLargeDocSteps.value
+        ? `Page notes: ${
+            preferredProcessingSource.value === 'vision_ocr'
+              ? document.value?.page_notes_vision_done ?? 0
+              : document.value?.page_notes_paperless_done ?? 0
+          } / ${document.value?.page_notes_expected ?? 0}.`
+        : 'Page notes are only required for large documents.',
+    },
+    {
+      label: 'Hierarchical summary',
+      state: requiresLargeDocSteps.value
+        ? document.value?.has_hierarchical_summary
+          ? 'done'
+          : 'missing'
+        : 'na',
+      detail: requiresLargeDocSteps.value
+        ? 'Distilled multi-section summary for large documents.'
+        : 'Hierarchical summary is only required for large documents.',
+    },
+  ]
+  return items
+})
+const processingRequiredCount = computed(
+  () => processingStatusItems.value.filter((item) => item.state !== 'na').length,
+)
+const processingDoneCount = computed(
+  () => processingStatusItems.value.filter((item) => item.state === 'done').length,
+)
+const processingStateLabel = (state: ProcessingState) => {
+  if (state === 'done') return 'Done'
+  if (state === 'missing') return 'Missing'
+  return 'N/A'
+}
+const processingBadgeClass = (state: ProcessingState) => {
+  if (state === 'done') return 'text-emerald-600 dark:text-emerald-300'
+  if (state === 'missing') return 'text-amber-600 dark:text-amber-300'
+  return 'text-slate-400 dark:text-slate-500'
+}
 
 const parseBBox = (value: unknown): number[] | null => {
   if (!value) return null

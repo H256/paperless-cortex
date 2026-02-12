@@ -14,6 +14,7 @@ from app.models import (
     Document,
     DocumentEmbedding,
     DocumentPendingTag,
+    DocumentPageNote,
     DocumentPageText,
     DocumentSuggestion,
     DocumentType,
@@ -22,6 +23,7 @@ from app.models import (
     document_tags,
 )
 from app.services import paperless
+from app.services.hierarchical_summary import is_large_document
 from app.services.queue import enqueue_docs_front
 from app.services.text_pages import get_baseline_page_texts, score_text_quality
 from app.services.ocr_scoring import ensure_document_ocr_score
@@ -497,6 +499,63 @@ def get_local_document(
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
+    preferred_processing_source = "vision_ocr" if settings.enable_vision_ocr else "paperless_ocr"
+    expected_embedding_source = "vision" if preferred_processing_source == "vision_ocr" else "paperless"
+    embedding_row = db.get(DocumentEmbedding, doc_id)
+    has_embeddings = embedding_row is not None
+    embedding_source = embedding_row.embedding_source if embedding_row else None
+    embedding_chunk_count = int(embedding_row.chunk_count or 0) if embedding_row else 0
+    has_embedding_for_preferred_source = bool(
+        has_embeddings
+        and embedding_chunk_count > 0
+        and embedding_source == expected_embedding_source
+    )
+    suggestion_sources = {
+        str(row.source)
+        for row in db.query(DocumentSuggestion.source).filter(DocumentSuggestion.doc_id == doc_id).all()
+    }
+    has_suggestions_paperless = "paperless_ocr" in suggestion_sources
+    has_suggestions_vision = "vision_ocr" in suggestion_sources
+    has_hierarchical_summary = "hier_summary" in suggestion_sources
+    expected_pages = int(doc.page_count or 0) if int(doc.page_count or 0) > 0 else None
+    vision_done_pages = (
+        db.query(func.count(func.distinct(DocumentPageText.page)))
+        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+        .scalar()
+    ) or 0
+    has_vision_pages = vision_done_pages > 0
+    has_complete_vision_pages = vision_done_pages >= expected_pages if expected_pages else has_vision_pages
+    page_notes_paperless_done = (
+        db.query(func.count(func.distinct(DocumentPageNote.page)))
+        .filter(
+            DocumentPageNote.doc_id == doc_id,
+            DocumentPageNote.source == "paperless_ocr",
+            DocumentPageNote.status == "ok",
+        )
+        .scalar()
+    ) or 0
+    page_notes_vision_done = (
+        db.query(func.count(func.distinct(DocumentPageNote.page)))
+        .filter(
+            DocumentPageNote.doc_id == doc_id,
+            DocumentPageNote.source == "vision_ocr",
+            DocumentPageNote.status == "ok",
+        )
+        .scalar()
+    ) or 0
+    has_page_notes_paperless = page_notes_paperless_done > 0
+    has_page_notes_vision = page_notes_vision_done > 0
+    has_complete_page_notes_paperless = (
+        page_notes_paperless_done >= expected_pages if expected_pages else has_page_notes_paperless
+    )
+    has_complete_page_notes_vision = (
+        page_notes_vision_done >= expected_pages if expected_pages else has_page_notes_vision
+    )
+    is_large_doc = is_large_document(
+        page_count=doc.page_count,
+        total_text=doc.content,
+        threshold_pages=settings.large_doc_page_threshold,
+    )
     remote_doc = paperless.get_document(settings, doc_id)
     pending_row = (
         db.query(DocumentPendingTag)
@@ -571,6 +630,26 @@ def get_local_document(
         "reviewed_at": reviewed_at_raw,
         "paperless_modified": remote_modified_raw,
         "pending_tag_names": pending_tag_names,
+        "has_embeddings": has_embeddings,
+        "embedding_source": embedding_source,
+        "embedding_chunk_count": embedding_chunk_count,
+        "has_embedding_for_preferred_source": has_embedding_for_preferred_source,
+        "has_suggestions_paperless": has_suggestions_paperless,
+        "has_suggestions_vision": has_suggestions_vision,
+        "has_vision_pages": has_vision_pages,
+        "vision_pages_done": int(vision_done_pages),
+        "vision_pages_expected": expected_pages,
+        "has_complete_vision_pages": has_complete_vision_pages,
+        "has_page_notes_paperless": has_page_notes_paperless,
+        "has_page_notes_vision": has_page_notes_vision,
+        "page_notes_paperless_done": int(page_notes_paperless_done),
+        "page_notes_vision_done": int(page_notes_vision_done),
+        "page_notes_expected": expected_pages,
+        "has_complete_page_notes_paperless": has_complete_page_notes_paperless,
+        "has_complete_page_notes_vision": has_complete_page_notes_vision,
+        "has_hierarchical_summary": has_hierarchical_summary,
+        "is_large_document": is_large_doc,
+        "preferred_processing_source": preferred_processing_source,
     }
 
 

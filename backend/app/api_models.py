@@ -156,6 +156,26 @@ class DocumentLocalResponse(BaseModel):
     reviewed_at: Optional[str] = None
     paperless_modified: Optional[str] = None
     pending_tag_names: list[str] = []
+    has_embeddings: Optional[bool] = None
+    embedding_source: Optional[str] = None
+    embedding_chunk_count: Optional[int] = None
+    has_embedding_for_preferred_source: Optional[bool] = None
+    has_suggestions_paperless: Optional[bool] = None
+    has_suggestions_vision: Optional[bool] = None
+    has_vision_pages: Optional[bool] = None
+    vision_pages_done: Optional[int] = None
+    vision_pages_expected: Optional[int] = None
+    has_complete_vision_pages: Optional[bool] = None
+    has_page_notes_paperless: Optional[bool] = None
+    has_page_notes_vision: Optional[bool] = None
+    page_notes_paperless_done: Optional[int] = None
+    page_notes_vision_done: Optional[int] = None
+    page_notes_expected: Optional[int] = None
+    has_complete_page_notes_paperless: Optional[bool] = None
+    has_complete_page_notes_vision: Optional[bool] = None
+    has_hierarchical_summary: Optional[bool] = None
+    is_large_document: Optional[bool] = None
+    preferred_processing_source: Optional[str] = None
 
 
 class DocumentsPageResponse(BaseModel):
@@ -414,7 +434,10 @@ class ProcessMissingResponse(BaseModel):
     missing_docs: Optional[int] = None
     missing_vision_ocr: Optional[int] = None
     missing_embeddings: Optional[int] = None
+    missing_embeddings_paperless: Optional[int] = None
     missing_embeddings_vision: Optional[int] = None
+    missing_page_notes: Optional[int] = None
+    missing_summary_hierarchical: Optional[int] = None
     missing_suggestions_paperless: Optional[int] = None
     missing_suggestions_vision: Optional[int] = None
 
