@@ -6,6 +6,12 @@
           {{ document?.title || `Document ${id}` }}
         </h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">{{ headerMetaLine }}</p>
+        <p
+          v-if="activeRunLabel"
+          class="mt-1 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+        >
+          Processing now: {{ activeRunLabel }}
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <IconButton
@@ -560,6 +566,19 @@ const processingRequiredCount = computed(
 const processingDoneCount = computed(
   () => processingStatusItems.value.filter((item) => item.state === 'done').length,
 )
+const activeRun = computed(() =>
+  taskRuns.value.find((run) => run.status === 'running' || run.status === 'retrying') ?? null,
+)
+const activeRunLabel = computed(() => {
+  const run = activeRun.value
+  if (!run) return ''
+  const stage = checkpointLabel(
+    run.checkpoint && typeof run.checkpoint === 'object'
+      ? (run.checkpoint as Record<string, unknown>)
+      : null,
+  )
+  return stage !== '-' ? `${run.task} (${stage})` : run.task
+})
 const shouldAutoRefreshTimeline = computed(() =>
   taskRuns.value.some((run) => run.status === 'running' || run.status === 'retrying'),
 )
