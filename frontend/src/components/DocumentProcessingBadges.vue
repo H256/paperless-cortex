@@ -24,6 +24,14 @@
         <span class="sr-only">All processed</span>
       </div>
     </template>
+    <span
+      v-if="writebackBadge"
+      class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+      :class="writebackBadge.className"
+      :title="writebackBadge.title"
+    >
+      {{ writebackBadge.label }}
+    </span>
   </div>
 </template>
 
@@ -77,5 +85,35 @@ const fulfilledTooltip = computed(() => {
   if (doc.local_cached) done.push('Local cache')
   if (!done.length) return 'Nothing processed yet'
   return `Done: ${done.join(', ')}`
+})
+
+const writebackBadge = computed(() => {
+  const status = String(props.doc.review_status || '').trim().toLowerCase()
+  const hasOverrides = Boolean(props.doc.local_overrides)
+  if (status === 'needs_review') {
+    return {
+      label: 'Needs review',
+      title: 'Local suggestions exist and await your decision before writeback.',
+      className:
+        'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200',
+    }
+  }
+  if (status === 'reviewed') {
+    return {
+      label: 'Reviewed',
+      title: 'Document was reviewed; writeback decision is settled.',
+      className:
+        'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
+    }
+  }
+  if (hasOverrides) {
+    return {
+      label: 'Local overrides',
+      title: 'Local metadata differs from Paperless values.',
+      className:
+        'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200',
+    }
+  }
+  return null
 })
 </script>

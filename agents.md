@@ -611,6 +611,7 @@ All model names must be configurable via environment variables.
 - Tests: added `backend/tests/test_sync_upsert_notes.py` to verify note upsert idempotency with stable note IDs.
 - Queue robustness: hardened running-state handling by clamping `in_progress` decrement at zero and auto-clearing stale running markers when lock/heartbeat are absent, reducing orphaned "running" UI states after crashes/interrupted workers.
 - Continue-processing UX simplification: replaced checkbox-heavy source/task toggles with a single guided strategy selector (`balanced`, `vision_first`, `paperless_only`, `max_coverage`) in `useContinueProcessOptions` + `ContinueProcessingModal`, while preserving backend-compatible query payload mapping.
+- Documents list UX: added writeback/readiness status pills in `DocumentProcessingBadges` (`Needs review`, `Reviewed`, `Local overrides`) to make local-only vs review/writeback state visible directly in table rows.
 
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
