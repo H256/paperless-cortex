@@ -75,6 +75,8 @@ export const useDocumentsStore = defineStore('documents', {
       missing_vision_ocr?: number
       missing_embeddings?: number
       missing_embeddings_vision?: number
+      missing_page_notes?: number
+      missing_summary_hierarchical?: number
       missing_suggestions_paperless?: number
       missing_suggestions_vision?: number
       docs?: number
@@ -224,6 +226,8 @@ export const useDocumentsStore = defineStore('documents', {
           missing_vision_ocr: preview.missing_vision_ocr ?? undefined,
           missing_embeddings: preview.missing_embeddings ?? undefined,
           missing_embeddings_vision: preview.missing_embeddings_vision ?? undefined,
+          missing_page_notes: preview.missing_page_notes ?? undefined,
+          missing_summary_hierarchical: preview.missing_summary_hierarchical ?? undefined,
           missing_suggestions_paperless: preview.missing_suggestions_paperless ?? undefined,
           missing_suggestions_vision: preview.missing_suggestions_vision ?? undefined,
         }

@@ -415,6 +415,8 @@ class ProcessMissingResponse(BaseModel):
     missing_vision_ocr: Optional[int] = None
     missing_embeddings: Optional[int] = None
     missing_embeddings_vision: Optional[int] = None
+    missing_page_notes: Optional[int] = None
+    missing_summary_hierarchical: Optional[int] = None
     missing_suggestions_paperless: Optional[int] = None
     missing_suggestions_vision: Optional[int] = None
 

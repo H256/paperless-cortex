@@ -440,6 +440,22 @@
         <div
           class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
         >
+          Missing page notes:
+          <strong class="text-slate-900 dark:text-slate-100">{{
+            processPreview?.missing_page_notes ?? 0
+          }}</strong>
+        </div>
+        <div
+          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        >
+          Missing hierarchical summaries:
+          <strong class="text-slate-900 dark:text-slate-100">{{
+            processPreview?.missing_summary_hierarchical ?? 0
+          }}</strong>
+        </div>
+        <div
+          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        >
           Missing suggestions (baseline):
           <strong class="text-slate-900 dark:text-slate-100">{{
             processPreview?.missing_suggestions_paperless ?? 0
@@ -509,6 +525,26 @@
               class="h-4 w-4 rounded border-slate-300 text-indigo-600"
             />
             Embeddings
+          </label>
+          <label
+            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
+          >
+            <input
+              type="checkbox"
+              v-model="processOptions.includePageNotes"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+            />
+            Page notes
+          </label>
+          <label
+            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
+          >
+            <input
+              type="checkbox"
+              v-model="processOptions.includeHierarchicalSummary"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+            />
+            Hierarchical summary
           </label>
           <label
             class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
@@ -651,6 +687,8 @@ const modelFilter = ref('')
 const processOptions = reactive({
   includeVisionOcr: true,
   includeEmbeddings: true,
+  includePageNotes: true,
+  includeHierarchicalSummary: true,
   includeSuggestionsPaperless: true,
   includeSuggestionsVision: true,
   embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
@@ -666,6 +704,8 @@ const batchLabel = computed(() => (batchLimit.value === null ? 'All' : String(ba
 const processParams = () => ({
   include_vision_ocr: processOptions.includeVisionOcr,
   include_embeddings: processOptions.includeEmbeddings,
+  include_page_notes: processOptions.includePageNotes,
+  include_summary_hierarchical: processOptions.includeHierarchicalSummary,
   include_suggestions_paperless: processOptions.includeSuggestionsPaperless,
   include_suggestions_vision: processOptions.includeSuggestionsVision,
   embeddings_mode: processOptions.embeddingsMode,
