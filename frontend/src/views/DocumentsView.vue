@@ -665,18 +665,14 @@ import {
   XCircle,
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useDocumentsStore } from '../stores/documentsStore'
-import { useQueueStore } from '../stores/queueStore'
 import { useToastStore } from '../stores/toastStore'
 import { useStatusStore } from '../stores/statusStore'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
+import { useProcessingOverview } from '../composables/useProcessingOverview'
 import type { DocumentRow } from '../services/documents'
 
 const router = useRouter()
-const documentsStore = useDocumentsStore()
-const queueStore = useQueueStore()
 const statusStore = useStatusStore()
 const toastStore = useToastStore()
 const {
@@ -694,16 +690,15 @@ const {
   dateTo,
   refetchDocuments,
 } = useDocumentsCatalog()
-
 const {
-  syncing,
-  lastSynced,
   syncStatus,
   embedStatus,
   stats,
-} = storeToRefs(documentsStore)
-
-const { status: queueStatus } = storeToRefs(queueStore)
+  queueStatus,
+  lastSynced,
+  refresh: refreshProcessingOverview,
+  clearQueueNow,
+} = useProcessingOverview()
 const {
   processPreview,
   processPreviewLoading,
@@ -763,6 +758,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageS
 const isProcessing = computed(
   () => syncStatus.value.status === 'running' || embedStatus.value.status === 'running',
 )
+const syncing = computed(() => isProcessing.value)
 const isSyncingNow = computed(() => syncStatus.value.status === 'running')
 const hasQueuedWork = computed(() => {
   if (!queueStatus.value.enabled) return false
@@ -770,7 +766,7 @@ const hasQueuedWork = computed(() => {
 })
 const showCancel = computed(() => isProcessing.value || hasQueuedWork.value)
 const embedLabel = computed(() => {
-  if (queueStore.status.enabled && (queueStore.status.length || queueStore.status.in_progress)) {
+  if (queueStatus.value.enabled && (queueStatus.value.length || queueStatus.value.in_progress)) {
     return 'Queue'
   }
   return 'Embed'
@@ -878,9 +874,7 @@ const load = async () => {
 }
 
 const refreshAfterProcessingMutation = async () => {
-  await documentsStore.fetchSyncStatus()
-  await documentsStore.fetchEmbedStatus()
-  await load()
+  await Promise.all([refreshProcessingOverview(), load()])
 }
 
 const openPreview = async () => {
@@ -918,7 +912,7 @@ const startFromPreview = async () => {
 const cancelProcessing = async () => {
   try {
     await cancelProcessingRequest()
-    await queueStore.clear()
+    await clearQueueNow()
     await refreshAfterProcessingMutation()
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to cancel processing'
