@@ -106,6 +106,8 @@ def process_missing(
     dry_run: bool = False,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
+    include_embeddings_paperless: bool = True,
+    include_embeddings_vision: bool = True,
     include_page_notes: bool = False,
     include_summary_hierarchical: bool = False,
     include_suggestions_paperless: bool = True,
@@ -154,6 +156,7 @@ def process_missing(
     missing_docs = 0
     missing_vision = 0
     missing_embeddings = 0
+    missing_embeddings_paperless = 0
     missing_embeddings_vision = 0
     missing_page_notes = 0
     missing_summary_hier = 0
@@ -190,12 +193,34 @@ def process_missing(
             or not vision_updated_at
             or (doc_modified and vision_updated_at < doc_modified)
         )
-        needs_embeddings = include_embeddings and (
-            not embedded_at
-            or (doc_modified and embedded_at < doc_modified)
-            or (embeddings_mode == "vision" and not has_vision_embedding)
+        embeddings_stale = bool(not embedded_at or (doc_modified and embedded_at < doc_modified))
+        wants_paperless_embeddings = bool(include_embeddings and include_embeddings_paperless)
+        wants_vision_embeddings = bool(
+            include_embeddings
+            and include_embeddings_vision
+            and settings.enable_vision_ocr
+            and (has_complete_vision or include_vision_ocr)
         )
-        needs_embeddings_vision = include_embeddings and embeddings_mode == "vision" and not has_vision_embedding
+        target_embedding_source: str | None = None
+        if include_embeddings:
+            if embeddings_mode == "vision":
+                target_embedding_source = "vision" if wants_vision_embeddings else None
+            elif embeddings_mode == "paperless":
+                target_embedding_source = "paperless" if wants_paperless_embeddings else None
+            else:
+                # Auto mode with explicit checkboxes:
+                # if both selected, prefer vision as active retrieval embedding source.
+                if wants_vision_embeddings:
+                    target_embedding_source = "vision"
+                elif wants_paperless_embeddings:
+                    target_embedding_source = "paperless"
+        needs_embeddings = bool(
+            target_embedding_source and (
+                embedding_source != target_embedding_source or embeddings_stale
+            )
+        )
+        needs_embeddings_paperless = needs_embeddings and target_embedding_source == "paperless"
+        needs_embeddings_vision = needs_embeddings and target_embedding_source == "vision"
         needs_sugg_p = include_suggestions_paperless and (
             not sugg_p_at or (doc_modified and sugg_p_at < doc_modified)
         )
@@ -243,19 +268,12 @@ def process_missing(
             tasks.append({"doc_id": doc.id, "task": "vision_ocr"})
         if needs_embeddings:
             missing_embeddings += 1
-            if embeddings_mode == "vision":
+            if needs_embeddings_vision:
+                missing_embeddings_vision += 1
                 tasks.append({"doc_id": doc.id, "task": "embeddings_vision"})
-            elif embeddings_mode == "paperless":
+            elif needs_embeddings_paperless:
+                missing_embeddings_paperless += 1
                 tasks.append({"doc_id": doc.id, "task": "embeddings_paperless"})
-            else:
-                tasks.append(
-                    {
-                        "doc_id": doc.id,
-                        "task": "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless",
-                    }
-                )
-        if needs_embeddings_vision:
-            missing_embeddings_vision += 1
         if evaluate_page_notes and needs_page_notes:
             missing_page_notes += 1
         if needs_summary:
@@ -286,6 +304,7 @@ def process_missing(
         "missing_docs": missing_docs,
         "missing_vision_ocr": missing_vision,
         "missing_embeddings": missing_embeddings,
+        "missing_embeddings_paperless": missing_embeddings_paperless,
         "missing_embeddings_vision": missing_embeddings_vision,
         "missing_page_notes": missing_page_notes,
         "missing_summary_hierarchical": missing_summary_hier,

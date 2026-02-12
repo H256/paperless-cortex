@@ -27,4 +27,24 @@ export interface DocumentLocalResponse {
   paperless_modified?: string | null;
   local_overrides?: boolean | null;
   pending_tag_names?: string[];
+  has_embeddings?: boolean | null;
+  embedding_source?: string | null;
+  embedding_chunk_count?: number | null;
+  has_embedding_for_preferred_source?: boolean | null;
+  has_suggestions_paperless?: boolean | null;
+  has_suggestions_vision?: boolean | null;
+  has_vision_pages?: boolean | null;
+  vision_pages_done?: number | null;
+  vision_pages_expected?: number | null;
+  has_complete_vision_pages?: boolean | null;
+  has_page_notes_paperless?: boolean | null;
+  has_page_notes_vision?: boolean | null;
+  page_notes_paperless_done?: number | null;
+  page_notes_vision_done?: number | null;
+  page_notes_expected?: number | null;
+  has_complete_page_notes_paperless?: boolean | null;
+  has_complete_page_notes_vision?: boolean | null;
+  has_hierarchical_summary?: boolean | null;
+  is_large_document?: boolean | null;
+  preferred_processing_source?: string | null;
 }

@@ -424,7 +424,15 @@
         <div
           class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
         >
-          Missing embeddings:
+          Missing embeddings (paperless):
+          <strong class="text-slate-900 dark:text-slate-100">{{
+            processPreview?.missing_embeddings_paperless ?? 0
+          }}</strong>
+        </div>
+        <div
+          class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        >
+          Missing embeddings (any selected):
           <strong class="text-slate-900 dark:text-slate-100">{{
             processPreview?.missing_embeddings ?? 0
           }}</strong>
@@ -521,11 +529,24 @@
           >
             <input
               type="checkbox"
-              v-model="processOptions.includeEmbeddings"
+              v-model="processOptions.includeEmbeddingsPaperless"
               class="h-4 w-4 rounded border-slate-300 text-indigo-600"
             />
-            Embeddings
+            Embeddings (paperless)
           </label>
+          <label
+            class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
+          >
+            <input
+              type="checkbox"
+              v-model="processOptions.includeEmbeddingsVision"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+            />
+            Embeddings (vision)
+          </label>
+          <div class="text-[11px] text-slate-400 dark:text-slate-500 sm:col-span-2">
+            Only one embedding source is active per document. If both are enabled, vision is preferred.
+          </div>
           <label
             class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200"
           >
@@ -565,20 +586,6 @@
               class="h-4 w-4 rounded border-slate-300 text-indigo-600"
             />
             Suggestions (vision)
-          </label>
-          <label
-            class="flex flex-col text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2"
-          >
-            Embeddings mode
-            <select
-              v-model="processOptions.embeddingsMode"
-              :disabled="!processOptions.includeEmbeddings"
-              class="mt-1 h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            >
-              <option value="auto">Auto (use vision when available)</option>
-              <option value="paperless">Paperless only</option>
-              <option value="vision">Vision only</option>
-            </select>
           </label>
         </div>
       </div>
@@ -686,12 +693,12 @@ const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
 const processOptions = reactive({
   includeVisionOcr: true,
-  includeEmbeddings: true,
+  includeEmbeddingsPaperless: true,
+  includeEmbeddingsVision: true,
   includePageNotes: true,
   includeHierarchicalSummary: true,
   includeSuggestionsPaperless: true,
   includeSuggestionsVision: true,
-  embeddingsMode: 'auto' as 'auto' | 'paperless' | 'vision',
 })
 const batchOptions = [10, 20, 50, 100, 200, 500, 'All'] as const
 const batchIndex = ref(batchOptions.length - 1)
@@ -703,12 +710,13 @@ const batchLabel = computed(() => (batchLimit.value === null ? 'All' : String(ba
 
 const processParams = () => ({
   include_vision_ocr: processOptions.includeVisionOcr,
-  include_embeddings: processOptions.includeEmbeddings,
+  include_embeddings: true,
+  include_embeddings_paperless: processOptions.includeEmbeddingsPaperless,
+  include_embeddings_vision: processOptions.includeEmbeddingsVision,
   include_page_notes: processOptions.includePageNotes,
   include_summary_hierarchical: processOptions.includeHierarchicalSummary,
   include_suggestions_paperless: processOptions.includeSuggestionsPaperless,
   include_suggestions_vision: processOptions.includeSuggestionsVision,
-  embeddings_mode: processOptions.embeddingsMode,
   limit: batchLimit.value ?? undefined,
 })
 

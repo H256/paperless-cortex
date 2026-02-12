@@ -14,6 +14,7 @@ export interface ProcessMissingResponse {
   missing_docs?: number | null;
   missing_vision_ocr?: number | null;
   missing_embeddings?: number | null;
+  missing_embeddings_paperless?: number | null;
   missing_embeddings_vision?: number | null;
   missing_page_notes?: number | null;
   missing_summary_hierarchical?: number | null;

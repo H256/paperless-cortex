@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.config import load_settings
 from app.db import SessionLocal
-from app.models import Document, DocumentEmbedding, DocumentPageNote, DocumentPageText, SyncState
+from app.models import Document, DocumentEmbedding, DocumentPageNote, DocumentPageText, DocumentSuggestion, SyncState
 from app.services import paperless
 from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
@@ -168,6 +168,78 @@ def _build_distilled_context_from_page_notes(
     return "\n\n".join(parts).strip()
 
 
+def _build_distilled_context_from_hier_summary(
+    db: Session,
+    *,
+    doc_id: int,
+    source: str,
+    max_chars: int,
+) -> str:
+    if max_chars <= 0:
+        max_chars = 12000
+    row = (
+        db.query(DocumentSuggestion)
+        .filter(
+            DocumentSuggestion.doc_id == doc_id,
+            DocumentSuggestion.source == "hier_summary",
+        )
+        .first()
+    )
+    if not row or not row.payload:
+        return ""
+    try:
+        payload = json.loads(row.payload)
+    except Exception:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    payload_source = str(payload.get("source") or "").strip()
+    if payload_source and payload_source != source:
+        return ""
+
+    blocks: list[str] = []
+    executive = str(payload.get("executive_summary") or "").strip()
+    summary = str(payload.get("summary") or "").strip()
+    if executive:
+        blocks.append(f"Executive summary: {executive}")
+    if summary:
+        blocks.append(f"Summary: {summary}")
+
+    key_mappings = (
+        ("key_facts", "Key facts"),
+        ("key_dates", "Key dates"),
+        ("key_entities", "Key entities"),
+        ("key_numbers", "Key numbers"),
+        ("open_questions", "Open questions"),
+        ("confidence_notes", "Confidence notes"),
+    )
+    for key, label in key_mappings:
+        values = payload.get(key)
+        if not isinstance(values, list):
+            continue
+        cleaned = [str(item).strip() for item in values if str(item).strip()]
+        if not cleaned:
+            continue
+        blocks.append(f"{label}: " + "; ".join(cleaned[:20]))
+
+    if not blocks:
+        return ""
+
+    parts: list[str] = []
+    used = 0
+    for block in blocks:
+        sep = "\n\n" if parts else ""
+        remaining = max_chars - used - len(sep)
+        if remaining <= 0:
+            break
+        if len(block) > remaining:
+            parts.append(block[:remaining])
+            break
+        parts.append(block)
+        used += len(sep) + len(block)
+    return "\n\n".join(parts).strip()
+
+
 def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str) -> None:
     content_value = clean_ocr_text(doc.content or "")
     page_texts = (baseline_pages or []) + (vision_pages or [])
@@ -311,10 +383,34 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         "vision" if vision_pages else "paperless",
     )
 
+    if _is_large_doc(settings, doc):
+        _process_page_notes(settings, db, doc_id, source="paperless_ocr")
+        if vision_pages:
+            _process_page_notes(settings, db, doc_id, source="vision_ocr")
+            _process_summary_hierarchical(settings, db, doc_id, source="vision_ocr")
+        else:
+            _process_summary_hierarchical(settings, db, doc_id, source="paperless_ocr")
+
     # Suggestions
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
     baseline_text = doc.content or ""
+    if _is_large_doc(settings, doc):
+        distilled = _build_distilled_context_from_hier_summary(
+            db,
+            doc_id=doc_id,
+            source="paperless_ocr",
+            max_chars=settings.worker_suggestions_max_chars,
+        )
+        if not distilled:
+            distilled = _build_distilled_context_from_page_notes(
+                db,
+                doc_id=doc_id,
+                source="paperless_ocr",
+                max_chars=settings.worker_suggestions_max_chars,
+            )
+        if distilled:
+            baseline_text = distilled
     baseline_suggestions = generate_normalized_suggestions(
         settings,
         raw,
@@ -330,10 +426,26 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
         model_name=settings.text_model,
     )
     if vision_pages:
-        vision_text = _join_page_texts_limited(
-            vision_pages,
-            max_chars=settings.worker_suggestions_max_chars,
-        )
+        vision_text = ""
+        if _is_large_doc(settings, doc):
+            vision_text = _build_distilled_context_from_hier_summary(
+                db,
+                doc_id=doc_id,
+                source="vision_ocr",
+                max_chars=settings.worker_suggestions_max_chars,
+            )
+        if not vision_text:
+            vision_text = _build_distilled_context_from_page_notes(
+                db,
+                doc_id=doc_id,
+                source="vision_ocr",
+                max_chars=settings.worker_suggestions_max_chars,
+            )
+        if not vision_text:
+            vision_text = _join_page_texts_limited(
+                vision_pages,
+                max_chars=settings.worker_suggestions_max_chars,
+            )
         vision_suggestions = generate_normalized_suggestions(
             settings,
             raw,
@@ -348,13 +460,6 @@ def _process_doc(settings, db: Session, doc_id: int) -> None:
             vision_suggestions,
             model_name=settings.text_model,
         )
-    if _is_large_doc(settings, doc):
-        _process_page_notes(settings, db, doc_id, source="paperless_ocr")
-        if vision_pages:
-            _process_page_notes(settings, db, doc_id, source="vision_ocr")
-            _process_summary_hierarchical(settings, db, doc_id, source="vision_ocr")
-        else:
-            _process_summary_hierarchical(settings, db, doc_id, source="paperless_ocr")
 
 def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False) -> None:
     if is_cancel_requested(settings):
@@ -698,12 +803,19 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     raw = paperless.get_document(settings, doc_id)
     baseline_text = clean_ocr_text(doc.content or "")
     if _is_large_doc(settings, doc):
-        distilled = _build_distilled_context_from_page_notes(
+        distilled = _build_distilled_context_from_hier_summary(
             db,
             doc_id=doc_id,
             source="paperless_ocr",
             max_chars=settings.worker_suggestions_max_chars,
         )
+        if not distilled:
+            distilled = _build_distilled_context_from_page_notes(
+                db,
+                doc_id=doc_id,
+                source="paperless_ocr",
+                max_chars=settings.worker_suggestions_max_chars,
+            )
         if distilled:
             baseline_text = distilled
     baseline_suggestions = generate_normalized_suggestions(
@@ -729,6 +841,7 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
     raw = paperless.get_document(settings, doc_id)
+    doc = get_document_or_none(db, doc_id)
     vision_pages = (
         db.query(DocumentPageText)
         .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
@@ -736,12 +849,21 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         .all()
     )
     if vision_pages:
-        vision_text = _build_distilled_context_from_page_notes(
-            db,
-            doc_id=doc_id,
-            source="vision_ocr",
-            max_chars=settings.worker_suggestions_max_chars,
-        )
+        vision_text = ""
+        if doc and _is_large_doc(settings, doc):
+            vision_text = _build_distilled_context_from_hier_summary(
+                db,
+                doc_id=doc_id,
+                source="vision_ocr",
+                max_chars=settings.worker_suggestions_max_chars,
+            )
+        if not vision_text:
+            vision_text = _build_distilled_context_from_page_notes(
+                db,
+                doc_id=doc_id,
+                source="vision_ocr",
+                max_chars=settings.worker_suggestions_max_chars,
+            )
         if not vision_text:
             vision_text = _join_page_texts_limited(
                 vision_pages,
