@@ -51,6 +51,20 @@
       @reload="load"
     />
 
+    <DocumentsActiveFiltersStrip
+      :tags="tags"
+      :correspondents="correspondents"
+      :selected-correspondent="selectedCorrespondent"
+      :selected-tag="selectedTag"
+      :date-from="dateFrom"
+      :date-to="dateTo"
+      :analysis-filter="analysisFilter"
+      :selected-review-status="selectedReviewStatus"
+      :model-filter="modelFilter"
+      @clear-filter="clearFilter"
+      @clear-all="clearAllFilters"
+    />
+
     <DocumentsQuickControls
       :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
@@ -95,6 +109,7 @@ import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
+import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
@@ -231,6 +246,30 @@ const setListViewMode = (value: 'table' | 'cards') => {
 }
 
 const resetQuickFilters = () => {
+  selectedReviewStatus.value = 'all'
+  analysisFilter.value = 'all'
+  modelFilter.value = ''
+  page.value = 1
+}
+
+const clearFilter = (
+  key: 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model',
+) => {
+  if (key === 'correspondent') selectedCorrespondent.value = ''
+  if (key === 'tag') selectedTag.value = ''
+  if (key === 'date_from') dateFrom.value = ''
+  if (key === 'date_to') dateTo.value = ''
+  if (key === 'analysis') analysisFilter.value = 'all'
+  if (key === 'review') selectedReviewStatus.value = 'all'
+  if (key === 'model') modelFilter.value = ''
+  page.value = 1
+}
+
+const clearAllFilters = () => {
+  selectedCorrespondent.value = ''
+  selectedTag.value = ''
+  dateFrom.value = ''
+  dateTo.value = ''
   selectedReviewStatus.value = 'all'
   analysisFilter.value = 'all'
   modelFilter.value = ''
