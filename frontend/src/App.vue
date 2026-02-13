@@ -10,14 +10,16 @@
         </div>
         <div class="flex items-center gap-4">
           <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />
-          <div
-            class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition hover:opacity-90"
             :class="processingBadgeClass"
             :title="processingBadgeTitle"
+            @click="openProcessingActivity"
           >
             <span class="h-1.5 w-1.5 rounded-full bg-current" :class="isProcessingActive ? 'animate-pulse' : ''" />
             {{ processingBadgeLabel }}
-          </div>
+          </button>
           <div
             class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
           >
@@ -151,6 +153,7 @@
 <script setup lang="ts">
 import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench, FileSearch } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
@@ -164,6 +167,7 @@ import { useStatusStream } from './composables/useStatusStream'
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
 const queryClient = useQueryClient()
+const router = useRouter()
 const queueStatusQuery = useQuery({
   queryKey: ['queue-status'],
   queryFn: () => fetchQueueStatus(),
@@ -208,16 +212,23 @@ const processingBadgeLabel = computed(() => {
   return 'Idle'
 })
 const processingBadgeTitle = computed(() => {
-  if (syncRunning.value) return 'Document sync is currently running'
-  if (embeddingsRunning.value) return 'Embedding processing is currently running'
-  if (queueRunning.value) return 'Queued background tasks are pending or running'
-  return 'No active background processing'
+  if (syncRunning.value) return 'Document sync is currently running. Click to open Queue.'
+  if (embeddingsRunning.value) return 'Embedding processing is currently running. Click to open Queue.'
+  if (queueRunning.value) return 'Queued background tasks are pending or running. Click to open Queue.'
+  return 'No active background processing. Click to open Documents.'
 })
 const processingBadgeClass = computed(() =>
   isProcessingActive.value
     ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
     : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300',
 )
+const openProcessingActivity = () => {
+  if (isProcessingActive.value) {
+    router.push('/queue')
+    return
+  }
+  router.push('/documents')
+}
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
