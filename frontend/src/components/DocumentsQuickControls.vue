@@ -3,7 +3,7 @@
     class="sticky top-16 z-20 mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
   >
     <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-      Quick
+      Triage
     </span>
     <button
       v-for="item in reviewItems"
@@ -19,6 +19,18 @@
       @click="$emit('reset-quick-filters')"
     >
       Reset quick filters
+    </button>
+    <button
+      class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+      @click="$emit('open-writeback')"
+    >
+      Writeback queue
+    </button>
+    <button
+      class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+      @click="$emit('open-processing')"
+    >
+      Continue processing
     </button>
 
     <span class="ml-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -54,6 +66,8 @@ defineEmits<{
   'update:selectedReviewStatus': [value: ReviewStatus]
   'update:viewMode': [value: ViewMode]
   'reset-quick-filters': []
+  'open-writeback': []
+  'open-processing': []
 }>()
 
 const reviewItems: Array<{ value: ReviewStatus; label: string }> = [

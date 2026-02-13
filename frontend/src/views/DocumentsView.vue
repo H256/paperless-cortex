@@ -55,6 +55,8 @@
       @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
       @reset-quick-filters="resetQuickFilters"
+      @open-writeback="openWritebackQueue"
+      @open-processing="openPreview"
     />
 
     <DocumentsTable
@@ -155,6 +157,9 @@ const load = async () => {
 }
 const openPreview = async () => {
   await router.push('/processing/continue')
+}
+const openWritebackQueue = async () => {
+  await router.push('/writeback')
 }
 const cancelProcessing = async () => {
   try {
