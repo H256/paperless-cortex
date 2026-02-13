@@ -91,6 +91,16 @@ const normalizeQueryForCompare = (query: LocationQuery): Record<string, string> 
   return out
 }
 
+const areFlatQueriesEqual = (left: Record<string, string>, right: Record<string, string>): boolean => {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) return false
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) return false
+  }
+  return true
+}
+
 export const useDocumentsRouteState = (refs: RouteStateRefs) => {
   const route = useRoute()
   const router = useRouter()
@@ -130,7 +140,7 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
       if (!ready.value) return
       const nextQuery = buildQueryFromRefs(refs)
       const currentQuery = normalizeQueryForCompare(route.query)
-      if (JSON.stringify(currentQuery) === JSON.stringify(nextQuery)) return
+      if (areFlatQueriesEqual(currentQuery, nextQuery)) return
       syncing.value = true
       try {
         await router.replace({ path: route.path, query: nextQuery })

@@ -15,7 +15,7 @@
         <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
           {{ formatDate(doc.document_date || doc.created) || '-' }}
           <span v-if="correspondentLabel(doc.correspondent, doc.correspondent_name)">
-            · {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
+            | {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
           </span>
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">

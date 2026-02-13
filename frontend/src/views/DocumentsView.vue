@@ -26,19 +26,13 @@
     </div>
 
     <DocumentsProcessingToolbar
-      :continue-processing-running="continueProcessingRunning"
-      :processing-kickoff-pending="processingKickoffPending"
+      :continue-processing-running="false"
+      :processing-kickoff-pending="false"
       :is-processing="isProcessing"
       :show-cancel="showCancel"
       @open-preview="openPreview"
       @cancel-processing="cancelProcessing"
     />
-    <div
-      v-if="processingKickoffPending"
-      class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-    >
-      Starting processing and enqueueing missing tasks...
-    </div>
 
     <DocumentsFiltersPanel
       :tags="tags"
@@ -55,91 +49,13 @@
       @reload="load"
     />
 
-    <div
-      class="sticky top-16 z-20 mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
-    >
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-        Quick
-      </span>
-      <button
-        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
-        :class="
-          selectedReviewStatus === 'unreviewed'
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
-            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-        "
-        @click="setReviewQuickFilter('unreviewed')"
-      >
-        Unreviewed
-      </button>
-      <button
-        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
-        :class="
-          selectedReviewStatus === 'needs_review'
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
-            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-        "
-        @click="setReviewQuickFilter('needs_review')"
-      >
-        Needs review
-      </button>
-      <button
-        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
-        :class="
-          selectedReviewStatus === 'reviewed'
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
-            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-        "
-        @click="setReviewQuickFilter('reviewed')"
-      >
-        Reviewed
-      </button>
-      <button
-        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
-        :class="
-          selectedReviewStatus === 'all'
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
-            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-        "
-        @click="setReviewQuickFilter('all')"
-      >
-        All
-      </button>
-      <button
-        class="ml-auto rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-        @click="resetQuickFilters"
-      >
-        Reset quick filters
-      </button>
-    </div>
-
-    <div class="mt-4 flex items-center justify-end gap-2">
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-        View
-      </span>
-      <button
-        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
-        :class="
-          listViewMode === 'table'
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
-            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-        "
-        @click="listViewMode = 'table'"
-      >
-        Table
-      </button>
-      <button
-        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
-        :class="
-          listViewMode === 'cards'
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
-            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-        "
-        @click="listViewMode = 'cards'"
-      >
-        Cards
-      </button>
-    </div>
+    <DocumentsQuickControls
+      :selected-review-status="selectedReviewStatus"
+      :view-mode="listViewMode"
+      @update:selectedReviewStatus="setReviewQuickFilter"
+      @update:viewMode="setListViewMode"
+      @reset-quick-filters="resetQuickFilters"
+    />
 
     <DocumentsTable
       :documents="visibleDocuments"
@@ -173,6 +89,7 @@ import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
+import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
@@ -236,8 +153,6 @@ const load = async () => {
     toastStore.push(message, 'danger', 'Error')
   }
 }
-const processingKickoffPending = ref(false)
-const continueProcessingRunning = computed(() => false)
 const openPreview = async () => {
   await router.push('/processing/continue')
 }
@@ -274,6 +189,10 @@ const hasExplicitViewQuery = computed(() => {
 const setReviewQuickFilter = (value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review') => {
   selectedReviewStatus.value = value
   page.value = 1
+}
+
+const setListViewMode = (value: 'table' | 'cards') => {
+  listViewMode.value = value
 }
 
 const resetQuickFilters = () => {

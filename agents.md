@@ -694,3 +694,4 @@ All model names must be configurable via environment variables.
 - UX slice implementation (follow-up): added explicit return-context navigation from documents list to detail via `return_to` query and a header Back button in detail view, plus a user-selectable Documents list `Table/Cards` mode persisted in URL query (`view=cards`).
 - UX slice implementation (mobile triage): Documents view now defaults to cards mode on small screens when no explicit iew query is set, and adds a sticky quick-filter bar for review-state triage (unreviewed / 
 eeds_review / eviewed / ll) with one-click reset.
+- Frontend refactor pass (DRY/KISS): extracted reusable `DocumentsQuickControls` wiring cleanup in `DocumentsView`, removed dead kickoff state from list toolbar usage, hardened query-sync comparison in `useDocumentsRouteState` (key/value equality instead of JSON stringify), and fixed cards subtitle separator rendering in `DocumentsTable`.
