@@ -664,6 +664,9 @@ All model names must be configurable via environment variables.
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
 - Validate full end-to-end continue-processing runs on large documents (pickup visibility in `/queue` and troubleshooting in `/logs`) after latest UX flow move to `/processing/continue`.
+- UX slice: persist `DocumentsView` list state in route query (filters/sort/page/review status) and restore on back-navigation from detail view so unreviewed triage workflow is not reset.
+- UX slice (mobile): make documents list/table responsive (stacked cells or horizontal scroll with sticky key column) and ensure no data columns are cut off on small screens.
+- UX slice (mobile): fix overlapping top-status blocks (sync status vs queue progress and related dashboard/header widgets) by introducing mobile-first layout breakpoints and wrapping rules.
 
 ## Session Handoff (2026-02-12)
 - Branch in progress: `refactor/pipeline-status-and-continue`
