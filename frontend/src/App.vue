@@ -11,6 +11,14 @@
         <div class="flex items-center gap-4">
           <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />
           <div
+            class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+            :class="processingBadgeClass"
+            :title="processingBadgeTitle"
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-current" :class="isProcessingActive ? 'animate-pulse' : ''" />
+            {{ processingBadgeLabel }}
+          </div>
+          <div
             class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
           >
             <div
@@ -150,6 +158,7 @@ import ToastHost from './components/ToastHost.vue'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
 import { fetchQueueStatus } from './services/queue'
+import { getEmbedStatus, getSyncStatus } from './services/documents'
 import { useStatusStream } from './composables/useStatusStream'
 
 const statusStore = useStatusStore()
@@ -162,6 +171,53 @@ const queueStatusQuery = useQuery({
   staleTime: 5_000,
 })
 const queueStatus = computed(() => queueStatusQuery.data.value ?? { enabled: false, length: null })
+const syncStatusQuery = useQuery({
+  queryKey: ['sync-status'],
+  queryFn: () => getSyncStatus(),
+  refetchInterval: 30_000,
+  staleTime: 5_000,
+})
+const embedStatusQuery = useQuery({
+  queryKey: ['embed-status'],
+  queryFn: () => getEmbedStatus(),
+  refetchInterval: 30_000,
+  staleTime: 5_000,
+})
+const syncStatus = computed(() => syncStatusQuery.data.value ?? { status: 'idle', processed: 0, total: 0 })
+const embedStatus = computed(() => embedStatusQuery.data.value ?? { status: 'idle', processed: 0, total: 0 })
+const queueLength = computed(() => Number(queueStatus.value.length ?? 0))
+const queueInProgress = computed(() => Number(queueStatus.value.in_progress ?? 0))
+const syncRunning = computed(() => String(syncStatus.value.status || '').toLowerCase() === 'running')
+const embeddingsRunning = computed(() => String(embedStatus.value.status || '').toLowerCase() === 'running')
+const queueRunning = computed(() => Boolean(queueStatus.value.enabled) && (queueLength.value > 0 || queueInProgress.value > 0))
+const isProcessingActive = computed(() => syncRunning.value || embeddingsRunning.value || queueRunning.value)
+const processingBadgeLabel = computed(() => {
+  if (syncRunning.value) {
+    const processed = Number(syncStatus.value.processed ?? 0)
+    const total = Number(syncStatus.value.total ?? 0)
+    return `Sync ${processed}/${total || '?'}`
+  }
+  if (embeddingsRunning.value) {
+    const processed = Number(embedStatus.value.processed ?? 0)
+    const total = Number(embedStatus.value.total ?? 0)
+    return `Embeddings ${processed}/${total || '?'}`
+  }
+  if (queueRunning.value) {
+    return `Queue ${queueLength.value}`
+  }
+  return 'Idle'
+})
+const processingBadgeTitle = computed(() => {
+  if (syncRunning.value) return 'Document sync is currently running'
+  if (embeddingsRunning.value) return 'Embedding processing is currently running'
+  if (queueRunning.value) return 'Queued background tasks are pending or running'
+  return 'No active background processing'
+})
+const processingBadgeClass = computed(() =>
+  isProcessingActive.value
+    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+    : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300',
+)
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'
