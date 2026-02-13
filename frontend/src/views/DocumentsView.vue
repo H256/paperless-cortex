@@ -55,6 +55,64 @@
       @reload="load"
     />
 
+    <div
+      class="sticky top-16 z-20 mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
+    >
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Quick
+      </span>
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="
+          selectedReviewStatus === 'unreviewed'
+            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+        "
+        @click="setReviewQuickFilter('unreviewed')"
+      >
+        Unreviewed
+      </button>
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="
+          selectedReviewStatus === 'needs_review'
+            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+        "
+        @click="setReviewQuickFilter('needs_review')"
+      >
+        Needs review
+      </button>
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="
+          selectedReviewStatus === 'reviewed'
+            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+        "
+        @click="setReviewQuickFilter('reviewed')"
+      >
+        Reviewed
+      </button>
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="
+          selectedReviewStatus === 'all'
+            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+        "
+        @click="setReviewQuickFilter('all')"
+      >
+        All
+      </button>
+      <button
+        class="ml-auto rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+        @click="resetQuickFilters"
+      >
+        Reset quick filters
+      </button>
+    </div>
+
     <div class="mt-4 flex items-center justify-end gap-2">
       <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         View
@@ -207,6 +265,24 @@ const open = (id: number) => {
   })
 }
 
+const hasExplicitViewQuery = computed(() => {
+  const value = route.query.view
+  const normalized = Array.isArray(value) ? value[0] : value
+  return normalized === 'cards' || normalized === 'table'
+})
+
+const setReviewQuickFilter = (value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review') => {
+  selectedReviewStatus.value = value
+  page.value = 1
+}
+
+const resetQuickFilters = () => {
+  selectedReviewStatus.value = 'all'
+  analysisFilter.value = 'all'
+  modelFilter.value = ''
+  page.value = 1
+}
+
 useDocumentsRouteState({
   page,
   pageSize,
@@ -222,6 +298,9 @@ useDocumentsRouteState({
 })
 
 onMounted(async () => {
+  if (!hasExplicitViewQuery.value && window.matchMedia('(max-width: 767px)').matches) {
+    listViewMode.value = 'cards'
+  }
   await load()
 })
 
