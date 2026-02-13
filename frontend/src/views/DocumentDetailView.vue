@@ -41,11 +41,11 @@
           class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
           :disabled="writebackRunning || !canWriteback"
           :class="writebackRunning || !canWriteback ? 'cursor-not-allowed opacity-70' : ''"
-          :title="canWriteback ? 'Write local changes back to Paperless' : 'Writeback is only available when status is Needs review'"
+          :title="writebackButtonTitle"
           @click="openWritebackConfirm"
         >
           <ClipboardCheck class="h-4 w-4" :class="writebackRunning ? 'animate-pulse' : ''" />
-          {{ writebackRunning ? 'Writing back...' : 'Write back to Paperless' }}
+          {{ writebackButtonLabel }}
         </button>
         <button
           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
@@ -676,7 +676,21 @@ const writebackErrorOpen = ref(false)
 const writebackErrorMessage = ref('')
 const continueQueuedWaiting = ref(false)
 const continueQueuedExpireAt = ref(0)
-const canWriteback = computed(() => document.value?.review_status === 'needs_review')
+const hasLocalWritebackChanges = computed(() => Boolean(document.value?.local_overrides))
+const canWriteback = computed(() => {
+  if (!document.value) return false
+  return hasLocalWritebackChanges.value || document.value.review_status === 'needs_review'
+})
+const writebackButtonTitle = computed(() => {
+  if (writebackRunning.value) return 'Writeback is currently running'
+  if (canWriteback.value) return 'Write local changes back to Paperless'
+  return 'No local changes detected for writeback'
+})
+const writebackButtonLabel = computed(() => {
+  if (writebackRunning.value) return 'Writing back...'
+  if (canWriteback.value) return 'Write back to Paperless'
+  return 'No changes to write back'
+})
 type ProcessingState = 'done' | 'missing' | 'na'
 type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
 type TimelineTaskRun = {
