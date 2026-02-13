@@ -74,6 +74,7 @@
       @toggle-sort="toggleSort"
       @open-doc="open"
       @open-doc-operations="openOperations"
+      @open-doc-suggestions="openSuggestions"
       @prev-page="onPrevPage"
       @next-page="onNextPage"
     />
@@ -200,6 +201,16 @@ const openOperations = (id: number) => {
     query: {
       return_to: encodeURIComponent(route.fullPath),
       tab: 'operations',
+    },
+  })
+}
+
+const openSuggestions = (id: number) => {
+  router.push({
+    path: `/documents/${id}`,
+    query: {
+      return_to: encodeURIComponent(route.fullPath),
+      tab: 'suggestions',
     },
   })
 }

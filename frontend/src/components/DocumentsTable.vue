@@ -74,6 +74,14 @@
           >
             Continue
           </button>
+          <button
+            v-if="needsReview(doc)"
+            type="button"
+            class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+            @click.stop="onOpenDocSuggestions(doc.id)"
+          >
+            Review
+          </button>
         </div>
       </button>
     </div>
@@ -231,6 +239,7 @@ const emit = defineEmits<{
   'toggle-sort': [field: string]
   'open-doc': [id: number]
   'open-doc-operations': [id: number]
+  'open-doc-suggestions': [id: number]
   'prev-page': []
   'next-page': []
 }>()
@@ -250,6 +259,14 @@ const onOpenDocOperations = (id: number | null | undefined) => {
   if (typeof id !== 'number') return
   emit('open-doc-operations', id)
 }
+
+const onOpenDocSuggestions = (id: number | null | undefined) => {
+  if (typeof id !== 'number') return
+  emit('open-doc-suggestions', id)
+}
+
+const needsReview = (doc: DocumentRow) =>
+  doc.review_status === 'needs_review' || Boolean(doc.local_overrides)
 
 const correspondentLabel = (id?: number | null, name?: string | null) => {
   if (name) return name
