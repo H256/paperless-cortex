@@ -71,6 +71,7 @@
       :view-mode="listViewMode"
       @toggle-sort="toggleSort"
       @open-doc="open"
+      @open-doc-operations="openOperations"
       @prev-page="onPrevPage"
       @next-page="onNextPage"
     />
@@ -182,6 +183,16 @@ const open = (id: number) => {
   router.push({
     path: `/documents/${id}`,
     query: { return_to: encodeURIComponent(route.fullPath) },
+  })
+}
+
+const openOperations = (id: number) => {
+  router.push({
+    path: `/documents/${id}`,
+    query: {
+      return_to: encodeURIComponent(route.fullPath),
+      tab: 'operations',
+    },
   })
 }
 

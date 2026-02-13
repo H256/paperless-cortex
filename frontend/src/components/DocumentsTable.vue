@@ -59,6 +59,22 @@
             {{ runningByDocId[doc.id] }}
           </div>
         </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            @click.stop="onOpenDoc(doc.id)"
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            class="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+            @click.stop="onOpenDocOperations(doc.id)"
+          >
+            Continue
+          </button>
+        </div>
       </button>
     </div>
 
@@ -214,6 +230,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'toggle-sort': [field: string]
   'open-doc': [id: number]
+  'open-doc-operations': [id: number]
   'prev-page': []
   'next-page': []
 }>()
@@ -227,6 +244,11 @@ const sortDir = (field: string) => {
 const onOpenDoc = (id: number | null | undefined) => {
   if (typeof id !== 'number') return
   emit('open-doc', id)
+}
+
+const onOpenDocOperations = (id: number | null | undefined) => {
+  if (typeof id !== 'number') return
+  emit('open-doc-operations', id)
 }
 
 const correspondentLabel = (id?: number | null, name?: string | null) => {

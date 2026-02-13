@@ -605,7 +605,8 @@ const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
 type BBox = [number, number, number, number]
 const pdfHighlights = ref<BBox[]>([])
-const tabs = [
+type DetailTabKey = 'meta' | 'text' | 'suggestions' | 'pages' | 'operations'
+const tabs: Array<{ key: DetailTabKey; label: string }> = [
   { key: 'meta', label: 'Metadata' },
   { key: 'text', label: 'Text & quality' },
   { key: 'suggestions', label: 'Suggestions' },
@@ -662,7 +663,7 @@ const operationActions: OperationAction[] = [
     tooltip: 'Generates suggestion fields from vision OCR text.',
   },
 ]
-const activeTab = ref('meta')
+const activeTab = ref<DetailTabKey>('meta')
 const reloadingAll = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
@@ -920,6 +921,35 @@ const syncPdfFromQuery = () => {
   }
   const bbox = parseBBox(route.query.bbox)
   pdfHighlights.value = bbox ? [bbox] : []
+}
+
+const normalizeTabQuery = (value: unknown): DetailTabKey => {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === 'text' || raw === 'suggestions' || raw === 'pages' || raw === 'operations') {
+    return raw
+  }
+  return 'meta'
+}
+
+const syncTabFromQuery = () => {
+  activeTab.value = normalizeTabQuery(route.query.tab)
+}
+
+const syncTabToQuery = async () => {
+  const current = normalizeTabQuery(route.query.tab)
+  if (current === activeTab.value) return
+  const nextQuery: Record<string, string> = {}
+  Object.entries(route.query).forEach(([key, val]) => {
+    if (val === undefined || val === null) return
+    const entry = Array.isArray(val) ? val[0] : val
+    if (typeof entry === 'string') nextQuery[key] = entry
+  })
+  if (activeTab.value === 'meta') {
+    delete nextQuery.tab
+  } else {
+    nextQuery.tab = activeTab.value
+  }
+  await router.replace({ query: nextQuery })
 }
 
 const onPdfPageChange = (value: number) => {
@@ -1255,6 +1285,7 @@ watch(
 )
 
 onMounted(async () => {
+  syncTabFromQuery()
   syncPdfFromQuery()
   await reloadAll()
 })
@@ -1262,7 +1293,15 @@ onMounted(async () => {
 watch(
   () => route.query,
   () => {
+    syncTabFromQuery()
     syncPdfFromQuery()
+  },
+)
+
+watch(
+  activeTab,
+  async () => {
+    await syncTabToQuery()
   },
 )
 
