@@ -43,8 +43,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContinueProcessingPanel from '../components/ContinueProcessingPanel.vue'
 import { useContinueProcessing } from '../composables/useContinueProcessing'
 import { useContinueProcessOptions } from '../composables/useContinueProcessOptions'
@@ -54,6 +54,7 @@ import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { useToastStore } from '../stores/toastStore'
 
 const router = useRouter()
+const route = useRoute()
 const toastStore = useToastStore()
 
 const {
@@ -86,6 +87,52 @@ const {
 } = useProcessingMetrics(syncStatus, embedStatus, queueStatus)
 
 const syncing = computed(() => isProcessing.value)
+const STRATEGIES = new Set(['balanced', 'paperless_only', 'vision_first', 'max_coverage'])
+
+const parseBoolQuery = (value: unknown, fallback: boolean) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === '1' || raw === 'true') return true
+  if (raw === '0' || raw === 'false') return false
+  return fallback
+}
+
+const parseStrategyQuery = (value: unknown) => {
+  const raw = String(Array.isArray(value) ? value[0] : value || '')
+  return STRATEGIES.has(raw) ? (raw as typeof processOptions.strategy) : processOptions.strategy
+}
+
+const parseLimitQuery = (value: unknown) => {
+  const raw = String(Array.isArray(value) ? value[0] : value || '')
+  if (!raw || raw.toLowerCase() === 'all') return null
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+const hydrateFromRouteQuery = () => {
+  processOptions.includeSync = parseBoolQuery(route.query.sync, true)
+  processOptions.strategy = parseStrategyQuery(route.query.strategy)
+  const limit = parseLimitQuery(route.query.limit)
+  const targetLabel = limit == null ? 'All' : String(limit)
+  const idx = batchOptions.findIndex((entry) => String(entry) === targetLabel)
+  if (idx >= 0) batchIndex.value = idx
+}
+
+const syncRouteQueryFromState = async () => {
+  const nextQuery: Record<string, string> = {}
+  const syncVal = processOptions.includeSync ? '1' : '0'
+  if (syncVal !== '1') nextQuery.sync = syncVal
+  if (processOptions.strategy !== 'balanced') nextQuery.strategy = processOptions.strategy
+  const selectedBatch = batchOptions[batchIndex.value]
+  if (selectedBatch !== 'All') nextQuery.limit = String(selectedBatch)
+
+  const currentQuery: Record<string, string> = {}
+  for (const [key, val] of Object.entries(route.query)) {
+    const raw = Array.isArray(val) ? val[0] : val
+    if (typeof raw === 'string' && raw) currentQuery[key] = raw
+  }
+  if (JSON.stringify(currentQuery) === JSON.stringify(nextQuery)) return
+  await router.replace({ path: route.path, query: nextQuery })
+}
 
 const loadPreview = async () => {
   try {
@@ -128,8 +175,16 @@ const openLogs = () => {
 }
 
 onMounted(async () => {
+  hydrateFromRouteQuery()
   await loadPreview()
 })
+
+watch(
+  () => [processOptions.includeSync, processOptions.strategy, batchIndex.value],
+  async () => {
+    await syncRouteQueryFromState()
+  },
+)
 
 usePreviewAutoRefresh(
   processOptions,
