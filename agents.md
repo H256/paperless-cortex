@@ -688,3 +688,4 @@ All model names must be configurable via environment variables.
   1. Run a full end-to-end continue-processing trial on a large doc and verify downstream pickup visibility in `/queue` and `/logs`.
   2. Re-run hierarchical pipeline on test docs and spot-check language consistency in `document_page_notes.notes_text` and `document_section_summaries.summary_text`.
   3. Decide whether to keep or remove older duplicated historical bullets in this log (non-functional cleanup).
+- Writeback sync-state fix: after successful real writeback execution, reviewed timestamp now uses Paperless modified, and local Document.modified is updated from Paperless per affected doc. This prevents false stale/unsynced detection and unnecessary reprocessing in continue-missing flows; covered by new route test for /writeback/execute-now.
