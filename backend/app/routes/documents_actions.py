@@ -215,18 +215,14 @@ def _evaluate_doc_pipeline(
     options: _PipelineOptions,
 ) -> dict[str, Any]:
     tasks: list[dict[str, Any]] = []
-    doc_modified = parse_iso(doc.modified) or parse_iso(doc.created)
 
     embeddings: dict[int, DocumentEmbedding] = cache["embeddings"]
     embedding = embeddings.get(int(doc.id))
-    embedded_at = parse_iso(embedding.embedded_at) if embedding else None
     embedding_source = embedding.embedding_source if embedding else None
 
     suggestions: dict[tuple[int, str], DocumentSuggestion] = cache["suggestions"]
     sugg_p = suggestions.get((int(doc.id), "paperless_ocr"))
     sugg_v = suggestions.get((int(doc.id), "vision_ocr"))
-    sugg_p_at = parse_iso(sugg_p.created_at) if sugg_p else None
-    sugg_v_at = parse_iso(sugg_v.created_at) if sugg_v else None
 
     vision_latest: dict[int, datetime] = cache["vision_latest"]
     vision_updated_at = vision_latest.get(int(doc.id))
@@ -235,12 +231,10 @@ def _evaluate_doc_pipeline(
     needs_vision = options.include_vision_ocr and (
         not has_complete_vision
         or not vision_updated_at
-        or (doc_modified and vision_updated_at < doc_modified)
     )
     if needs_vision:
         tasks.append({"doc_id": int(doc.id), "task": "vision_ocr"})
 
-    embeddings_stale = bool(not embedded_at or (doc_modified and embedded_at < doc_modified))
     wants_paperless_embeddings = bool(options.include_embeddings and options.include_embeddings_paperless)
     wants_vision_embeddings = bool(
         options.include_embeddings
@@ -255,25 +249,25 @@ def _evaluate_doc_pipeline(
         has_paperless_embedding = embedding_source in {"paperless", "both"}
         has_vision_embedding = embedding_source in {"vision", "both"}
         if mode == "paperless":
-            needs_embeddings_paperless = wants_paperless_embeddings and (embeddings_stale or not has_paperless_embedding)
+            needs_embeddings_paperless = wants_paperless_embeddings and (not has_paperless_embedding)
         elif mode == "vision":
-            needs_embeddings_vision = wants_vision_embeddings and (embeddings_stale or not has_vision_embedding)
+            needs_embeddings_vision = wants_vision_embeddings and (not has_vision_embedding)
         elif mode == "both":
-            needs_embeddings_paperless = wants_paperless_embeddings and (embeddings_stale or not has_paperless_embedding)
-            needs_embeddings_vision = wants_vision_embeddings and (embeddings_stale or not has_vision_embedding)
+            needs_embeddings_paperless = wants_paperless_embeddings and (not has_paperless_embedding)
+            needs_embeddings_vision = wants_vision_embeddings and (not has_vision_embedding)
         else:
             if wants_vision_embeddings:
-                needs_embeddings_vision = embeddings_stale or not has_vision_embedding
+                needs_embeddings_vision = not has_vision_embedding
             elif wants_paperless_embeddings:
-                needs_embeddings_paperless = embeddings_stale or not has_paperless_embedding
+                needs_embeddings_paperless = not has_paperless_embedding
     needs_embeddings = bool(needs_embeddings_paperless or needs_embeddings_vision)
     if needs_embeddings_paperless:
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless"})
     if needs_embeddings_vision:
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision"})
 
-    needs_sugg_p = options.include_suggestions_paperless and (not sugg_p_at or (doc_modified and sugg_p_at < doc_modified))
-    needs_sugg_v = options.include_suggestions_vision and (not sugg_v_at or (doc_modified and sugg_v_at < doc_modified))
+    needs_sugg_p = options.include_suggestions_paperless and (sugg_p is None)
+    needs_sugg_v = options.include_suggestions_vision and (sugg_v is None)
 
     page_notes_source = "vision_ocr" if settings.enable_vision_ocr and options.include_vision_ocr else "paperless_ocr"
     page_notes_task = "page_notes_vision" if page_notes_source == "vision_ocr" else "page_notes_paperless"
@@ -290,7 +284,6 @@ def _evaluate_doc_pipeline(
     notes_latest_raw = max((parse_iso(row.processed_at) or parse_iso(row.created_at) for row in ok_notes), default=None)
     notes_stale = (
         not notes_latest_raw
-        or (doc_modified and notes_latest_raw < doc_modified)
         or (page_notes_source == "vision_ocr" and vision_updated_at is not None and notes_latest_raw < vision_updated_at)
     )
     large_doc = is_large_document(
@@ -307,7 +300,7 @@ def _evaluate_doc_pipeline(
     summary_row = hier_summaries.get(int(doc.id))
     summary_at = parse_iso(summary_row.created_at) if summary_row else None
     needs_summary = options.include_summary_hierarchical and large_doc and (
-        not summary_at or (doc_modified and summary_at < doc_modified) or (notes_latest_raw and summary_at < notes_latest_raw)
+        not summary_at or (notes_latest_raw and summary_at < notes_latest_raw)
     )
     if needs_summary:
         tasks.append({"doc_id": int(doc.id), "task": "summary_hierarchical", "source": page_notes_source})

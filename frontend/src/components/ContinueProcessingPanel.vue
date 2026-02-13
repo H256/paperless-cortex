@@ -9,6 +9,12 @@
             Summary of missing intelligence tasks
           </p>
         </div>
+        <button
+          class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          @click="showDiagnostics = !showDiagnostics"
+        >
+          {{ showDiagnostics ? 'Hide diagnostics' : 'Show diagnostics' }}
+        </button>
       </div>
 
       <div
@@ -52,7 +58,7 @@
       </div>
 
       <div
-        v-if="!processPreviewLoading && processPreview"
+        v-if="showDiagnostics && !processPreviewLoading && processPreview"
         class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -76,7 +82,7 @@
       </div>
 
       <div
-        v-if="!processPreviewLoading && processPreview"
+        v-if="showDiagnostics && !processPreviewLoading && processPreview"
         class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div class="flex items-center justify-between gap-2">
@@ -110,7 +116,7 @@
       </div>
 
       <div
-        v-if="!processPreviewLoading && previewDocs.length"
+        v-if="showDiagnostics && !processPreviewLoading && previewDocs.length"
         class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div class="flex items-center justify-between gap-2">
@@ -278,6 +284,7 @@
       </div>
 
       <div
+        v-if="showDiagnostics"
         class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -311,6 +318,7 @@
       </div>
 
       <div
+        v-if="showDiagnostics"
         class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -596,6 +604,7 @@ const AUTO_OPEN_COUNTER_THRESHOLD = 10
 const showDetailedCounters = ref(false)
 const detailsManuallyToggled = ref(false)
 const showOnlyNonZeroCounters = ref(true)
+const showDiagnostics = ref(false)
 
 const detailedCounters = computed(() => {
   const preview = props.processPreview

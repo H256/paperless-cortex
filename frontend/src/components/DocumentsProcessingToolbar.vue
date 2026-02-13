@@ -2,7 +2,21 @@
   <section
     class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
-    <div class="flex w-full flex-wrap items-center justify-end gap-3">
+    <div class="flex w-full flex-wrap items-center justify-end gap-2">
+      <button
+        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+        @click="$emit('open-queue')"
+        title="Open queue monitor"
+      >
+        Queue
+      </button>
+      <button
+        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+        @click="$emit('open-logs')"
+        title="Open processing logs"
+      >
+        Logs
+      </button>
       <button
         class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
         :disabled="continueProcessingRunning || processingKickoffPending || isProcessing"
@@ -38,5 +52,7 @@ defineProps<{
 defineEmits<{
   'open-preview': []
   'cancel-processing': []
+  'open-queue': []
+  'open-logs': []
 }>()
 </script>

@@ -1,9 +1,93 @@
 <template>
   <section
-    class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
-    <div>
-      <table class="w-full border-collapse text-sm">
+    <div v-if="viewMode === 'cards'" class="space-y-3 p-3 sm:p-4">
+      <button
+        v-for="doc in documents"
+        :key="doc.id ?? `${doc.title}-${doc.created ?? ''}`"
+        class="block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
+        @click="onOpenDoc(doc.id)"
+      >
+        <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {{ doc.title || `Document ${doc.id ?? '-'}` }}
+        </div>
+        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {{ formatDate(doc.document_date || doc.created) || '-' }}
+          <span v-if="correspondentLabel(doc.correspondent, doc.correspondent_name)">
+            | {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
+          </span>
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <div
+            class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+            :title="doc.local_cached ? 'Paperless + local cache' : 'Paperless only'"
+          >
+            <Database
+              class="h-3.5 w-3.5"
+              :class="doc.local_cached ? 'text-indigo-600' : 'text-slate-400'"
+            />
+            <span class="text-slate-500 dark:text-slate-400">{{ doc.local_cached ? 'Cached' : 'Paperless' }}</span>
+          </div>
+          <a
+            v-if="paperlessBaseUrl"
+            class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :href="paperlessDocUrl(doc.id ?? 0)"
+            target="_blank"
+            rel="noopener"
+            @click.stop
+          >
+            <ExternalLink class="h-3 w-3" />
+            Paperless
+          </a>
+          <div
+            v-if="doc.local_overrides"
+            class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs dark:border-amber-900/50 dark:bg-amber-950/40"
+            title="Local values override Paperless"
+          >
+            <Pencil class="h-3.5 w-3.5 text-amber-600" />
+            <span class="text-amber-700 dark:text-amber-300">Overrides</span>
+          </div>
+        </div>
+        <div class="mt-2 space-y-1">
+          <DocumentProcessingBadges :doc="doc" />
+          <div
+            v-if="doc.id != null && runningByDocId[doc.id]"
+            class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+            :title="runningByDocId[doc.id]"
+          >
+            {{ runningByDocId[doc.id] }}
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            @click.stop="onOpenDoc(doc.id)"
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            class="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+            @click.stop="onOpenDocOperations(doc.id)"
+          >
+            Continue
+          </button>
+          <button
+            v-if="needsReview(doc)"
+            type="button"
+            class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+            @click.stop="onOpenDocSuggestions(doc.id)"
+          >
+            Review
+          </button>
+        </div>
+      </button>
+    </div>
+
+    <div v-else class="overflow-x-auto">
+      <table class="w-full min-w-[920px] border-collapse text-sm">
         <thead
           class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
         >
@@ -98,6 +182,30 @@
                 >
                   {{ runningByDocId[doc.id] }}
                 </div>
+                <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    @click.stop="onOpenDoc(doc.id)"
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                    @click.stop="onOpenDocOperations(doc.id)"
+                  >
+                    Continue
+                  </button>
+                  <button
+                    v-if="needsReview(doc)"
+                    type="button"
+                    class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                    @click.stop="onOpenDocSuggestions(doc.id)"
+                  >
+                    Review
+                  </button>
+                </div>
               </div>
             </td>
           </tr>
@@ -106,16 +214,16 @@
     </div>
 
     <div
-      class="flex items-center justify-between px-6 py-4 text-sm text-slate-600 dark:text-slate-300"
+      class="flex flex-col gap-3 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:text-slate-300"
     >
       <button
-        class="rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         :disabled="page <= 1"
         @click="$emit('prev-page')"
       >
         Prev
       </button>
-      <div class="text-center">
+      <div class="text-center sm:text-center">
         <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
           Page {{ page }} of {{ totalPages }}
         </div>
@@ -124,7 +232,7 @@
         </div>
       </div>
       <button
-        class="rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         :disabled="page >= totalPages"
         @click="$emit('next-page')"
       >
@@ -143,6 +251,7 @@ const props = defineProps<{
   documents: DocumentRow[]
   runningByDocId: Record<number, string>
   ordering: string
+  viewMode: 'table' | 'cards'
   correspondents: Correspondent[]
   paperlessBaseUrl: string
   page: number
@@ -153,6 +262,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'toggle-sort': [field: string]
   'open-doc': [id: number]
+  'open-doc-operations': [id: number]
+  'open-doc-suggestions': [id: number]
   'prev-page': []
   'next-page': []
 }>()
@@ -167,6 +278,19 @@ const onOpenDoc = (id: number | null | undefined) => {
   if (typeof id !== 'number') return
   emit('open-doc', id)
 }
+
+const onOpenDocOperations = (id: number | null | undefined) => {
+  if (typeof id !== 'number') return
+  emit('open-doc-operations', id)
+}
+
+const onOpenDocSuggestions = (id: number | null | undefined) => {
+  if (typeof id !== 'number') return
+  emit('open-doc-suggestions', id)
+}
+
+const needsReview = (doc: DocumentRow) =>
+  doc.review_status === 'needs_review' || Boolean(doc.local_overrides)
 
 const correspondentLabel = (id?: number | null, name?: string | null) => {
   if (name) return name

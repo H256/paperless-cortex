@@ -3,22 +3,30 @@
     <header
       class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
     >
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between md:py-4">
         <div>
           <h1 class="text-lg font-semibold tracking-tight">Paperless-NGX Cortex</h1>
           <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:gap-4">
           <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />
-          <div
-            class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition hover:opacity-90"
+            :class="processingBadgeClass"
+            :title="processingBadgeTitle"
+            @click="openProcessingActivity"
           >
+            <span class="h-1.5 w-1.5 rounded-full bg-current" :class="isProcessingActive ? 'animate-pulse' : ''" />
+            {{ processingBadgeLabel }}
+          </button>
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
             <div
               class="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition"
+                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
                 :class="
                   theme === 'light'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -32,7 +40,7 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition"
+                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
                 :class="
                   theme === 'system'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -46,7 +54,7 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition"
+                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
                 :class="
                   theme === 'dark'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -63,7 +71,7 @@
         </div>
       </div>
     </header>
-    <main class="mx-auto max-w-7xl px-6 py-6">
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <RouterView />
     </main>
     <footer class="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -143,6 +151,7 @@
 <script setup lang="ts">
 import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, Sun, Wrench, FileSearch } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import AppNav, { type NavItem } from './components/AppNav.vue'
 import StatusLight from './components/StatusLight.vue'
@@ -150,11 +159,13 @@ import ToastHost from './components/ToastHost.vue'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
 import { fetchQueueStatus } from './services/queue'
+import { getEmbedStatus, getSyncStatus } from './services/documents'
 import { useStatusStream } from './composables/useStatusStream'
 
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
 const queryClient = useQueryClient()
+const router = useRouter()
 const queueStatusQuery = useQuery({
   queryKey: ['queue-status'],
   queryFn: () => fetchQueueStatus(),
@@ -162,6 +173,60 @@ const queueStatusQuery = useQuery({
   staleTime: 5_000,
 })
 const queueStatus = computed(() => queueStatusQuery.data.value ?? { enabled: false, length: null })
+const syncStatusQuery = useQuery({
+  queryKey: ['sync-status'],
+  queryFn: () => getSyncStatus(),
+  refetchInterval: 30_000,
+  staleTime: 5_000,
+})
+const embedStatusQuery = useQuery({
+  queryKey: ['embed-status'],
+  queryFn: () => getEmbedStatus(),
+  refetchInterval: 30_000,
+  staleTime: 5_000,
+})
+const syncStatus = computed(() => syncStatusQuery.data.value ?? { status: 'idle', processed: 0, total: 0 })
+const embedStatus = computed(() => embedStatusQuery.data.value ?? { status: 'idle', processed: 0, total: 0 })
+const queueLength = computed(() => Number(queueStatus.value.length ?? 0))
+const queueInProgress = computed(() => Number(queueStatus.value.in_progress ?? 0))
+const syncRunning = computed(() => String(syncStatus.value.status || '').toLowerCase() === 'running')
+const embeddingsRunning = computed(() => String(embedStatus.value.status || '').toLowerCase() === 'running')
+const queueRunning = computed(() => Boolean(queueStatus.value.enabled) && (queueLength.value > 0 || queueInProgress.value > 0))
+const isProcessingActive = computed(() => syncRunning.value || embeddingsRunning.value || queueRunning.value)
+const processingBadgeLabel = computed(() => {
+  if (syncRunning.value) {
+    const processed = Number(syncStatus.value.processed ?? 0)
+    const total = Number(syncStatus.value.total ?? 0)
+    return `Sync ${processed}/${total || '?'}`
+  }
+  if (embeddingsRunning.value) {
+    const processed = Number(embedStatus.value.processed ?? 0)
+    const total = Number(embedStatus.value.total ?? 0)
+    return `Embeddings ${processed}/${total || '?'}`
+  }
+  if (queueRunning.value) {
+    return `Queue ${queueLength.value}`
+  }
+  return 'Idle'
+})
+const processingBadgeTitle = computed(() => {
+  if (syncRunning.value) return 'Document sync is currently running. Click to open Queue.'
+  if (embeddingsRunning.value) return 'Embedding processing is currently running. Click to open Queue.'
+  if (queueRunning.value) return 'Queued background tasks are pending or running. Click to open Queue.'
+  return 'No active background processing. Click to open Documents.'
+})
+const processingBadgeClass = computed(() =>
+  isProcessingActive.value
+    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+    : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300',
+)
+const openProcessingActivity = () => {
+  if (isProcessingActive.value) {
+    router.push('/queue')
+    return
+  }
+  router.push('/documents')
+}
 
 const themeStorageKey = 'paperless_theme'
 const storedTheme = window.localStorage?.getItem(themeStorageKey) || 'system'

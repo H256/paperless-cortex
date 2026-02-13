@@ -1,6 +1,6 @@
 ﻿<template>
   <section>
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
         <p class="text-sm text-slate-500">
@@ -26,19 +26,15 @@
     </div>
 
     <DocumentsProcessingToolbar
-      :continue-processing-running="continueProcessingRunning"
-      :processing-kickoff-pending="processingKickoffPending"
+      :continue-processing-running="false"
+      :processing-kickoff-pending="false"
       :is-processing="isProcessing"
       :show-cancel="showCancel"
       @open-preview="openPreview"
       @cancel-processing="cancelProcessing"
+      @open-queue="openQueue"
+      @open-logs="openLogs"
     />
-    <div
-      v-if="processingKickoffPending"
-      class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-    >
-      Starting processing and enqueueing missing tasks...
-    </div>
 
     <DocumentsFiltersPanel
       :tags="tags"
@@ -52,7 +48,32 @@
       v-model:selected-review-status="selectedReviewStatus"
       v-model:model-filter="modelFilter"
       v-model:page-size="pageSize"
+      :is-loading="documentsLoading"
       @reload="load"
+    />
+
+    <DocumentsActiveFiltersStrip
+      :tags="tags"
+      :correspondents="correspondents"
+      :selected-correspondent="selectedCorrespondent"
+      :selected-tag="selectedTag"
+      :date-from="dateFrom"
+      :date-to="dateTo"
+      :analysis-filter="analysisFilter"
+      :selected-review-status="selectedReviewStatus"
+      :model-filter="modelFilter"
+      @clear-filter="clearFilter"
+      @clear-all="clearAllFilters"
+    />
+
+    <DocumentsQuickControls
+      :selected-review-status="selectedReviewStatus"
+      :view-mode="listViewMode"
+      @update:selectedReviewStatus="setReviewQuickFilter"
+      @update:viewMode="setListViewMode"
+      @reset-quick-filters="resetQuickFilters"
+      @open-writeback="openWritebackQueue"
+      @open-processing="openPreview"
     />
 
     <DocumentsTable
@@ -64,8 +85,11 @@
       :page="page"
       :total-pages="totalPages"
       :last-synced="lastSynced"
+      :view-mode="listViewMode"
       @toggle-sort="toggleSort"
       @open-doc="open"
+      @open-doc-operations="openOperations"
+      @open-doc-suggestions="openSuggestions"
       @prev-page="onPrevPage"
       @next-page="onNextPage"
     />
@@ -75,7 +99,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import { useDocumentsTableControls } from '../composables/useDocumentsTableControls'
@@ -84,12 +108,16 @@ import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
+import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
+import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
+import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
 
 const router = useRouter()
+const route = useRoute()
 const toastStore = useToastStore()
 const {
   documents,
@@ -104,6 +132,7 @@ const {
   selectedReviewStatus,
   dateFrom,
   dateTo,
+  documentsLoading,
   refetchDocuments,
 } = useDocumentsCatalog()
 const {
@@ -119,6 +148,7 @@ const {
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
+const listViewMode = ref<'table' | 'cards'>('table')
 const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
 const { runningByDocId } = useRunningTaskProgress()
 
@@ -146,10 +176,17 @@ const load = async () => {
     toastStore.push(message, 'danger', 'Error')
   }
 }
-const processingKickoffPending = ref(false)
-const continueProcessingRunning = computed(() => false)
 const openPreview = async () => {
   await router.push('/processing/continue')
+}
+const openQueue = async () => {
+  await router.push('/queue')
+}
+const openLogs = async () => {
+  await router.push('/logs')
+}
+const openWritebackQueue = async () => {
+  await router.push('/writeback')
 }
 const cancelProcessing = async () => {
   try {
@@ -169,10 +206,96 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
 )
 
 const open = (id: number) => {
-  router.push(`/documents/${id}`)
+  router.push({
+    path: `/documents/${id}`,
+    query: { return_to: encodeURIComponent(route.fullPath) },
+  })
 }
 
+const openOperations = (id: number) => {
+  router.push({
+    path: `/documents/${id}`,
+    query: {
+      return_to: encodeURIComponent(route.fullPath),
+      tab: 'operations',
+    },
+  })
+}
+
+const openSuggestions = (id: number) => {
+  router.push({
+    path: `/documents/${id}`,
+    query: {
+      return_to: encodeURIComponent(route.fullPath),
+      tab: 'suggestions',
+    },
+  })
+}
+
+const hasExplicitViewQuery = computed(() => {
+  const value = route.query.view
+  const normalized = Array.isArray(value) ? value[0] : value
+  return normalized === 'cards' || normalized === 'table'
+})
+
+const setReviewQuickFilter = (value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review') => {
+  selectedReviewStatus.value = value
+  page.value = 1
+}
+
+const setListViewMode = (value: 'table' | 'cards') => {
+  listViewMode.value = value
+}
+
+const resetQuickFilters = () => {
+  selectedReviewStatus.value = 'all'
+  analysisFilter.value = 'all'
+  modelFilter.value = ''
+  page.value = 1
+}
+
+const clearFilter = (
+  key: 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model',
+) => {
+  if (key === 'correspondent') selectedCorrespondent.value = ''
+  if (key === 'tag') selectedTag.value = ''
+  if (key === 'date_from') dateFrom.value = ''
+  if (key === 'date_to') dateTo.value = ''
+  if (key === 'analysis') analysisFilter.value = 'all'
+  if (key === 'review') selectedReviewStatus.value = 'all'
+  if (key === 'model') modelFilter.value = ''
+  page.value = 1
+}
+
+const clearAllFilters = () => {
+  selectedCorrespondent.value = ''
+  selectedTag.value = ''
+  dateFrom.value = ''
+  dateTo.value = ''
+  selectedReviewStatus.value = 'all'
+  analysisFilter.value = 'all'
+  modelFilter.value = ''
+  page.value = 1
+}
+
+useDocumentsRouteState({
+  page,
+  pageSize,
+  ordering,
+  selectedTag,
+  selectedCorrespondent,
+  selectedReviewStatus,
+  dateFrom,
+  dateTo,
+  analysisFilter,
+  modelFilter,
+  viewMode: listViewMode,
+})
+
 onMounted(async () => {
+  if (!hasExplicitViewQuery.value && window.matchMedia('(max-width: 767px)').matches) {
+    listViewMode.value = 'cards'
+  }
   await load()
 })
 

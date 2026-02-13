@@ -2,10 +2,20 @@
   <section
     class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
-    <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-      Filters
+    <div class="flex items-center justify-between gap-3">
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Filters
+      </div>
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-slate-100"
+        @click="advancedOpen = !advancedOpen"
+      >
+        Advanced
+        <ChevronUp v-if="advancedOpen" class="h-3.5 w-3.5" />
+        <ChevronDown v-else class="h-3.5 w-3.5" />
+      </button>
     </div>
-    <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
+    <div class="mt-3 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
       <div>
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
         <select
@@ -47,22 +57,6 @@
         </select>
       </div>
       <div>
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">From</label>
-        <input
-          type="date"
-          v-model="dateFromModel"
-          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </div>
-      <div>
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">To</label>
-        <input
-          type="date"
-          v-model="dateToModel"
-          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </div>
-      <div>
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Analysis</label>
         <select
           v-model="analysisFilterModel"
@@ -84,6 +78,27 @@
           <option value="needs_review">Needs review</option>
           <option value="reviewed">Reviewed</option>
         </select>
+      </div>
+    </div>
+    <div
+      v-if="advancedOpen"
+      class="mt-3 grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3 md:grid-cols-2 lg:grid-cols-4 dark:border-slate-700 dark:bg-slate-800/40"
+    >
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">From</label>
+        <input
+          type="date"
+          v-model="dateFromModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">To</label>
+        <input
+          type="date"
+          v-model="dateToModel"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
       </div>
       <div>
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Model</label>
@@ -109,20 +124,21 @@
 
     <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
       <button
-        class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+        class="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
         @click="$emit('reload')"
+        :disabled="props.isLoading"
         title="Reload current list"
       >
-        <RefreshCw class="h-4 w-4" />
-        Reload
+        <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': props.isLoading }" />
+        {{ props.isLoading ? 'Reloading...' : 'Reload' }}
       </button>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RefreshCw } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue'
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-vue-next'
 import type { Correspondent, Tag } from '../services/documents'
 
 const props = defineProps<{
@@ -137,6 +153,7 @@ const props = defineProps<{
   selectedReviewStatus: 'all' | 'unreviewed' | 'reviewed' | 'needs_review'
   modelFilter: string
   pageSize: number
+  isLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -151,6 +168,8 @@ const emit = defineEmits<{
   'update:modelFilter': [value: string]
   'update:pageSize': [value: number]
 }>()
+
+const advancedOpen = ref(false)
 
 const orderingModel = computed({
   get: () => props.ordering,
@@ -189,4 +208,14 @@ const pageSizeModel = computed({
   get: () => props.pageSize,
   set: (value: number) => emit('update:pageSize', value),
 })
+
+watch(
+  () => [props.dateFrom, props.dateTo, props.modelFilter, props.pageSize] as const,
+  ([dateFrom, dateTo, modelFilter, pageSize]) => {
+    if (dateFrom || dateTo || modelFilter.trim() || pageSize !== 20) {
+      advancedOpen.value = true
+    }
+  },
+  { immediate: true },
+)
 </script>

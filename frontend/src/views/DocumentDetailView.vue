@@ -13,7 +13,14 @@
           Processing now: {{ activeRunLabel }}
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-300 sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+          @click="navigateBackToDocuments"
+        >
+          <ArrowLeft class="h-4 w-4" />
+          Back
+        </button>
         <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
@@ -31,17 +38,17 @@
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <button
-          class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+          class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 sm:text-sm dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
           :disabled="writebackRunning || !canWriteback"
           :class="writebackRunning || !canWriteback ? 'cursor-not-allowed opacity-70' : ''"
-          :title="canWriteback ? 'Write local changes back to Paperless' : 'Writeback is only available when status is Needs review'"
+          :title="writebackButtonTitle"
           @click="openWritebackConfirm"
         >
           <ClipboardCheck class="h-4 w-4" :class="writebackRunning ? 'animate-pulse' : ''" />
-          {{ writebackRunning ? 'Writing back...' : 'Write back to Paperless' }}
+          {{ writebackButtonLabel }}
         </button>
         <button
-          class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+          class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 sm:text-sm"
           :disabled="reloadingAll"
           :class="reloadingAll ? 'cursor-not-allowed opacity-70' : ''"
           @click="reloadAll"
@@ -54,22 +61,24 @@
 
     <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-4">
-      <div
-        class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-      >
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="rounded-lg px-3 py-1.5"
-          :class="
-            activeTab === tab.key
-              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-          "
-          @click="activeTab = tab.key"
-        >
-          {{ tab.label }}
-        </button>
+      <div class="rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+        <div class="overflow-x-auto">
+          <div class="flex min-w-max items-center gap-2">
+            <button
+              v-for="tab in tabs"
+              :key="tab.key"
+              class="rounded-lg px-3 py-1.5"
+              :class="
+                activeTab === tab.key
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              "
+              @click="activeTab = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <DocumentMetadataSection v-if="activeTab === 'meta'" :rows="rows" />
@@ -121,14 +130,28 @@
               Trigger single processing steps or fully reset and rebuild this document.
             </p>
           </div>
-          <button
-            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            :disabled="docOpsLoading || pipelineStatusLoading || continuePipelineLoading"
-            title="Checks missing processing steps for this document and enqueues only those tasks."
-            @click="runContinuePipeline"
-          >
-            {{ continuePipelineLoading ? 'Checking + enqueueing...' : 'Continue missing processing' }}
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              :disabled="docOpsLoading || pipelineStatusLoading || continuePipelineLoading"
+              title="Checks missing processing steps for this document and enqueues only those tasks."
+              @click="runContinuePipeline"
+            >
+              {{ continuePipelineLoading ? 'Checking + enqueueing...' : 'Continue missing processing' }}
+            </button>
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              @click="router.push('/queue')"
+            >
+              Queue
+            </button>
+            <button
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              @click="router.push('/logs')"
+            >
+              Logs
+            </button>
+          </div>
         </div>
         <div
           v-if="continuePipelineLoading || continueQueuedWaiting"
@@ -492,7 +515,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { AlertTriangle, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
+import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import IconButton from '../components/IconButton.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
@@ -517,6 +540,18 @@ import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
+const returnToDocumentsPath = computed(() => {
+  const raw = route.query.return_to
+  const encoded = Array.isArray(raw) ? raw[0] : raw
+  if (typeof encoded !== 'string' || !encoded.trim()) return '/documents'
+  try {
+    const decoded = decodeURIComponent(encoded)
+    if (decoded.startsWith('/documents')) return decoded
+  } catch {
+    // ignore malformed return path
+  }
+  return '/documents'
+})
 
 const toastStore = useToastStore()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
@@ -586,7 +621,8 @@ const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
 type BBox = [number, number, number, number]
 const pdfHighlights = ref<BBox[]>([])
-const tabs = [
+type DetailTabKey = 'meta' | 'text' | 'suggestions' | 'pages' | 'operations'
+const tabs: Array<{ key: DetailTabKey; label: string }> = [
   { key: 'meta', label: 'Metadata' },
   { key: 'text', label: 'Text & quality' },
   { key: 'suggestions', label: 'Suggestions' },
@@ -643,7 +679,7 @@ const operationActions: OperationAction[] = [
     tooltip: 'Generates suggestion fields from vision OCR text.',
   },
 ]
-const activeTab = ref('meta')
+const activeTab = ref<DetailTabKey>('meta')
 const reloadingAll = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
@@ -657,7 +693,21 @@ const writebackErrorOpen = ref(false)
 const writebackErrorMessage = ref('')
 const continueQueuedWaiting = ref(false)
 const continueQueuedExpireAt = ref(0)
-const canWriteback = computed(() => document.value?.review_status === 'needs_review')
+const hasLocalWritebackChanges = computed(() => Boolean(document.value?.local_overrides))
+const canWriteback = computed(() => {
+  if (!document.value) return false
+  return hasLocalWritebackChanges.value || document.value.review_status === 'needs_review'
+})
+const writebackButtonTitle = computed(() => {
+  if (writebackRunning.value) return 'Writeback is currently running'
+  if (canWriteback.value) return 'Write local changes back to Paperless'
+  return 'No local changes detected for writeback'
+})
+const writebackButtonLabel = computed(() => {
+  if (writebackRunning.value) return 'Writing back...'
+  if (canWriteback.value) return 'Write back'
+  return 'No changes to write back'
+})
 type ProcessingState = 'done' | 'missing' | 'na'
 type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
 type TimelineTaskRun = {
@@ -889,6 +939,35 @@ const syncPdfFromQuery = () => {
   pdfHighlights.value = bbox ? [bbox] : []
 }
 
+const normalizeTabQuery = (value: unknown): DetailTabKey => {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === 'text' || raw === 'suggestions' || raw === 'pages' || raw === 'operations') {
+    return raw
+  }
+  return 'meta'
+}
+
+const syncTabFromQuery = () => {
+  activeTab.value = normalizeTabQuery(route.query.tab)
+}
+
+const syncTabToQuery = async () => {
+  const current = normalizeTabQuery(route.query.tab)
+  if (current === activeTab.value) return
+  const nextQuery: Record<string, string> = {}
+  Object.entries(route.query).forEach(([key, val]) => {
+    if (val === undefined || val === null) return
+    const entry = Array.isArray(val) ? val[0] : val
+    if (typeof entry === 'string') nextQuery[key] = entry
+  })
+  if (activeTab.value === 'meta') {
+    delete nextQuery.tab
+  } else {
+    nextQuery.tab = activeTab.value
+  }
+  await router.replace({ query: nextQuery })
+}
+
 const onPdfPageChange = (value: number) => {
   pdfPage.value = value
   const nextQuery: Record<string, string> = {}
@@ -903,6 +982,10 @@ const onPdfPageChange = (value: number) => {
   delete nextQuery.bbox
   router.replace({ query: nextQuery })
   pdfHighlights.value = []
+}
+
+const navigateBackToDocuments = async () => {
+  await router.push(returnToDocumentsPath.value)
 }
 
 const runWritebackNowForDocument = async (
@@ -1218,6 +1301,7 @@ watch(
 )
 
 onMounted(async () => {
+  syncTabFromQuery()
   syncPdfFromQuery()
   await reloadAll()
 })
@@ -1225,7 +1309,15 @@ onMounted(async () => {
 watch(
   () => route.query,
   () => {
+    syncTabFromQuery()
     syncPdfFromQuery()
+  },
+)
+
+watch(
+  activeTab,
+  async () => {
+    await syncTabToQuery()
   },
 )
 
