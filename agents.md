@@ -699,3 +699,4 @@ eeds_review / eviewed / ll) with one-click reset.
 - Tests: added regression `test_pipeline_status_ignores_metadata_only_modified_for_processing` in `backend/tests/test_documents_routes.py`.
 - Writeback UX correctness fix: `/documents/{id}/local` now treats local AI summary note differences (compared to Paperless note markers) as local overrides, so `review_status` becomes `needs_review` and detail-page writeback enablement is correct for note-only changes.
 - Tests: added regression `test_get_local_document_note_override_sets_needs_review` in `backend/tests/test_documents_routes.py`.
+- Continue-processing UX compact mode: moved high-detail diagnostics (coverage matrix, detailed missing counters, sample-gap docs, execution-scope matrix, runtime block) behind a single `Show diagnostics` toggle in `ContinueProcessingPanel`, keeping core actions/options visible by default for faster scanning.
