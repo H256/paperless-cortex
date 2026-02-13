@@ -48,6 +48,7 @@
       v-model:selected-review-status="selectedReviewStatus"
       v-model:model-filter="modelFilter"
       v-model:page-size="pageSize"
+      :is-loading="documentsLoading"
       @reload="load"
     />
 
@@ -131,6 +132,7 @@ const {
   selectedReviewStatus,
   dateFrom,
   dateTo,
+  documentsLoading,
   refetchDocuments,
 } = useDocumentsCatalog()
 const {
