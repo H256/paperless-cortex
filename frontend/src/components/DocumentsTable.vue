@@ -182,6 +182,30 @@
                 >
                   {{ runningByDocId[doc.id] }}
                 </div>
+                <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    @click.stop="onOpenDoc(doc.id)"
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                    @click.stop="onOpenDocOperations(doc.id)"
+                  >
+                    Continue
+                  </button>
+                  <button
+                    v-if="needsReview(doc)"
+                    type="button"
+                    class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                    @click.stop="onOpenDocSuggestions(doc.id)"
+                  >
+                    Review
+                  </button>
+                </div>
               </div>
             </td>
           </tr>
