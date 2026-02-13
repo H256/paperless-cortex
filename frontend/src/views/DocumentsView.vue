@@ -1,6 +1,6 @@
 ﻿<template>
   <section>
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
         <p class="text-sm text-slate-500">
@@ -84,6 +84,7 @@ import { useProcessingMetrics } from '../composables/useProcessingMetrics'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useVisibleDocuments } from '../composables/useVisibleDocuments'
 import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
+import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
@@ -171,6 +172,19 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
 const open = (id: number) => {
   router.push(`/documents/${id}`)
 }
+
+useDocumentsRouteState({
+  page,
+  pageSize,
+  ordering,
+  selectedTag,
+  selectedCorrespondent,
+  selectedReviewStatus,
+  dateFrom,
+  dateTo,
+  analysisFilter,
+  modelFilter,
+})
 
 onMounted(async () => {
   await load()

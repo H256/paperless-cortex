@@ -1,9 +1,9 @@
 <template>
   <section
-    class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
-    <div>
-      <table class="w-full border-collapse text-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[920px] border-collapse text-sm">
         <thead
           class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
         >
@@ -106,16 +106,16 @@
     </div>
 
     <div
-      class="flex items-center justify-between px-6 py-4 text-sm text-slate-600 dark:text-slate-300"
+      class="flex flex-col gap-3 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:text-slate-300"
     >
       <button
-        class="rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         :disabled="page <= 1"
         @click="$emit('prev-page')"
       >
         Prev
       </button>
-      <div class="text-center">
+      <div class="text-center sm:text-center">
         <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
           Page {{ page }} of {{ totalPages }}
         </div>
@@ -124,7 +124,7 @@
         </div>
       </div>
       <button
-        class="rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         :disabled="page >= totalPages"
         @click="$emit('next-page')"
       >
