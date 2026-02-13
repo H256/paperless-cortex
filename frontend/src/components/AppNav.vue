@@ -1,5 +1,5 @@
 <template>
-  <nav class="flex items-center gap-2 text-sm font-medium">
+  <nav class="flex flex-wrap items-center justify-end gap-1.5 text-sm font-medium sm:gap-2">
     <RouterLink v-for="item in primaryItems" :key="item.to" :to="item.to" v-slot="{ isActive }">
       <span :class="linkClass(isActive)">
         <component :is="item.icon" class="h-4 w-4" />
@@ -52,7 +52,7 @@ const moreMenuRef = ref<HTMLDetailsElement | null>(null)
 
 const linkClass = (isActive: boolean) =>
   [
-    'inline-flex items-center gap-2 rounded-full px-3 py-1',
+    'inline-flex items-center gap-1.5 rounded-full px-2 py-1 sm:gap-2 sm:px-3',
     isActive
       ? 'bg-indigo-600 text-white'
       : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white',

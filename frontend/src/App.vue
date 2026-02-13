@@ -3,12 +3,12 @@
     <header
       class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
     >
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between md:py-4">
         <div>
           <h1 class="text-lg font-semibold tracking-tight">Paperless-NGX Cortex</h1>
           <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:gap-4">
           <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />
           <button
             type="button"
@@ -20,15 +20,13 @@
             <span class="h-1.5 w-1.5 rounded-full bg-current" :class="isProcessingActive ? 'animate-pulse' : ''" />
             {{ processingBadgeLabel }}
           </button>
-          <div
-            class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400"
-          >
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
             <div
               class="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition"
+                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
                 :class="
                   theme === 'light'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -42,7 +40,7 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition"
+                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
                 :class="
                   theme === 'system'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -56,7 +54,7 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition"
+                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
                 :class="
                   theme === 'dark'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -73,7 +71,7 @@
         </div>
       </div>
     </header>
-    <main class="mx-auto max-w-7xl px-6 py-6">
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <RouterView />
     </main>
     <footer class="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
