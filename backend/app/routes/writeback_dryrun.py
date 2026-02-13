@@ -409,11 +409,14 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
     raise RuntimeError(f"Unsupported writeback method: {method}")
 
 
-def _reviewed_timestamp_for_doc(settings: Settings, doc_id: int) -> str:
+def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) -> str:
     try:
         remote_doc = paperless.get_document(settings, int(doc_id))
         modified = str(remote_doc.get("modified") or "").strip()
         if modified:
+            local_doc = db.get(Document, int(doc_id))
+            if local_doc:
+                local_doc.modified = modified
             return modified
     except Exception:
         logger.warning("Failed to fetch paperless modified for reviewed_at doc=%s", doc_id)
@@ -458,7 +461,7 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
                         db.delete(pending_row)
         if not dry_run and executed_doc_ids:
             for doc_id in sorted(executed_doc_ids):
-                reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
+                reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
                 db.add(
                     SuggestionAudit(
                         doc_id=int(doc_id),
@@ -603,7 +606,7 @@ def execute_writeback_direct_for_document(
         pending_tag_names=pending_tag_names,
     )
     if not item.changed:
-        reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
+        reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
         db.add(
             SuggestionAudit(
                 doc_id=int(doc_id),
@@ -720,7 +723,7 @@ def execute_writeback_direct_for_document(
         calls.append(add_call)
 
     if calls or request.resolutions:
-        reviewed_at = _reviewed_timestamp_for_doc(settings, int(doc_id))
+        reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
         db.add(
             SuggestionAudit(
                 doc_id=int(doc_id),
@@ -781,8 +784,8 @@ def execute_writeback_now(
         executed_doc_ids.add(int(call.doc_id))
 
     if executed_doc_ids:
-        reviewed_at = _now_iso()
         for doc_id in sorted(executed_doc_ids):
+            reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
             db.add(
                 SuggestionAudit(
                     doc_id=int(doc_id),

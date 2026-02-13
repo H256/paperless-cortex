@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document, DocumentPendingTag, Tag
+from app.models import Document, DocumentPendingTag, SuggestionAudit, Tag
 
 
 def _insert_document(doc_id: int, title: str):
@@ -198,6 +198,53 @@ def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
     assert payload["docs_changed"] == 1
     assert payload["calls_count"] >= 1
     assert calls["patch"] >= 1
+
+
+def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(510, "Local title 510")
+    remote_modified = "2026-02-12T18:00:00+00:00"
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote title 510",
+            "created": "2026-02-01",
+            "modified": remote_modified,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "update_document",
+        lambda settings, doc_id, payload: {"id": doc_id, **payload},
+    )
+    monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post("/writeback/execute-now", json={"doc_ids": [510]})
+    assert result.status_code == 200
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.query(Document).filter(Document.id == 510).one()
+        assert doc.modified == remote_modified
+        audit = (
+            db.query(SuggestionAudit)
+            .filter(
+                SuggestionAudit.doc_id == 510,
+                SuggestionAudit.action == "apply_to_document:writeback",
+            )
+            .order_by(SuggestionAudit.id.desc())
+            .first()
+        )
+        assert audit is not None
+        assert audit.created_at == remote_modified
 
 
 def test_writeback_direct_requires_resolution_when_modified_changed(api_client, monkeypatch):
