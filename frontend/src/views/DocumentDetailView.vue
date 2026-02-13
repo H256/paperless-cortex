@@ -14,6 +14,13 @@
         </p>
       </div>
       <div class="flex items-center gap-2">
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+          @click="navigateBackToDocuments"
+        >
+          <ArrowLeft class="h-4 w-4" />
+          Back
+        </button>
         <IconButton
           v-if="paperlessUrl"
           :href="paperlessUrl"
@@ -492,7 +499,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { AlertTriangle, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
+import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, ExternalLink, MinusCircle, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import IconButton from '../components/IconButton.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
@@ -517,6 +524,18 @@ import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
+const returnToDocumentsPath = computed(() => {
+  const raw = route.query.return_to
+  const encoded = Array.isArray(raw) ? raw[0] : raw
+  if (typeof encoded !== 'string' || !encoded.trim()) return '/documents'
+  try {
+    const decoded = decodeURIComponent(encoded)
+    if (decoded.startsWith('/documents')) return decoded
+  } catch {
+    // ignore malformed return path
+  }
+  return '/documents'
+})
 
 const toastStore = useToastStore()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
@@ -903,6 +922,10 @@ const onPdfPageChange = (value: number) => {
   delete nextQuery.bbox
   router.replace({ query: nextQuery })
   pdfHighlights.value = []
+}
+
+const navigateBackToDocuments = async () => {
+  await router.push(returnToDocumentsPath.value)
 }
 
 const runWritebackNowForDocument = async (

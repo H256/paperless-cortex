@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 type AnalysisFilter = 'all' | 'analyzed' | 'not_analyzed'
 type ReviewStatus = 'all' | 'unreviewed' | 'reviewed' | 'needs_review'
+type ViewMode = 'table' | 'cards'
 
 type RouteStateRefs = {
   page: Ref<number>
@@ -16,6 +17,7 @@ type RouteStateRefs = {
   dateTo: Ref<string>
   analysisFilter: Ref<AnalysisFilter>
   modelFilter: Ref<string>
+  viewMode?: Ref<ViewMode>
 }
 
 const toSingle = (value: unknown): string => {
@@ -41,6 +43,10 @@ const normalizeReviewStatus = (value: unknown): ReviewStatus => {
   return 'all'
 }
 
+const normalizeViewMode = (value: unknown): ViewMode => {
+  return toSingle(value) === 'cards' ? 'cards' : 'table'
+}
+
 const hasDateLikeFormat = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
 
 const applyQueryToRefs = (query: LocationQuery, refs: RouteStateRefs) => {
@@ -52,6 +58,7 @@ const applyQueryToRefs = (query: LocationQuery, refs: RouteStateRefs) => {
   refs.selectedReviewStatus.value = normalizeReviewStatus(query.review_status)
   refs.analysisFilter.value = normalizeAnalysisFilter(query.analysis_filter)
   refs.modelFilter.value = toSingle(query.model)
+  if (refs.viewMode) refs.viewMode.value = normalizeViewMode(query.view)
 
   const dateFrom = toSingle(query.date_from)
   const dateTo = toSingle(query.date_to)
@@ -69,6 +76,7 @@ const buildQueryFromRefs = (refs: RouteStateRefs) => {
   if (refs.selectedReviewStatus.value !== 'all') query.review_status = refs.selectedReviewStatus.value
   if (refs.analysisFilter.value !== 'all') query.analysis_filter = refs.analysisFilter.value
   if (refs.modelFilter.value.trim()) query.model = refs.modelFilter.value.trim()
+  if (refs.viewMode?.value === 'cards') query.view = 'cards'
   if (refs.dateFrom.value) query.date_from = refs.dateFrom.value
   if (refs.dateTo.value) query.date_to = refs.dateTo.value
   return query
@@ -102,19 +110,22 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
     },
   )
 
+  const watchedRefs: Array<Ref<unknown>> = [
+    refs.page,
+    refs.pageSize,
+    refs.ordering,
+    refs.selectedTag,
+    refs.selectedCorrespondent,
+    refs.selectedReviewStatus,
+    refs.dateFrom,
+    refs.dateTo,
+    refs.analysisFilter,
+    refs.modelFilter,
+  ]
+  if (refs.viewMode) watchedRefs.push(refs.viewMode)
+
   watch(
-    [
-      refs.page,
-      refs.pageSize,
-      refs.ordering,
-      refs.selectedTag,
-      refs.selectedCorrespondent,
-      refs.selectedReviewStatus,
-      refs.dateFrom,
-      refs.dateTo,
-      refs.analysisFilter,
-      refs.modelFilter,
-    ],
+    watchedRefs,
     async () => {
       if (!ready.value) return
       const nextQuery = buildQueryFromRefs(refs)
@@ -129,4 +140,3 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
     },
   )
 }
-

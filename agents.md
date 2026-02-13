@@ -664,9 +664,7 @@ All model names must be configurable via environment variables.
 ## TODO / Known Issues
 - Monitor live worker logs for residual overflow edge cases after budget guard rollout (example doc `1491` scenario addressed by pre-embed split + runtime overflow fallback).
 - Validate full end-to-end continue-processing runs on large documents (pickup visibility in `/queue` and troubleshooting in `/logs`) after latest UX flow move to `/processing/continue`.
-- UX slice: persist `DocumentsView` list state in route query (filters/sort/page/review status) and restore on back-navigation from detail view so unreviewed triage workflow is not reset.
-- UX slice (mobile): make documents list/table responsive (stacked cells or horizontal scroll with sticky key column) and ensure no data columns are cut off on small screens.
-- UX slice (mobile): fix overlapping top-status blocks (sync status vs queue progress and related dashboard/header widgets) by introducing mobile-first layout breakpoints and wrapping rules.
+- UX follow-up: consider adding compact mobile defaults and sticky quick filters for high-throughput unreviewed triage sessions.
 
 ## Session Handoff (2026-02-12)
 - Branch in progress: `refactor/pipeline-status-and-continue`
@@ -693,3 +691,4 @@ All model names must be configurable via environment variables.
   3. Decide whether to keep or remove older duplicated historical bullets in this log (non-functional cleanup).
 - Writeback sync-state fix: after successful real writeback execution, reviewed timestamp now uses Paperless modified, and local Document.modified is updated from Paperless per affected doc. This prevents false stale/unsynced detection and unnecessary reprocessing in continue-missing flows; covered by new route test for /writeback/execute-now.
 - UX slice implementation: added route-query persistence for DocumentsView list state (filters/sort/page/review/model/date) via useDocumentsRouteState, so back-navigation from detail keeps triage context; improved document table mobile responsiveness with horizontal overflow support + min width + stacked pager controls; and reflowed top overview/status layout to prevent sync/queue overlap on small screens.
+- UX slice implementation (follow-up): added explicit return-context navigation from documents list to detail via `return_to` query and a header Back button in detail view, plus a user-selectable Documents list `Table/Cards` mode persisted in URL query (`view=cards`).

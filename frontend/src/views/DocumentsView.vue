@@ -55,6 +55,34 @@
       @reload="load"
     />
 
+    <div class="mt-4 flex items-center justify-end gap-2">
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        View
+      </span>
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="
+          listViewMode === 'table'
+            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+        "
+        @click="listViewMode = 'table'"
+      >
+        Table
+      </button>
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="
+          listViewMode === 'cards'
+            ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+        "
+        @click="listViewMode = 'cards'"
+      >
+        Cards
+      </button>
+    </div>
+
     <DocumentsTable
       :documents="visibleDocuments"
       :running-by-doc-id="runningByDocId"
@@ -64,6 +92,7 @@
       :page="page"
       :total-pages="totalPages"
       :last-synced="lastSynced"
+      :view-mode="listViewMode"
       @toggle-sort="toggleSort"
       @open-doc="open"
       @prev-page="onPrevPage"
@@ -75,7 +104,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
 import { useDocumentsTableControls } from '../composables/useDocumentsTableControls'
@@ -91,6 +120,7 @@ import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar
 import DocumentsTable from '../components/DocumentsTable.vue'
 
 const router = useRouter()
+const route = useRoute()
 const toastStore = useToastStore()
 const {
   documents,
@@ -120,6 +150,7 @@ const {
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
+const listViewMode = ref<'table' | 'cards'>('table')
 const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
 const { runningByDocId } = useRunningTaskProgress()
 
@@ -170,7 +201,10 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
 )
 
 const open = (id: number) => {
-  router.push(`/documents/${id}`)
+  router.push({
+    path: `/documents/${id}`,
+    query: { return_to: encodeURIComponent(route.fullPath) },
+  })
 }
 
 useDocumentsRouteState({
@@ -184,6 +218,7 @@ useDocumentsRouteState({
   dateTo,
   analysisFilter,
   modelFilter,
+  viewMode: listViewMode,
 })
 
 onMounted(async () => {
