@@ -54,7 +54,6 @@
     <DocumentsQuickControls
       :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
-      :review-counts="reviewCounts"
       @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
       @reset-quick-filters="resetQuickFilters"
@@ -134,22 +133,6 @@ const modelFilter = ref('')
 const listViewMode = ref<'table' | 'cards'>('table')
 const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
 const { runningByDocId } = useRunningTaskProgress()
-const reviewCounts = computed(() => {
-  const counts = {
-    all: 0,
-    unreviewed: 0,
-    reviewed: 0,
-    needs_review: 0,
-  }
-  for (const doc of visibleDocuments.value) {
-    counts.all += 1
-    const status = String((doc as { review_status?: unknown }).review_status || '')
-    if (status === 'unreviewed' || status === 'reviewed' || status === 'needs_review') {
-      counts[status] += 1
-    }
-  }
-  return counts
-})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const {

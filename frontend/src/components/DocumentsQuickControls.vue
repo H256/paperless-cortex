@@ -19,16 +19,11 @@
         <button
           v-for="item in reviewItems"
           :key="item.value"
-          class="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-semibold"
+          class="rounded-md border px-2.5 py-1 text-xs font-semibold"
           :class="buttonClass(selectedReviewStatus === item.value)"
           @click="$emit('update:selectedReviewStatus', item.value)"
         >
           {{ item.label }}
-          <span
-            class="rounded border border-current/20 px-1 py-0 text-[10px] leading-none opacity-80"
-          >
-            {{ reviewCount(item.value) }}
-          </span>
         </button>
       </div>
     </div>
@@ -96,10 +91,5 @@ const buttonClass = (active: boolean) =>
 const props = defineProps<{
   selectedReviewStatus: ReviewStatus
   viewMode: ViewMode
-  reviewCounts?: Partial<Record<ReviewStatus, number>>
 }>()
-
-const reviewCount = (status: ReviewStatus): number => {
-  return Number(props.reviewCounts?.[status] ?? 0)
-}
 </script>
