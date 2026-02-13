@@ -5,7 +5,15 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document, DocumentPendingTag, SuggestionAudit, TaskRun
+from app.models import (
+    Document,
+    DocumentEmbedding,
+    DocumentPageText,
+    DocumentPendingTag,
+    DocumentSuggestion,
+    SuggestionAudit,
+    TaskRun,
+)
 
 
 def _insert_suggestion_audit(
@@ -261,3 +269,66 @@ def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch)
     vision_item = next((item for item in payload["items"] if item["task"] == "vision_ocr"), None)
     assert vision_item is not None
     assert vision_item["status"] in {"running", "missing", "done", "failed", "retrying"}
+
+
+def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=31, title="Stable Doc", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.get(Document, 31)
+        assert doc is not None
+        # Simulate metadata-only update (e.g. writeback) after existing processing artifacts.
+        doc.modified = "2026-02-12T10:00:00+00:00"
+        doc.page_count = 1
+        db.add(
+            DocumentEmbedding(
+                doc_id=31,
+                embedding_source="both",
+                embedded_at="2026-02-10T10:05:00+00:00",
+                chunk_count=5,
+            )
+        )
+        db.add(
+            DocumentPageText(
+                doc_id=31,
+                page=1,
+                source="vision_ocr",
+                text="Vision text",
+                created_at="2026-02-10T10:04:00+00:00",
+                processed_at="2026-02-10T10:04:00+00:00",
+            )
+        )
+        db.add(
+            DocumentSuggestion(
+                doc_id=31,
+                source="paperless_ocr",
+                payload='{"title":"Stable Doc"}',
+                created_at="2026-02-10T10:06:00+00:00",
+                processed_at="2026-02-10T10:06:00+00:00",
+            )
+        )
+        db.add(
+            DocumentSuggestion(
+                doc_id=31,
+                source="vision_ocr",
+                payload='{"title":"Stable Doc"}',
+                created_at="2026-02-10T10:06:00+00:00",
+                processed_at="2026-02-10T10:06:00+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {"id": 31, "modified": "2026-02-12T10:00:00+00:00"},
+    )
+
+    response = api_client.get("/documents/31/pipeline-status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["sync_ok"] is True
+    assert payload["paperless_ok"] is True
+    assert payload["missing_tasks"] == []
