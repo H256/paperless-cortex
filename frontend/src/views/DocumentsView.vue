@@ -32,6 +32,8 @@
       :show-cancel="showCancel"
       @open-preview="openPreview"
       @cancel-processing="cancelProcessing"
+      @open-queue="openQueue"
+      @open-logs="openLogs"
     />
 
     <DocumentsFiltersPanel
@@ -175,6 +177,12 @@ const load = async () => {
 }
 const openPreview = async () => {
   await router.push('/processing/continue')
+}
+const openQueue = async () => {
+  await router.push('/queue')
+}
+const openLogs = async () => {
+  await router.push('/logs')
 }
 const openWritebackQueue = async () => {
   await router.push('/writeback')
