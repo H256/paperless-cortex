@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Document,
     DocumentEmbedding,
+    DocumentNote,
     DocumentPageText,
     DocumentPendingTag,
     DocumentSuggestion,
@@ -271,6 +272,20 @@ def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch)
     assert vision_item["status"] in {"running", "missing", "done", "failed", "retrying"}
 
 
+def _insert_local_note(doc_id: int, note: str, note_id: int = -1):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentNote(
+                id=note_id,
+                document_id=doc_id,
+                note=note,
+                created="2026-02-10T10:15:00+00:00",
+            )
+        )
+        db.commit()
+
+
 def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_client, monkeypatch):
     from app.services import paperless
 
@@ -332,3 +347,33 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
     assert payload["sync_ok"] is True
     assert payload["paperless_ok"] is True
     assert payload["missing_tasks"] == []
+
+
+def test_get_local_document_note_override_sets_needs_review(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=41, title="Doc 41", created="2026-02-10T10:00:00+00:00")
+    _insert_local_note(
+        doc_id=41,
+        note="Local summary text\n\nModel:gpt\nKI-Zusammenfassung",
+        note_id=-41,
+    )
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {
+            "id": 41,
+            "title": "Doc 41",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    response = api_client.get("/documents/41/local")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["local_overrides"] is True
+    assert payload["review_status"] == "needs_review"

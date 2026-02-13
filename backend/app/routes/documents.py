@@ -27,6 +27,7 @@ from app.services.hierarchical_summary import is_large_document
 from app.services.queue import enqueue_docs_front
 from app.services.text_pages import get_baseline_page_texts, score_text_quality
 from app.services.ocr_scoring import ensure_document_ocr_score
+from app.services.writeback_plan import canonical_ai_summary, extract_ai_summary_note
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
@@ -573,6 +574,12 @@ def get_local_document(
     remote_tags = remote_doc.get("tags") or []
     local_issue_date = doc.document_date or doc.created
     remote_issue_date = remote_doc.get("created")
+    _, local_ai_note = extract_ai_summary_note(
+        [{"id": note.id, "note": note.note} for note in (doc.notes or [])]
+    )
+    _, remote_ai_note = extract_ai_summary_note(
+        remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
+    )
     local_overrides = False
     if set(local_tags) != set(remote_tags):
         local_overrides = True
@@ -583,6 +590,10 @@ def get_local_document(
     if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
         local_overrides = True
     if pending_tag_names:
+        local_overrides = True
+    local_ai_summary = canonical_ai_summary(local_ai_note)
+    remote_ai_summary = canonical_ai_summary(remote_ai_note)
+    if local_ai_summary and local_ai_summary != remote_ai_summary:
         local_overrides = True
 
     local_modified_dt = _parse_iso_datetime(doc.modified)
