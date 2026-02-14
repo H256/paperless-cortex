@@ -60,6 +60,7 @@ All granular implementation slices and refactors are tracked here.
 - `c9f5b18` refactor(phase2): removed unused bbox recovery logic (vector-lookup/min-ratio path) and related env/runtime UI knobs; evidence resolver now deterministically trusts only provided bbox and otherwise returns page-level `no_match`.
 - `1fc3f81` feat(phase2): added real bbox resolution from PDF text-layer words (PyMuPDF) with snippet-to-word matching, per-request caching, chat + `/chat/resolve-evidence` integration, and committed non-sensitive PDF fixtures for repeatable tests.
 - `dfe6145` feat(phase2): added persisted `document_page_anchors` index (migration + worker task `evidence_index`), wired pipeline missing-detection/continue fanout to include evidence indexing, and made evidence resolver prefer stored anchors (with PDF fallback) for retrieval-to-citation bbox mapping.
+- `c76dc2f` feat(phase2): evidence index is now non-mandatory when indexing confirms `no_text_layer` for the source PDF; pipeline status marks evidence step optional/done in that case and avoids re-enqueueing `evidence_index` on sync followups.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
