@@ -56,6 +56,7 @@ All granular implementation slices and refactors are tracked here.
 - `10f105a` perf(phase2): added per-request resolver cache for duplicate `(doc_id,page,source,snippet)` lookups to prevent repeated embed/search calls and reduce evidence latency.
 - `3301c0a` feat(phase2): surfaced evidence resolver runtime config in `/status` payload (`evidence_vector_lookup_enabled`, `evidence_max_pages`, `evidence_min_snippet_chars`) with route test coverage.
 - `56692c3` feat(phase2): surfaced evidence resolver runtime knobs in Operations > Runtime Configuration (frontend) for quick verification of active evidence behavior.
+- `d6b80a8` feat(phase2): enforced `min_match_ratio` in evidence resolver (vector hits below threshold stay `no_match`), wired configurable default via `EVIDENCE_MIN_MATCH_RATIO`, surfaced the setting in status/Operations, and extended tests.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
