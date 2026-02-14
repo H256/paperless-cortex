@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `333598d` perf(dashboard): reduced dashboard query load by deriving unknown correspondent/type counts from total docs and grouped rows, and replacing correlated untagged-doc counting with a single `count(distinct document_tags.document_id)` query.
 - `39a28a3` docs(todo): marked the remaining responsive/mobile polish backlog item as completed after recent `Writeback` and `DocumentDetail` narrow-screen improvements.
 - `3999fc8` ux(details): improved `DocumentDetailView` operations responsiveness by adding mobile card layouts for processing timeline and downstream fan-out, plus wrapped controls for narrow screens.
 - `d3de19f` ux(writeback): improved `WritebackDryRunView` responsiveness with mobile-friendly tab scrolling, stacked preview field cards on small screens, wrapped action toolbars, and card-based queue/history rendering on phones while preserving desktop tables.
