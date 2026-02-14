@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `dc83879` ux(suggestions): moved field variants inline under each suggestion field (title/date/correspondent/tags) to match summary UX, added visual separators between summary variants, and removed legacy `Existing tags / New tags` debug hint boxes from suggestion panels.
 - `215dfd3` feat(suggestions): added summary-only suggestion regeneration via `field=note` variants. Backend now supports note-summary field prompts (`suggestions_summary.txt`), maps note field updates to `summary` payload storage, and frontend Suggestions panels now expose `Suggest new` for summary plus inline summary variant apply actions. Added route tests for current-summary reuse and summary update mapping.
 - `96dd3a4` fix(writeback): `dry-run/preview` now uses local writeback candidates (`suggestion_audit` apply actions + pending-tag docs) when `only_changed=true`, instead of relying only on page-1 Paperless listing; this fixes missing changed documents in Writeback Preview after bulk suggestion-apply workflows. Added route regression test coverage.
 - `874850a` fix(details/ui): fixed Vue template compile error in `DocumentDetailView` by replacing invalid double `v-else` chains (fan-out and timeline mobile/desktop blocks) with `v-else` wrapper templates.
