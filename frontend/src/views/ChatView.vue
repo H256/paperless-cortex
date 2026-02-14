@@ -344,6 +344,7 @@ const questionInputRef = ref<HTMLInputElement | null>(null)
 
 const buildChatQuery = () => {
   const next: Record<string, string> = {}
+  if (question.value.trim()) next.q = question.value.trim()
   if (topK.value !== 6) next.k = String(topK.value)
   if (source.value) next.src = source.value
   if (onlyVision.value) next.v = '1'
@@ -355,6 +356,7 @@ const buildChatQuery = () => {
 }
 
 const syncChatFromRoute = () => {
+  question.value = queryString(route.query.q, '')
   topK.value = queryNumber(route.query.k, 6)
   source.value = queryString(route.query.src, '')
   onlyVision.value = queryBool(route.query.v, false)
@@ -365,6 +367,7 @@ const syncChatFromRoute = () => {
 }
 
 const resetControls = async () => {
+  question.value = ''
   topK.value = 6
   source.value = ''
   onlyVision.value = false
@@ -527,7 +530,7 @@ const querySync = useRouteQuerySync({
   router,
   readFromRoute: syncChatFromRoute,
   buildQuery: buildChatQuery,
-  sources: [topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
+  sources: [question, topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
   debounceMs: 120,
   preserveUnknownQueryKeys: true,
 })
