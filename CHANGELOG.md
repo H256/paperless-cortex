@@ -81,6 +81,7 @@ All granular implementation slices and refactors are tracked here.
 - `1a1c3ed` chore(chat): removed unused `chatStore` after composable migration to keep chat state architecture consistently Vue Query/composable-based.
 - `41d2100` refactor(search): aligned search service signature with generated OpenAPI type `SearchEmbeddingsSearchGetParams` to keep request contracts strictly client-generated.
 - `c39df21` refactor(chat): switched stream endpoint URL resolution to generated helper (`getChatStreamChatStreamPostUrl`) and tightened SSE done-payload typing for consistent OpenAPI-aligned chat contracts.
+- `94c430b` refactor(search): moved embeddings search execution fully into `useSearchSession` via generated client (`searchEmbeddingsSearchGet`) + generated models, removing service-type coupling in the view/composable path.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
