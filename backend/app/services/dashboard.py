@@ -18,6 +18,7 @@ from app.services.document_stats import compute_document_stats
 
 def build_dashboard_payload(db: Session) -> dict[str, object]:
     stats = compute_document_stats(db)
+    total_docs = int(stats.get("total") or 0)
     is_processed = and_(
         exists().where(DocumentEmbedding.doc_id == Document.id),
         exists().where(and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")),
@@ -31,7 +32,8 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         .order_by(func.count(Document.id).desc(), Correspondent.name.asc())
         .all()
     )
-    unassigned_count = db.query(Document.id).filter(Document.correspondent_id.is_(None)).count()
+    assigned_count = sum(int(row[2] or 0) for row in correspondents_rows)
+    unassigned_count = max(0, total_docs - assigned_count)
     correspondents = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in correspondents_rows]
     if unassigned_count:
         correspondents.append({"id": None, "name": "Unassigned correspondent", "count": unassigned_count})
@@ -45,7 +47,8 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         .order_by(func.count(document_tags.c.document_id).desc(), Tag.name.asc())
         .all()
     )
-    untagged_count = db.query(Document.id).filter(~exists().where(document_tags.c.document_id == Document.id)).count()
+    tagged_docs_count = int(db.query(func.count(func.distinct(document_tags.c.document_id))).scalar() or 0)
+    untagged_count = max(0, total_docs - tagged_docs_count)
     tags = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in tag_rows]
     if untagged_count:
         tags.append({"id": None, "name": "No tags", "count": untagged_count})
@@ -59,7 +62,8 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         .order_by(func.count(Document.id).desc(), DocumentType.name.asc())
         .all()
     )
-    type_unknown = db.query(Document.id).filter(Document.document_type_id.is_(None)).count()
+    typed_count = sum(int(row[2] or 0) for row in type_rows)
+    type_unknown = max(0, total_docs - typed_count)
     document_types = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in type_rows]
     if type_unknown:
         document_types.append({"id": None, "name": "No document type", "count": type_unknown})
