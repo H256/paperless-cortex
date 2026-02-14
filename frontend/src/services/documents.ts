@@ -1,6 +1,7 @@
 import { unwrap } from '../api/orval'
-import { request } from './http'
 import {
+  cleanupTextsDocumentsCleanupTextsPost,
+  enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPost,
   listDocumentsDocumentsGet,
   getDocumentStatsDocumentsStatsGet,
   getLocalDocumentDocumentsDocIdLocalGet,
@@ -31,6 +32,9 @@ import {
   syncTagsSyncTagsPost,
   syncCorrespondentsSyncCorrespondentsPost,
   getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet,
+  getDocumentPipelineStatusDocumentsDocIdPipelineStatusGet,
+  continueDocumentPipelineDocumentsDocIdPipelineContinuePost,
+  resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPost,
 } from '../api/generated/client'
 import type {
   ApplyFieldSuggestionResponse,
@@ -78,6 +82,14 @@ import type {
   SyncSimpleResponse,
   DocumentPipelineFanoutResponse,
   GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,
+  CleanupTextsRequest,
+  CleanupTextsResponse,
+  DocumentTaskRequest,
+  DocumentOperationEnqueueResponse,
+  DocumentResetReprocessResponse,
+  DocumentPipelineStatusResponse,
+  DocumentPipelineContinueResponse,
+  ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams,
 } from '@/api/generated/model'
 
 export type DocumentRow = DocumentSummary
@@ -212,13 +224,7 @@ export const syncTags = () => unwrap<SyncSimpleResponse>(syncTagsSyncTagsPost())
 export const syncCorrespondents = () =>
   unwrap<SyncSimpleResponse>(syncCorrespondentsSyncCorrespondentsPost())
 
-export type CleanupTextsPayload = {
-  doc_ids?: number[]
-  source?: 'paperless_ocr' | 'vision_ocr' | 'pdf_text'
-  clear_first?: boolean
-  enqueue?: boolean
-}
-
+export type CleanupTextsPayload = CleanupTextsRequest
 export type CleanupTextsResult = {
   queued: boolean
   docs: number
@@ -226,37 +232,22 @@ export type CleanupTextsResult = {
   processed: number
   updated: number
 }
-
-export type DocumentOperationTaskPayload = {
-  task:
-    | 'sync'
-    | 'vision_ocr'
-    | 'cleanup_texts'
-    | 'embeddings_paperless'
-    | 'embeddings_vision'
-    | 'page_notes_paperless'
-    | 'page_notes_vision'
-    | 'summary_hierarchical'
-    | 'suggestions_paperless'
-    | 'suggestions_vision'
-  source?: 'paperless_ocr' | 'vision_ocr'
-  force?: boolean
-  clear_first?: boolean
+export type DocumentOperationTaskType =
+  | 'sync'
+  | 'vision_ocr'
+  | 'cleanup_texts'
+  | 'embeddings_paperless'
+  | 'embeddings_vision'
+  | 'page_notes_paperless'
+  | 'page_notes_vision'
+  | 'summary_hierarchical'
+  | 'suggestions_paperless'
+  | 'suggestions_vision'
+export type DocumentOperationTaskPayload = Omit<DocumentTaskRequest, 'task'> & {
+  task: DocumentOperationTaskType
 }
-
-export type DocumentOperationTaskResult = {
-  enabled: boolean
-  enqueued: number
-  task: string
-  doc_id: number
-}
-
-export type DocumentResetReprocessResult = {
-  doc_id: number
-  synced: boolean
-  reset: boolean
-  enqueued: number
-}
+export type DocumentOperationTaskResult = DocumentOperationEnqueueResponse
+export type DocumentResetReprocessResult = DocumentResetReprocessResponse
 
 export type DocumentPipelineStepStatus = {
   key: string
@@ -265,66 +256,34 @@ export type DocumentPipelineStepStatus = {
   detail?: string | null
 }
 
-export type DocumentPipelineStatus = {
-  doc_id: number
-  preferred_source: string
-  is_large_document: boolean
-  sync_ok: boolean
-  paperless_ok: boolean
-  vision_ok: boolean
-  large_ok: boolean
-  steps: DocumentPipelineStepStatus[]
-  missing_tasks: Array<Record<string, unknown>>
-}
+export type DocumentPipelineStatus = DocumentPipelineStatusResponse
 
-export type ContinuePipelinePayload = {
-  dry_run?: boolean
-  include_sync?: boolean
-  include_vision_ocr?: boolean
-  include_embeddings?: boolean
-  include_embeddings_paperless?: boolean
-  include_embeddings_vision?: boolean
-  include_page_notes?: boolean
-  include_summary_hierarchical?: boolean
-  include_suggestions_paperless?: boolean
-  include_suggestions_vision?: boolean
-  embeddings_mode?: 'auto' | 'paperless' | 'vision' | 'both'
-}
-
-export type ContinuePipelineResult = {
-  enabled: boolean
-  doc_id: number
-  dry_run: boolean
-  missing_tasks: number
-  enqueued: number
-}
+export type ContinuePipelinePayload = ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams
+export type ContinuePipelineResult = DocumentPipelineContinueResponse
 
 export type DocumentPipelineFanout = DocumentPipelineFanoutResponse
 export type PipelineFanoutParams = GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams
 
 export const cleanupTexts = (payload: CleanupTextsPayload) =>
-  request<CleanupTextsResult>('/documents/cleanup-texts', { method: 'POST', body: payload })
+  unwrap<CleanupTextsResponse>(cleanupTextsDocumentsCleanupTextsPost(payload)).then((result) => ({
+    queued: Boolean(result.queued),
+    docs: Number(result.docs ?? 0),
+    enqueued: Number(result.enqueued ?? 0),
+    processed: Number(result.processed ?? 0),
+    updated: Number(result.updated ?? 0),
+  }))
 
 export const enqueueDocumentTask = (id: number, payload: DocumentOperationTaskPayload) =>
-  request<DocumentOperationTaskResult>(`/documents/${id}/operations/enqueue-task`, {
-    method: 'POST',
-    body: payload,
-  })
+  unwrap<DocumentOperationTaskResult>(enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPost(id, payload))
 
 export const resetAndReprocessDocument = (id: number, enqueue = true) =>
-  request<DocumentResetReprocessResult>(`/documents/${id}/operations/reset-and-reprocess`, {
-    method: 'POST',
-    params: { enqueue },
-  })
+  unwrap<DocumentResetReprocessResult>(resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPost(id, { enqueue }))
 
 export const getDocumentPipelineStatus = (id: number) =>
-  request<DocumentPipelineStatus>(`/documents/${id}/pipeline-status`)
+  unwrap<DocumentPipelineStatus>(getDocumentPipelineStatusDocumentsDocIdPipelineStatusGet(id))
 
 export const getDocumentPipelineFanout = (id: number, params?: PipelineFanoutParams) =>
   unwrap<DocumentPipelineFanout>(getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet(id, params))
 
 export const continueDocumentPipeline = (id: number, payload: ContinuePipelinePayload = {}) =>
-  request<ContinuePipelineResult>(`/documents/${id}/pipeline/continue`, {
-    method: 'POST',
-    params: payload,
-  })
+  unwrap<ContinuePipelineResult>(continueDocumentPipelineDocumentsDocIdPipelineContinuePost(id, payload))
