@@ -8,6 +8,7 @@ All granular implementation slices and refactors are tracked here.
 ### Backend performance
 - `aaae285` perf(backend): reduced memory/latency overhead in pipeline routes by narrowing cache queries to required columns/doc scopes, optimized task-run fanout lookups to planned signatures, and consolidated document stats calculation into a single aggregate query shared by `/documents/stats` and status stream payloads.
 - `0638a6e` perf(backend): improved route hot paths and backend hygiene by streaming review-status document filtering, making process-missing sync incremental + lower-memory iteration, removing write-on-read behavior from `/status`, adding short-TTL Paperless/dashboard caching for expensive reads, extracting shared review/sync derivation helpers, and replacing remaining `__import__` anti-patterns in core backend modules.
+- `8ea99eb` perf(backend): removed document-list derived-field N+1 risks with eager loading and slimmer projections, switched `process-missing` to chunked cache evaluation (no global pre-scan cache load), added shared SSE payload caching in `/status/stream` to reduce per-client DB/LLM pressure, reduced embeddings ingest memory by tracking counts instead of storing all points in-route, and deduplicated writeback metadata-map loading while using cached Paperless document reads in preview/execute flows.
 
 ## 2026-02-14 (documentation branch: docs/concise-manual)
 
