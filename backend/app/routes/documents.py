@@ -652,11 +652,12 @@ def get_document_page_texts(
             }
         )
     for page in vision_pages:
+        vision_text = page.clean_text if isinstance(page.clean_text, str) and page.clean_text.strip() else page.text
         pages.append(
             {
                 "page": page.page,
                 "source": page.source,
-                "text": page.text,
+                "text": vision_text,
                 "quality": {
                     "score": page.quality_score,
                     "reasons": [],
