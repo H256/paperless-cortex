@@ -20,7 +20,7 @@ Build a robust, safe Paperless intelligence layer:
 - Continue-processing and triage UX with URL-synced filters
 
 ## Current branch
-- Active branch: `feat/documents-triage-presets-search`
+- Active branch: `feat/phase2-evidence-resolver`
 
 ## Current focus (short-term)
 1. Phase 2 planning and delivery slices (evidence locator + bbox enrichment path).

@@ -44,6 +44,11 @@ All granular implementation slices and refactors are tracked here.
 - `0531246` split filters into primary + advanced sections.
 - `e516f7f` active filter chips strip.
 
+## 2026-02-14 (phase 2 start branch: feat/phase2-evidence-resolver)
+
+### Phase 2 kickoff
+- `a4f5542` feat(phase2): added `/chat/resolve-evidence` API contract and baseline resolver service (`app/services/evidence.py`) with bounded page processing and deterministic status outputs (`ok`/`no_match`/`error`), plus route-level tests.
+
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
 - For full historical record prior to this restructure, use git history (`git log --oneline` / `git log --stat`).
