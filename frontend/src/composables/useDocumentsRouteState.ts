@@ -17,6 +17,7 @@ type RouteStateRefs = {
   dateTo: Ref<string>
   analysisFilter: Ref<AnalysisFilter>
   modelFilter: Ref<string>
+  searchQuery: Ref<string>
   viewMode?: Ref<ViewMode>
 }
 
@@ -58,6 +59,7 @@ const applyQueryToRefs = (query: LocationQuery, refs: RouteStateRefs) => {
   refs.selectedReviewStatus.value = normalizeReviewStatus(query.review_status)
   refs.analysisFilter.value = normalizeAnalysisFilter(query.analysis_filter)
   refs.modelFilter.value = toSingle(query.model)
+  refs.searchQuery.value = toSingle(query.q)
   if (refs.viewMode) refs.viewMode.value = normalizeViewMode(query.view)
 
   const dateFrom = toSingle(query.date_from)
@@ -76,6 +78,7 @@ const buildQueryFromRefs = (refs: RouteStateRefs) => {
   if (refs.selectedReviewStatus.value !== 'all') query.review_status = refs.selectedReviewStatus.value
   if (refs.analysisFilter.value !== 'all') query.analysis_filter = refs.analysisFilter.value
   if (refs.modelFilter.value.trim()) query.model = refs.modelFilter.value.trim()
+  if (refs.searchQuery.value.trim()) query.q = refs.searchQuery.value.trim()
   if (refs.viewMode?.value === 'cards') query.view = 'cards'
   if (refs.dateFrom.value) query.date_from = refs.dateFrom.value
   if (refs.dateTo.value) query.date_to = refs.dateTo.value
@@ -131,6 +134,7 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
     refs.dateTo,
     refs.analysisFilter,
     refs.modelFilter,
+    refs.searchQuery,
   ]
   if (refs.viewMode) watchedRefs.push(refs.viewMode)
 

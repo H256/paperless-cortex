@@ -29,7 +29,10 @@ type PresetKey = 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox'
 const props = defineProps<{
   analysisFilter: AnalysisFilter
   reviewStatus: ReviewStatus
+  searchQuery?: string
 }>()
+
+const hasSearchFilter = computed(() => Boolean(props.searchQuery?.trim()))
 
 defineEmits<{
   applyPreset: [key: PresetKey]
@@ -39,22 +42,25 @@ const presets = computed(() => [
   {
     key: 'unreviewed' as const,
     label: 'Unreviewed',
-    active: props.reviewStatus === 'unreviewed' && props.analysisFilter === 'all',
+    active: !hasSearchFilter.value && props.reviewStatus === 'unreviewed' && props.analysisFilter === 'all',
   },
   {
     key: 'needs_review' as const,
     label: 'Needs review',
-    active: props.reviewStatus === 'needs_review' && props.analysisFilter === 'all',
+    active: !hasSearchFilter.value && props.reviewStatus === 'needs_review' && props.analysisFilter === 'all',
   },
   {
     key: 'not_analyzed' as const,
     label: 'Not analyzed',
-    active: props.analysisFilter === 'not_analyzed' && props.reviewStatus === 'all',
+    active: !hasSearchFilter.value && props.analysisFilter === 'not_analyzed' && props.reviewStatus === 'all',
   },
   {
     key: 'inbox' as const,
     label: 'Inbox (new)',
-    active: props.reviewStatus === 'unreviewed' && props.analysisFilter === 'not_analyzed',
+    active:
+      !hasSearchFilter.value &&
+      props.reviewStatus === 'unreviewed' &&
+      props.analysisFilter === 'not_analyzed',
   },
 ])
 
