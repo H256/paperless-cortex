@@ -1336,6 +1336,16 @@ def _dispatch_task(
     _process_doc(settings, db, doc_id, run_id=run_id)
 
 
+def _handle_worker_cancel_request(settings) -> bool:
+    if not is_cancel_requested(settings):
+        return False
+    logger.info("Worker cancel requested; clearing queue")
+    clear_queue(settings)
+    reset_stats(settings)
+    clear_cancel(settings)
+    return True
+
+
 def main() -> None:
     settings = load_settings()
     configure_logging(settings, service="worker")
@@ -1385,11 +1395,7 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             move_due_delayed_tasks(settings, limit=100)
-            if is_cancel_requested(settings):
-                logger.info("Worker cancel requested; clearing queue")
-                clear_queue(settings)
-                reset_stats(settings)
-                clear_cancel(settings)
+            if _handle_worker_cancel_request(settings):
                 time.sleep(0.5)
                 continue
             item = client.blpop(QUEUE_KEY, timeout=5)
@@ -1412,11 +1418,8 @@ def main() -> None:
                     logger.warning("Invalid doc_id in queue: %s", doc_id_str)
                     continue
                 task_type = "full"
-            if is_cancel_requested(settings):
+            if _handle_worker_cancel_request(settings):
                 logger.info("Worker cancel requested; skipping doc=%s", doc_id)
-                clear_queue(settings)
-                reset_stats(settings)
-                clear_cancel(settings)
                 time.sleep(0.5)
                 continue
             running_task = task if isinstance(task, dict) else {"doc_id": doc_id, "task": "full"}
