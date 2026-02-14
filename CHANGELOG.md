@@ -62,6 +62,7 @@ All granular implementation slices and refactors are tracked here.
 - `dfe6145` feat(phase2): added persisted `document_page_anchors` index (migration + worker task `evidence_index`), wired pipeline missing-detection/continue fanout to include evidence indexing, and made evidence resolver prefer stored anchors (with PDF fallback) for retrieval-to-citation bbox mapping.
 - `c76dc2f` feat(phase2): evidence index is now non-mandatory when indexing confirms `no_text_layer` for the source PDF; pipeline status marks evidence step optional/done in that case and avoids re-enqueueing `evidence_index` on sync followups.
 - `2abdd84` feat(ux): chat now supports explicit follow-up context controls (toggle + turn depth + quick follow-up from prior message), and citation/detail links in both chat and search now open Document Details in a new tab while preserving `page` + `bbox` query payload for viewer focus.
+- `cafe56f` feat(ux): added shared citation jump handoff service (`sessionStorage` token + query `jump`) so chat/search source links open in a new tab with resilient page/bbox pickup in Document Details, while keeping URL fallback params for direct links.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
