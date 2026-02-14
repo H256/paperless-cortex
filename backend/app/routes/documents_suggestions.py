@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -66,7 +68,7 @@ class ApplySuggestionToDocument(BaseModel):
 
 
 def _utc_now_iso() -> str:
-    return __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _next_local_note_id(db: Session) -> int:
@@ -91,7 +93,7 @@ def get_document_suggestions(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    logger = __import__("logging").getLogger(__name__)
+    logger = logging.getLogger(__name__)
     logger.info("Fetch suggestions doc=%s source=%s refresh=%s", doc_id, source, refresh)
     raw = paperless.get_document(settings, doc_id)
     tags = get_cached_tags(settings)
@@ -404,7 +406,7 @@ def apply_suggestion_to_document(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    logger = __import__("logging").getLogger(__name__)
+    logger = logging.getLogger(__name__)
 
     def _format_ai_summary_note(
         summary_text: str,
@@ -565,14 +567,14 @@ def apply_suggestion_to_document(
             if existing_note:
                 old_value = existing_note.note
                 existing_note.note = marker_text
-                existing_note.created = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+                existing_note.created = datetime.now(timezone.utc).isoformat()
                 updated = True
             else:
                 note = DocumentNote(
                     id=_next_local_note_id(db),
                     document_id=doc_id,
                     note=marker_text,
-                    created=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+                    created=datetime.now(timezone.utc).isoformat(),
                 )
                 db.add(note)
                 updated = True
@@ -583,3 +585,5 @@ def apply_suggestion_to_document(
         logger.info("Applied suggestion to document doc=%s field=%s", doc_id, field)
         return {"status": "ok", "updated": True, **details}
     return {"status": "skipped", "updated": False, **details}
+
+

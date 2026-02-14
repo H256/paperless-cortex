@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import socket
 import threading
 import time
+from datetime import datetime, timezone
 from collections.abc import Iterable
 
 from sqlalchemy.orm import Session
@@ -417,7 +419,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         if page_texts
         else content_value
     )
-    content_hash = __import__("hashlib").sha256((hash_source or "").encode("utf-8")).hexdigest()
+    content_hash = hashlib.sha256((hash_source or "").encode("utf-8")).hexdigest()
 
     ensure_embedding_collection(settings)
     normalized_baseline_pages = []
@@ -543,7 +545,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         db.add(existing)
     existing.content_hash = content_hash
     existing.embedding_model = settings.embedding_model
-    existing.embedded_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    existing.embedded_at = datetime.now(timezone.utc).isoformat()
     previous_source = str(existing.embedding_source or "").strip().lower()
     if previous_source == "both" or (previous_source and previous_source != embedding_source):
         existing.embedding_source = "both"
@@ -1611,3 +1613,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

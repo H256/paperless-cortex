@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+import time
+import json
 
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import and_, exists, func
+from sqlalchemy import and_, case, exists, func, or_
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -29,6 +31,8 @@ from app.services.text_pages import get_baseline_page_texts, score_text_quality
 from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.writeback_plan import canonical_ai_summary, extract_ai_summary_note
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.document_stats import compute_document_stats
+from app.services.document_review import derive_review_status, derive_sync_status
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,
@@ -40,23 +44,10 @@ from app.api_models import (
     PageTextsResponse,
     PaperlessDocument,
 )
-import json
-
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-
-def _parse_iso_datetime(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    candidate = value.strip()
-    if not candidate:
-        return None
-    if candidate.endswith("Z"):
-        candidate = f"{candidate[:-1]}+00:00"
-    try:
-        return datetime.fromisoformat(candidate)
-    except ValueError:
-        return None
+logger = logging.getLogger(__name__)
+_DASHBOARD_CACHE: dict[str, object] = {"ts": 0.0, "data": None}
+_DASHBOARD_CACHE_TTL_SECONDS = 15
 
 
 def _normalize_review_status(value: str | None) -> str:
@@ -92,7 +83,7 @@ def _list_documents_from_paperless(
     current_page = 1
     fetch_size = max(page_size, 200)
     while True:
-        payload = paperless.list_documents(
+        payload = paperless.list_documents_cached(
             settings,
             page=current_page,
             page_size=fetch_size,
@@ -216,16 +207,11 @@ def _apply_derived_fields_and_review_status(
         doc["has_vision_pages"] = doc_id in vision_pages
 
         reviewed_at_raw = reviewed_at_by_doc.get(doc_id)
-        reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
-        modified_dt = _parse_iso_datetime(doc.get("modified"))
-        if local_overrides:
-            derived_review_status = "needs_review"
-        elif reviewed_at_dt is None:
-            derived_review_status = "unreviewed"
-        elif modified_dt and modified_dt > reviewed_at_dt:
-            derived_review_status = "needs_review"
-        else:
-            derived_review_status = "reviewed"
+        derived_review_status = derive_review_status(
+            local_overrides=local_overrides,
+            reviewed_at=reviewed_at_raw,
+            remote_modified=doc.get("modified"),
+        )
         doc["reviewed_at"] = reviewed_at_raw
         doc["review_status"] = derived_review_status
         if review_status == "all" or review_status == derived_review_status:
@@ -260,6 +246,53 @@ def list_documents(
     db: Session = Depends(get_db),
 ):
     normalized_review_status = _normalize_review_status(review_status)
+    if normalized_review_status != "all":
+        current_page = 1
+        fetch_size = max(page_size, 200)
+        start = max(0, (max(1, page) - 1) * max(1, page_size))
+        end = start + max(1, page_size)
+        filtered_total = 0
+        selected_results: list[dict] = []
+        while True:
+            batch_payload = paperless.list_documents_cached(
+                settings,
+                page=current_page,
+                page_size=fetch_size,
+                ordering=ordering,
+                correspondent__id=correspondent__id,
+                tags__id=tags__id,
+                document_date__gte=document_date__gte,
+                document_date__lte=document_date__lte,
+            )
+            batch_results = (
+                _apply_derived_fields_and_review_status(
+                    payload={"results": batch_payload.get("results", []) or []},
+                    db=db,
+                    include_derived=True,
+                    review_status="all",
+                    page=1,
+                    page_size=fetch_size,
+                ).get("results", [])
+                or []
+            )
+            matching = [row for row in batch_results if row.get("review_status") == normalized_review_status]
+            batch_count = len(matching)
+            if batch_count > 0 and len(selected_results) < max(1, page_size):
+                batch_start = max(0, start - filtered_total)
+                batch_end = max(0, end - filtered_total)
+                if batch_start < batch_count:
+                    selected_results.extend(matching[batch_start:batch_end])
+            filtered_total += batch_count
+            if not batch_payload.get("next"):
+                break
+            current_page += 1
+        return {
+            "count": filtered_total,
+            "next": None if end >= filtered_total else "filtered",
+            "previous": None if start <= 0 else "filtered",
+            "results": selected_results[: max(1, page_size)],
+        }
+
     payload = _list_documents_from_paperless(
         settings,
         page=page,
@@ -283,73 +316,23 @@ def list_documents(
 
 @router.get("/stats", response_model=DocumentStatsResponse)
 def get_document_stats(db: Session = Depends(get_db)):
-    total = db.query(Document).count()
-    embeddings = (
-        db.query(Document.id)
-        .filter(exists().where(DocumentEmbedding.doc_id == Document.id))
-        .count()
-    )
-    vision = (
-        db.query(Document.id)
-        .filter(
-            exists().where(
-                and_(
-                    DocumentPageText.doc_id == Document.id,
-                    DocumentPageText.source == "vision_ocr",
-                )
-            )
-        )
-        .count()
-    )
-    suggestions = (
-        db.query(Document.id)
-        .filter(exists().where(DocumentSuggestion.doc_id == Document.id))
-        .count()
-    )
-    fully_processed = (
-        db.query(Document.id)
-        .filter(
-            exists().where(DocumentEmbedding.doc_id == Document.id),
-            exists().where(
-                and_(
-                    DocumentPageText.doc_id == Document.id,
-                    DocumentPageText.source == "vision_ocr",
-                )
-            ),
-            exists().where(DocumentSuggestion.doc_id == Document.id),
-        )
-        .count()
-    )
-    unprocessed = max(0, total - fully_processed)
-    return {
-        "total": total,
-        "processed": embeddings,
-        "unprocessed": unprocessed,
-        "embeddings": embeddings,
-        "vision": vision,
-        "suggestions": suggestions,
-        "fully_processed": fully_processed,
-    }
+    return compute_document_stats(db)
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
 def get_dashboard(db: Session = Depends(get_db)):
+    now = time.time()
+    cached_ts = float(_DASHBOARD_CACHE.get("ts") or 0.0)
+    cached_data = _DASHBOARD_CACHE.get("data")
+    if cached_data and (now - cached_ts) < _DASHBOARD_CACHE_TTL_SECONDS:
+        return cached_data
+
     stats = get_document_stats(db)
-    fully_processed_ids = {
-        row[0]
-        for row in db.query(Document.id)
-        .filter(
-            exists().where(DocumentEmbedding.doc_id == Document.id),
-            exists().where(
-                and_(
-                    DocumentPageText.doc_id == Document.id,
-                    DocumentPageText.source == "vision_ocr",
-                )
-            ),
-            exists().where(DocumentSuggestion.doc_id == Document.id),
-        )
-        .all()
-    }
+    is_processed = and_(
+        exists().where(DocumentEmbedding.doc_id == Document.id),
+        exists().where(and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")),
+        exists().where(DocumentSuggestion.doc_id == Document.id),
+    )
 
     correspondents_rows = (
         db.query(Correspondent.id, Correspondent.name, func.count(Document.id))
@@ -402,29 +385,30 @@ def get_dashboard(db: Session = Depends(get_db)):
         document_types.append({"id": None, "name": "No document type", "count": type_unknown})
     document_types.sort(key=lambda item: item["count"], reverse=True)
 
-    unprocessed_by_correspondent: dict[int | None, int] = {}
-    monthly: dict[str, dict[str, int]] = {}
-    for doc_id, document_date, created, correspondent_id in db.query(
-        Document.id,
-        Document.document_date,
-        Document.created,
-        Document.correspondent_id,
-    ).all():
-        processed = doc_id in fully_processed_ids
-        if not processed:
-            unprocessed_by_correspondent[correspondent_id] = unprocessed_by_correspondent.get(correspondent_id, 0) + 1
+    unprocessed_rows = (
+        db.query(Document.correspondent_id, func.count(Document.id))
+        .filter(~is_processed)
+        .group_by(Document.correspondent_id)
+        .all()
+    )
+    unprocessed_by_correspondent = {row[0]: int(row[1]) for row in unprocessed_rows}
 
-        raw_date = document_date or created or ""
-        month = raw_date[:7] if len(raw_date) >= 7 else "Unknown"
-        bucket = monthly.get(month)
-        if bucket is None:
-            bucket = {"total": 0, "processed": 0, "unprocessed": 0}
-            monthly[month] = bucket
-        bucket["total"] += 1
-        if processed:
-            bucket["processed"] += 1
-        else:
-            bucket["unprocessed"] += 1
+    month_expr = func.coalesce(
+        func.nullif(func.substr(Document.document_date, 1, 7), ""),
+        func.nullif(func.substr(Document.created, 1, 7), ""),
+        "Unknown",
+    )
+    monthly_rows = (
+        db.query(
+            month_expr.label("month"),
+            func.count(Document.id).label("total"),
+            func.sum(case((is_processed, 1), else_=0)).label("processed"),
+            func.sum(case((is_processed, 0), else_=1)).label("unprocessed"),
+        )
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
 
     correspondents_map = {row[0]: row[1] for row in db.query(Correspondent.id, Correspondent.name).all()}
     unprocessed_corr_list = [
@@ -438,7 +422,13 @@ def get_dashboard(db: Session = Depends(get_db)):
     unprocessed_corr_list.sort(key=lambda item: item["count"], reverse=True)
 
     monthly_processing = [
-        {"label": month, **counts} for month, counts in sorted(monthly.items(), key=lambda item: item[0])
+        {
+            "label": str(row.month),
+            "total": int(row.total or 0),
+            "processed": int(row.processed or 0),
+            "unprocessed": int(row.unprocessed or 0),
+        }
+        for row in monthly_rows
     ]
     if monthly_processing and monthly_processing[0]["label"] == "Unknown":
         monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
@@ -453,27 +443,28 @@ def get_dashboard(db: Session = Depends(get_db)):
         "51+": 0,
         "Unknown": 0,
     }
-    for (page_count,) in db.query(Document.page_count).all():
-        if page_count is None or page_count < 1:
-            buckets["Unknown"] += 1
-        elif page_count == 1:
-            buckets["1"] += 1
-        elif page_count <= 3:
-            buckets["2-3"] += 1
-        elif page_count <= 6:
-            buckets["4-6"] += 1
-        elif page_count <= 10:
-            buckets["7-10"] += 1
-        elif page_count <= 20:
-            buckets["11-20"] += 1
-        elif page_count <= 50:
-            buckets["21-50"] += 1
-        else:
-            buckets["51+"] += 1
+    page_bucket_row = db.query(
+        func.sum(case((or_(Document.page_count.is_(None), Document.page_count < 1), 1), else_=0)).label("unknown"),
+        func.sum(case((Document.page_count == 1, 1), else_=0)).label("p1"),
+        func.sum(case((and_(Document.page_count >= 2, Document.page_count <= 3), 1), else_=0)).label("p2_3"),
+        func.sum(case((and_(Document.page_count >= 4, Document.page_count <= 6), 1), else_=0)).label("p4_6"),
+        func.sum(case((and_(Document.page_count >= 7, Document.page_count <= 10), 1), else_=0)).label("p7_10"),
+        func.sum(case((and_(Document.page_count >= 11, Document.page_count <= 20), 1), else_=0)).label("p11_20"),
+        func.sum(case((and_(Document.page_count >= 21, Document.page_count <= 50), 1), else_=0)).label("p21_50"),
+        func.sum(case((Document.page_count >= 51, 1), else_=0)).label("p51p"),
+    ).one()
+    buckets["Unknown"] = int(page_bucket_row.unknown or 0)
+    buckets["1"] = int(page_bucket_row.p1 or 0)
+    buckets["2-3"] = int(page_bucket_row.p2_3 or 0)
+    buckets["4-6"] = int(page_bucket_row.p4_6 or 0)
+    buckets["7-10"] = int(page_bucket_row.p7_10 or 0)
+    buckets["11-20"] = int(page_bucket_row.p11_20 or 0)
+    buckets["21-50"] = int(page_bucket_row.p21_50 or 0)
+    buckets["51+"] = int(page_bucket_row.p51p or 0)
 
     page_counts = [{"label": label, "count": count} for label, count in buckets.items()]
 
-    return {
+    payload = {
         "stats": stats,
         "correspondents": correspondents,
         "top_correspondents": top_correspondents,
@@ -484,11 +475,14 @@ def get_dashboard(db: Session = Depends(get_db)):
         "unprocessed_by_correspondent": unprocessed_corr_list,
         "monthly_processing": monthly_processing,
     }
+    _DASHBOARD_CACHE["ts"] = now
+    _DASHBOARD_CACHE["data"] = payload
+    return payload
 
 
 @router.get("/{doc_id}", response_model=PaperlessDocument)
 def get_document(doc_id: int, settings: Settings = Depends(get_settings)):
-    return paperless.get_document(settings, doc_id)
+    return paperless.get_document_cached(settings, doc_id)
 
 
 @router.get("/{doc_id}/local", response_model=DocumentLocalResponse)
@@ -557,7 +551,7 @@ def get_local_document(
         total_text=doc.content,
         threshold_pages=settings.large_doc_page_threshold,
     )
-    remote_doc = paperless.get_document(settings, doc_id)
+    remote_doc = paperless.get_document_cached(settings, doc_id)
     pending_row = (
         db.query(DocumentPendingTag)
         .filter(DocumentPendingTag.doc_id == doc_id)
@@ -596,12 +590,8 @@ def get_local_document(
     if local_ai_summary and local_ai_summary != remote_ai_summary:
         local_overrides = True
 
-    local_modified_dt = _parse_iso_datetime(doc.modified)
     remote_modified_raw = remote_doc.get("modified")
-    remote_modified_dt = _parse_iso_datetime(remote_modified_raw)
-    sync_status = "synced"
-    if local_modified_dt and remote_modified_dt and remote_modified_dt > local_modified_dt:
-        sync_status = "stale"
+    sync_status = derive_sync_status(local_modified=doc.modified, remote_modified=remote_modified_raw)
 
     reviewed_at_raw = (
         db.query(func.max(SuggestionAudit.created_at))
@@ -611,15 +601,11 @@ def get_local_document(
         )
         .scalar()
     )
-    reviewed_at_dt = _parse_iso_datetime(reviewed_at_raw)
-    if local_overrides:
-        review_status = "needs_review"
-    elif reviewed_at_dt is None:
-        review_status = "unreviewed"
-    elif remote_modified_dt and remote_modified_dt > reviewed_at_dt:
-        review_status = "needs_review"
-    else:
-        review_status = "reviewed"
+    review_status = derive_review_status(
+        local_overrides=local_overrides,
+        reviewed_at=reviewed_at_raw,
+        remote_modified=remote_modified_raw,
+    )
 
     return {
         "id": doc.id,
@@ -670,11 +656,10 @@ def get_document_text_quality(
     priority: bool = False,
     settings: Settings = Depends(get_settings),
 ):
-    logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch text quality doc=%s", doc_id)
     if priority and require_queue_enabled(settings):
         enqueue_docs_front(settings, [doc_id])
-    raw = paperless.get_document(settings, doc_id)
+    raw = paperless.get_document_cached(settings, doc_id)
     content = raw.get("content") or ""
     quality = score_text_quality(content, settings)
     logger.info(
@@ -741,11 +726,10 @@ def get_document_page_texts(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    logger = __import__("logging").getLogger(__name__)
     logger.info("Fetch page texts doc=%s", doc_id)
     if priority and require_queue_enabled(settings):
         enqueue_docs_front(settings, [doc_id])
-    raw = paperless.get_document(settings, doc_id)
+    raw = paperless.get_document_cached(settings, doc_id)
     content = raw.get("content")
     baseline_pages = get_baseline_page_texts(
         settings,

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import delete
+from sqlalchemy import and_, delete, or_
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -178,33 +179,90 @@ def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
     return len(bounded) == expected
 
 
-def _collect_pipeline_cache(db: Session) -> dict[str, Any]:
-    embeddings = {int(row.doc_id): row for row in db.query(DocumentEmbedding).all()}
-    suggestions = {(int(row.doc_id), str(row.source)): row for row in db.query(DocumentSuggestion).all()}
+def _collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> dict[str, Any]:
+    id_filter = None
+    if doc_ids:
+        normalized = {int(doc_id) for doc_id in doc_ids if int(doc_id) > 0}
+        if normalized:
+            id_filter = normalized
 
-    vision_rows = db.query(DocumentPageText).filter(DocumentPageText.source == "vision_ocr").all()
+    embedding_query = db.query(DocumentEmbedding.doc_id, DocumentEmbedding.embedding_source)
+    if id_filter:
+        embedding_query = embedding_query.filter(DocumentEmbedding.doc_id.in_(id_filter))
+    embeddings = {
+        int(doc_id): str(source or "")
+        for doc_id, source in embedding_query.all()
+    }
+
+    suggestion_query = db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source, DocumentSuggestion.created_at)
+    if id_filter:
+        suggestion_query = suggestion_query.filter(DocumentSuggestion.doc_id.in_(id_filter))
+    suggestions: set[tuple[int, str]] = set()
+    hier_summaries: dict[int, str | None] = {}
+    for doc_id, source, created_at in suggestion_query.all():
+        normalized_doc_id = int(doc_id)
+        normalized_source = str(source or "")
+        suggestions.add((normalized_doc_id, normalized_source))
+        if normalized_source == "hier_summary":
+            hier_summaries[normalized_doc_id] = str(created_at) if created_at else None
+
+    vision_query = (
+        db.query(DocumentPageText.doc_id, DocumentPageText.page, DocumentPageText.created_at)
+        .filter(DocumentPageText.source == "vision_ocr")
+    )
+    if id_filter:
+        vision_query = vision_query.filter(DocumentPageText.doc_id.in_(id_filter))
+    vision_rows = vision_query.all()
     vision_latest: dict[int, datetime] = {}
     vision_pages_by_doc: dict[int, set[int]] = {}
-    for row in vision_rows:
-        doc_id = int(row.doc_id)
-        vision_pages_by_doc.setdefault(doc_id, set()).add(int(row.page))
-        created = parse_iso(row.created_at)
+    for doc_id, page, created_at in vision_rows:
+        if page is None:
+            continue
+        normalized_doc_id = int(doc_id)
+        vision_pages_by_doc.setdefault(normalized_doc_id, set()).add(int(page))
+        created = parse_iso(str(created_at) if created_at else None)
         if not created:
             continue
-        current = vision_latest.get(doc_id)
+        current = vision_latest.get(normalized_doc_id)
         if current is None or created > current:
-            vision_latest[doc_id] = created
+            vision_latest[normalized_doc_id] = created
 
-    page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = {}
-    for row in db.query(DocumentPageNote).all():
-        page_notes_by_doc_source.setdefault((int(row.doc_id), str(row.source)), []).append(row)
-    anchors_by_doc: dict[int, list[DocumentPageAnchor]] = {}
-    for row in db.query(DocumentPageAnchor).filter(DocumentPageAnchor.source == "paperless_pdf").all():
-        anchors_by_doc.setdefault(int(row.doc_id), []).append(row)
+    page_notes_query = db.query(
+        DocumentPageNote.doc_id,
+        DocumentPageNote.source,
+        DocumentPageNote.page,
+        DocumentPageNote.status,
+        DocumentPageNote.processed_at,
+        DocumentPageNote.created_at,
+    )
+    if id_filter:
+        page_notes_query = page_notes_query.filter(DocumentPageNote.doc_id.in_(id_filter))
+    page_notes_by_doc_source: dict[tuple[int, str], list[tuple[int, str, str | None, str | None]]] = {}
+    for doc_id, source, page, status, processed_at, created_at in page_notes_query.all():
+        if page is None:
+            continue
+        key = (int(doc_id), str(source or ""))
+        page_notes_by_doc_source.setdefault(key, []).append(
+            (
+                int(page),
+                str(status or ""),
+                str(processed_at) if processed_at else None,
+                str(created_at) if created_at else None,
+            )
+        )
 
-    hier_summaries = {
-        int(row.doc_id): row for row in db.query(DocumentSuggestion).filter(DocumentSuggestion.source == "hier_summary").all()
-    }
+    anchors_query = (
+        db.query(DocumentPageAnchor.doc_id, DocumentPageAnchor.page, DocumentPageAnchor.status, DocumentPageAnchor.token_count)
+        .filter(DocumentPageAnchor.source == "paperless_pdf")
+    )
+    if id_filter:
+        anchors_query = anchors_query.filter(DocumentPageAnchor.doc_id.in_(id_filter))
+    anchors_by_doc: dict[int, list[tuple[int, str, int]]] = {}
+    for doc_id, page, status, token_count in anchors_query.all():
+        if page is None:
+            continue
+        anchors_by_doc.setdefault(int(doc_id), []).append((int(page), str(status or ""), int(token_count or 0)))
+
     return {
         "embeddings": embeddings,
         "suggestions": suggestions,
@@ -224,13 +282,13 @@ def _evaluate_doc_pipeline(
     options: _PipelineOptions,
 ) -> dict[str, Any]:
     tasks: list[dict[str, Any]] = []
-    anchors_by_doc: dict[int, list[DocumentPageAnchor]] = cache["anchors_by_doc"]
+    anchors_by_doc: dict[int, list[tuple[int, str, int]]] = cache["anchors_by_doc"]
     anchor_rows = anchors_by_doc.get(int(doc.id), [])
     expected_anchor_pages = int(doc.page_count or 0)
     completed_anchor_pages = {
-        int(row.page)
-        for row in anchor_rows
-        if str(row.status or "") in {"ok", "no_text_layer"}
+        int(page)
+        for page, status, _token_count in anchor_rows
+        if status in {"ok", "no_text_layer"}
     }
     has_evidence_index = (
         len(completed_anchor_pages) > 0
@@ -238,11 +296,10 @@ def _evaluate_doc_pipeline(
         else len(completed_anchor_pages) >= expected_anchor_pages
     )
     has_text_layer = any(
-        str(row.status or "") == "ok" and int(row.token_count or 0) > 0
-        for row in anchor_rows
+        status == "ok" and int(token_count or 0) > 0 for _page, status, token_count in anchor_rows
     )
     no_text_layer_complete = bool(anchor_rows) and has_evidence_index and not has_text_layer
-    anchor_has_errors = any(str(row.status or "") == "error" for row in anchor_rows)
+    anchor_has_errors = any(status == "error" for _page, status, _token_count in anchor_rows)
     evidence_required = not no_text_layer_complete
     needs_evidence_index = options.include_evidence_index and evidence_required and (
         (not has_evidence_index) or anchor_has_errors
@@ -250,13 +307,12 @@ def _evaluate_doc_pipeline(
     if needs_evidence_index:
         tasks.append({"doc_id": int(doc.id), "task": "evidence_index"})
 
-    embeddings: dict[int, DocumentEmbedding] = cache["embeddings"]
-    embedding = embeddings.get(int(doc.id))
-    embedding_source = embedding.embedding_source if embedding else None
+    embeddings: dict[int, str] = cache["embeddings"]
+    embedding_source = embeddings.get(int(doc.id))
 
-    suggestions: dict[tuple[int, str], DocumentSuggestion] = cache["suggestions"]
-    sugg_p = suggestions.get((int(doc.id), "paperless_ocr"))
-    sugg_v = suggestions.get((int(doc.id), "vision_ocr"))
+    suggestions: set[tuple[int, str]] = cache["suggestions"]
+    sugg_p = (int(doc.id), "paperless_ocr") in suggestions
+    sugg_v = (int(doc.id), "vision_ocr") in suggestions
 
     vision_latest: dict[int, datetime] = cache["vision_latest"]
     vision_updated_at = vision_latest.get(int(doc.id))
@@ -300,22 +356,24 @@ def _evaluate_doc_pipeline(
     if needs_embeddings_vision:
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision"})
 
-    needs_sugg_p = options.include_suggestions_paperless and (sugg_p is None)
-    needs_sugg_v = options.include_suggestions_vision and (sugg_v is None)
+    needs_sugg_p = options.include_suggestions_paperless and (not sugg_p)
+    needs_sugg_v = options.include_suggestions_vision and (not sugg_v)
 
     page_notes_source = "vision_ocr" if settings.enable_vision_ocr and options.include_vision_ocr else "paperless_ocr"
     page_notes_task = "page_notes_vision" if page_notes_source == "vision_ocr" else "page_notes_paperless"
-    page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = cache["page_notes_by_doc_source"]
+    page_notes_by_doc_source: dict[tuple[int, str], list[tuple[int, str, str | None, str | None]]] = cache[
+        "page_notes_by_doc_source"
+    ]
     note_rows = page_notes_by_doc_source.get((int(doc.id), page_notes_source), [])
-    ok_notes = [row for row in note_rows if row.status == "ok"]
+    ok_notes = [row for row in note_rows if row[1] == "ok"]
     note_pages = {
-        int(row.page)
-        for row in ok_notes
-        if getattr(row, "page", None) is not None and int(row.page) > 0
+        int(page)
+        for page, _status, _processed_at, _created_at in ok_notes
+        if page is not None and int(page) > 0
     }
     expected_note_pages = int(doc.page_count or 0)
     notes_complete = len(note_pages) > 0 if expected_note_pages <= 0 else len(note_pages) >= expected_note_pages
-    notes_latest_raw = max((parse_iso(row.processed_at) or parse_iso(row.created_at) for row in ok_notes), default=None)
+    notes_latest_raw = max((parse_iso(processed_at) or parse_iso(created_at) for _p, _s, processed_at, created_at in ok_notes), default=None)
     notes_stale = (
         not notes_latest_raw
         or (page_notes_source == "vision_ocr" and vision_updated_at is not None and notes_latest_raw < vision_updated_at)
@@ -330,9 +388,8 @@ def _evaluate_doc_pipeline(
     if needs_page_notes and (options.include_page_notes or options.include_summary_hierarchical):
         tasks.append({"doc_id": int(doc.id), "task": page_notes_task})
 
-    hier_summaries: dict[int, DocumentSuggestion] = cache["hier_summaries"]
-    summary_row = hier_summaries.get(int(doc.id))
-    summary_at = parse_iso(summary_row.created_at) if summary_row else None
+    hier_summaries: dict[int, str | None] = cache["hier_summaries"]
+    summary_at = parse_iso(hier_summaries.get(int(doc.id)))
     needs_summary = options.include_summary_hierarchical and large_doc and (
         not summary_at or (notes_latest_raw and summary_at < notes_latest_raw)
     )
@@ -363,19 +420,35 @@ def _evaluate_doc_pipeline(
     }
 
 
-def _latest_task_runs_by_signature(db: Session, doc_id: int) -> dict[tuple[str, str], TaskRun]:
-    rows = (
-        db.query(TaskRun)
-        .filter(TaskRun.doc_id == int(doc_id))
-        .order_by(TaskRun.id.desc())
-        .all()
-    )
+def _latest_task_runs_by_signature(
+    db: Session,
+    *,
+    doc_id: int,
+    signatures: set[tuple[str, str]] | None = None,
+) -> dict[tuple[str, str], TaskRun]:
+    query = db.query(TaskRun).filter(TaskRun.doc_id == int(doc_id))
+    if signatures:
+        signature_filters = []
+        for task, source in signatures:
+            if not task:
+                continue
+            if source:
+                signature_filters.append(and_(TaskRun.task == task, TaskRun.source == source))
+            else:
+                signature_filters.append(
+                    and_(TaskRun.task == task, or_(TaskRun.source.is_(None), TaskRun.source == ""))
+                )
+        if signature_filters:
+            query = query.filter(or_(*signature_filters))
+    rows = query.order_by(TaskRun.id.desc()).all()
     latest: dict[tuple[str, str], TaskRun] = {}
     for row in rows:
         key = (str(row.task or "").strip(), str(row.source or "").strip())
         if key in latest:
             continue
         latest[key] = row
+        if signatures and len(latest) >= len(signatures):
+            break
     return latest
 
 
@@ -403,7 +476,8 @@ def _build_pipeline_fanout_items(
         planned = [{"doc_id": int(doc.id), "task": "sync"}] + planned
     planned = _dedupe_tasks(planned)
     missing_signatures = {_task_signature(task) for task in evaluation.get("tasks", [])}
-    latest_runs = _latest_task_runs_by_signature(db, int(doc.id))
+    planned_signatures = {_task_signature(task) for task in planned}
+    latest_runs = _latest_task_runs_by_signature(db, doc_id=int(doc.id), signatures=planned_signatures)
 
     items: list[dict[str, Any]] = []
     for index, task in enumerate(planned, start=1):
@@ -414,7 +488,7 @@ def _build_pipeline_fanout_items(
             raw = str(run.checkpoint_json).strip()
             if raw.startswith(("{", "[")):
                 try:
-                    parsed = __import__("json").loads(raw)
+                    parsed = json.loads(raw)
                 except Exception:
                     parsed = None
                 if isinstance(parsed, dict):
@@ -489,7 +563,7 @@ def process_missing(
     if include_sync:
         run_sync_documents(
             page_size=200,
-            incremental=False,
+            incremental=True,
             embed=False,
             page=1,
             page_only=False,
@@ -500,16 +574,13 @@ def process_missing(
             db=db,
         )
 
-    docs = db.query(Document).order_by(Document.id.asc()).all()
+    docs_query = db.query(Document)
     if include_vision_ocr:
-        docs.sort(
-            key=lambda doc: (
-                doc.page_count is None,
-                doc.page_count or 0,
-                doc.id,
-            )
-        )
-    cache = _collect_pipeline_cache(db)
+        docs_query = docs_query.order_by(Document.page_count.is_(None).asc(), Document.page_count.asc(), Document.id.asc())
+    else:
+        docs_query = docs_query.order_by(Document.id.asc())
+    doc_ids = {int(row[0]) for row in db.query(Document.id).yield_per(1000)}
+    cache = _collect_pipeline_cache(db, doc_ids=doc_ids)
     options = _PipelineOptions(
         include_sync=include_sync,
         include_evidence_index=include_evidence_index,
@@ -541,7 +612,7 @@ def process_missing(
     missing_by_step = {"paperless": 0, "vision": 0, "large": 0}
     preview_docs: list[dict[str, Any]] = []
     preview_docs_limit = 20
-    for doc in docs:
+    for doc in docs_query.yield_per(250):
         if should_skip_doc(doc):
             continue
         checked_docs += 1
@@ -648,7 +719,7 @@ def get_document_pipeline_status(
     doc = db.get(Document, int(doc_id))
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    cache = _collect_pipeline_cache(db)
+    cache = _collect_pipeline_cache(db, doc_ids={int(doc_id)})
     options = _PipelineOptions()
     evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     sync_ok = _sync_ok(settings, doc)
@@ -750,7 +821,7 @@ def get_document_pipeline_fanout(
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
     )
-    cache = _collect_pipeline_cache(db)
+    cache = _collect_pipeline_cache(db, doc_ids={int(doc_id)})
     evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     if include_sync and not _sync_ok(settings, doc):
         evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation.get("tasks", []))
@@ -808,7 +879,7 @@ def continue_document_pipeline(
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
     )
-    cache = _collect_pipeline_cache(db)
+    cache = _collect_pipeline_cache(db, doc_ids={int(doc_id)})
     evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     tasks = list(evaluation["tasks"])
     if include_sync and not _sync_ok(settings, doc):

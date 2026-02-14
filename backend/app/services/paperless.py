@@ -1,10 +1,30 @@
 from __future__ import annotations
 
+import json
+import os
+import threading
+import time
 from typing import Any
 
 import httpx
 
 from app.config import Settings
+
+_CACHE_LOCK = threading.Lock()
+_DOC_CACHE: dict[int, tuple[float, dict[str, Any]]] = {}
+_LIST_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_DOC_CACHE_TTL_SECONDS = 10
+_LIST_CACHE_TTL_SECONDS = 10
+
+
+def _cache_enabled(settings: Settings, ttl_seconds: int) -> bool:
+    if int(ttl_seconds) <= 0:
+        return False
+    if not settings.paperless_base_url:
+        return False
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return False
+    return True
 
 
 def base_url(settings: Settings) -> str | None:
@@ -69,6 +89,41 @@ def get_document(settings: Settings, doc_id: int) -> dict[str, Any]:
         response = http.get(f"/documents/{doc_id}/")
         response.raise_for_status()
         return response.json()
+
+
+def get_document_cached(settings: Settings, doc_id: int, *, ttl_seconds: int = _DOC_CACHE_TTL_SECONDS) -> dict[str, Any]:
+    if not _cache_enabled(settings, ttl_seconds):
+        return get_document(settings, doc_id)
+    now = time.time()
+    with _CACHE_LOCK:
+        cached = _DOC_CACHE.get(int(doc_id))
+        if cached and (now - cached[0]) < max(0, int(ttl_seconds)):
+            return dict(cached[1])
+    payload = get_document(settings, doc_id)
+    with _CACHE_LOCK:
+        _DOC_CACHE[int(doc_id)] = (now, payload)
+    return dict(payload)
+
+
+def list_documents_cached(
+    settings: Settings,
+    *,
+    ttl_seconds: int = _LIST_CACHE_TTL_SECONDS,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    if not _cache_enabled(settings, ttl_seconds):
+        return list_documents(settings, **kwargs)
+    normalized = {key: value for key, value in kwargs.items() if value is not None}
+    cache_key = json.dumps(normalized, sort_keys=True, ensure_ascii=False)
+    now = time.time()
+    with _CACHE_LOCK:
+        cached = _LIST_CACHE.get(cache_key)
+        if cached and (now - cached[0]) < max(0, int(ttl_seconds)):
+            return dict(cached[1])
+    payload = list_documents(settings, **kwargs)
+    with _CACHE_LOCK:
+        _LIST_CACHE[cache_key] = (now, payload)
+    return dict(payload)
 
 
 def get_document_pdf(settings: Settings, doc_id: int) -> bytes:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Iterable
@@ -82,7 +83,7 @@ def _enqueue_task(settings: Settings, task: dict, *, front: bool) -> int:
         return 0
     if is_cancel_requested(settings):
         return 0
-    payload = __import__("json").dumps(task)
+    payload = json.dumps(task)
     key = task_key(task)
     is_new = client.sadd(QUEUE_SET, key)
     if is_new:
@@ -121,7 +122,7 @@ def enqueue_task_delayed(settings: Settings, task: dict, delay_seconds: int) -> 
         return 0
     if is_cancel_requested(settings):
         return 0
-    payload = __import__("json").dumps(task)
+    payload = json.dumps(task)
     key = task_key(task)
     is_new = client.sadd(QUEUE_SET, key)
     due_at = time.time() + max(1, int(delay_seconds))
@@ -177,7 +178,7 @@ def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool, forc
     for i in range(0, len(tasks), batch_size):
         batch = tasks[i : i + batch_size]
         keys = [task_key(task) for task in batch]
-        payloads = [__import__("json").dumps(task) for task in batch]
+        payloads = [json.dumps(task) for task in batch]
         if front and force:
             pipe = client.pipeline()
             for key in keys:
@@ -286,7 +287,7 @@ def peek_queue(settings: Settings, limit: int = 20) -> list[dict]:
     items: list[dict] = []
     for entry in raw:
         try:
-            payload = __import__("json").loads(entry)
+            payload = json.loads(entry)
             if isinstance(payload, dict):
                 items.append(payload)
                 continue
@@ -395,7 +396,7 @@ def is_paused(settings: Settings) -> bool:
 
 def _parse_queue_entry(entry: str) -> dict | None:
     try:
-        payload = __import__("json").loads(entry)
+        payload = json.loads(entry)
         if isinstance(payload, dict):
             return payload
     except Exception:
@@ -532,7 +533,7 @@ def set_running_task(settings: Settings, task: dict) -> None:
             "task": task,
             "started_at": int(time.time()),
         }
-        client.set(RUNNING_TASK_KEY, __import__("json").dumps(payload))
+        client.set(RUNNING_TASK_KEY, json.dumps(payload))
     except Exception:
         return
 
@@ -558,7 +559,7 @@ def get_running_task(settings: Settings) -> dict[str, object]:
     if not raw:
         return {"task": None, "started_at": None}
     try:
-        payload = __import__("json").loads(raw)
+        payload = json.loads(raw)
     except Exception:
         return {"task": None, "started_at": None}
     if not isinstance(payload, dict):
@@ -607,7 +608,7 @@ def add_dead_letter(
         "attempt": int(attempt),
         "created_at": int(time.time()),
     }
-    client.lpush(DLQ_KEY, __import__("json").dumps(payload))
+    client.lpush(DLQ_KEY, json.dumps(payload))
 
 
 def peek_dead_letters(settings: Settings, limit: int = 100) -> list[dict]:
@@ -618,7 +619,7 @@ def peek_dead_letters(settings: Settings, limit: int = 100) -> list[dict]:
     items: list[dict] = []
     for raw in raw_items:
         try:
-            payload = __import__("json").loads(raw)
+            payload = json.loads(raw)
         except Exception:
             payload = {"raw": raw}
         if isinstance(payload, dict):
@@ -636,7 +637,7 @@ def peek_delayed_queue(settings: Settings, limit: int = 50) -> list[dict]:
     for entry, score in raw:
         task_payload: dict | None = None
         try:
-            parsed = __import__("json").loads(entry)
+            parsed = json.loads(entry)
             if isinstance(parsed, dict):
                 task_payload = parsed
         except Exception:
@@ -673,7 +674,7 @@ def requeue_dead_letter_item(settings: Settings, index: int) -> bool:
     if items:
         client.rpush(DLQ_KEY, *items)
     try:
-        parsed = __import__("json").loads(entry)
+        parsed = json.loads(entry)
     except Exception:
         return False
     if not isinstance(parsed, dict):
@@ -730,3 +731,5 @@ def worker_status(settings: Settings) -> tuple[bool, str]:
     if age > WORKER_HEARTBEAT_TTL:
         return False, f"Heartbeat stale ({age}s)"
     return True, f"Heartbeat {age}s ago"
+
+

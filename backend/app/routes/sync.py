@@ -450,7 +450,7 @@ def _embed_documents(
     state = get_or_create_state(db, "embeddings")
     mark_running(state, total=len(documents), processed=0, reset_cancel=False)
     db.commit()
-    logger = __import__("logging").getLogger(__name__)
+    logger = logging.getLogger(__name__)
     logger.info("Embedding run docs=%s", len(documents))
     for doc in documents:
         content_value = doc.content or ""
@@ -529,3 +529,5 @@ def _embed_documents(
     state.last_synced_at = datetime.now(timezone.utc).isoformat()
     db.commit()
     return embedded
+
+

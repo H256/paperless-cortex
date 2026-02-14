@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import json
 import time
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy import exists
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -14,9 +14,10 @@ from app.deps import get_settings
 from app.services.queue import is_paused, queue_stats, worker_status
 from app.services import paperless
 from app.services import llm_client
+from app.services.document_stats import compute_document_stats
 from app.api_models import StatusResponse
 from app.db import SessionLocal
-from app.models import Document, DocumentEmbedding, DocumentPageText, DocumentSuggestion, SyncState
+from app.models import SyncState
 from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/status", tags=["status"])
@@ -120,31 +121,7 @@ def _queue_status_payload(settings: Settings) -> dict[str, object]:
 
 
 def _document_stats_payload(db: Session) -> dict[str, object]:
-    total = db.query(Document).count()
-    embeddings = db.query(Document.id).filter(exists().where(DocumentEmbedding.doc_id == Document.id)).count()
-    vision = db.query(Document.id).filter(
-        exists().where(
-            (DocumentPageText.doc_id == Document.id) & (DocumentPageText.source == "vision_ocr")
-        )
-    ).count()
-    suggestions = db.query(Document.id).filter(exists().where(DocumentSuggestion.doc_id == Document.id)).count()
-    fully_processed = db.query(Document.id).filter(
-        exists().where(DocumentEmbedding.doc_id == Document.id),
-        exists().where(
-            (DocumentPageText.doc_id == Document.id) & (DocumentPageText.source == "vision_ocr")
-        ),
-        exists().where(DocumentSuggestion.doc_id == Document.id),
-    ).count()
-    unprocessed = max(0, total - fully_processed)
-    return {
-        "total": total,
-        "processed": embeddings,
-        "unprocessed": unprocessed,
-        "embeddings": embeddings,
-        "vision": vision,
-        "suggestions": suggestions,
-        "fully_processed": fully_processed,
-    }
+    return compute_document_stats(db)
 
 
 def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, object]:
@@ -152,11 +129,9 @@ def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, obj
     if settings.queue_enabled:
         stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
         status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
-        if status == "running" and state and not state.started_at:
-            state.started_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
-            state.status = "running"
-            db.commit()
         started_at = state.started_at if state else None
+        if status == "running" and not started_at:
+            started_at = datetime.now(timezone.utc).isoformat()
         eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
         return {
             "status": status,
