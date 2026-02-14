@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `pending` refactor(frontend/http): removed unused generic `request` transport helpers from `services/http.ts` and kept only `ApiError`, since all active service calls now use generated OpenAPI clients + `unwrap`.
 - `f4e7319` refactor(frontend/queue-api): migrated queue utility calls (`running`, `worker-lock`, `worker-lock/reset`, `error-types`) from custom `request` helper to generated OpenAPI client endpoints; aligned exported queue response types with generated models.
 - `844320b` refactor(frontend/documents-api): switched document operations/pipeline calls (`cleanup-texts`, `enqueue-task`, `reset-and-reprocess`, `pipeline-status`, `pipeline/continue`) from custom `request` wrappers to generated OpenAPI client functions; preserved strict UI typing via explicit task union + normalized cleanup result mapping.
 - `c7e4c9c` refactor(documents): extracted shared helpers for pending-tag parsing and local-override evaluation to remove duplicated list/detail logic (DRY/SRP), and reduced `/documents/{id}/local` DB roundtrips by aggregating page-note counts in a single grouped query.
