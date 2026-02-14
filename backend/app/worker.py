@@ -96,6 +96,14 @@ HEARTBEAT_INTERVAL_SECONDS = 5
 VISION_OCR_BATCH_DEFAULT = 25
 
 
+def _safe_rollback(db: Session, *, context: str = "") -> None:
+    try:
+        db.rollback()
+    except Exception:
+        if context:
+            logger.debug("DB rollback failed context=%s", context, exc_info=True)
+
+
 def _page_text_value(page: object) -> str:
     clean_text = getattr(page, "clean_text", None)
     if isinstance(clean_text, str) and clean_text.strip():
@@ -1461,10 +1469,7 @@ def main() -> None:
                             run_id=run_id,
                         )
                     except Exception as exc:
-                        try:
-                            db.rollback()
-                        except Exception:
-                            pass
+                        _safe_rollback(db, context="dispatch_task_failed")
                         run_status = "failed"
                         run_error_type = classify_worker_error(exc)
                         run_error_message = str(exc)
@@ -1512,10 +1517,7 @@ def main() -> None:
                                 "attempt": retry_attempt + 1,
                             }
                         if run_id is not None:
-                            try:
-                                db.rollback()
-                            except Exception:
-                                pass
+                            _safe_rollback(db, context="before_finish_task_run")
                             finish_task_run(
                                 db,
                                 run_id=run_id,
