@@ -210,6 +210,7 @@ const {
   loading,
   error,
   runSearch,
+  resetSession,
 } = useSearchSession()
 const route = useRoute()
 const router = useRouter()
@@ -259,13 +260,7 @@ const syncFromRoute = () => {
 }
 
 const resetSearch = async () => {
-  query.value = ''
-  topK.value = 10
-  source.value = ''
-  onlyVision.value = false
-  minQuality.value = 0
-  dedupe.value = true
-  rerank.value = true
+  resetSession()
   await querySync.syncToRoute()
 }
 

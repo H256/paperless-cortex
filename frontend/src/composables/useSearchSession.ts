@@ -57,6 +57,19 @@ export const useSearchSession = () => {
     },
   })
 
+  const resetSession = () => {
+    query.value = ''
+    topK.value = 10
+    source.value = ''
+    onlyVision.value = false
+    minQuality.value = 0
+    dedupe.value = true
+    rerank.value = true
+    results.value = []
+    hasSearched.value = false
+    error.value = ''
+  }
+
   return {
     query,
     topK,
@@ -71,5 +84,6 @@ export const useSearchSession = () => {
     loading: computed(() => runMutation.isPending.value),
     error,
     runSearch: async () => runMutation.mutateAsync(),
+    resetSession,
   }
 }
