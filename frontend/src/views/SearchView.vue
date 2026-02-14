@@ -169,6 +169,12 @@
             >
               Copy details link
             </button>
+            <button
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copySnippet(result)"
+            >
+              Copy snippet
+            </button>
             <a
               v-if="paperlessBaseUrl"
               class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200"
@@ -192,10 +198,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
+import { useToastStore } from '../stores/toastStore'
 import { queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 import { useShareLink } from '../composables/useShareLink'
 import { useInputCommandHotkeys } from '../composables/useInputCommandHotkeys'
+import { useClipboardCopy } from '../composables/useClipboardCopy'
 
 const {
   query,
@@ -214,7 +222,9 @@ const {
 } = useSearchSession()
 const route = useRoute()
 const router = useRouter()
+const toastStore = useToastStore()
 const { copyResolvedLink, copyHrefLink } = useShareLink(router, 'Search')
+const { copyText, errorMessage: copyError } = useClipboardCopy()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const queryInputRef = ref<HTMLInputElement | null>(null)
 
@@ -274,6 +284,17 @@ const copyResultLink = async (result: SearchResult) => {
   await copyHrefLink(resultLink(result), {
     successMessage: 'Result link copied.',
   })
+}
+
+const copySnippet = async (result: SearchResult) => {
+  const text = String(result.snippet || '').trim()
+  if (!text) return
+  try {
+    await copyText(text)
+    toastStore.push('Snippet copied.', 'success', 'Search', 1500)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Search', 2200)
+  }
 }
 
 const openFirstResult = () => {
