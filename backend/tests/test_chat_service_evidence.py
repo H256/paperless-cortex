@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.config import load_settings
-from app.services.chat import answer_question
+from app.services.chat import MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, answer_question
 
 
 def test_answer_question_enriches_citations_with_evidence(monkeypatch):
@@ -247,3 +247,36 @@ def test_answer_question_generates_and_echoes_conversation_id(monkeypatch):
     )
     assert isinstance(echoed, dict)
     assert echoed["conversation_id"] == "thread-123"
+
+
+def test_answer_question_limits_history_in_prompt(monkeypatch):
+    settings = load_settings()
+    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.chat.search_points", lambda *_args, **_kwargs: {"result": []})
+    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{history}\n{sources}")
+    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
+
+    captured = {"prompt": ""}
+
+    def _chat_completion(_settings, model, messages, timeout=120):
+        captured["prompt"] = str(messages[0].get("content") or "")
+        return "ok"
+
+    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", _chat_completion)
+
+    history = []
+    for i in range(MAX_HISTORY_TURNS + 5):
+        history.append(
+            {
+                "question": f"Q{i} " + ("x" * (MAX_HISTORY_CHARS + 100)),
+                "answer": f"A{i} " + ("y" * (MAX_HISTORY_CHARS + 100)),
+            }
+        )
+    result = answer_question(settings, question="What changed?", top_k=3, history=history)
+    assert isinstance(result, dict)
+    prompt = captured["prompt"]
+    assert "Q0 " not in prompt
+    assert f"Q{MAX_HISTORY_TURNS + 4}" in prompt
+    assert ("x" * (MAX_HISTORY_CHARS + 30)) not in prompt

@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat.txt"
 _prompt_cache: dict[str, str] = {}
+MAX_HISTORY_TURNS = 12
+MAX_HISTORY_CHARS = 1600
 
 
 def _load_prompt(settings: Settings) -> str:
@@ -91,19 +93,33 @@ def _format_sources(sources: list[dict[str, Any]]) -> str:
         )
     return "\n".join(lines)
 
-def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
+def _normalize_history(history: list[dict[str, str]] | list[Any]) -> list[tuple[str, str]]:
     if not history:
-        return "None"
-    blocks = []
-    for item in history[-6:]:
+        return []
+    items: list[tuple[str, str]] = []
+    for item in history[-MAX_HISTORY_TURNS:]:
         if isinstance(item, dict):
             question = (item.get("question") or "").strip()
             answer = (item.get("answer") or "").strip()
         else:
             question = (getattr(item, "question", "") or "").strip()
             answer = (getattr(item, "answer", "") or "").strip()
+        if len(question) > MAX_HISTORY_CHARS:
+            question = question[:MAX_HISTORY_CHARS].strip()
+        if len(answer) > MAX_HISTORY_CHARS:
+            answer = answer[:MAX_HISTORY_CHARS].strip()
         if not question and not answer:
             continue
+        items.append((question, answer))
+    return items
+
+
+def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
+    items = _normalize_history(history)
+    if not items:
+        return "None"
+    blocks = []
+    for question, answer in items:
         blocks.append(f"Q: {question}\nA: {answer}".strip())
     return "\n\n".join(blocks) if blocks else "None"
 
