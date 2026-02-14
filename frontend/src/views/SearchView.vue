@@ -184,7 +184,7 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
@@ -193,6 +193,7 @@ import { useToastStore } from '../stores/toastStore'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 import { useClipboardCopy } from '../composables/useClipboardCopy'
+import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 
 const {
   query,
@@ -212,7 +213,6 @@ const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
 const { copyText, errorMessage: copyError } = useClipboardCopy()
-let syncingFromRoute = false
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const queryInputRef = ref<HTMLInputElement | null>(null)
 
@@ -248,7 +248,6 @@ const buildQueryState = () => {
 }
 
 const syncFromRoute = () => {
-  syncingFromRoute = true
   query.value = queryString(route.query.q, '')
   topK.value = queryNumber(route.query.k, 10)
   source.value = queryString(route.query.src, '')
@@ -256,7 +255,6 @@ const syncFromRoute = () => {
   minQuality.value = queryNumber(route.query.minq, 0)
   dedupe.value = queryBool(route.query.dd, true)
   rerank.value = queryBool(route.query.rr, true)
-  syncingFromRoute = false
 }
 
 const syncToRoute = async () => {
@@ -303,18 +301,13 @@ onMounted(async () => {
     await runSearchAction()
   }
 })
-
-watch([query, topK, source, onlyVision, minQuality, dedupe, rerank], () => {
-  if (syncingFromRoute) return
-  void syncToRoute()
+useRouteQuerySync({
+  route,
+  router,
+  readFromRoute: syncFromRoute,
+  buildQuery: buildQueryState,
+  sources: [query, topK, source, onlyVision, minQuality, dedupe, rerank],
 })
-
-watch(
-  () => route.query,
-  () => {
-    syncFromRoute()
-  },
-)
 
 const onWindowKeydown = (event: KeyboardEvent) => {
   const target = event.target as HTMLElement | null
