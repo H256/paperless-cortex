@@ -45,6 +45,7 @@ const initialState = loadState()
 
 export interface ChatMessage {
   id: string
+  conversationId?: string
   question: string
   answer: string
   citations: ChatResponse['citations']
@@ -77,6 +78,11 @@ export const useChatStore = defineStore('chat', {
     activeAbort: null as AbortController | null,
   }),
   actions: {
+    newConversation() {
+      this.conversationId = ''
+      this.question = ''
+      saveState({ messages: this.messages, conversationId: this.conversationId })
+    },
     clearConversation() {
       this.messages = []
       this.conversationId = ''
@@ -111,6 +117,7 @@ export const useChatStore = defineStore('chat', {
         if (this.streaming) {
           const message: ChatMessage = {
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            conversationId: this.conversationId || undefined,
             question: this.question,
             answer: '',
             citations: [],
@@ -138,6 +145,7 @@ export const useChatStore = defineStore('chat', {
               message.answer = done.answer || message.answer
               message.citations = done.citations ?? []
               this.conversationId = done.conversation_id || this.conversationId
+              message.conversationId = this.conversationId || undefined
               saveState({ messages: this.messages, conversationId: this.conversationId })
             },
             (err) => {
@@ -157,6 +165,7 @@ export const useChatStore = defineStore('chat', {
           this.conversationId = data.conversation_id || this.conversationId
           this.messages.unshift({
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            conversationId: this.conversationId || undefined,
             question: data.question,
             answer: data.answer,
             citations: data.citations ?? [],

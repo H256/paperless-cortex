@@ -116,6 +116,14 @@
           </label>
           <button
             class="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="chatStore.loading"
+            @click="chatStore.newConversation()"
+          >
+            <MessageSquarePlus class="h-3.5 w-3.5" />
+            New thread
+          </button>
+          <button
+            class="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             :disabled="chatStore.loading || chatStore.messages.length === 0"
             @click="chatStore.clearConversation()"
           >
@@ -130,6 +138,12 @@
         class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
       >
         {{ chatStore.error }}
+      </div>
+      <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        Conversation:
+        <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">
+          {{ chatStore.conversationId || 'new (will be created on next question)' }}
+        </code>
       </div>
     </section>
 
@@ -150,9 +164,10 @@
           class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
         >
           <span>Question</span>
-          <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">{{
-            formatAge(message.createdAt)
-          }}</span>
+          <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">
+            {{ formatAge(message.createdAt) }}
+            <template v-if="message.conversationId"> · {{ shortConversationId(message.conversationId) }}</template>
+          </span>
         </div>
         <div class="mt-2 text-sm text-slate-900 dark:text-slate-100">{{ message.question }}</div>
         <div class="mt-2">
@@ -264,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { BookOpen, MessageCircle, CornerDownRight, Trash2 } from 'lucide-vue-next'
+import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } from 'lucide-vue-next'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -398,6 +413,13 @@ onUnmounted(() => {
 const formatScore = (score?: number | null) => {
   if (score === undefined || score === null) return 'n/a'
   return score.toFixed ? score.toFixed(3) : String(score)
+}
+
+const shortConversationId = (value: string) => {
+  const id = (value || '').trim()
+  if (!id) return ''
+  if (id.length <= 14) return id
+  return `${id.slice(0, 8)}...${id.slice(-4)}`
 }
 </script>
 
