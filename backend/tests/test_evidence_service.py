@@ -51,3 +51,42 @@ def test_resolve_evidence_vector_lookup_matches_bbox(monkeypatch):
     assert matches[0]["status"] == "ok"
     assert matches[0]["bbox"] == [10.0, 20.0, 50.0, 80.0]
     assert matches[0]["confidence"] == 0.87
+
+
+def test_resolve_evidence_caches_duplicate_lookup(monkeypatch):
+    monkeypatch.setenv("EVIDENCE_VECTOR_LOOKUP_ENABLED", "1")
+    monkeypatch.setenv("EMBEDDING_MODEL", "test-embed")
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant.local")
+    settings = load_settings()
+
+    calls = {"embed": 0, "search": 0}
+
+    def _embed(_settings, _text):
+        calls["embed"] += 1
+        return [0.1, 0.2]
+
+    def _search(_settings, _vector, limit=25):
+        calls["search"] += 1
+        return {
+            "result": [
+                {
+                    "score": 0.8,
+                    "payload": {"doc_id": 1756, "page": 5, "source": "paperless", "bbox": [1, 2, 3, 4]},
+                }
+            ]
+        }
+
+    monkeypatch.setattr("app.services.embeddings.embed_text", _embed)
+    monkeypatch.setattr("app.services.embeddings.search_points", _search)
+
+    matches = resolve_evidence_matches(
+        [
+            {"doc_id": 1756, "page": 5, "snippet": "same snippet", "source": "paperless_ocr", "bbox": None},
+            {"doc_id": 1756, "page": 5, "snippet": "same snippet", "source": "paperless_ocr", "bbox": None},
+        ],
+        max_pages=3,
+        settings=settings,
+    )
+    assert len(matches) == 2
+    assert calls["embed"] == 1
+    assert calls["search"] == 1

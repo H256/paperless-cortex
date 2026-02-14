@@ -80,6 +80,7 @@ def resolve_evidence_matches(
     limit = max(1, min(int(max_pages), 5))
     matches: list[dict[str, Any]] = []
     seen_pages: set[tuple[int, int]] = set()
+    resolved_cache: dict[tuple[int, int, str, str], tuple[list[float] | None, float]] = {}
     for citation in citations:
         doc_id = int(citation.get("doc_id") or 0)
         page = int(citation.get("page") or 0)
@@ -145,13 +146,19 @@ def resolve_evidence_matches(
         matched_bbox: list[float] | None = None
         matched_score = 0.0
         if settings is not None:
-            matched_bbox, matched_score = _resolve_bbox_from_vector_hits(
-                settings,
-                doc_id=doc_id,
-                page=page,
-                snippet=snippet,
-                source=str(citation.get("source") or "").strip() or None,
-            )
+            source = str(citation.get("source") or "").strip() or None
+            cache_key = (doc_id, page, _normalize_source(source), snippet)
+            cached = resolved_cache.get(cache_key)
+            if cached is None:
+                cached = _resolve_bbox_from_vector_hits(
+                    settings,
+                    doc_id=doc_id,
+                    page=page,
+                    snippet=snippet,
+                    source=source,
+                )
+                resolved_cache[cache_key] = cached
+            matched_bbox, matched_score = cached
         if matched_bbox is not None:
             matches.append(
                 {
