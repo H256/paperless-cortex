@@ -236,12 +236,13 @@
       class="flex flex-col gap-3 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:text-slate-300"
     >
       <button
+        v-if="page > 1"
         class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-        :disabled="page <= 1"
         @click="$emit('prev-page')"
       >
         Prev
       </button>
+      <div v-else class="hidden sm:block sm:w-[78px]" aria-hidden="true"></div>
       <div class="text-center sm:text-center">
         <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
           Page {{ page }} of {{ totalPages }}
@@ -257,6 +258,7 @@
             :max="totalPages"
             class="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             @keyup.enter="applyPageJump"
+            @blur="applyPageJump"
           />
           <button
             type="button"
@@ -268,12 +270,13 @@
         </div>
       </div>
       <button
+        v-if="page < totalPages"
         class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-        :disabled="page >= totalPages"
         @click="$emit('next-page')"
       >
         Next
       </button>
+      <div v-else class="hidden sm:block sm:w-[78px]" aria-hidden="true"></div>
     </div>
   </section>
 </template>
