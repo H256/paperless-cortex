@@ -29,6 +29,19 @@
               <Search class="h-4 w-4" />
               Search
             </button>
+            <button
+              class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              :disabled="loading"
+              @click="resetSearch"
+            >
+              Reset
+            </button>
+            <button
+              class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copySearchLink"
+            >
+              Copy link
+            </button>
           </div>
         </div>
         <div class="flex flex-col gap-1">
@@ -163,9 +176,12 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
+import { onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
+import { useToastStore } from '../stores/toastStore'
 
 const {
   query,
@@ -180,6 +196,9 @@ const {
   error,
   runSearch,
 } = useSearchSession()
+const route = useRoute()
+const router = useRouter()
+const toastStore = useToastStore()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 
 const combinedScore = (result: SearchResult) => {
@@ -200,4 +219,87 @@ const resultLink = (result: SearchResult) => {
 }
 
 const runSearchAction = async () => runSearch()
+
+const parseBool = (value: unknown, fallback: boolean) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === '1' || raw === 'true') return true
+  if (raw === '0' || raw === 'false') return false
+  return fallback
+}
+
+const parseNumber = (value: unknown, fallback: number) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const buildQueryState = () => {
+  const next: Record<string, string> = {}
+  if (query.value.trim()) next.q = query.value.trim()
+  if (topK.value !== 10) next.k = String(topK.value)
+  if (source.value) next.src = source.value
+  if (onlyVision.value) next.v = '1'
+  if (minQuality.value > 0) next.minq = String(minQuality.value)
+  if (!dedupe.value) next.dd = '0'
+  if (!rerank.value) next.rr = '0'
+  return next
+}
+
+const syncFromRoute = () => {
+  const q = Array.isArray(route.query.q) ? route.query.q[0] : route.query.q
+  query.value = typeof q === 'string' ? q : ''
+  topK.value = parseNumber(route.query.k, 10)
+  source.value = typeof route.query.src === 'string' ? route.query.src : ''
+  onlyVision.value = parseBool(route.query.v, false)
+  minQuality.value = parseNumber(route.query.minq, 0)
+  dedupe.value = parseBool(route.query.dd, true)
+  rerank.value = parseBool(route.query.rr, true)
+}
+
+const syncToRoute = async () => {
+  const next = buildQueryState()
+  const current = route.query
+  const same =
+    String(current.q || '') === String(next.q || '') &&
+    String(current.k || '') === String(next.k || '') &&
+    String(current.src || '') === String(next.src || '') &&
+    String(current.v || '') === String(next.v || '') &&
+    String(current.minq || '') === String(next.minq || '') &&
+    String(current.dd || '') === String(next.dd || '') &&
+    String(current.rr || '') === String(next.rr || '')
+  if (same) return
+  await router.replace({ query: next })
+}
+
+const resetSearch = async () => {
+  query.value = ''
+  topK.value = 10
+  source.value = ''
+  onlyVision.value = false
+  minQuality.value = 0
+  dedupe.value = true
+  rerank.value = true
+  await syncToRoute()
+}
+
+const copySearchLink = async () => {
+  try {
+    const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildQueryState() }).href}`
+    await navigator.clipboard.writeText(href)
+    toastStore.push('Search link copied.', 'success', 'Search', 1600)
+  } catch {
+    toastStore.push('Failed to copy search link.', 'danger', 'Search', 2200)
+  }
+}
+
+onMounted(async () => {
+  syncFromRoute()
+  if (query.value.trim()) {
+    await runSearchAction()
+  }
+})
+
+watch([query, topK, source, onlyVision, minQuality, dedupe, rerank], () => {
+  void syncToRoute()
+})
 </script>
