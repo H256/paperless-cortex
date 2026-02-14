@@ -6,7 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
-- `pending` perf(documents): reduced suggestion lookup overhead in `/documents` by reusing one suggestion query for source flags + optional summary preview extraction, and replaced duplicated suggestion-payload JSON parsing in `documents_suggestions` with shared `parse_json_object`.
+- `eaf3863` perf(documents): reduced suggestion lookup overhead in `/documents` by reusing one suggestion query for source flags + optional summary preview extraction, and replaced duplicated suggestion-payload JSON parsing in `documents_suggestions` with shared `parse_json_object`.
 - `cd10d37` ux(documents): enabled Vue Query `keepPreviousData` for the documents list query to avoid table/card flicker while changing pagination and filters.
 - `1d4caaa` refactor(json): added shared JSON object parser `app/services/json_utils.py` and reused it across documents/suggestions code paths (`documents`, `documents_common`, `suggestion_store`) to reduce duplicated parsing/error handling; added focused helper tests.
 - `da68f7d` test(helpers): added focused tests for `string_list_json` and `note_ids` helpers, and made `normalize_string_list` ordering deterministic (`(lowercase, original)`) to avoid unstable output ordering.
