@@ -439,12 +439,6 @@
                 </button>
               </dd>
             </div>
-            <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
-              <dt class="text-slate-500 dark:text-slate-400">Evidence vector lookup</dt>
-              <dd class="mt-1 text-right text-slate-900 dark:text-slate-100">
-                {{ runtime.evidence_vector_lookup_enabled ? 'Enabled' : 'Disabled' }}
-              </dd>
-            </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-slate-500 dark:text-slate-400">Evidence max pages</dt>
               <dd class="text-right text-slate-900 dark:text-slate-100">
@@ -455,12 +449,6 @@
               <dt class="text-slate-500 dark:text-slate-400">Evidence min snippet chars</dt>
               <dd class="text-right text-slate-900 dark:text-slate-100">
                 {{ runtime.evidence_min_snippet_chars || '—' }}
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Evidence min match ratio</dt>
-              <dd class="text-right text-slate-900 dark:text-slate-100">
-                {{ runtime.evidence_min_match_ratio ?? '—' }}
               </dd>
             </div>
           </dl>

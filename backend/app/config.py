@@ -72,10 +72,8 @@ class Settings:
     ocr_score_vision_max_tokens: int
     status_stream_interval_seconds: int
     status_llm_models_ttl_seconds: int
-    evidence_vector_lookup_enabled: bool
     evidence_max_pages: int
     evidence_min_snippet_chars: int
-    evidence_min_match_ratio: float
     worker_suggestions_max_chars: int
     writeback_execute_enabled: bool
 
@@ -156,10 +154,8 @@ def load_settings() -> Settings:
         ocr_score_vision_max_tokens=int(os.getenv("OCR_VISION_MAX_TOKENS", "1200")),
         status_stream_interval_seconds=int(os.getenv("STATUS_STREAM_INTERVAL_SECONDS", "5")),
         status_llm_models_ttl_seconds=int(os.getenv("STATUS_LLM_MODELS_TTL_SECONDS", "60")),
-        evidence_vector_lookup_enabled=os.getenv("EVIDENCE_VECTOR_LOOKUP_ENABLED", "0") == "1",
         evidence_max_pages=max(1, int(os.getenv("EVIDENCE_MAX_PAGES", "3"))),
         evidence_min_snippet_chars=max(1, int(os.getenv("EVIDENCE_MIN_SNIPPET_CHARS", "20"))),
-        evidence_min_match_ratio=min(1.0, max(0.0, float(os.getenv("EVIDENCE_MIN_MATCH_RATIO", "0.8")))),
         worker_suggestions_max_chars=max(500, int(os.getenv("WORKER_SUGGESTIONS_MAX_CHARS", "12000"))),
         writeback_execute_enabled=os.getenv("WRITEBACK_EXECUTE_ENABLED", "0") == "1",
     )

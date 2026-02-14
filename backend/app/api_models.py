@@ -23,10 +23,8 @@ class StatusResponse(BaseModel):
     text_model: Optional[str] = None
     embedding_model: Optional[str] = None
     vision_model: Optional[str] = None
-    evidence_vector_lookup_enabled: Optional[bool] = None
     evidence_max_pages: Optional[int] = None
     evidence_min_snippet_chars: Optional[int] = None
-    evidence_min_match_ratio: Optional[float] = None
     latency_ms: Optional[int] = None
 
 
@@ -659,7 +657,6 @@ class EvidenceResolveRequest(BaseModel):
     citations: list[EvidenceCitationRequest] = []
     max_pages: int = 3
     timeout_seconds: int = 45
-    min_match_ratio: float = 0.8
 
 
 class EvidenceMatch(BaseModel):
