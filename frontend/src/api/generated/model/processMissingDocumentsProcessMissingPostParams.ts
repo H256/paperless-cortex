@@ -8,6 +8,7 @@
 export type ProcessMissingDocumentsProcessMissingPostParams = {
 dry_run?: boolean;
 include_sync?: boolean;
+include_evidence_index?: boolean;
 include_vision_ocr?: boolean;
 include_embeddings?: boolean;
 include_embeddings_paperless?: boolean;

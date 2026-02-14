@@ -4,6 +4,7 @@ import importlib
 import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import uuid
 
 from sqlalchemy import create_engine
@@ -182,3 +183,35 @@ def test_queue_error_types_lists_catalog():
     assert isinstance(items, list)
     assert any(item["code"] == "LLM_TIMEOUT" and item["retryable"] is True for item in items)
     assert any(item["code"] == "INVALID_MODEL_OUTPUT" and item["retryable"] is False for item in items)
+
+
+def test_queue_task_runs_skips_malformed_rows(monkeypatch):
+    client, _session_factory = _build_api_client(queue_enabled=True)
+
+    import app.routes.queue as queue_routes
+
+    malformed_row = SimpleNamespace(
+        id="not-an-int",
+        doc_id=1756,
+        task="sync",
+        source=None,
+        status="done",
+        worker_id=None,
+        attempt=1,
+        checkpoint_json=None,
+        error_type=None,
+        error_message=None,
+        started_at=None,
+        finished_at=None,
+        duration_ms=None,
+        created_at=None,
+        updated_at=None,
+    )
+    monkeypatch.setattr(queue_routes, "list_task_runs", lambda *args, **kwargs: (1, [malformed_row]))
+
+    response = client.get("/queue/task-runs")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is True
+    assert payload["count"] == 1
+    assert payload["items"] == []

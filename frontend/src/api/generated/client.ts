@@ -39,6 +39,9 @@ import type {
   EmbeddingIngestResponse,
   EmbeddingSearchResponse,
   EmbeddingStatusResponse,
+  ErrorTypeCatalogResponse,
+  EvidenceResolveRequest,
+  EvidenceResolveResponse,
   GetDelayedQueueQueueDelayedGetParams,
   GetDlqQueueDlqGetParams,
   GetDocumentOcrScoresDocumentsDocIdOcrScoresGetParams,
@@ -117,14 +120,6 @@ import type {
   WritebackJobExecuteRequest,
   WritebackJobListResponse
 } from './model';
-const parseBodySafely = (body: string | null | undefined, status: number): any => {
-  if (!body) return {}
-  try {
-    return JSON.parse(body)
-  } catch {
-    return { detail: body || `Request failed (${status})` }
-  }
-}
 
 /**
  * @summary List Documents
@@ -176,7 +171,7 @@ export const listDocumentsDocumentsGet = async (params?: ListDocumentsDocumentsG
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: listDocumentsDocumentsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: listDocumentsDocumentsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listDocumentsDocumentsGetResponse
 }
 
@@ -218,7 +213,7 @@ export const getDocumentStatsDocumentsStatsGet = async ( options?: RequestInit):
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentStatsDocumentsStatsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentStatsDocumentsStatsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentStatsDocumentsStatsGetResponse
 }
 
@@ -260,7 +255,7 @@ export const getDashboardDocumentsDashboardGet = async ( options?: RequestInit):
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDashboardDocumentsDashboardGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDashboardDocumentsDashboardGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDashboardDocumentsDashboardGetResponse
 }
 
@@ -309,7 +304,7 @@ export const getDocumentDocumentsDocIdGet = async (docId: number, options?: Requ
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentDocumentsDocIdGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentDocumentsDocIdGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentDocumentsDocIdGetResponse
 }
 
@@ -358,7 +353,7 @@ export const getLocalDocumentDocumentsDocIdLocalGet = async (docId: number, opti
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getLocalDocumentDocumentsDocIdLocalGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getLocalDocumentDocumentsDocIdLocalGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getLocalDocumentDocumentsDocIdLocalGetResponse
 }
 
@@ -416,7 +411,7 @@ export const getDocumentTextQualityDocumentsDocIdTextQualityGet = async (docId: 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentTextQualityDocumentsDocIdTextQualityGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentTextQualityDocumentsDocIdTextQualityGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentTextQualityDocumentsDocIdTextQualityGetResponse
 }
 
@@ -474,7 +469,7 @@ export const getDocumentOcrScoresDocumentsDocIdOcrScoresGet = async (docId: numb
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentOcrScoresDocumentsDocIdOcrScoresGetResponse
 }
 
@@ -532,7 +527,7 @@ export const getDocumentPageTextsDocumentsDocIdPageTextsGet = async (docId: numb
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentPageTextsDocumentsDocIdPageTextsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentPageTextsDocumentsDocIdPageTextsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentPageTextsDocumentsDocIdPageTextsGetResponse
 }
 
@@ -581,7 +576,7 @@ export const getDocumentPdfDocumentsDocIdPdfGet = async (docId: number, options?
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentPdfDocumentsDocIdPdfGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentPdfDocumentsDocIdPdfGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentPdfDocumentsDocIdPdfGetResponse
 }
 
@@ -637,7 +632,7 @@ export const processMissingDocumentsProcessMissingPost = async (params?: Process
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: processMissingDocumentsProcessMissingPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: processMissingDocumentsProcessMissingPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as processMissingDocumentsProcessMissingPostResponse
 }
 
@@ -686,7 +681,7 @@ export const getDocumentPipelineStatusDocumentsDocIdPipelineStatusGet = async (d
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentPipelineStatusDocumentsDocIdPipelineStatusGetResponse
 }
 
@@ -744,7 +739,7 @@ export const getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet = async (d
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetResponse
 }
 
@@ -802,7 +797,7 @@ export const continueDocumentPipelineDocumentsDocIdPipelineContinuePost = async 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as continueDocumentPipelineDocumentsDocIdPipelineContinuePostResponse
 }
 
@@ -844,7 +839,7 @@ export const resetIntelligenceDocumentsResetIntelligencePost = async ( options?:
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: resetIntelligenceDocumentsResetIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resetIntelligenceDocumentsResetIntelligencePostResponse
 }
 
@@ -886,7 +881,7 @@ export const clearIntelligenceDocumentsClearIntelligencePost = async ( options?:
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: clearIntelligenceDocumentsClearIntelligencePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: clearIntelligenceDocumentsClearIntelligencePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as clearIntelligenceDocumentsClearIntelligencePostResponse
 }
 
@@ -942,7 +937,7 @@ export const deleteVisionOcrDocumentsDeleteVisionOcrPost = async (params?: Delet
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: deleteVisionOcrDocumentsDeleteVisionOcrPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: deleteVisionOcrDocumentsDeleteVisionOcrPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as deleteVisionOcrDocumentsDeleteVisionOcrPostResponse
 }
 
@@ -998,7 +993,7 @@ export const deleteSuggestionsDocumentsDeleteSuggestionsPost = async (params?: D
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: deleteSuggestionsDocumentsDeleteSuggestionsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: deleteSuggestionsDocumentsDeleteSuggestionsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as deleteSuggestionsDocumentsDeleteSuggestionsPostResponse
 }
 
@@ -1054,7 +1049,7 @@ export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async (params?: Del
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
 }
 
@@ -1104,7 +1099,7 @@ export const cleanupTextsDocumentsCleanupTextsPost = async (cleanupTextsRequest:
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: cleanupTextsDocumentsCleanupTextsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: cleanupTextsDocumentsCleanupTextsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as cleanupTextsDocumentsCleanupTextsPostResponse
 }
 
@@ -1155,7 +1150,7 @@ export const enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPost = async 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPostResponse
 }
 
@@ -1213,7 +1208,7 @@ export const resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessP
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostResponse
 }
 
@@ -1271,7 +1266,7 @@ export const getDocumentSuggestionsDocumentsDocIdSuggestionsGet = async (docId: 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse
 }
 
@@ -1331,7 +1326,7 @@ export const suggestFieldVariantsDocumentsDocIdSuggestionsFieldPost = async (doc
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostResponse
 }
 
@@ -1389,7 +1384,7 @@ export const getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGet = async (
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetResponse
 }
 
@@ -1440,7 +1435,7 @@ export const applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPost = async
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPostResponse
 }
 
@@ -1491,7 +1486,7 @@ export const applySuggestionToDocumentDocumentsDocIdApplySuggestionPost = async 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse
 }
 
@@ -1547,7 +1542,7 @@ export const listTagsTagsGet = async (params?: ListTagsTagsGetParams, options?: 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: listTagsTagsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: listTagsTagsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listTagsTagsGetResponse
 }
 
@@ -1603,7 +1598,7 @@ export const listCorrespondentsCorrespondentsGet = async (params?: ListCorrespon
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: listCorrespondentsCorrespondentsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: listCorrespondentsCorrespondentsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listCorrespondentsCorrespondentsGetResponse
 }
 
@@ -1652,7 +1647,7 @@ export const getDocumentTypeDocumentTypesDocTypeIdGet = async (docTypeId: number
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDocumentTypeDocumentTypesDocTypeIdGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDocumentTypeDocumentTypesDocTypeIdGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentTypeDocumentTypesDocTypeIdGetResponse
 }
 
@@ -1701,7 +1696,7 @@ export const getCorrespondentCorrespondentsCorrespondentIdGet = async (correspon
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getCorrespondentCorrespondentsCorrespondentIdGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getCorrespondentCorrespondentsCorrespondentIdGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getCorrespondentCorrespondentsCorrespondentIdGetResponse
 }
 
@@ -1757,7 +1752,7 @@ export const syncDocumentsSyncDocumentsPost = async (params?: SyncDocumentsSyncD
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: syncDocumentsSyncDocumentsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: syncDocumentsSyncDocumentsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncDocumentsSyncDocumentsPostResponse
 }
 
@@ -1799,7 +1794,7 @@ export const syncStatusSyncDocumentsGet = async ( options?: RequestInit): Promis
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: syncStatusSyncDocumentsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: syncStatusSyncDocumentsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncStatusSyncDocumentsGetResponse
 }
 
@@ -1841,7 +1836,7 @@ export const cancelSyncSyncDocumentsCancelPost = async ( options?: RequestInit):
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: cancelSyncSyncDocumentsCancelPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: cancelSyncSyncDocumentsCancelPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as cancelSyncSyncDocumentsCancelPostResponse
 }
 
@@ -1899,7 +1894,7 @@ export const syncDocumentSyncDocumentsDocIdPost = async (docId: number,
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: syncDocumentSyncDocumentsDocIdPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: syncDocumentSyncDocumentsDocIdPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncDocumentSyncDocumentsDocIdPostResponse
 }
 
@@ -1955,7 +1950,7 @@ export const syncTagsSyncTagsPost = async (params?: SyncTagsSyncTagsPostParams, 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: syncTagsSyncTagsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: syncTagsSyncTagsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncTagsSyncTagsPostResponse
 }
 
@@ -2011,7 +2006,7 @@ export const syncCorrespondentsSyncCorrespondentsPost = async (params?: SyncCorr
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: syncCorrespondentsSyncCorrespondentsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: syncCorrespondentsSyncCorrespondentsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncCorrespondentsSyncCorrespondentsPostResponse
 }
 
@@ -2067,7 +2062,7 @@ export const syncDocumentTypesSyncDocumentTypesPost = async (params?: SyncDocume
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: syncDocumentTypesSyncDocumentTypesPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: syncDocumentTypesSyncDocumentTypesPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as syncDocumentTypesSyncDocumentTypesPostResponse
 }
 
@@ -2123,7 +2118,7 @@ export const ingestEmbeddingsEmbeddingsIngestPost = async (params?: IngestEmbedd
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: ingestEmbeddingsEmbeddingsIngestPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: ingestEmbeddingsEmbeddingsIngestPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as ingestEmbeddingsEmbeddingsIngestPostResponse
 }
 
@@ -2181,7 +2176,7 @@ export const ingestDocumentsEmbeddingsIngestDocsPost = async (ingestDocumentsEmb
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: ingestDocumentsEmbeddingsIngestDocsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: ingestDocumentsEmbeddingsIngestDocsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as ingestDocumentsEmbeddingsIngestDocsPostResponse
 }
 
@@ -2237,7 +2232,7 @@ export const searchEmbeddingsSearchGet = async (params: SearchEmbeddingsSearchGe
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: searchEmbeddingsSearchGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: searchEmbeddingsSearchGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as searchEmbeddingsSearchGetResponse
 }
 
@@ -2279,7 +2274,7 @@ export const embeddingStatusEmbeddingsStatusGet = async ( options?: RequestInit)
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: embeddingStatusEmbeddingsStatusGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: embeddingStatusEmbeddingsStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as embeddingStatusEmbeddingsStatusGetResponse
 }
 
@@ -2321,7 +2316,7 @@ export const cancelEmbeddingsEmbeddingsCancelPost = async ( options?: RequestIni
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: cancelEmbeddingsEmbeddingsCancelPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: cancelEmbeddingsEmbeddingsCancelPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as cancelEmbeddingsEmbeddingsCancelPostResponse
 }
 
@@ -2363,7 +2358,7 @@ export const getQueueStatusQueueStatusGet = async ( options?: RequestInit): Prom
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getQueueStatusQueueStatusGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getQueueStatusQueueStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getQueueStatusQueueStatusGetResponse
 }
 
@@ -2413,7 +2408,7 @@ export const enqueueQueueEnqueuePost = async (queueEnqueue: QueueEnqueue, option
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: enqueueQueueEnqueuePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: enqueueQueueEnqueuePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as enqueueQueueEnqueuePostResponse
 }
 
@@ -2469,7 +2464,7 @@ export const peekQueuePeekGet = async (params?: PeekQueuePeekGetParams, options?
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: peekQueuePeekGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: peekQueuePeekGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as peekQueuePeekGetResponse
 }
 
@@ -2511,7 +2506,7 @@ export const clearQueueClearPost = async ( options?: RequestInit): Promise<clear
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: clearQueueClearPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: clearQueueClearPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as clearQueueClearPostResponse
 }
 
@@ -2553,7 +2548,7 @@ export const cancelQueueCancelPost = async ( options?: RequestInit): Promise<can
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: cancelQueueCancelPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: cancelQueueCancelPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as cancelQueueCancelPostResponse
 }
 
@@ -2595,7 +2590,7 @@ export const resetQueueResetStatsPost = async ( options?: RequestInit): Promise<
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: resetQueueResetStatsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: resetQueueResetStatsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resetQueueResetStatsPostResponse
 }
 
@@ -2637,7 +2632,7 @@ export const pauseQueuePausePost = async ( options?: RequestInit): Promise<pause
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: pauseQueuePausePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: pauseQueuePausePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as pauseQueuePausePostResponse
 }
 
@@ -2679,7 +2674,7 @@ export const resumeQueueResumePost = async ( options?: RequestInit): Promise<res
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: resumeQueueResumePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: resumeQueueResumePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resumeQueueResumePostResponse
 }
 
@@ -2729,7 +2724,7 @@ export const moveQueueReorderPost = async (queueMoveRequest: QueueMoveRequest, o
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: moveQueueReorderPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: moveQueueReorderPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as moveQueueReorderPostResponse
 }
 
@@ -2779,7 +2774,7 @@ export const moveTopQueueMoveTopPost = async (queueMoveEdgeRequest: QueueMoveEdg
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: moveTopQueueMoveTopPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: moveTopQueueMoveTopPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as moveTopQueueMoveTopPostResponse
 }
 
@@ -2829,7 +2824,7 @@ export const moveBottomQueueMoveBottomPost = async (queueMoveEdgeRequest: QueueM
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: moveBottomQueueMoveBottomPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: moveBottomQueueMoveBottomPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as moveBottomQueueMoveBottomPostResponse
 }
 
@@ -2879,7 +2874,7 @@ export const removeQueueRemovePost = async (queueRemoveRequest: QueueRemoveReque
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: removeQueueRemovePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: removeQueueRemovePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as removeQueueRemovePostResponse
 }
 
@@ -2921,7 +2916,7 @@ export const getWorkerLockQueueWorkerLockGet = async ( options?: RequestInit): P
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getWorkerLockQueueWorkerLockGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getWorkerLockQueueWorkerLockGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getWorkerLockQueueWorkerLockGetResponse
 }
 
@@ -2963,7 +2958,7 @@ export const getRunningQueueRunningGet = async ( options?: RequestInit): Promise
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getRunningQueueRunningGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getRunningQueueRunningGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getRunningQueueRunningGetResponse
 }
 
@@ -3019,7 +3014,7 @@ export const resetWorkerLockRouteQueueWorkerLockResetPost = async (params?: Rese
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: resetWorkerLockRouteQueueWorkerLockResetPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: resetWorkerLockRouteQueueWorkerLockResetPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as resetWorkerLockRouteQueueWorkerLockResetPostResponse
 }
 
@@ -3075,7 +3070,7 @@ export const getDlqQueueDlqGet = async (params?: GetDlqQueueDlqGetParams, option
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDlqQueueDlqGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDlqQueueDlqGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDlqQueueDlqGetResponse
 }
 
@@ -3131,7 +3126,7 @@ export const getDelayedQueueQueueDelayedGet = async (params?: GetDelayedQueueQue
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getDelayedQueueQueueDelayedGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getDelayedQueueQueueDelayedGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDelayedQueueQueueDelayedGetResponse
 }
 
@@ -3173,7 +3168,7 @@ export const clearDlqQueueDlqClearPost = async ( options?: RequestInit): Promise
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: clearDlqQueueDlqClearPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: clearDlqQueueDlqClearPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as clearDlqQueueDlqClearPostResponse
 }
 
@@ -3223,7 +3218,7 @@ export const requeueDlqQueueDlqRequeuePost = async (queueDlqRequeueRequest: Queu
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: requeueDlqQueueDlqRequeuePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: requeueDlqQueueDlqRequeuePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as requeueDlqQueueDlqRequeuePostResponse
 }
 
@@ -3279,8 +3274,50 @@ export const getTaskRunsQueueTaskRunsGet = async (params?: GetTaskRunsQueueTaskR
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getTaskRunsQueueTaskRunsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getTaskRunsQueueTaskRunsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getTaskRunsQueueTaskRunsGetResponse
+}
+
+
+
+/**
+ * @summary Get Error Types
+ */
+export type getErrorTypesQueueErrorTypesGetResponse200 = {
+  data: ErrorTypeCatalogResponse
+  status: 200
+}
+    
+export type getErrorTypesQueueErrorTypesGetResponseSuccess = (getErrorTypesQueueErrorTypesGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getErrorTypesQueueErrorTypesGetResponse = (getErrorTypesQueueErrorTypesGetResponseSuccess)
+
+export const getGetErrorTypesQueueErrorTypesGetUrl = () => {
+
+
+  
+
+  return `/api/queue/error-types`
+}
+
+export const getErrorTypesQueueErrorTypesGet = async ( options?: RequestInit): Promise<getErrorTypesQueueErrorTypesGetResponse> => {
+  
+  const res = await fetch(getGetErrorTypesQueueErrorTypesGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getErrorTypesQueueErrorTypesGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getErrorTypesQueueErrorTypesGetResponse
 }
 
 
@@ -3321,7 +3358,7 @@ export const statusStatusGet = async ( options?: RequestInit): Promise<statusSta
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: statusStatusGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: statusStatusGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as statusStatusGetResponse
 }
 
@@ -3363,7 +3400,7 @@ export const statusStreamStatusStreamGet = async ( options?: RequestInit): Promi
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: statusStreamStatusStreamGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: statusStreamStatusStreamGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as statusStreamStatusStreamGetResponse
 }
 
@@ -3413,7 +3450,7 @@ export const chatChatPost = async (chatRequest: ChatRequest, options?: RequestIn
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: chatChatPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: chatChatPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as chatChatPostResponse
 }
 
@@ -3463,8 +3500,58 @@ export const chatStreamChatStreamPost = async (chatRequest: ChatRequest, options
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: chatStreamChatStreamPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: chatStreamChatStreamPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as chatStreamChatStreamPostResponse
+}
+
+
+
+/**
+ * @summary Resolve Evidence
+ */
+export type resolveEvidenceChatResolveEvidencePostResponse200 = {
+  data: EvidenceResolveResponse
+  status: 200
+}
+
+export type resolveEvidenceChatResolveEvidencePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type resolveEvidenceChatResolveEvidencePostResponseSuccess = (resolveEvidenceChatResolveEvidencePostResponse200) & {
+  headers: Headers;
+};
+export type resolveEvidenceChatResolveEvidencePostResponseError = (resolveEvidenceChatResolveEvidencePostResponse422) & {
+  headers: Headers;
+};
+
+export type resolveEvidenceChatResolveEvidencePostResponse = (resolveEvidenceChatResolveEvidencePostResponseSuccess | resolveEvidenceChatResolveEvidencePostResponseError)
+
+export const getResolveEvidenceChatResolveEvidencePostUrl = () => {
+
+
+  
+
+  return `/api/chat/resolve-evidence`
+}
+
+export const resolveEvidenceChatResolveEvidencePost = async (evidenceResolveRequest: EvidenceResolveRequest, options?: RequestInit): Promise<resolveEvidenceChatResolveEvidencePostResponse> => {
+  
+  const res = await fetch(getResolveEvidenceChatResolveEvidencePostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      evidenceResolveRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: resolveEvidenceChatResolveEvidencePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as resolveEvidenceChatResolveEvidencePostResponse
 }
 
 
@@ -3514,7 +3601,7 @@ export const executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDire
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as executeWritebackDirectForDocumentWritebackDocumentsDocIdExecuteDirectPostResponse
 }
 
@@ -3564,7 +3651,7 @@ export const executeWritebackNowWritebackExecuteNowPost = async (writebackExecut
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: executeWritebackNowWritebackExecuteNowPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: executeWritebackNowWritebackExecuteNowPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as executeWritebackNowWritebackExecuteNowPostResponse
 }
 
@@ -3620,7 +3707,7 @@ export const dryRunPreviewWritebackDryRunPreviewGet = async (params?: DryRunPrev
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: dryRunPreviewWritebackDryRunPreviewGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: dryRunPreviewWritebackDryRunPreviewGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as dryRunPreviewWritebackDryRunPreviewGetResponse
 }
 
@@ -3670,7 +3757,7 @@ export const dryRunExecuteWritebackDryRunExecutePost = async (writebackDryRunExe
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: dryRunExecuteWritebackDryRunExecutePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: dryRunExecuteWritebackDryRunExecutePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as dryRunExecuteWritebackDryRunExecutePostResponse
 }
 
@@ -3720,7 +3807,7 @@ export const createWritebackJobWritebackJobsPost = async (writebackJobCreateRequ
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: createWritebackJobWritebackJobsPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: createWritebackJobWritebackJobsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as createWritebackJobWritebackJobsPostResponse
 }
 
@@ -3776,7 +3863,7 @@ export const listWritebackJobsWritebackJobsGet = async (params?: ListWritebackJo
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: listWritebackJobsWritebackJobsGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: listWritebackJobsWritebackJobsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listWritebackJobsWritebackJobsGetResponse
 }
 
@@ -3825,7 +3912,7 @@ export const getWritebackJobWritebackJobsJobIdGet = async (jobId: number, option
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getWritebackJobWritebackJobsJobIdGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: getWritebackJobWritebackJobsJobIdGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getWritebackJobWritebackJobsJobIdGetResponse
 }
 
@@ -3876,7 +3963,7 @@ export const executeWritebackJobWritebackJobsJobIdExecutePost = async (jobId: nu
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: executeWritebackJobWritebackJobsJobIdExecutePostResponse['data'] = parseBodySafely(body, res.status)
+  const data: executeWritebackJobWritebackJobsJobIdExecutePostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as executeWritebackJobWritebackJobsJobIdExecutePostResponse
 }
 
@@ -3932,7 +4019,7 @@ export const writebackHistoryWritebackHistoryGet = async (params?: WritebackHist
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: writebackHistoryWritebackHistoryGetResponse['data'] = parseBodySafely(body, res.status)
+  const data: writebackHistoryWritebackHistoryGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as writebackHistoryWritebackHistoryGetResponse
 }
 
@@ -3982,7 +4069,6 @@ export const executePendingWritebackJobsWritebackJobsExecutePendingPost = async 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: executePendingWritebackJobsWritebackJobsExecutePendingPostResponse['data'] = parseBodySafely(body, res.status)
+  const data: executePendingWritebackJobsWritebackJobsExecutePendingPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as executePendingWritebackJobsWritebackJobsExecutePendingPostResponse
 }
-

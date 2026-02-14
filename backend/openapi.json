@@ -525,6 +525,16 @@
             }
           },
           {
+            "name": "include_evidence_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Evidence Index"
+            }
+          },
+          {
             "name": "include_vision_ocr",
             "in": "query",
             "required": false,
@@ -725,6 +735,16 @@
             }
           },
           {
+            "name": "include_evidence_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Evidence Index"
+            }
+          },
+          {
             "name": "include_vision_ocr",
             "in": "query",
             "required": false,
@@ -874,6 +894,16 @@
               "type": "boolean",
               "default": true,
               "title": "Include Sync"
+            }
+          },
+          {
+            "name": "include_evidence_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Evidence Index"
             }
           },
           {
@@ -3237,6 +3267,27 @@
         }
       }
     },
+    "/queue/error-types": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Error Types",
+        "operationId": "get_error_types_queue_error_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorTypeCatalogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "tags": [
@@ -3341,6 +3392,47 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/resolve-evidence": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Resolve Evidence",
+        "operationId": "resolve_evidence_chat_resolve_evidence_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceResolveResponse"
+                }
               }
             }
           },
@@ -3999,6 +4091,39 @@
               }
             ],
             "title": "Snippet"
+          },
+          "evidence_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Status"
+          },
+          "evidence_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Confidence"
+          },
+          "evidence_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Error"
           }
         },
         "type": "object",
@@ -4071,6 +4196,17 @@
               }
             ],
             "title": "History"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
           }
         },
         "type": "object",
@@ -4089,6 +4225,10 @@
             "type": "string",
             "title": "Answer"
           },
+          "conversation_id": {
+            "type": "string",
+            "title": "Conversation Id"
+          },
           "citations": {
             "items": {
               "$ref": "#/components/schemas/ChatCitation"
@@ -4101,7 +4241,8 @@
         "type": "object",
         "required": [
           "question",
-          "answer"
+          "answer",
+          "conversation_id"
         ],
         "title": "ChatResponse"
       },
@@ -5135,6 +5276,10 @@
             "type": "boolean",
             "title": "Sync Ok"
           },
+          "evidence_ok": {
+            "type": "boolean",
+            "title": "Evidence Ok"
+          },
           "paperless_ok": {
             "type": "boolean",
             "title": "Paperless Ok"
@@ -5171,6 +5316,7 @@
           "preferred_source",
           "is_large_document",
           "sync_ok",
+          "evidence_ok",
           "paperless_ok",
           "vision_ok",
           "large_ok"
@@ -5940,6 +6086,196 @@
         ],
         "title": "EmbeddingStatusResponse"
       },
+      "ErrorTypeCatalogResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorTypeDetail"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "ErrorTypeCatalogResponse"
+      },
+      "ErrorTypeDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "retryable",
+          "category",
+          "description"
+        ],
+        "title": "ErrorTypeDetail"
+      },
+      "EvidenceCitationRequest": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "bbox": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "page",
+          "snippet"
+        ],
+        "title": "EvidenceCitationRequest"
+      },
+      "EvidenceMatch": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          },
+          "bbox": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence",
+            "default": 0.0
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "page",
+          "snippet",
+          "status"
+        ],
+        "title": "EvidenceMatch"
+      },
+      "EvidenceResolveRequest": {
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceCitationRequest"
+            },
+            "type": "array",
+            "title": "Citations",
+            "default": []
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "default": 3
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "title": "Timeout Seconds",
+            "default": 45
+          }
+        },
+        "type": "object",
+        "title": "EvidenceResolveRequest"
+      },
+      "EvidenceResolveResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceMatch"
+            },
+            "type": "array",
+            "title": "Matches",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "EvidenceResolveResponse"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -6448,6 +6784,17 @@
               }
             ],
             "title": "Missing Summary Hierarchical"
+          },
+          "missing_evidence_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Evidence Index"
           },
           "missing_suggestions_paperless": {
             "anyOf": [
@@ -7261,6 +7608,28 @@
             ],
             "title": "Vision Model"
           },
+          "evidence_max_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Max Pages"
+          },
+          "evidence_min_snippet_chars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Min Snippet Chars"
+          },
           "latency_ms": {
             "anyOf": [
               {
@@ -7795,6 +8164,28 @@
               }
             ],
             "title": "Error Type"
+          },
+          "error_retryable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Retryable"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
           },
           "error_message": {
             "anyOf": [

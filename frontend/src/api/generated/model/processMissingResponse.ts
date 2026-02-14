@@ -21,6 +21,7 @@ export interface ProcessMissingResponse {
   missing_embeddings_vision?: number | null;
   missing_page_notes?: number | null;
   missing_summary_hierarchical?: number | null;
+  missing_evidence_index?: number | null;
   missing_suggestions_paperless?: number | null;
   missing_suggestions_vision?: number | null;
   missing_by_step?: ProcessMissingResponseMissingByStep;
