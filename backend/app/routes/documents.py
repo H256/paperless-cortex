@@ -213,6 +213,7 @@ def _apply_derived_fields_and_review_status(
     suggestion_rows = (
         db.query(*suggestion_columns)
         .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+        .order_by(DocumentSuggestion.doc_id.asc(), DocumentSuggestion.source.asc())
         .all()
     )
     suggestions_by_doc: dict[int, set[str]] = {}
