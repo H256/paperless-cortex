@@ -52,6 +52,7 @@ All granular implementation slices and refactors are tracked here.
 - `831c492` feat(phase2): chat citation UI now visualizes evidence state with status-colored source badges and tooltip details (status/confidence/error) for quicker trust checks.
 - `82f2f70` feat(phase2): resolver now caps by unique `(doc_id,page)` coverage (not raw item count) and validates bbox geometry, returning explicit `invalid_bbox` errors where needed.
 - `86d74f4` feat(phase2): moved evidence limits to runtime settings/env (`EVIDENCE_MAX_PAGES`, `EVIDENCE_MIN_SNIPPET_CHARS`), wired chat enrichment to settings values, added test coverage, and documented env vars in `.env.example` + `.env.worker.example`.
+- `0968241` feat(phase2): added optional resolver fast path (`EVIDENCE_VECTOR_LOOKUP_ENABLED`) that tries to recover bbox from existing Qdrant chunk hits for the same `doc_id/page`, keeps strict fallback semantics (`no_match`/`error`), and adds dedicated service tests.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
