@@ -95,6 +95,7 @@ All granular implementation slices and refactors are tracked here.
 - `4347bc0` refactor(chat): switched ChatView URL-sync parsing/comparison to shared query-state helpers for consistent behavior and cleaner control-sync code.
 - `c12f656` feat(search): added keyboard shortcuts (`/` focus query, `Ctrl+Enter` run search) for faster keyboard-driven triage/search workflows.
 - `9f1d8d4` feat(chat): added keyboard shortcuts (`/` focus question, `Ctrl+Enter` ask) for parity with search and faster follow-up interactions.
+- `d44b747` refactor(search): extracted global keyboard listener lifecycle into reusable `useGlobalHotkeys` composable and simplified SearchView hotkey wiring.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
