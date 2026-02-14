@@ -43,6 +43,23 @@ def _run_with_pending_recovery(db: Session, *, context: str, operation: Callable
         return operation()
 
 
+def _run_task_runs_operation(
+    db: Session,
+    *,
+    context: str,
+    operation: Callable[[], T],
+    on_missing_table: Callable[[], T] | None = None,
+    missing_table_log: str | None = None,
+) -> T:
+    try:
+        return _run_with_pending_recovery(db, context=context, operation=operation)
+    except Exception as exc:
+        db.rollback()
+        if _is_missing_task_runs_table_error(exc) and on_missing_table is not None:
+            if missing_table_log:
+                logger.warning(missing_table_log)
+            return on_missing_table()
+        raise
 def _build_task_runs_query(
     db: Session,
     *,
@@ -107,15 +124,17 @@ def create_task_run(
         db.refresh(row)
         return row
 
-    try:
-        return _run_with_pending_recovery(db, context="create_task_run", operation=_create)
-    except Exception as exc:
-        db.rollback()
-        if _is_missing_task_runs_table_error(exc):
-            logger.warning("task_runs table missing; skip create_task_run")
-            row.id = 0
-            return row
-        raise
+    def _missing_row() -> TaskRun:
+        row.id = 0
+        return row
+
+    return _run_task_runs_operation(
+        db,
+        context="create_task_run",
+        operation=_create,
+        on_missing_table=_missing_row,
+        missing_table_log="task_runs table missing; skip create_task_run",
+    )
 
 
 def finish_task_run(
@@ -140,18 +159,13 @@ def finish_task_run(
         row.updated_at = timestamp
         db.commit()
 
-    try:
-        _run_with_pending_recovery(
-            db,
-            context=f"finish_task_run run_id={run_id}",
-            operation=_finish,
-        )
-    except Exception as exc:
-        db.rollback()
-        if _is_missing_task_runs_table_error(exc):
-            logger.warning("task_runs table missing; skip finish_task_run run_id=%s", run_id)
-            return
-        raise
+    _run_task_runs_operation(
+        db,
+        context=f"finish_task_run run_id={run_id}",
+        operation=_finish,
+        on_missing_table=lambda: None,
+        missing_table_log=f"task_runs table missing; skip finish_task_run run_id={run_id}",
+    )
 
 
 def update_task_run_checkpoint(
@@ -170,18 +184,13 @@ def update_task_run_checkpoint(
         row.updated_at = _now_iso()
         db.commit()
 
-    try:
-        _run_with_pending_recovery(
-            db,
-            context=f"update_task_run_checkpoint run_id={run_id}",
-            operation=_update,
-        )
-    except Exception as exc:
-        db.rollback()
-        if _is_missing_task_runs_table_error(exc):
-            logger.warning("task_runs table missing; skip checkpoint update run_id=%s", run_id)
-            return
-        raise
+    _run_task_runs_operation(
+        db,
+        context=f"update_task_run_checkpoint run_id={run_id}",
+        operation=_update,
+        on_missing_table=lambda: None,
+        missing_table_log=f"task_runs table missing; skip checkpoint update run_id={run_id}",
+    )
 
 
 def list_task_runs(
@@ -211,14 +220,13 @@ def list_task_runs(
         rows = query.order_by(TaskRun.id.desc()).offset(row_offset).limit(row_limit).all()
         return total, rows
 
-    try:
-        return _run_with_pending_recovery(db, context="list_task_runs", operation=_list)
-    except Exception as exc:
-        db.rollback()
-        if _is_missing_task_runs_table_error(exc):
-            logger.warning("task_runs table missing; return empty task-runs list")
-            return 0, []
-        raise
+    return _run_task_runs_operation(
+        db,
+        context="list_task_runs",
+        operation=_list,
+        on_missing_table=lambda: (0, []),
+        missing_table_log="task_runs table missing; return empty task-runs list",
+    )
 
 
 def find_latest_checkpoint(
@@ -252,11 +260,10 @@ def find_latest_checkpoint(
             return None
         return payload if isinstance(payload, dict) else None
 
-    try:
-        return _run_with_pending_recovery(db, context="find_latest_checkpoint", operation=_find)
-    except Exception as exc:
-        db.rollback()
-        if _is_missing_task_runs_table_error(exc):
-            logger.warning("task_runs table missing; no latest checkpoint available")
-            return None
-        raise
+    return _run_task_runs_operation(
+        db,
+        context="find_latest_checkpoint",
+        operation=_find,
+        on_missing_table=lambda: None,
+        missing_table_log="task_runs table missing; no latest checkpoint available",
+    )
