@@ -43,6 +43,29 @@ const saveState = (state: PersistedChatState) => {
 
 const initialState = loadState()
 
+const clampHistoryTurns = (value: number) => Math.max(1, Math.min(12, value || 6))
+
+const buildHistory = (
+  messages: ChatMessage[],
+  useHistory: boolean,
+  historyTurns: number,
+): Array<{ question: string; answer: string }> => {
+  if (!useHistory) return []
+  return messages
+    .slice(0, clampHistoryTurns(historyTurns))
+    .map((msg) => ({ question: msg.question, answer: msg.answer }))
+    .reverse()
+}
+
+const createMessage = (question: string, conversationId?: string): ChatMessage => ({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  conversationId: conversationId || undefined,
+  question,
+  answer: '',
+  citations: [],
+  createdAt: Date.now(),
+})
+
 export interface ChatMessage {
   id: string
   conversationId?: string
@@ -107,22 +130,10 @@ export const useChatStore = defineStore('chat', {
       this.loading = true
       this.error = ''
       try {
-        const history = this.useHistory
-          ? this.messages
-              .slice(0, Math.max(1, Math.min(12, this.historyTurns || 6)))
-              .map((msg) => ({ question: msg.question, answer: msg.answer }))
-              .reverse()
-          : []
+        const history = buildHistory(this.messages, this.useHistory, this.historyTurns)
         const source = this.onlyVision ? 'vision_ocr' : this.source || undefined
         if (this.streaming) {
-          const message: ChatMessage = {
-            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            conversationId: this.conversationId || undefined,
-            question: this.question,
-            answer: '',
-            citations: [],
-            createdAt: Date.now(),
-          }
+          const message = createMessage(this.question, this.conversationId)
           this.messages.unshift(message)
           saveState({ messages: this.messages, conversationId: this.conversationId })
           const controller = new AbortController()
@@ -163,14 +174,10 @@ export const useChatStore = defineStore('chat', {
             conversation_id: this.conversationId || undefined,
           })
           this.conversationId = data.conversation_id || this.conversationId
-          this.messages.unshift({
-            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            conversationId: this.conversationId || undefined,
-            question: data.question,
-            answer: data.answer,
-            citations: data.citations ?? [],
-            createdAt: Date.now(),
-          })
+          const message = createMessage(data.question, this.conversationId)
+          message.answer = data.answer
+          message.citations = data.citations ?? []
+          this.messages.unshift(message)
           saveState({ messages: this.messages, conversationId: this.conversationId })
           this.question = ''
         }
