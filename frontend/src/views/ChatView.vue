@@ -311,6 +311,7 @@ import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
+import { useClipboardCopy } from '../composables/useClipboardCopy'
 
 const {
   question,
@@ -334,6 +335,7 @@ const {
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
+const { copyText, errorMessage: copyError } = useClipboardCopy()
 const now = ref(Date.now())
 let syncingFromRoute = false
 const questionInputRef = ref<HTMLInputElement | null>(null)
@@ -382,10 +384,10 @@ const resetControls = async () => {
 const copyChatLink = async () => {
   try {
     const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildChatQuery() }).href}`
-    await navigator.clipboard.writeText(href)
+    await copyText(href)
     toastStore.push('Chat link copied.', 'success', 'Chat', 1600)
-  } catch {
-    toastStore.push('Failed to copy chat link.', 'danger', 'Chat', 2200)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Chat', 2200)
   }
 }
 
@@ -523,10 +525,10 @@ const copyConversationId = async () => {
   const value = (conversationId.value || '').trim()
   if (!value) return
   try {
-    await navigator.clipboard.writeText(value)
+    await copyText(value)
     toastStore.push('Conversation id copied.', 'success', 'Chat', 1500)
-  } catch {
-    toastStore.push('Failed to copy conversation id.', 'danger', 'Chat', 2200)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Chat', 2200)
   }
 }
 
