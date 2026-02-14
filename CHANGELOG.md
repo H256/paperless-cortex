@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `bc19623` fix(suggestions/ui): hardened suggestion field rows for long values by applying `min-w-0`/`break-words` wrapping and aligning action groups to top, preventing long “Current” text from pushing `Suggest new`/`Save` controls out of reach.
 - `792cf90` fix(details): AI summary-note metadata now formats `Created` timestamps in compact human-readable form (`YYYY-MM-DD HH:MM:SS`) instead of raw ISO with timezone/microseconds.
 - `b0ed4f0` feat(logs/ui): improved Log Inspector UX by replacing free-text error-type input with catalog-backed dropdown, removing the full-text query control, mapping quick overflow filter to `EMBED_CONTEXT_OVERFLOW`, and increasing padding in the error-type reference panel.
 - `46b3ea4` fix(chat/docs): fixed streaming chat URL construction in `useChatSession` to avoid double `/api` prefixes (resolves `POST /api/api/chat/stream` 404), and added `docs/TODO.md` as central backlog capturing QA findings from live test runs.
