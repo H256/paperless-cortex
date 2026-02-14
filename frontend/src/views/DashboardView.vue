@@ -214,11 +214,11 @@
               >
                 Top correspondents
               </div>
-              <span class="text-xs text-slate-400">{{ topCorrespondents.length }}</span>
+              <span class="text-xs text-slate-400">{{ topCorrespondentsDisplay.length }}</span>
             </div>
             <div class="mt-4 space-y-3">
               <div
-                v-for="item in topCorrespondents"
+                v-for="item in topCorrespondentsDisplay"
                 :key="item.name"
                 class="text-xs text-slate-500 dark:text-slate-400"
               >
@@ -359,7 +359,7 @@
                 Unprocessed by correspondent
               </div>
               <div class="mt-4 max-h-72 space-y-2 overflow-auto pr-2 text-xs text-slate-500 dark:text-slate-400">
-                <div v-for="item in unprocessedByCorrespondent.slice(0, 10)" :key="item.name">
+                <div v-for="item in unprocessedByCorrespondentDisplay" :key="item.name">
                   <div class="flex items-center justify-between">
                     <span class="text-slate-700 dark:text-slate-200">{{ item.name }}</span>
                     <span>{{ item.count }} ({{ portion(item.count, stats.unprocessed) }}%)</span>
@@ -383,7 +383,7 @@
                 Document types
               </div>
               <div class="mt-4 max-h-72 space-y-2 overflow-auto pr-2 text-xs text-slate-500 dark:text-slate-400">
-                <div v-for="item in docTypes.slice(0, 10)" :key="item.name">
+                <div v-for="item in docTypesDisplay" :key="item.name">
                   <div class="flex items-center justify-between">
                     <span class="text-slate-700 dark:text-slate-200">{{ item.name }}</span>
                     <span>{{ item.count }} ({{ portion(item.count, stats.total) }}%)</span>
@@ -435,6 +435,20 @@ const monthlyProcessing = computed(() => data.value?.monthly_processing ?? [])
 const monthlyRange = ref<'12' | '24' | 'all'>('24')
 const tags = computed(() => data.value?.tags ?? [])
 const topTags = computed(() => data.value?.top_tags ?? [])
+
+const padToTen = (items: DashboardCount[]) => {
+  const result = items.slice(0, 10)
+  while (result.length < 10) {
+    result.push({ id: null, name: '—', count: 0 })
+  }
+  return result
+}
+
+const topCorrespondentsDisplay = computed(() => padToTen(topCorrespondents.value))
+const unprocessedByCorrespondentDisplay = computed(() =>
+  padToTen(unprocessedByCorrespondent.value),
+)
+const docTypesDisplay = computed(() => padToTen(docTypes.value))
 
 const processedPercent = computed(() => {
   if (!stats.value.total) return 0
