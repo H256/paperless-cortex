@@ -29,6 +29,7 @@ from app.services.text_pages import get_baseline_page_texts, score_text_quality
 from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.writeback_plan import canonical_ai_summary, extract_ai_summary_note
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.document_stats import compute_document_stats
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,
@@ -283,53 +284,7 @@ def list_documents(
 
 @router.get("/stats", response_model=DocumentStatsResponse)
 def get_document_stats(db: Session = Depends(get_db)):
-    total = db.query(Document).count()
-    embeddings = (
-        db.query(Document.id)
-        .filter(exists().where(DocumentEmbedding.doc_id == Document.id))
-        .count()
-    )
-    vision = (
-        db.query(Document.id)
-        .filter(
-            exists().where(
-                and_(
-                    DocumentPageText.doc_id == Document.id,
-                    DocumentPageText.source == "vision_ocr",
-                )
-            )
-        )
-        .count()
-    )
-    suggestions = (
-        db.query(Document.id)
-        .filter(exists().where(DocumentSuggestion.doc_id == Document.id))
-        .count()
-    )
-    fully_processed = (
-        db.query(Document.id)
-        .filter(
-            exists().where(DocumentEmbedding.doc_id == Document.id),
-            exists().where(
-                and_(
-                    DocumentPageText.doc_id == Document.id,
-                    DocumentPageText.source == "vision_ocr",
-                )
-            ),
-            exists().where(DocumentSuggestion.doc_id == Document.id),
-        )
-        .count()
-    )
-    unprocessed = max(0, total - fully_processed)
-    return {
-        "total": total,
-        "processed": embeddings,
-        "unprocessed": unprocessed,
-        "embeddings": embeddings,
-        "vision": vision,
-        "suggestions": suggestions,
-        "fully_processed": fully_processed,
-    }
+    return compute_document_stats(db)
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
