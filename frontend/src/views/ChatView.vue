@@ -163,7 +163,8 @@
               <component
                 :is="citation.doc_id ? RouterLink : 'span'"
                 :to="citation.doc_id ? citationLink(citation) : undefined"
-                class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:border-slate-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                class="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm hover:text-indigo-600 dark:bg-slate-900 dark:text-slate-300"
+                :class="citationClass(citation)"
                 :aria-label="`Source ${citation.id}`"
               >
                 <BookOpen class="h-4 w-4" />
@@ -186,6 +187,23 @@
                 <div class="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
                   Score {{ formatScore(citation.score) }} - Quality
                   {{ citation.quality_score ?? 'n/a' }}
+                </div>
+                <div
+                  v-if="evidenceStatus(citation)"
+                  class="mt-1 text-[11px]"
+                  :class="
+                    evidenceStatus(citation) === 'ok'
+                      ? 'text-emerald-600 dark:text-emerald-300'
+                      : evidenceStatus(citation) === 'no_match'
+                        ? 'text-amber-600 dark:text-amber-300'
+                        : 'text-rose-600 dark:text-rose-300'
+                  "
+                >
+                  Evidence: {{ evidenceStatus(citation) }}
+                  <template v-if="evidenceConfidence(citation) !== null">
+                    ({{ evidenceConfidence(citation) }})
+                  </template>
+                  <template v-if="evidenceError(citation)"> - {{ evidenceError(citation) }}</template>
                 </div>
                 <div
                   v-if="citation.snippet"
@@ -244,6 +262,36 @@ const citationLink = (citation: ChatCitation) => {
 
 const citationKey = (citation: ChatCitation, idx: number) =>
   `${citation.id ?? 'x'}-${citation.doc_id ?? 'doc'}-${citation.page ?? 'p'}-${idx}`
+
+const evidenceStatus = (citation: ChatCitation): string => {
+  const value = (citation as unknown as Record<string, unknown>).evidence_status
+  return typeof value === 'string' ? value : ''
+}
+
+const evidenceConfidence = (citation: ChatCitation): string | null => {
+  const value = (citation as unknown as Record<string, unknown>).evidence_confidence
+  if (typeof value !== 'number' || Number.isNaN(value)) return null
+  return value.toFixed(2)
+}
+
+const evidenceError = (citation: ChatCitation): string => {
+  const value = (citation as unknown as Record<string, unknown>).evidence_error
+  return typeof value === 'string' ? value : ''
+}
+
+const citationClass = (citation: ChatCitation): string => {
+  const status = evidenceStatus(citation)
+  if (status === 'ok') {
+    return 'border-emerald-200 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:border-emerald-700'
+  }
+  if (status === 'no_match') {
+    return 'border-amber-200 hover:border-amber-300 dark:border-amber-900/50 dark:hover:border-amber-700'
+  }
+  if (status === 'error') {
+    return 'border-rose-200 hover:border-rose-300 dark:border-rose-900/50 dark:hover:border-rose-700'
+  }
+  return 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-500'
+}
 
 const renderMarkdown = (message: ChatMessage) => {
   const map = new Map<number, { tooltip: string; href: string }>()
