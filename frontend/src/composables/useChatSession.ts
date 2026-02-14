@@ -288,6 +288,18 @@ export const useChatSession = () => {
     question.value = seed ? `Follow-up on: ${seed}\n` : 'Follow-up: '
   }
 
+  const resetControls = () => {
+    question.value = ''
+    topK.value = 6
+    source.value = ''
+    onlyVision.value = false
+    minQuality.value = 0
+    streaming.value = true
+    useHistory.value = true
+    historyTurns.value = 6
+    error.value = ''
+  }
+
   return {
     question,
     topK,
@@ -304,6 +316,7 @@ export const useChatSession = () => {
     clearConversation,
     newConversation,
     startFollowUp,
+    resetControls,
     stop,
     ask: async () => askMutation.mutateAsync(),
   }

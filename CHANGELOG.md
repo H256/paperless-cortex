@@ -90,6 +90,39 @@ All granular implementation slices and refactors are tracked here.
 - `453a68f` fix(search): search controls now resync when route query changes via browser navigation, preventing stale UI state after back/forward transitions.
 - `1000550` fix(chat): chat controls now resync from route-query changes during browser navigation so shared/back-forward links keep UI controls consistent.
 - `0b18987` feat(search): improved empty-state clarity by distinguishing initial idle state from a completed query with no matches.
+- `d42ecab` refactor(ui): introduced shared query-state helpers (`queryString/queryBool/queryNumber/isSameQueryState`) to reduce duplicated URL-sync logic across views.
+- `4d728c0` refactor(search): switched SearchView URL-sync parsing/comparison to shared query-state helpers, reducing local duplication and keeping sync behavior consistent.
+- `4347bc0` refactor(chat): switched ChatView URL-sync parsing/comparison to shared query-state helpers for consistent behavior and cleaner control-sync code.
+- `c12f656` feat(search): added keyboard shortcuts (`/` focus query, `Ctrl+Enter` run search) for faster keyboard-driven triage/search workflows.
+- `9f1d8d4` feat(chat): added keyboard shortcuts (`/` focus question, `Ctrl+Enter` ask) for parity with search and faster follow-up interactions.
+- `d44b747` refactor(search): extracted global keyboard listener lifecycle into reusable `useGlobalHotkeys` composable and simplified SearchView hotkey wiring.
+- `046c132` refactor(chat): switched ChatView hotkey listener lifecycle to shared `useGlobalHotkeys` composable for consistency with search.
+- `84d8b00` refactor(ui): introduced reusable clipboard composable (`useClipboardCopy`) to centralize copy behavior/error mapping across views.
+- `020d65e` feat(search): added per-result “Copy details link” quick action and switched search link copy flow to shared clipboard composable.
+- `298cc2a` refactor(chat): switched chat copy actions (`Copy link`/`Copy id`) to shared clipboard composable for consistent UX/error handling.
+- `a99630e` refactor(search): replaced SearchView’s local query-watch/sync flag boilerplate with shared `useRouteQuerySync` orchestration.
+- `a837006` refactor(chat): replaced ChatView’s local query-watch/sync flag boilerplate with shared `useRouteQuerySync` orchestration.
+- `d0f52f7` refactor(ui): added `useShareLink` composable to standardize link copy + toast feedback flows across views.
+- `55302f5` refactor(ui): switched Search/Chat link-copy actions to shared `useShareLink` paths, reducing view-level copy/toast duplication.
+- `34442f5` refactor(search): replaced SearchView’s inline keydown logic with shared `useInputCommandHotkeys` for slash-focus/Ctrl+Enter behavior.
+- `1445ee8` refactor(chat): replaced ChatView’s inline keydown logic with shared `useInputCommandHotkeys` for slash-focus/Ctrl+Enter behavior.
+- `aa3c2ad` refactor(ui): simplified hotkey composition by inlining listener lifecycle in `useInputCommandHotkeys` and removing obsolete `useGlobalHotkeys`.
+- `5cfa94d` refactor(chat-search): removed duplicated local `syncToRoute` helpers in Chat/Search and reused `useRouteQuerySync` API directly for reset-triggered query updates.
+- `f6b954f` refactor(ui): enhanced `useRouteQuerySync` with optional debounce and unknown-query-key preservation to reduce route-churn and avoid dropping unrelated URL state.
+- `5f5f13e` perf(search): enabled debounced query-sync writes and preserved unrelated URL params in SearchView to keep navigation state stable while sliders/toggles change.
+- `d38292f` perf(chat): enabled debounced query-sync writes and preserved unrelated URL params in ChatView to keep navigation state stable while control toggles change.
+- `5cb53b6` feat(chat): chat draft question is now included in URL-synced state (`q`) so in-progress prompts can be resumed/shared alongside chat controls.
+- `9255da2` feat(search): added `Ctrl+Shift+Enter` shortcut to open the first visible search result directly, accelerating keyboard-only review flow.
+- `5b436e1` fix(ui): `useRouteQuerySync` now clears pending debounce timers on unmount to prevent delayed stale route updates after view teardown.
+- `e75e990` feat(search): added inline shortcut hint text near search controls to improve discoverability of keyboard flow (`/`, `Ctrl+Enter`, `Ctrl+Shift+Enter`).
+- `a137938` feat(search): reset action now clears stale results/error state in addition to control values, avoiding misleading old result lists after reset.
+- `ba7307b` refactor(chat): moved chat control reset behavior into `useChatSession` to reduce view-level state mutation noise and ensure consistent error reset.
+- `955e572` feat(chat): added inline shortcut hint text near chat controls to improve discoverability of keyboard ask flow (`/`, `Ctrl+Enter`).
+- `3b96035` feat(chat): added per-message “Copy answer” quick action to speed reuse of generated responses without manual text selection.
+- `729ea0d` feat(search): added per-result “Copy snippet” quick action to speed extraction of relevant text during review/triage.
+- `2282b03` feat(chat): added `Ctrl+Shift+Enter` shortcut to open first citation from the latest answer for faster source navigation.
+- `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
+- `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.

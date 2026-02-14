@@ -15,6 +15,7 @@
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Question</label>
           <div class="mt-1 flex items-center gap-2">
             <input
+              ref="questionInputRef"
               v-model="question"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
@@ -152,6 +153,9 @@
       >
         {{ error }}
       </div>
+      <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        Shortcuts: <code>/</code> focus, <code>Ctrl+Enter</code> ask, <code>Ctrl+Shift+Enter</code> open first citation.
+      </div>
       <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         <span>Conversation:</span>
         <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">
@@ -191,14 +195,22 @@
         </div>
         <div class="mt-2 text-sm text-slate-900 dark:text-slate-100">{{ message.question }}</div>
         <div class="mt-2">
-          <button
-            class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-            :disabled="loading"
-            @click="startFollowUp(message.question)"
-          >
-            <CornerDownRight class="h-3.5 w-3.5" />
-            Follow-up
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button
+              class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              :disabled="loading"
+              @click="startFollowUp(message.question)"
+            >
+              <CornerDownRight class="h-3.5 w-3.5" />
+              Follow-up
+            </button>
+            <button
+              class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copyAnswer(message)"
+            >
+              Copy answer
+            </button>
+          </div>
         </div>
 
         <div
@@ -300,7 +312,7 @@
 
 <script setup lang="ts">
 import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } from 'lucide-vue-next'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -308,6 +320,11 @@ import type { ChatCitation } from '../api/generated/model'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
+import { queryBool, queryNumber, queryString } from '../utils/queryState'
+import { useClipboardCopy } from '../composables/useClipboardCopy'
+import { useRouteQuerySync } from '../composables/useRouteQuerySync'
+import { useShareLink } from '../composables/useShareLink'
+import { useInputCommandHotkeys } from '../composables/useInputCommandHotkeys'
 
 const {
   question,
@@ -325,30 +342,21 @@ const {
   clearConversation,
   newConversation,
   startFollowUp,
+  resetControls: resetChatControls,
   stop,
   ask,
 } = useChatSession()
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
+const { copyText, errorMessage: copyError } = useClipboardCopy()
+const { copyResolvedLink } = useShareLink(router, 'Chat')
 const now = ref(Date.now())
-let syncingFromRoute = false
-
-const parseBool = (value: unknown, fallback: boolean) => {
-  const raw = Array.isArray(value) ? value[0] : value
-  if (raw === '1' || raw === 'true') return true
-  if (raw === '0' || raw === 'false') return false
-  return fallback
-}
-
-const parseNumber = (value: unknown, fallback: number) => {
-  const raw = Array.isArray(value) ? value[0] : value
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
+const questionInputRef = ref<HTMLInputElement | null>(null)
 
 const buildChatQuery = () => {
   const next: Record<string, string> = {}
+  if (question.value.trim()) next.q = question.value.trim()
   if (topK.value !== 6) next.k = String(topK.value)
   if (source.value) next.src = source.value
   if (onlyVision.value) next.v = '1'
@@ -360,51 +368,25 @@ const buildChatQuery = () => {
 }
 
 const syncChatFromRoute = () => {
-  syncingFromRoute = true
-  topK.value = parseNumber(route.query.k, 6)
-  source.value = typeof route.query.src === 'string' ? route.query.src : ''
-  onlyVision.value = parseBool(route.query.v, false)
-  minQuality.value = parseNumber(route.query.minq, 0)
-  streaming.value = parseBool(route.query.stream, true)
-  useHistory.value = parseBool(route.query.hist, true)
-  historyTurns.value = parseNumber(route.query.turns, 6)
-  syncingFromRoute = false
-}
-
-const syncChatToRoute = async () => {
-  const next = buildChatQuery()
-  const current = route.query
-  const same =
-    String(current.k || '') === String(next.k || '') &&
-    String(current.src || '') === String(next.src || '') &&
-    String(current.v || '') === String(next.v || '') &&
-    String(current.minq || '') === String(next.minq || '') &&
-    String(current.stream || '') === String(next.stream || '') &&
-    String(current.hist || '') === String(next.hist || '') &&
-    String(current.turns || '') === String(next.turns || '')
-  if (same) return
-  await router.replace({ query: next })
+  question.value = queryString(route.query.q, '')
+  topK.value = queryNumber(route.query.k, 6)
+  source.value = queryString(route.query.src, '')
+  onlyVision.value = queryBool(route.query.v, false)
+  minQuality.value = queryNumber(route.query.minq, 0)
+  streaming.value = queryBool(route.query.stream, true)
+  useHistory.value = queryBool(route.query.hist, true)
+  historyTurns.value = queryNumber(route.query.turns, 6)
 }
 
 const resetControls = async () => {
-  topK.value = 6
-  source.value = ''
-  onlyVision.value = false
-  minQuality.value = 0
-  streaming.value = true
-  useHistory.value = true
-  historyTurns.value = 6
-  await syncChatToRoute()
+  resetChatControls()
+  await querySync.syncToRoute()
 }
 
 const copyChatLink = async () => {
-  try {
-    const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildChatQuery() }).href}`
-    await navigator.clipboard.writeText(href)
-    toastStore.push('Chat link copied.', 'success', 'Chat', 1600)
-  } catch {
-    toastStore.push('Failed to copy chat link.', 'danger', 'Chat', 2200)
-  }
+  await copyResolvedLink(route.path, buildChatQuery(), {
+    successMessage: 'Chat link copied.',
+  })
 }
 
 const citationLink = (citation: ChatCitation) => {
@@ -541,24 +523,49 @@ const copyConversationId = async () => {
   const value = (conversationId.value || '').trim()
   if (!value) return
   try {
-    await navigator.clipboard.writeText(value)
+    await copyText(value)
     toastStore.push('Conversation id copied.', 'success', 'Chat', 1500)
-  } catch {
-    toastStore.push('Failed to copy conversation id.', 'danger', 'Chat', 2200)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Chat', 2200)
   }
 }
 
-watch([topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns], () => {
-  if (syncingFromRoute) return
-  void syncChatToRoute()
+const copyAnswer = async (message: ChatMessage) => {
+  const text = String(message.answer || '').trim()
+  if (!text) return
+  try {
+    await copyText(text)
+    toastStore.push('Answer copied.', 'success', 'Chat', 1500)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Chat', 2200)
+  }
+}
+
+const openFirstCitation = () => {
+  const latest = messages.value[0]
+  if (!latest?.citations?.length) return
+  const first = latest.citations.find((citation) => Boolean(citation?.doc_id))
+  if (!first) return
+  const href = citationLink(first)
+  if (!href) return
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+const querySync = useRouteQuerySync({
+  route,
+  router,
+  readFromRoute: syncChatFromRoute,
+  buildQuery: buildChatQuery,
+  sources: [question, topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
+  debounceMs: 120,
+  preserveUnknownQueryKeys: true,
 })
 
-watch(
-  () => route.query,
-  () => {
-    syncChatFromRoute()
-  },
-)
+useInputCommandHotkeys({
+  inputRef: questionInputRef,
+  onSubmit: ask,
+  onSecondarySubmit: openFirstCitation,
+})
 </script>
 
 <style scoped>
