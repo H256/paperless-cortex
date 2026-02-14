@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-14 (performance branch: perf/ops-route-speedups)
+
+### Backend performance
+- `aaae285` perf(backend): reduced memory/latency overhead in pipeline routes by narrowing cache queries to required columns/doc scopes, optimized task-run fanout lookups to planned signatures, and consolidated document stats calculation into a single aggregate query shared by `/documents/stats` and status stream payloads.
+
 ## 2026-02-14 (documentation branch: docs/concise-manual)
 
 ### Documentation
