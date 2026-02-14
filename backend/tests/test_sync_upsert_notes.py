@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.config import load_settings
 from app.models import Document, DocumentNote
-from app.routes.sync import _upsert_document
+from app.routes.sync import _merge_document_notes, _upsert_document
 from app.schemas import DocumentIn
 
 
@@ -166,3 +168,31 @@ def test_upsert_document_notes_ignores_duplicate_ids_in_single_payload(session_f
         assert len(notes) == 1
         assert notes[0].id == 12880
         assert notes[0].note == "first"
+
+
+def test_upsert_document_notes_skips_malformed_note_ids(session_factory):
+    with session_factory() as db:
+        doc = Document(id=1959, title="Test doc")
+        db.add(doc)
+        db.flush()
+        incoming_notes = [
+            SimpleNamespace(
+                id=12880,
+                note="valid",
+                created="2026-02-10T18:44:30.261279+01:00",
+                user={"id": 4, "username": "klemens"},
+            ),
+            SimpleNamespace(
+                id="broken-id",
+                note="invalid",
+                created="2026-02-10T18:44:30.261279+01:00",
+                user={"id": 4, "username": "klemens"},
+            ),
+        ]
+        _merge_document_notes(db, doc, incoming_notes)
+        db.commit()
+
+        notes = db.query(DocumentNote).filter(DocumentNote.document_id == 1959).all()
+        assert len(notes) == 1
+        assert notes[0].id == 12880
+        assert notes[0].note == "valid"

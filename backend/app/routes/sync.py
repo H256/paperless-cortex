@@ -76,7 +76,15 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
     incoming_ids: set[int] = set()
 
     for note in incoming_notes:
-        note_id = int(note.id)
+        try:
+            note_id = int(note.id)
+        except Exception:
+            __import__("logging").getLogger(__name__).warning(
+                "Skipping malformed note id during sync doc_id=%s note_id=%s",
+                getattr(doc, "id", None),
+                getattr(note, "id", None),
+            )
+            continue
         if note_id in incoming_ids:
             # Defensive: ignore duplicate note ids in one payload (Paperless/api anomalies)
             # to avoid duplicate-PK inserts in a single sync pass.

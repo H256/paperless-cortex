@@ -739,3 +739,4 @@ umber input + Go + Enter) to table footer with bounded clamping and new jump-pag
 - Documents row action feedback slice: Copy ID now shows short-lived inline confirmation (Copied) in both card and table variants of DocumentsTable, improving action confidence during queue/log triage.
 - Backend worker resilience slice: hardened _get_task_run_checkpoint to tolerate DB/schema errors (including missing 	ask_runs table) and return None instead of crashing worker flows; added regression test 	est_worker_checkpoint_recovery.py.
 - Backend worker DRY slice: extracted _handle_worker_cancel_request to centralize queue-clear/reset/cancel handling in main loop, removing duplicated cancel branches and keeping cancellation behavior consistent.
+- Backend sync hardening slice: _merge_document_notes now skips malformed/non-integer note ids with warning instead of aborting sync; added regression coverage for malformed note ids at merge-layer level.
