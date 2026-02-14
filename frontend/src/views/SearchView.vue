@@ -159,6 +159,13 @@
             >
               Open details
             </a>
+            <button
+              v-if="result.doc_id"
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copyResultLink(result)"
+            >
+              Copy details link
+            </button>
             <a
               v-if="paperlessBaseUrl"
               class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200"
@@ -185,6 +192,7 @@ import { useSearchSession, type SearchResult } from '../composables/useSearchSes
 import { useToastStore } from '../stores/toastStore'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
+import { useClipboardCopy } from '../composables/useClipboardCopy'
 
 const {
   query,
@@ -203,6 +211,7 @@ const {
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
+const { copyText, errorMessage: copyError } = useClipboardCopy()
 let syncingFromRoute = false
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const queryInputRef = ref<HTMLInputElement | null>(null)
@@ -270,10 +279,21 @@ const resetSearch = async () => {
 const copySearchLink = async () => {
   try {
     const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildQueryState() }).href}`
-    await navigator.clipboard.writeText(href)
+    await copyText(href)
     toastStore.push('Search link copied.', 'success', 'Search', 1600)
-  } catch {
-    toastStore.push('Failed to copy search link.', 'danger', 'Search', 2200)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Search', 2200)
+  }
+}
+
+const copyResultLink = async (result: SearchResult) => {
+  const href = resultLink(result)
+  if (!href) return
+  try {
+    await copyText(`${window.location.origin}${href}`)
+    toastStore.push('Result link copied.', 'success', 'Search', 1600)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Search', 2200)
   }
 }
 
