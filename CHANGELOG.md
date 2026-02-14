@@ -80,6 +80,7 @@ All granular implementation slices and refactors are tracked here.
 - `4d3b92b` refactor(chat): replaced Pinia-driven chat view state with `useChatSession` (Vue Query mutation + generated client chat services) while preserving streaming, follow-up context, and local persistence behavior.
 - `1a1c3ed` chore(chat): removed unused `chatStore` after composable migration to keep chat state architecture consistently Vue Query/composable-based.
 - `41d2100` refactor(search): aligned search service signature with generated OpenAPI type `SearchEmbeddingsSearchGetParams` to keep request contracts strictly client-generated.
+- `c39df21` refactor(chat): switched stream endpoint URL resolution to generated helper (`getChatStreamChatStreamPostUrl`) and tightened SSE done-payload typing for consistent OpenAPI-aligned chat contracts.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
