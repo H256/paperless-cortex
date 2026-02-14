@@ -15,6 +15,7 @@
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Query</label>
           <div class="mt-1 flex items-center gap-2">
             <input
+              ref="queryInputRef"
               v-model="query"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
@@ -176,7 +177,7 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
-import { onMounted, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
@@ -203,6 +204,7 @@ const router = useRouter()
 const toastStore = useToastStore()
 let syncingFromRoute = false
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
+const queryInputRef = ref<HTMLInputElement | null>(null)
 
 const combinedScore = (result: SearchResult) => {
   const value = (result as { combined_score?: number }).combined_score
@@ -279,6 +281,11 @@ onMounted(async () => {
   if (query.value.trim()) {
     await runSearchAction()
   }
+  window.addEventListener('keydown', onWindowKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onWindowKeydown)
 })
 
 watch([query, topK, source, onlyVision, minQuality, dedupe, rerank], () => {
@@ -292,4 +299,21 @@ watch(
     syncFromRoute()
   },
 )
+
+const onWindowKeydown = (event: KeyboardEvent) => {
+  const target = event.target as HTMLElement | null
+  const tag = target?.tagName?.toLowerCase()
+  const isTypingTarget =
+    tag === 'input' || tag === 'textarea' || target?.isContentEditable === true
+  if (!isTypingTarget && event.key === '/') {
+    event.preventDefault()
+    queryInputRef.value?.focus()
+    queryInputRef.value?.select()
+    return
+  }
+  if (event.ctrlKey && event.key === 'Enter') {
+    event.preventDefault()
+    void runSearchAction()
+  }
+}
 </script>
