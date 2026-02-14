@@ -309,7 +309,7 @@ import type { ChatCitation } from '../api/generated/model'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
-import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
+import { queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useClipboardCopy } from '../composables/useClipboardCopy'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 import { useShareLink } from '../composables/useShareLink'
@@ -364,12 +364,6 @@ const syncChatFromRoute = () => {
   historyTurns.value = queryNumber(route.query.turns, 6)
 }
 
-const syncChatToRoute = async () => {
-  const next = buildChatQuery()
-  if (isSameQueryState(route.query, next)) return
-  await router.replace({ query: next })
-}
-
 const resetControls = async () => {
   topK.value = 6
   source.value = ''
@@ -378,7 +372,7 @@ const resetControls = async () => {
   streaming.value = true
   useHistory.value = true
   historyTurns.value = 6
-  await syncChatToRoute()
+  await querySync.syncToRoute()
 }
 
 const copyChatLink = async () => {
@@ -528,7 +522,7 @@ const copyConversationId = async () => {
   }
 }
 
-useRouteQuerySync({
+const querySync = useRouteQuerySync({
   route,
   router,
   readFromRoute: syncChatFromRoute,

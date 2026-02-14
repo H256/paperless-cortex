@@ -189,7 +189,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
-import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
+import { queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 import { useShareLink } from '../composables/useShareLink'
 import { useInputCommandHotkeys } from '../composables/useInputCommandHotkeys'
@@ -255,12 +255,6 @@ const syncFromRoute = () => {
   rerank.value = queryBool(route.query.rr, true)
 }
 
-const syncToRoute = async () => {
-  const next = buildQueryState()
-  if (isSameQueryState(route.query, next)) return
-  await router.replace({ query: next })
-}
-
 const resetSearch = async () => {
   query.value = ''
   topK.value = 10
@@ -269,7 +263,7 @@ const resetSearch = async () => {
   minQuality.value = 0
   dedupe.value = true
   rerank.value = true
-  await syncToRoute()
+  await querySync.syncToRoute()
 }
 
 const copySearchLink = async () => {
@@ -290,7 +284,7 @@ onMounted(async () => {
     await runSearchAction()
   }
 })
-useRouteQuerySync({
+const querySync = useRouteQuerySync({
   route,
   router,
   readFromRoute: syncFromRoute,
