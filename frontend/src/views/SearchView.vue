@@ -182,6 +182,7 @@ import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
 import { useToastStore } from '../stores/toastStore'
+import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 
 const {
   query,
@@ -222,19 +223,6 @@ const resultLink = (result: SearchResult) => {
 
 const runSearchAction = async () => runSearch()
 
-const parseBool = (value: unknown, fallback: boolean) => {
-  const raw = Array.isArray(value) ? value[0] : value
-  if (raw === '1' || raw === 'true') return true
-  if (raw === '0' || raw === 'false') return false
-  return fallback
-}
-
-const parseNumber = (value: unknown, fallback: number) => {
-  const raw = Array.isArray(value) ? value[0] : value
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
-
 const buildQueryState = () => {
   const next: Record<string, string> = {}
   if (query.value.trim()) next.q = query.value.trim()
@@ -249,29 +237,19 @@ const buildQueryState = () => {
 
 const syncFromRoute = () => {
   syncingFromRoute = true
-  const q = Array.isArray(route.query.q) ? route.query.q[0] : route.query.q
-  query.value = typeof q === 'string' ? q : ''
-  topK.value = parseNumber(route.query.k, 10)
-  source.value = typeof route.query.src === 'string' ? route.query.src : ''
-  onlyVision.value = parseBool(route.query.v, false)
-  minQuality.value = parseNumber(route.query.minq, 0)
-  dedupe.value = parseBool(route.query.dd, true)
-  rerank.value = parseBool(route.query.rr, true)
+  query.value = queryString(route.query.q, '')
+  topK.value = queryNumber(route.query.k, 10)
+  source.value = queryString(route.query.src, '')
+  onlyVision.value = queryBool(route.query.v, false)
+  minQuality.value = queryNumber(route.query.minq, 0)
+  dedupe.value = queryBool(route.query.dd, true)
+  rerank.value = queryBool(route.query.rr, true)
   syncingFromRoute = false
 }
 
 const syncToRoute = async () => {
   const next = buildQueryState()
-  const current = route.query
-  const same =
-    String(current.q || '') === String(next.q || '') &&
-    String(current.k || '') === String(next.k || '') &&
-    String(current.src || '') === String(next.src || '') &&
-    String(current.v || '') === String(next.v || '') &&
-    String(current.minq || '') === String(next.minq || '') &&
-    String(current.dd || '') === String(next.dd || '') &&
-    String(current.rr || '') === String(next.rr || '')
-  if (same) return
+  if (isSameQueryState(route.query, next)) return
   await router.replace({ query: next })
 }
 
