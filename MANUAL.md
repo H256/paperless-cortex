@@ -1,72 +1,207 @@
-# User Manual (Current Features)
+# Paperless-NGX Cortex Manual
 
-## Overview
-Paperless-NGX Cortex is a read‑only companion to Paperless‑ngx. It syncs metadata + OCR text, runs embeddings (including optional Vision OCR), and provides search and suggestions without modifying Paperless.
+## 1. What this app is
+Paperless-NGX Cortex is a local intelligence layer for Paperless-ngx.
 
-## Setup
-1) Configure `.env` (see `.env.example`)
-2) Start backend and frontend
-3) (Optional) Run DB migrations
+- Paperless remains source-of-truth.
+- Cortex syncs, analyzes, embeds, and suggests locally.
+- Writeback is explicit/manual (never automatic).
 
-## Documents page
-- **Sync (DB only)**: Fetches metadata + OCR from Paperless into Postgres.
-- **Reprocess all (sync + embed)**: Forces sync + embeddings; with Vision OCR enabled this reprocesses all pages.
-- **Re‑embed current**: Re-embeds either the current page list or all docs depending on “Current page only”.
-- **Incremental**: Only pulls documents modified since last sync.
-- **Filters**: Sort, correspondent, tag, and date range filters (read‑only).
+## 2. Start the app (local development)
 
-### Semantic search
-- Enter a query and click **Search**.
-- **Source filter**: Choose `vision_ocr`, `paperless_ocr`, or `pdf_text`.
-- **Dedupe**: Keep best hit per document/page.
-- **Rerank**: Prefer results with higher text quality.
-- Click a result to open the document detail page.
-- **Open in Paperless** opens the source doc in Paperless (requires `VITE_PAPERLESS_BASE_URL`).
+### Backend
+```bash
+cd backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000
+```
 
-## Document detail page
-### Text layer (baseline)
-- Shows Paperless OCR text.
-- **Analyze quality** computes a quality score + metrics for the baseline text.
+### Worker (queue mode)
+```bash
+cd backend
+uv run python -m app.worker
+```
 
-### Extracted page texts (debug)
-- **Load extracted pages** shows per‑page text for:
-  - baseline layer (Paperless OCR / pdfminer)
-  - vision OCR layer (if available)
-- Each page includes a quality score + metrics.
-- Vision OCR pages include a PDF preview thumbnail next to the extracted text.
-- Use **Show previews** and the size slider to control thumbnails (persisted locally).
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-### AI suggestions
-- **Generate suggestions** runs an LLM and returns:
-  - summary
-  - suggested title/date/tags/correspondent/document type
-  - entities + risks
-- Suggestions are read‑only and do not write back to Paperless.
-  - Prompt is loaded from `backend/app/prompts/suggestions.txt`
-  - Suggestions run twice: baseline OCR and vision OCR (if available)
-  - Vision OCR is triggered on-demand when refreshing Vision OCR suggestions
-  - Best pick column merges baseline + vision suggestions
-  - Per-field variants (title/date/correspondent/tags) can be generated and applied
+### Default dev URLs
+- Backend API: `http://localhost:8000`
+- Frontend: `http://localhost:5173`
 
-## Embeddings + OCR layers
-- **Baseline layer**: Paperless OCR (or pdfminer per-page text if needed).
-- **Vision OCR layer**: Optional; stored separately and embedded with `source=vision_ocr`.
-- Each embedded chunk stores `doc_id`, `page`, `source`, `quality_score`.
+## 3. Alembic quick usage
 
-## Configuration highlights
-- `ENABLE_VISION_OCR=1` enables Vision OCR.
-- `VISION_MODEL=...` selects the vision model.
-- `VISION_OCR_PROMPT_PATH=backend/app/prompts/vision_ocr.txt` sets the prompt file.
-- `EMBED_ON_SYNC=1` embeds automatically after sync.
+### Apply migrations
+```bash
+cd backend
+uv run alembic upgrade head
+```
 
-## Auditing
-- Suggestion runs and field overrides are written to `suggestion_audit`.
+### Create a new migration
+```bash
+cd backend
+uv run alembic revision --autogenerate -m "describe_change"
+```
 
-## Queue
-- Optional Redis queue for document processing.
-- Enable with `QUEUE_ENABLED=1` and `REDIS_HOST=...`.
-- UI footer shows current queue length.
+### Show current migration
+```bash
+cd backend
+uv run alembic current
+```
 
-## Important notes
-- No automatic writeback to Paperless (read‑only).
-- If Vision OCR is enabled, reprocessing embeds both baseline and vision layers.
+## 4. Docker usage
+
+### App-only stack
+```bash
+docker compose -f docker-compose.app.yml up --build
+```
+
+### Full stack (app + postgres + redis + qdrant)
+```bash
+docker compose -f docker-compose.full.yml up --build
+```
+
+### Worker-only container
+```bash
+docker compose -f docker-compose.worker.yml up --build
+```
+
+## 5. Environment basics
+- Copy `.env.example` to `.env` and fill values.
+- For worker-specific tuning, use `.env.worker.example` as reference.
+- Minimum important values:
+  - `PAPERLESS_BASE_URL`
+  - `PAPERLESS_API_TOKEN`
+  - `DATABASE_URL`
+  - `QDRANT_URL`
+  - `LLM_BASE_URL`
+
+## 6. Main processing flow
+1. Sync docs from Paperless.
+2. Build/refresh OCR layers (paperless baseline, optional vision).
+3. Build embeddings (paperless/vision strategy).
+4. Generate suggestions.
+5. For large docs: page notes + hierarchical summary.
+6. Review locally.
+7. Write back manually when wanted.
+
+## 7. Page-by-page guide
+
+### Dashboard (`/dashboard`)
+Purpose: high-level status and processing overview.
+Use it for:
+- processed/unprocessed counts
+- trend and distribution checks
+- quick health pulse
+
+### Documents (`/documents`)
+Purpose: primary work queue.
+Use it for:
+- filtering and triage
+- opening document details
+- launching continue processing flows
+
+Tips:
+- use filters first, then open details in context
+- use continue-processing tools for missing steps
+
+### Document Detail (`/documents/:id`)
+Purpose: full per-document inspection and control center.
+
+Tabs:
+- `Metadata`: current local/Paperless values
+- `Text & quality`: text layers + OCR quality metrics
+- `Suggestions`: paperless/vision suggestions, variants, apply actions
+- `Pages`: per-page text and page-level inspection
+- `Operations`: per-doc pipeline actions, fan-out, timeline, retries
+
+Key actions:
+- Continue missing processing (doc-specific)
+- Retry failed runs from timeline
+- Write back local reviewed changes manually
+
+### Search (`/search`)
+Purpose: semantic retrieval.
+Use it for:
+- embeddings-based lookup
+- source filtering (`paperless_ocr`, `vision_ocr`, `pdf_text`)
+- quick jump to document details with page/bbox
+
+Shortcuts:
+- `/` focus query
+- `Ctrl+Enter` run search
+- `Ctrl+Shift+Enter` open first result
+
+### Chat (`/chat`)
+Purpose: retrieval + answer with citations.
+Use it for:
+- follow-up Q/A with conversation continuity
+- citation jumps to document details/new tab
+- quick source validation
+
+Shortcuts:
+- `/` focus question
+- `Ctrl+Enter` ask
+- `Ctrl+Shift+Enter` open first citation from latest answer
+
+### Writeback (`/writeback`)
+Purpose: controlled manual writeback workflow.
+Use it for:
+- previewing changes
+- selecting document set
+- executing explicit writeback only when approved
+
+### Queue (`/queue`)
+Purpose: worker queue control.
+Use it for:
+- inspect queued/running tasks
+- reordering tasks
+- retrying failed tasks
+- DLQ/delayed task handling
+
+### Logs (`/logs`)
+Purpose: operational troubleshooting.
+Use it for:
+- filtering by task/error type
+- isolating failures quickly
+- understanding retryability and error categories
+
+### Operations (`/operations`)
+Purpose: maintenance/admin actions.
+Use it for:
+- destructive maintenance actions (with caution)
+- runtime config checks
+- sync/embed status checks
+- worker lock/queue maintenance
+
+### Continue Processing (`/processing/continue`)
+Purpose: bulk missing-work orchestration.
+Use it for:
+- dry-run preview of missing tasks
+- selecting processing strategy
+- enqueueing only missing pipeline steps
+
+## 8. Recommended daily workflow
+1. Open `Documents` and filter to your review queue.
+2. Run `Continue processing` for missing work.
+3. Inspect in `Document Detail` (suggestions + timeline).
+4. Validate with `Search`/`Chat` when needed.
+5. Execute manual `Writeback` only for reviewed docs.
+6. Use `Queue`/`Logs` for failures.
+
+## 9. Troubleshooting quick checks
+- API unreachable: verify backend running on `:8000`.
+- No processing movement: verify worker is running and queue enabled.
+- Missing embeddings/suggestions: run continue-processing and inspect fan-out in detail page.
+- Writeback unavailable: verify local changes/review status in detail page.
+
+## 10. Related docs
+- `README.md` - project overview and quick start
+- `agents.md` - current phase and high-level working state
+- `CHANGELOG.md` - granular change history with commit hashes
+- `docs/execution-blueprint-large-doc-worker.md` - large-document processing details
