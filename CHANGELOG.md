@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-14 (documentation branch: docs/concise-manual)
+
+### Documentation
+- `e4e39c7` docs(manual): rewrote `MANUAL.md` into a concise operator/user guide covering local run flows (backend/worker/frontend), Alembic, Docker variants, page-by-page usage, processing flow, and troubleshooting.
+
 ## 2026-02-14 (current branch: feat/documents-triage-presets-search)
 
 ### Documentation / governance
