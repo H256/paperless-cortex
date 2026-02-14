@@ -49,8 +49,14 @@ def _now_iso() -> str:
 
 
 def _metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:
-    correspondents_by_id = {row.id: (row.name or "") for row in db.query(Correspondent).all()}
-    tags_by_id = {row.id: (row.name or "") for row in db.query(Tag).all()}
+    correspondents_by_id = {
+        int(corr_id): str(name or "")
+        for corr_id, name in db.query(Correspondent.id, Correspondent.name).all()
+    }
+    tags_by_id = {
+        int(tag_id): str(name or "")
+        for tag_id, name in db.query(Tag.id, Tag.name).all()
+    }
     return correspondents_by_id, tags_by_id
 
 

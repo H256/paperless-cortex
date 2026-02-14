@@ -140,14 +140,16 @@ def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> d
     embedding_query = db.query(DocumentEmbedding.doc_id, DocumentEmbedding.embedding_source)
     if id_filter:
         embedding_query = embedding_query.filter(DocumentEmbedding.doc_id.in_(id_filter))
-    embeddings = {int(doc_id): str(source or "") for doc_id, source in embedding_query.all()}
+    embeddings: dict[int, str] = {}
+    for doc_id, source in embedding_query.yield_per(500):
+        embeddings[int(doc_id)] = str(source or "")
 
     suggestion_query = db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source, DocumentSuggestion.created_at)
     if id_filter:
         suggestion_query = suggestion_query.filter(DocumentSuggestion.doc_id.in_(id_filter))
     suggestions: set[tuple[int, str]] = set()
     hier_summaries: dict[int, str | None] = {}
-    for doc_id, source, created_at in suggestion_query.all():
+    for doc_id, source, created_at in suggestion_query.yield_per(500):
         normalized_doc_id = int(doc_id)
         normalized_source = str(source or "")
         suggestions.add((normalized_doc_id, normalized_source))
@@ -160,10 +162,9 @@ def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> d
     )
     if id_filter:
         vision_query = vision_query.filter(DocumentPageText.doc_id.in_(id_filter))
-    vision_rows = vision_query.all()
     vision_latest: dict[int, datetime] = {}
     vision_pages_by_doc: dict[int, set[int]] = {}
-    for doc_id, page, created_at in vision_rows:
+    for doc_id, page, created_at in vision_query.yield_per(500):
         if page is None:
             continue
         normalized_doc_id = int(doc_id)
@@ -186,7 +187,7 @@ def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> d
     if id_filter:
         page_notes_query = page_notes_query.filter(DocumentPageNote.doc_id.in_(id_filter))
     page_notes_by_doc_source: dict[tuple[int, str], list[tuple[int, str, str | None, str | None]]] = {}
-    for doc_id, source, page, status, processed_at, created_at in page_notes_query.all():
+    for doc_id, source, page, status, processed_at, created_at in page_notes_query.yield_per(500):
         if page is None:
             continue
         key = (int(doc_id), str(source or ""))
@@ -206,7 +207,7 @@ def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> d
     if id_filter:
         anchors_query = anchors_query.filter(DocumentPageAnchor.doc_id.in_(id_filter))
     anchors_by_doc: dict[int, list[tuple[int, str, int]]] = {}
-    for doc_id, page, status, token_count in anchors_query.all():
+    for doc_id, page, status, token_count in anchors_query.yield_per(500):
         if page is None:
             continue
         anchors_by_doc.setdefault(int(doc_id), []).append((int(page), str(status or ""), int(token_count or 0)))
