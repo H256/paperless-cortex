@@ -60,5 +60,6 @@ def resolve_evidence(payload: EvidenceResolveRequest, settings: Settings = Depen
             for item in payload.citations
         ],
         max_pages=payload.max_pages,
+        settings=settings,
     )
     return {"count": len(matches), "matches": matches}
