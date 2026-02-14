@@ -139,11 +139,18 @@
       >
         {{ chatStore.error }}
       </div>
-      <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Conversation:
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <span>Conversation:</span>
         <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">
           {{ chatStore.conversationId || 'new (will be created on next question)' }}
         </code>
+        <button
+          class="inline-flex h-6 items-center rounded border border-slate-200 bg-white px-1.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+          :disabled="!chatStore.conversationId"
+          @click="copyConversationId"
+        >
+          Copy id
+        </button>
       </div>
     </section>
 
@@ -166,7 +173,7 @@
           <span>Question</span>
           <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">
             {{ formatAge(message.createdAt) }}
-            <template v-if="message.conversationId"> · {{ shortConversationId(message.conversationId) }}</template>
+            <template v-if="message.conversationId"> | {{ shortConversationId(message.conversationId) }}</template>
           </span>
         </div>
         <div class="mt-2 text-sm text-slate-900 dark:text-slate-100">{{ message.question }}</div>
@@ -288,8 +295,10 @@ import type { ChatMessage } from '../stores/chatStore'
 import type { ChatCitation } from '../services/chat'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useLoading } from '../composables/useLoading'
+import { useToastStore } from '../stores/toastStore'
 
 const chatStore = useChatStore()
+const toastStore = useToastStore()
 const { loading: askLoading, run: runAsk } = useLoading()
 const now = ref(Date.now())
 
@@ -428,6 +437,17 @@ const shortConversationId = (value: string) => {
   if (!id) return ''
   if (id.length <= 14) return id
   return `${id.slice(0, 8)}...${id.slice(-4)}`
+}
+
+const copyConversationId = async () => {
+  const value = (chatStore.conversationId || '').trim()
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+    toastStore.push('Conversation id copied.', 'success', 'Chat', 1500)
+  } catch {
+    toastStore.push('Failed to copy conversation id.', 'danger', 'Chat', 2200)
+  }
 }
 </script>
 
