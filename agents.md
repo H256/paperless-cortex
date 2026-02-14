@@ -10,7 +10,7 @@ Build a robust, safe Paperless intelligence layer:
 ## Phase status
 - `MVP`: **Done**
 - `Phase 1 (robustness + UX)`: **Done**
-- `Phase 2 (advanced evidence locator with bbox on-demand)`: **Planned**
+- `Phase 2 (advanced evidence locator with bbox on-demand)`: **In progress**
 
 ## What is stable now
 - Sync + local cache + manual writeback flow
