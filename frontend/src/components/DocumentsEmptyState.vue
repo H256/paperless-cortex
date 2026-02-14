@@ -3,10 +3,10 @@
     class="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900"
   >
     <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-      No documents match current filters
+      {{ titleText }}
     </h3>
     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-      Adjust filters or continue processing to generate more results.
+      {{ descriptionText }}
     </p>
     <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
       <button
@@ -26,8 +26,30 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
+const props = defineProps<{
+  mode?: 'filtered' | 'running_only' | 'empty'
+}>()
+
 defineEmits<{
   clearFilters: []
   openProcessing: []
 }>()
+
+const titleText = computed(() => {
+  if (props.mode === 'running_only') return 'No running documents right now'
+  if (props.mode === 'empty') return 'No documents available yet'
+  return 'No documents match current filters'
+})
+
+const descriptionText = computed(() => {
+  if (props.mode === 'running_only') {
+    return 'Background work is currently idle. Disable running-only filter or enqueue processing.'
+  }
+  if (props.mode === 'empty') {
+    return 'Sync documents from Paperless or continue processing to build local intelligence data.'
+  }
+  return 'Adjust filters or continue processing to generate more results.'
+})
 </script>

@@ -97,6 +97,7 @@
 
     <DocumentsEmptyState
       v-if="visibleDocuments.length === 0"
+      :mode="emptyStateMode"
       @clear-filters="clearAllFilters"
       @open-processing="openPreview"
     />
@@ -192,6 +193,11 @@ const visibleDocuments = computed(() => {
   return filteredDocuments.value.filter((doc) =>
     typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
   )
+})
+const emptyStateMode = computed<'filtered' | 'running_only' | 'empty'>(() => {
+  if (runningOnly.value) return 'running_only'
+  if (documents.value.length === 0) return 'empty'
+  return 'filtered'
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
