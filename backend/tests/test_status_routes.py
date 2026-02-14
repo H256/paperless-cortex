@@ -8,3 +8,4 @@ def test_status_includes_evidence_runtime_config(api_client):
     assert "evidence_vector_lookup_enabled" in payload
     assert "evidence_max_pages" in payload
     assert "evidence_min_snippet_chars" in payload
+    assert "evidence_min_match_ratio" in payload

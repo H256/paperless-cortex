@@ -75,9 +75,11 @@ def resolve_evidence_matches(
     citations: list[dict[str, Any]],
     *,
     max_pages: int = 3,
+    min_match_ratio: float = 0.8,
     settings: Settings | None = None,
 ) -> list[dict[str, Any]]:
     limit = max(1, min(int(max_pages), 5))
+    threshold = min(1.0, max(0.0, float(min_match_ratio)))
     matches: list[dict[str, Any]] = []
     seen_pages: set[tuple[int, int]] = set()
     resolved_cache: dict[tuple[int, int, str, str], tuple[list[float] | None, float]] = {}
@@ -159,7 +161,7 @@ def resolve_evidence_matches(
                 )
                 resolved_cache[cache_key] = cached
             matched_bbox, matched_score = cached
-        if matched_bbox is not None:
+        if matched_bbox is not None and matched_score >= threshold:
             matches.append(
                 {
                     "doc_id": doc_id,

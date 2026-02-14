@@ -88,6 +88,7 @@ def _status_payload(settings: Settings) -> dict[str, object]:
         "evidence_vector_lookup_enabled": settings.evidence_vector_lookup_enabled,
         "evidence_max_pages": settings.evidence_max_pages,
         "evidence_min_snippet_chars": settings.evidence_min_snippet_chars,
+        "evidence_min_match_ratio": settings.evidence_min_match_ratio,
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }
 

@@ -30,9 +30,11 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
     )
     monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
     monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
-    monkeypatch.setattr(
-        "app.services.chat.resolve_evidence_matches",
-        lambda citations, max_pages=3, settings=None: [
+    called = {"min_match_ratio": None}
+
+    def _resolver(citations, max_pages=3, min_match_ratio=0.8, settings=None):
+        called["min_match_ratio"] = min_match_ratio
+        return [
             {
                 "doc_id": 1756,
                 "page": 3,
@@ -42,13 +44,15 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
                 "status": "ok",
                 "error": None,
             }
-        ],
-    )
+        ]
+
+    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", _resolver)
 
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
     citations = result["citations"]
     assert len(citations) == 1
+    assert called["min_match_ratio"] == settings.evidence_min_match_ratio
     assert citations[0]["evidence_status"] == "ok"
     assert citations[0]["evidence_confidence"] == 0.95
     assert citations[0]["bbox"] == [10, 20, 30, 40]
@@ -83,7 +87,7 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
 
     called = {"value": False}
 
-    def _resolver(citations, max_pages=3, settings=None):
+    def _resolver(citations, max_pages=3, min_match_ratio=0.8, settings=None):
         called["value"] = True
         return []
 
@@ -148,7 +152,7 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
 
     called = {"max_pages": None}
 
-    def _resolver(citations, max_pages=3, settings=None):
+    def _resolver(citations, max_pages=3, min_match_ratio=0.8, settings=None):
         called["max_pages"] = max_pages
         return [
             {

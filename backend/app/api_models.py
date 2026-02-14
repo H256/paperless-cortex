@@ -26,6 +26,7 @@ class StatusResponse(BaseModel):
     evidence_vector_lookup_enabled: Optional[bool] = None
     evidence_max_pages: Optional[int] = None
     evidence_min_snippet_chars: Optional[int] = None
+    evidence_min_match_ratio: Optional[float] = None
     latency_ms: Optional[int] = None
 
 

@@ -90,3 +90,33 @@ def test_resolve_evidence_caches_duplicate_lookup(monkeypatch):
     assert len(matches) == 2
     assert calls["embed"] == 1
     assert calls["search"] == 1
+
+
+def test_resolve_evidence_respects_min_match_ratio(monkeypatch):
+    monkeypatch.setenv("EVIDENCE_VECTOR_LOOKUP_ENABLED", "1")
+    monkeypatch.setenv("EMBEDDING_MODEL", "test-embed")
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant.local")
+    settings = load_settings()
+
+    monkeypatch.setattr("app.services.embeddings.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "app.services.embeddings.search_points",
+        lambda _settings, _vector, limit=25: {
+            "result": [
+                {
+                    "score": 0.55,
+                    "payload": {"doc_id": 1756, "page": 6, "source": "vision", "bbox": [1, 2, 3, 4]},
+                }
+            ]
+        },
+    )
+
+    matches = resolve_evidence_matches(
+        [{"doc_id": 1756, "page": 6, "snippet": "weak hit", "source": "vision_ocr", "bbox": None}],
+        max_pages=3,
+        min_match_ratio=0.8,
+        settings=settings,
+    )
+    assert len(matches) == 1
+    assert matches[0]["status"] == "no_match"
+    assert matches[0]["bbox"] is None

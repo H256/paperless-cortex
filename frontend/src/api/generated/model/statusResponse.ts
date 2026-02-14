@@ -23,5 +23,6 @@ export interface StatusResponse {
   evidence_vector_lookup_enabled?: boolean | null;
   evidence_max_pages?: number | null;
   evidence_min_snippet_chars?: number | null;
+  evidence_min_match_ratio?: number | null;
   latency_ms?: number | null;
 }

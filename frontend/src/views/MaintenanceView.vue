@@ -457,6 +457,12 @@
                 {{ runtime.evidence_min_snippet_chars || '—' }}
               </dd>
             </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Evidence min match ratio</dt>
+              <dd class="text-right text-slate-900 dark:text-slate-100">
+                {{ runtime.evidence_min_match_ratio ?? '—' }}
+              </dd>
+            </div>
           </dl>
         </div>
       </div>
