@@ -110,6 +110,8 @@ All granular implementation slices and refactors are tracked here.
 - `5cfa94d` refactor(chat-search): removed duplicated local `syncToRoute` helpers in Chat/Search and reused `useRouteQuerySync` API directly for reset-triggered query updates.
 - `f6b954f` refactor(ui): enhanced `useRouteQuerySync` with optional debounce and unknown-query-key preservation to reduce route-churn and avoid dropping unrelated URL state.
 - `5f5f13e` perf(search): enabled debounced query-sync writes and preserved unrelated URL params in SearchView to keep navigation state stable while sliders/toggles change.
+- `d38292f` perf(chat): enabled debounced query-sync writes and preserved unrelated URL params in ChatView to keep navigation state stable while control toggles change.
+- `5cb53b6` feat(chat): chat draft question is now included in URL-synced state (`q`) so in-progress prompts can be resumed/shared alongside chat controls.
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
