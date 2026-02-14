@@ -207,28 +207,27 @@ def _apply_derived_fields_and_review_status(
         int(row[0])
         for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
     }
+    suggestion_columns = [DocumentSuggestion.doc_id, DocumentSuggestion.source]
+    if include_summary_preview:
+        suggestion_columns.append(DocumentSuggestion.payload)
     suggestion_rows = (
-        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+        db.query(*suggestion_columns)
         .filter(DocumentSuggestion.doc_id.in_(doc_ids))
         .all()
     )
     suggestions_by_doc: dict[int, set[str]] = {}
-    for doc_id, source in suggestion_rows:
+    for row in suggestion_rows:
+        doc_id, source = row[0], row[1]
         suggestions_by_doc.setdefault(int(doc_id), set()).add(str(source or ""))
     summary_preview_by_doc: dict[int, str] = {}
     if include_summary_preview:
-        preview_rows = (
-            db.query(DocumentSuggestion.doc_id, DocumentSuggestion.payload)
-            .filter(DocumentSuggestion.doc_id.in_(doc_ids))
-            .all()
-        )
-        for doc_id, preview_payload in preview_rows:
+        for row in suggestion_rows:
+            doc_id = row[0]
+            preview_payload = row[2] if len(row) > 2 else None
             normalized_doc_id = int(doc_id)
             if normalized_doc_id in summary_preview_by_doc:
                 continue
             parsed_payload = parse_json_object(str(preview_payload or ""))
-            if not isinstance(parsed_payload, dict):
-                continue
             summary = parsed_payload.get("summary")
             if not isinstance(summary, str):
                 continue

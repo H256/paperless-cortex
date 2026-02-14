@@ -33,6 +33,7 @@ from app.services.note_ids import next_local_note_id
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions, merge_suggestions
 from app.services.text_pages import get_page_text_layers
+from app.services.json_utils import parse_json_object
 from app.services.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
 from app.api_models import (
     ApplyFieldSuggestionResponse,
@@ -314,12 +315,8 @@ def suggest_field_variants(
         .one_or_none()
     )
     if stored:
-        try:
-            payload_json = json.loads(stored.payload)
-        except Exception:
-            payload_json = {}
-        if isinstance(payload_json, dict):
-            current = payload_json.get(payload.field)
+        payload_json = parse_json_object(stored.payload)
+        current = payload_json.get(payload.field)
     if require_queue_enabled(settings) and not priority:
         task = {
             "doc_id": doc_id,
@@ -364,10 +361,7 @@ def get_field_variants(
     )
     if not row:
         return {"doc_id": doc_id, "source": source, "field": field, "variants": []}
-    try:
-        payload_json = json.loads(row.payload)
-    except Exception:
-        payload_json = {}
+    payload_json = parse_json_object(row.payload)
     variants = payload_json.get("variants") or []
     return {"doc_id": doc_id, "source": source, "field": field, "variants": variants}
 
