@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `2dbd317` test(task-runs): added regression coverage for task-runs pagination totals (normal paged result and empty-page offset) to protect the new single-query/window-count list behavior.
 - `90674f0` chore(api): synchronized `backend/openapi.json` and frontend generated OpenAPI client/models (including queue error-type and evidence resolver models) to keep frontend contracts aligned with the latest backend API surface.
 - `55ae5df` perf(backend): removed redundant `count()+delete()` query pairs in document cleanup delete endpoints by using delete rowcounts directly, reducing DB round-trips on maintenance operations.
 - `c99036e` perf(backend): improved document list hot path by loading only required `Document`/relationship columns for derived review-state computation (avoids pulling full `content` blobs), optimized task-run pagination to use window-count in the main query (single-query fast path), and hardened queue task-run serialization to skip/log malformed rows instead of failing the whole endpoint.
