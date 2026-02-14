@@ -149,6 +149,8 @@ class TaskRunItem(BaseModel):
     attempt: int
     checkpoint: Optional[dict[str, Any]] = None
     error_type: Optional[str] = None
+    error_retryable: Optional[bool] = None
+    error_category: Optional[str] = None
     error_message: Optional[str] = None
     started_at: Optional[str] = None
     finished_at: Optional[str] = None

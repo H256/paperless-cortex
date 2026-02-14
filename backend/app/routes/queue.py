@@ -30,7 +30,7 @@ from app.services.queue import (
     requeue_dead_letter_item,
 )
 from app.services.task_runs import list_task_runs
-from app.services.error_types import list_error_type_details
+from app.services.error_types import get_error_type_details, list_error_type_details
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
     QueueStatusResponse,
@@ -265,26 +265,30 @@ def get_task_runs(
         limit=limit,
         offset=offset,
     )
-    items = [
-        TaskRunItem(
-            id=int(row.id),
-            doc_id=int(row.doc_id) if row.doc_id is not None else None,
-            task=str(row.task),
-            source=row.source,
-            status=str(row.status),
-            worker_id=row.worker_id,
-            attempt=int(row.attempt or 1),
-            checkpoint=_parse_json_object(row.checkpoint_json),
-            error_type=row.error_type,
-            error_message=row.error_message,
-            started_at=row.started_at,
-            finished_at=row.finished_at,
-            duration_ms=int(row.duration_ms) if row.duration_ms is not None else None,
-            created_at=row.created_at,
-            updated_at=row.updated_at,
+    items: list[TaskRunItem] = []
+    for row in rows:
+        error_details = get_error_type_details(row.error_type)
+        items.append(
+            TaskRunItem(
+                id=int(row.id),
+                doc_id=int(row.doc_id) if row.doc_id is not None else None,
+                task=str(row.task),
+                source=row.source,
+                status=str(row.status),
+                worker_id=row.worker_id,
+                attempt=int(row.attempt or 1),
+                checkpoint=_parse_json_object(row.checkpoint_json),
+                error_type=row.error_type,
+                error_retryable=error_details.get("retryable") if error_details else None,
+                error_category=error_details.get("category") if error_details else None,
+                error_message=row.error_message,
+                started_at=row.started_at,
+                finished_at=row.finished_at,
+                duration_ms=int(row.duration_ms) if row.duration_ms is not None else None,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
         )
-        for row in rows
-    ]
     return {"enabled": True, "count": total, "items": items}
 
 

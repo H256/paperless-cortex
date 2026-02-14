@@ -192,6 +192,22 @@
               <td class="px-2 py-1.5">{{ formatTaskCheckpoint(run.checkpoint) }}</td>
               <td class="px-2 py-1.5">
                 <div>{{ run.error_type || '-' }}</div>
+                <div
+                  v-if="run.error_type && getErrorCategory(run)"
+                  class="text-[11px] text-slate-500 dark:text-slate-400"
+                >
+                  {{ getErrorCategory(run) }}
+                  <span
+                    class="ml-1 rounded px-1 py-0.5"
+                    :class="
+                      isErrorRetryable(run)
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    "
+                  >
+                    {{ isErrorRetryable(run) ? 'retryable' : 'terminal' }}
+                  </span>
+                </div>
                 <div v-if="run.error_message" class="text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
                   {{ compactMessage(run.error_message) }}
                   <button class="ml-1 text-indigo-600 dark:text-indigo-300" @click="copyError(run.error_message)">copy</button>
@@ -226,7 +242,11 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskRunInspector } from '../composables/useTaskRunInspector'
-import { fetchQueueErrorTypes, type QueueErrorTypeDetail } from '../services/queue'
+import {
+  fetchQueueErrorTypes,
+  type QueueErrorTypeDetail,
+  type QueueTaskRun,
+} from '../services/queue'
 import { useToastStore } from '../stores/toastStore'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
@@ -268,6 +288,16 @@ const compactMessage = (message?: string | null) => {
   const normalized = message.replace(/\s+/g, ' ').trim()
   if (normalized.length <= 100) return normalized
   return `${normalized.slice(0, 97)}...`
+}
+
+const getErrorCategory = (run: QueueTaskRun): string => {
+  const value = (run as unknown as Record<string, unknown>).error_category
+  return typeof value === 'string' ? value : ''
+}
+
+const isErrorRetryable = (run: QueueTaskRun): boolean => {
+  const value = (run as unknown as Record<string, unknown>).error_retryable
+  return value === true
 }
 
 const openDocument = (docId: number) => {

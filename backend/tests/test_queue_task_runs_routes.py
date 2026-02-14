@@ -92,6 +92,8 @@ def test_queue_task_runs_lists_rows():
     assert item["task"] == "embeddings_vision"
     assert item["status"] == "failed"
     assert item["error_type"] == "EMBED_CONTEXT_OVERFLOW"
+    assert item["error_retryable"] is False
+    assert item["error_category"] == "embedding"
 
 
 def test_queue_task_runs_ignores_invalid_checkpoint_json():
