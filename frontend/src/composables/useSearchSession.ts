@@ -21,6 +21,7 @@ export const useSearchSession = () => {
   const dedupe = ref(true)
   const rerank = ref(true)
   const results = ref<SearchResult[]>([])
+  const hasSearched = ref(false)
   const error = ref('')
 
   const effectiveSource = computed(() => (onlyVision.value ? 'vision_ocr' : source.value || ''))
@@ -49,6 +50,7 @@ export const useSearchSession = () => {
     },
     onSuccess: (matches) => {
       results.value = matches
+      hasSearched.value = true
     },
     onError: (err) => {
       error.value = errorMessage(err, 'Search failed')
@@ -64,6 +66,7 @@ export const useSearchSession = () => {
     dedupe,
     rerank,
     results,
+    hasSearched,
     filteredResults,
     loading: computed(() => runMutation.isPending.value),
     error,
