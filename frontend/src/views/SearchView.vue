@@ -106,6 +106,9 @@
         </div>
       </div>
 
+      <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        Shortcuts: <code>/</code> focus, <code>Ctrl+Enter</code> search, <code>Ctrl+Shift+Enter</code> open first result.
+      </div>
       <div
         v-if="error"
         class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
