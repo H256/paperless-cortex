@@ -37,7 +37,15 @@ import type { Correspondent, Tag } from '../services/documents'
 
 type AnalysisFilter = 'all' | 'analyzed' | 'not_analyzed'
 type ReviewStatus = 'all' | 'unreviewed' | 'reviewed' | 'needs_review'
-type FilterKey = 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model'
+type FilterKey =
+  | 'correspondent'
+  | 'tag'
+  | 'date_from'
+  | 'date_to'
+  | 'analysis'
+  | 'review'
+  | 'model'
+  | 'search'
 
 const props = defineProps<{
   tags: Tag[]
@@ -49,6 +57,7 @@ const props = defineProps<{
   analysisFilter: AnalysisFilter
   selectedReviewStatus: ReviewStatus
   modelFilter: string
+  searchQuery: string
 }>()
 
 defineEmits<{
@@ -108,6 +117,9 @@ const activeFilters = computed(() => {
   }
   if (props.modelFilter.trim()) {
     items.push({ key: 'model', label: 'Model', value: props.modelFilter.trim() })
+  }
+  if (props.searchQuery.trim()) {
+    items.push({ key: 'search', label: 'Search', value: props.searchQuery.trim() })
   }
   return items
 })

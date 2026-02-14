@@ -47,6 +47,7 @@
       v-model:analysis-filter="analysisFilter"
       v-model:selected-review-status="selectedReviewStatus"
       v-model:model-filter="modelFilter"
+      v-model:search-query="searchQuery"
       v-model:page-size="pageSize"
       :is-loading="documentsLoading"
       @reload="load"
@@ -62,8 +63,16 @@
       :analysis-filter="analysisFilter"
       :selected-review-status="selectedReviewStatus"
       :model-filter="modelFilter"
+      :search-query="searchQuery"
       @clear-filter="clearFilter"
       @clear-all="clearAllFilters"
+    />
+
+    <DocumentsPresetBar
+      :analysis-filter="analysisFilter"
+      :review-status="selectedReviewStatus"
+      :search-query="searchQuery"
+      @apply-preset="applyTriagePreset"
     />
 
     <DocumentsQuickControls
@@ -111,6 +120,7 @@ import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
+import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
@@ -148,8 +158,9 @@ const {
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
+const searchQuery = ref('')
 const listViewMode = ref<'table' | 'cards'>('table')
-const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter)
+const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter, searchQuery)
 const { runningByDocId } = useRunningTaskProgress()
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
@@ -251,11 +262,12 @@ const resetQuickFilters = () => {
   selectedReviewStatus.value = 'all'
   analysisFilter.value = 'all'
   modelFilter.value = ''
+  searchQuery.value = ''
   page.value = 1
 }
 
 const clearFilter = (
-  key: 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model',
+  key: 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model' | 'search',
 ) => {
   if (key === 'correspondent') selectedCorrespondent.value = ''
   if (key === 'tag') selectedTag.value = ''
@@ -264,6 +276,7 @@ const clearFilter = (
   if (key === 'analysis') analysisFilter.value = 'all'
   if (key === 'review') selectedReviewStatus.value = 'all'
   if (key === 'model') modelFilter.value = ''
+  if (key === 'search') searchQuery.value = ''
   page.value = 1
 }
 
@@ -275,6 +288,28 @@ const clearAllFilters = () => {
   selectedReviewStatus.value = 'all'
   analysisFilter.value = 'all'
   modelFilter.value = ''
+  searchQuery.value = ''
+  page.value = 1
+}
+
+const applyTriagePreset = (key: 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox') => {
+  if (key === 'unreviewed') {
+    selectedReviewStatus.value = 'unreviewed'
+    analysisFilter.value = 'all'
+  }
+  if (key === 'needs_review') {
+    selectedReviewStatus.value = 'needs_review'
+    analysisFilter.value = 'all'
+  }
+  if (key === 'not_analyzed') {
+    selectedReviewStatus.value = 'all'
+    analysisFilter.value = 'not_analyzed'
+  }
+  if (key === 'inbox') {
+    selectedReviewStatus.value = 'unreviewed'
+    analysisFilter.value = 'not_analyzed'
+  }
+  searchQuery.value = ''
   page.value = 1
 }
 
@@ -289,6 +324,7 @@ useDocumentsRouteState({
   dateTo,
   analysisFilter,
   modelFilter,
+  searchQuery,
   viewMode: listViewMode,
 })
 

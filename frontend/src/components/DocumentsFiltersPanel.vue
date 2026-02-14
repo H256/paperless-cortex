@@ -15,7 +15,16 @@
         <ChevronDown v-else class="h-3.5 w-3.5" />
       </button>
     </div>
-    <div class="mt-3 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+    <div class="mt-3 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Quick search</label>
+        <input
+          v-model="searchQueryModel"
+          type="text"
+          placeholder="ID, title, content..."
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
       <div>
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
         <select
@@ -152,6 +161,7 @@ const props = defineProps<{
   analysisFilter: 'all' | 'analyzed' | 'not_analyzed'
   selectedReviewStatus: 'all' | 'unreviewed' | 'reviewed' | 'needs_review'
   modelFilter: string
+  searchQuery: string
   pageSize: number
   isLoading?: boolean
 }>()
@@ -166,6 +176,7 @@ const emit = defineEmits<{
   'update:analysisFilter': [value: 'all' | 'analyzed' | 'not_analyzed']
   'update:selectedReviewStatus': [value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review']
   'update:modelFilter': [value: string]
+  'update:searchQuery': [value: string]
   'update:pageSize': [value: number]
 }>()
 
@@ -203,6 +214,10 @@ const selectedReviewStatusModel = computed({
 const modelFilterModel = computed({
   get: () => props.modelFilter,
   set: (value: string) => emit('update:modelFilter', value),
+})
+const searchQueryModel = computed({
+  get: () => props.searchQuery,
+  set: (value: string) => emit('update:searchQuery', value),
 })
 const pageSizeModel = computed({
   get: () => props.pageSize,
