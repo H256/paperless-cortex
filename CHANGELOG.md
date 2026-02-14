@@ -120,6 +120,7 @@ All granular implementation slices and refactors are tracked here.
 - `955e572` feat(chat): added inline shortcut hint text near chat controls to improve discoverability of keyboard ask flow (`/`, `Ctrl+Enter`).
 - `3b96035` feat(chat): added per-message “Copy answer” quick action to speed reuse of generated responses without manual text selection.
 - `729ea0d` feat(search): added per-result “Copy snippet” quick action to speed extraction of relevant text during review/triage.
+- `2282b03` feat(chat): added `Ctrl+Shift+Enter` shortcut to open first citation from the latest answer for faster source navigation.
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
