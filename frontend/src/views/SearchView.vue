@@ -278,6 +278,14 @@ const copyResultLink = async (result: SearchResult) => {
   })
 }
 
+const openFirstResult = () => {
+  const first = filteredResults.value[0]
+  if (!first) return
+  const href = resultLink(first)
+  if (!href) return
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
 onMounted(async () => {
   syncFromRoute()
   if (query.value.trim()) {
@@ -297,5 +305,6 @@ const querySync = useRouteQuerySync({
 useInputCommandHotkeys({
   inputRef: queryInputRef,
   onSubmit: runSearchAction,
+  onSecondarySubmit: openFirstResult,
 })
 </script>
