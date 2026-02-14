@@ -48,6 +48,7 @@ All granular implementation slices and refactors are tracked here.
 
 ### Phase 2 kickoff
 - `a4f5542` feat(phase2): added `/chat/resolve-evidence` API contract and baseline resolver service (`app/services/evidence.py`) with bounded page processing and deterministic status outputs (`ok`/`no_match`/`error`), plus route-level tests.
+- `4b47e82` feat(phase2): chat responses now enrich citations with baseline evidence metadata (`evidence_status`, `evidence_confidence`, `evidence_error`) using resolver pass for sufficiently long snippets; added service-level tests.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
