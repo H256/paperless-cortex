@@ -27,6 +27,12 @@ Build a robust, safe Paperless intelligence layer:
 2. Backend SRP refactor of largest route modules by extracting pipeline/writeback planning helpers into services.
 3. Continue strict KISS/DRY/SOLID cleanup during feature work.
 
+## Session handover (2026-02-14)
+- Fixed false `Sync: Missing` after writeback by invalidating Paperless caches and reading fresh modified timestamp for reviewed/audit updates.
+- Fixed writeback preview gap where only a subset of changed docs appeared; `only_changed` now uses local candidate discovery (audit + pending tags).
+- Added summary-only suggestion regeneration (`field=note` variants mapped to `summary`) and updated Suggestions UI.
+- Suggestions UX cleanup: inline variants under each field, removed legacy tag debug hint boxes.
+
 ## Open work (high-level)
 - Complete responsive/mobile fit-and-finish across key screens (documents, processing, detail-heavy actions).
 - Continue extracting large route logic into dedicated services/composables to reduce coupling.
