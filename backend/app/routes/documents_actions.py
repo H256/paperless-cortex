@@ -91,16 +91,6 @@ class _PipelineOptions(PipelineOptions):
     pass
 
 
-def _task_identity(task: dict[str, Any]) -> tuple:
-    return (
-        int(task.get("doc_id") or 0),
-        str(task.get("task") or ""),
-        str(task.get("source") or ""),
-        bool(task.get("force") or False),
-        bool(task.get("clear_first") or False),
-    )
-
-
 def _task_signature(task: dict[str, Any]) -> tuple[str, str]:
     return task_signature(task)
 
@@ -111,14 +101,6 @@ def _dedupe_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: _PipelineOptions) -> list[dict[str, Any]]:
     return post_sync_followup_tasks(doc_id, settings=settings, options=options)
-
-
-def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
-    expected = int(doc.page_count or 0)
-    if expected <= 0:
-        return bool(pages)
-    bounded = {page for page in pages if 1 <= page <= expected}
-    return len(bounded) == expected
 
 
 def _collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> dict[str, Any]:
@@ -155,9 +137,8 @@ def _latest_task_runs_by_signature(
                 )
         if signature_filters:
             query = query.filter(or_(*signature_filters))
-    rows = query.order_by(TaskRun.id.desc()).all()
     latest: dict[tuple[str, str], TaskRun] = {}
-    for row in rows:
+    for row in query.order_by(TaskRun.id.desc()).yield_per(200):
         key = (str(row.task or "").strip(), str(row.source or "").strip())
         if key in latest:
             continue
@@ -725,7 +706,7 @@ def cleanup_texts(
         if not require_queue_enabled(settings):
             return {"queued": False, "docs": len(doc_ids), "enqueued": 0, "processed": 0, "updated": 0}
         if not doc_ids:
-            doc_ids = [int(row.id) for row in db.query(Document.id).all()]
+            doc_ids = [int(row.id) for row in db.query(Document.id).yield_per(500)]
         tasks: list[dict] = []
         for doc_id in doc_ids:
             task: dict[str, object] = {"doc_id": doc_id, "task": "cleanup_texts", "clear_first": payload.clear_first}
