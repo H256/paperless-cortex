@@ -85,7 +85,14 @@
       @open-processing="openPreview"
     />
 
+    <DocumentsEmptyState
+      v-if="visibleDocuments.length === 0"
+      @clear-filters="clearAllFilters"
+      @open-processing="openPreview"
+    />
+
     <DocumentsTable
+      v-else
       :documents="visibleDocuments"
       :running-by-doc-id="runningByDocId"
       :ordering="ordering"
@@ -120,6 +127,7 @@ import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
+import DocumentsEmptyState from '../components/DocumentsEmptyState.vue'
 import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
