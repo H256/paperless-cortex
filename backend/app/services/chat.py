@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat.txt"
 _prompt_cache: dict[str, str] = {}
-EVIDENCE_MIN_SNIPPET_CHARS = 20
-EVIDENCE_MAX_PAGES = 3
 
 
 def _load_prompt(settings: Settings) -> str:
@@ -102,11 +100,11 @@ def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
     return "\n\n".join(blocks) if blocks else "None"
 
 
-def _resolve_evidence_for_sources(sources: list[dict[str, Any]]) -> None:
+def _resolve_evidence_for_sources(settings: Settings, sources: list[dict[str, Any]]) -> None:
     candidates: list[dict[str, Any]] = []
     for source in sources:
         snippet = str(source.get("snippet") or "").strip()
-        if len(snippet) < EVIDENCE_MIN_SNIPPET_CHARS:
+        if len(snippet) < settings.evidence_min_snippet_chars:
             continue
         candidates.append(
             {
@@ -119,7 +117,7 @@ def _resolve_evidence_for_sources(sources: list[dict[str, Any]]) -> None:
         )
     if not candidates:
         return
-    matches = resolve_evidence_matches(candidates, max_pages=EVIDENCE_MAX_PAGES)
+    matches = resolve_evidence_matches(candidates, max_pages=settings.evidence_max_pages)
     index: dict[tuple[int, int, str], dict[str, Any]] = {}
     for match in matches:
         key = (
@@ -182,7 +180,7 @@ def answer_question(
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
         )
-        _resolve_evidence_for_sources(sources)
+        _resolve_evidence_for_sources(settings, sources)
         for source in sources:
             source.pop("text", None)
         return {
@@ -203,7 +201,7 @@ def answer_question(
             payload = json.dumps({"token": token})
             yield f"data: {payload}\n\n".encode("utf-8")
         answer = "".join(answer_chunks).strip()
-        _resolve_evidence_for_sources(sources)
+        _resolve_evidence_for_sources(settings, sources)
         for source in sources:
             source.pop("text", None)
         done_payload = json.dumps({"answer": answer, "citations": sources})
