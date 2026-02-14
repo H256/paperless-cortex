@@ -71,6 +71,7 @@ All granular implementation slices and refactors are tracked here.
 - `759c062` fix(ux): hardened citation jump handoff parsing to accept bbox strings/arrays consistently and added stale jump-token pruning in `sessionStorage` to avoid long-lived navigation residue.
 - `74b541b` fix(chat-ui): markdown citation superscripts now render as plain markers when no document link is available, and citation tooltip/href attributes are escaped before HTML injection.
 - `74f8b9b` refactor(chat-ui): extended generated `ChatCitation` typing with evidence fields and removed unsafe type-cast access in `ChatView` evidence rendering helpers.
+- `da7eeb2` test(chat): added route-level tests for `/chat` and `/chat/stream` to verify `conversation_id` contract behavior in sync and SSE done-payload responses.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
