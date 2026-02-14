@@ -63,6 +63,13 @@
           <button
             type="button"
             class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            @click.stop="copyDocId(doc.id)"
+          >
+            Copy ID
+          </button>
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click.stop="onOpenDoc(doc.id)"
           >
             Open
@@ -188,6 +195,13 @@
                   {{ runningByDocId[doc.id] }}
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    @click.stop="copyDocId(doc.id)"
+                  >
+                    Copy ID
+                  </button>
                   <button
                     type="button"
                     class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
@@ -329,6 +343,15 @@ const onOpenDocOperations = (id: number | null | undefined) => {
 const onOpenDocSuggestions = (id: number | null | undefined) => {
   if (typeof id !== 'number') return
   emit('open-doc-suggestions', id)
+}
+
+const copyDocId = async (id: number | null | undefined) => {
+  if (typeof id !== 'number') return
+  try {
+    await navigator.clipboard.writeText(String(id))
+  } catch {
+    // no-op fallback; clipboard may be unavailable in some contexts
+  }
 }
 
 const needsReview = (doc: DocumentRow) =>
