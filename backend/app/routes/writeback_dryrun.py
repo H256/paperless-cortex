@@ -217,6 +217,36 @@ def _preview_for_doc_ids(
     return items
 
 
+def _local_writeback_candidate_doc_ids(db: Session) -> list[int]:
+    audit_rows = (
+        db.query(
+            SuggestionAudit.doc_id,
+            func.max(SuggestionAudit.created_at).label("last_applied_at"),
+        )
+        .filter(SuggestionAudit.action.like("apply_to_document:%"))
+        .group_by(SuggestionAudit.doc_id)
+        .order_by(func.max(SuggestionAudit.created_at).desc().nullslast())
+        .all()
+    )
+    ordered_ids: list[int] = []
+    seen: set[int] = set()
+    for row in audit_rows:
+        doc_id = int(row.doc_id)
+        if doc_id <= 0 or doc_id in seen:
+            continue
+        ordered_ids.append(doc_id)
+        seen.add(doc_id)
+
+    pending_rows = db.query(DocumentPendingTag.doc_id).all()
+    for row in pending_rows:
+        doc_id = int(row.doc_id)
+        if doc_id <= 0 or doc_id in seen:
+            continue
+        ordered_ids.append(doc_id)
+        seen.add(doc_id)
+    return ordered_ids
+
+
 def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall]:
     calls: list[WritebackDryRunCall] = []
     if not item.changed:
@@ -811,6 +841,12 @@ def dry_run_preview(
     if doc_id is not None and doc_id > 0:
         doc_ids = [int(doc_id)]
         total_count = 1
+    elif only_changed:
+        candidate_ids = _local_writeback_candidate_doc_ids(db)
+        total_count = len(candidate_ids)
+        start = max(0, (max(1, page) - 1) * max(1, page_size))
+        end = start + max(1, page_size)
+        doc_ids = candidate_ids[start:end]
     else:
         payload = paperless.list_documents_cached(settings, page=page, page_size=page_size)
         results = payload.get("results") or []

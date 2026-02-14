@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document
+from app.models import Document, SuggestionAudit
 
 
 def _insert_document(doc_id: int):
@@ -75,4 +75,50 @@ def test_reviewed_timestamp_uses_fresh_remote_document(session_factory, monkeypa
         assert modified == "2026-02-14T11:11:11+00:00"
         assert refreshed is not None
         assert refreshed.modified == "2026-02-14T11:11:11+00:00"
+
+
+def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(501)
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db_doc = db.get(Document, 501)
+        assert db_doc is not None
+        db_doc.title = "Local changed title"
+        db.add(
+            SuggestionAudit(
+                doc_id=501,
+                action="apply_to_document:title",
+                source="paperless_ocr",
+                created_at="2026-02-14T12:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    def _list_documents_should_not_run(*args, **kwargs):
+        raise AssertionError("list_documents should not be called for only_changed preview with local candidates")
+
+    monkeypatch.setattr(paperless, "list_documents", _list_documents_should_not_run)
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote original title",
+            "created": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    response = api_client.get(
+        "/writeback/dry-run/preview",
+        params={"only_changed": True, "page": 1, "page_size": 50},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    ids = [int(item["doc_id"]) for item in payload["items"]]
+    assert 501 in ids
 
