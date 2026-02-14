@@ -1,4 +1,5 @@
 import { ref, watch, type WatchSource } from 'vue'
+import { onUnmounted } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { isSameQueryState } from '../utils/queryState'
 
@@ -15,6 +16,13 @@ type Options = {
 export const useRouteQuerySync = (options: Options) => {
   const syncingFromRoute = ref(false)
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  onUnmounted(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
+  })
 
   const syncFromRoute = () => {
     syncingFromRoute.value = true
