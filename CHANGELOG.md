@@ -86,6 +86,9 @@ All granular implementation slices and refactors are tracked here.
 - `a2f4861` chore(search): removed now-redundant `services/search.ts` wrapper after direct generated-client adoption in search composable/view flow.
 - `ae7cf8c` chore(chat): removed redundant `services/chat.ts` wrapper and switched chat view typing to generated `ChatCitation` model, completing direct generated-client usage for chat/search paths.
 - `4e6a696` feat(search): SearchView now keeps controls in URL query params (`q/k/src/v/minq/dd/rr`), auto-restores/reruns on reload, and adds explicit reset + deep-link copy actions for streamlined triage workflows.
+- `61d9e60` feat(chat): Chat controls are now URL-synced (`k/src/v/minq/stream/hist/turns`) with quick reset + deep-link copy actions so chat sessions are easier to resume/share.
+- `453a68f` fix(search): search controls now resync when route query changes via browser navigation, preventing stale UI state after back/forward transitions.
+- `1000550` fix(chat): chat controls now resync from route-query changes during browser navigation so shared/back-forward links keep UI controls consistent.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
