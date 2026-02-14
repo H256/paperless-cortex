@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `55ae5df` perf(backend): removed redundant `count()+delete()` query pairs in document cleanup delete endpoints by using delete rowcounts directly, reducing DB round-trips on maintenance operations.
 - `c99036e` perf(backend): improved document list hot path by loading only required `Document`/relationship columns for derived review-state computation (avoids pulling full `content` blobs), optimized task-run pagination to use window-count in the main query (single-query fast path), and hardened queue task-run serialization to skip/log malformed rows instead of failing the whole endpoint.
 - `7815175` refactor(backend): simplified `documents_actions` by removing redundant local wrapper helpers around pipeline planner APIs and using shared service functions/types directly (same behavior, lower indirection).
 - `bf829d3` perf(backend): reduced `documents_actions` hot-path overhead by streaming latest task-run lookups (early break on required signatures), streaming global cleanup doc-id scans, and removing dead helper code to keep the route module leaner.
