@@ -6,6 +6,12 @@
         <p class="text-sm text-slate-500">
           Manage ingestion, embedding, and review analysis status.
         </p>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Showing {{ visibleDocuments.length }} of {{ totalCount }} synced documents
+          <template v-if="searchQuery.trim()">
+            for "{{ searchQuery.trim() }}"
+          </template>
+        </p>
       </div>
       <DocumentsOverviewPanel
         :stats="stats"
