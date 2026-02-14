@@ -6,7 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
-- `pending` fix(documents): hardened local-override detection for nullable/empty scalar fields (`title`, `document_date/created`, `correspondent`) so intentional clears are recognized consistently in list + local detail review state; also guarded OCR score JSON decoding against malformed payloads in `/documents/{id}/ocr-scores` and added regression tests.
+- `0baac9b` fix(documents): hardened local-override detection for nullable/empty scalar fields (`title`, `document_date/created`, `correspondent`) so intentional clears are recognized consistently in list + local detail review state; also guarded OCR score JSON decoding against malformed payloads in `/documents/{id}/ocr-scores` and added regression tests.
 - `30bbb7f` feat(documents/mobile): added dedicated small-screen fallback list for table mode in `DocumentsTable` (title/date/correspondent/status/actions), while keeping the full table on `md+`; this removes horizontal cut-off pain on phones without changing desktop behavior.
 - `1bfa215` chore(api): regenerated OpenAPI spec + Orval client/models after recent backend route additions (`writebackJobDeleteResponse` now in generated frontend models), then revalidated with frontend type-check and backend compileall.
 - `958647a` perf(writeback): reduced dry-run preview latency on larger selections by adding batched/parallel remote document fetch (`paperless.get_documents_cached`) and switching preview page list fetches to cached list calls.
