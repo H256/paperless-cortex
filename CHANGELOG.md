@@ -73,6 +73,7 @@ All granular implementation slices and refactors are tracked here.
 - `74f8b9b` refactor(chat-ui): extended generated `ChatCitation` typing with evidence fields and removed unsafe type-cast access in `ChatView` evidence rendering helpers.
 - `da7eeb2` test(chat): added route-level tests for `/chat` and `/chat/stream` to verify `conversation_id` contract behavior in sync and SSE done-payload responses.
 - `bc7b00b` feat(chat-ui): added active conversation-id copy action and normalized per-message thread separator to ASCII (`|`) for consistent rendering.
+- `5c481ec` refactor(chat-store): extracted shared chat history/message builders to reduce duplication across streaming/non-streaming ask flows while preserving behavior.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
