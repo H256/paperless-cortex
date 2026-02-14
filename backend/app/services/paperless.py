@@ -106,6 +106,14 @@ def get_document_cached(settings: Settings, doc_id: int, *, ttl_seconds: int = _
     return dict(payload)
 
 
+def invalidate_document_cache(doc_id: int, *, clear_list_cache: bool = True) -> None:
+    normalized = int(doc_id)
+    with _CACHE_LOCK:
+        _DOC_CACHE.pop(normalized, None)
+        if clear_list_cache:
+            _LIST_CACHE.clear()
+
+
 def get_documents_cached(
     settings: Settings,
     doc_ids: list[int],
@@ -264,17 +272,22 @@ def update_document(settings: Settings, doc_id: int, payload: dict[str, Any]) ->
     with client(settings) as http:
         response = http.patch(f"/documents/{doc_id}/", json=payload)
         response.raise_for_status()
-        return response.json()
+        body = response.json()
+    invalidate_document_cache(int(doc_id))
+    return body
 
 
 def add_document_note(settings: Settings, doc_id: int, note: str) -> dict[str, Any]:
     with client(settings) as http:
         response = http.post(f"/documents/{doc_id}/notes/", json={"note": note})
         response.raise_for_status()
-        return response.json()
+        body = response.json()
+    invalidate_document_cache(int(doc_id))
+    return body
 
 
 def delete_document_note(settings: Settings, doc_id: int, note_id: int) -> None:
     with client(settings) as http:
         response = http.delete(f"/documents/{doc_id}/notes/", params={"id": note_id})
         response.raise_for_status()
+    invalidate_document_cache(int(doc_id))

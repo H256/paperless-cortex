@@ -47,3 +47,32 @@ def test_dry_run_preview_with_doc_id_uses_direct_document(api_client, monkeypatc
     assert len(payload["items"]) == 1
     assert payload["items"][0]["doc_id"] == 123
 
+
+def test_reviewed_timestamp_uses_fresh_remote_document(session_factory, monkeypatch):
+    from app.routes.writeback_dryrun import _reviewed_timestamp_for_doc
+    from app.services import paperless
+    from app.deps import get_settings
+
+    with session_factory() as db:
+        db.add(Document(id=321, title="Local", modified="2026-02-14T10:00:00+00:00"))
+        db.commit()
+
+        monkeypatch.setattr(
+            paperless,
+            "get_document_cached",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("cached document read should not be used")),
+        )
+        monkeypatch.setattr(
+            paperless,
+            "get_document",
+            lambda _settings, _doc_id: {"id": 321, "modified": "2026-02-14T11:11:11+00:00"},
+        )
+
+        modified = _reviewed_timestamp_for_doc(get_settings(), db, 321)
+        db.commit()
+
+        refreshed = db.get(Document, 321)
+        assert modified == "2026-02-14T11:11:11+00:00"
+        assert refreshed is not None
+        assert refreshed.modified == "2026-02-14T11:11:11+00:00"
+

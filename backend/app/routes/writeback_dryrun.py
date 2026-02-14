@@ -410,7 +410,7 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
 
 def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) -> str:
     try:
-        remote_doc = paperless.get_document_cached(settings, int(doc_id))
+        remote_doc = paperless.get_document(settings, int(doc_id))
         modified = str(remote_doc.get("modified") or "").strip()
         if modified:
             local_doc = db.get(Document, int(doc_id))
