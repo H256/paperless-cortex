@@ -33,3 +33,9 @@
 - [x] Add relative ratios/percentages in evaluations.
 - [x] Add pie chart tooltips (absolute + percentage).
 - [x] Fix extended cards overflow on narrow screens (monthly processing, unprocessed by correspondent, document types).
+
+## Ongoing backlog (post-QA)
+
+- [ ] Continue responsive/mobile polish on detail-heavy screens (`DocumentDetail`, `Writeback`) and check overlap/overflow edge-cases on narrow widths.
+- [ ] Add lightweight structured request timing logging for slow backend endpoints (route + duration + key params, without sensitive payloads).
+- [ ] Add an optional compact worker-run timeline card in UI (recent task runs with error type + elapsed) for faster issue triage.
