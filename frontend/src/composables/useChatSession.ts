@@ -39,6 +39,9 @@ const buildApiUrl = (path: string) => {
     return `${base}${path}`
   }
   const normalized = API_BASE.startsWith('/') ? API_BASE : `/${API_BASE}`
+  if (path === normalized || path.startsWith(`${normalized}/`)) {
+    return path
+  }
   return `${normalized}${path}`
 }
 
