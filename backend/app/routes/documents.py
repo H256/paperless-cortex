@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import logging
 import time
-import json
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import and_, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.config import Settings
 from app.db import get_db
@@ -21,6 +20,7 @@ from app.models import (
     DocumentSuggestion,
     DocumentType,
     SuggestionAudit,
+    Tag,
 )
 from app.services import paperless
 from app.services.hierarchical_summary import is_large_document
@@ -32,6 +32,8 @@ from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.document_stats import compute_document_stats
 from app.services.document_review import derive_review_status, derive_sync_status
 from app.services.dashboard import build_dashboard_payload
+from app.services.json_utils import parse_json_object
+from app.services.string_list_json import parse_string_list_json
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,
@@ -47,6 +49,45 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 _DASHBOARD_CACHE: dict[str, object] = {"ts": 0.0, "data": None}
 _DASHBOARD_CACHE_TTL_SECONDS = 15
+
+
+def _normalized_scalar(value: object) -> object:
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _values_differ(local_value: object, remote_value: object) -> bool:
+    return _normalized_scalar(local_value) != _normalized_scalar(remote_value)
+
+
+def _has_local_overrides(
+    *,
+    local_title: str | None,
+    remote_title: str | None,
+    local_issue_date: str | None,
+    remote_issue_date: str | None,
+    local_correspondent_id: int | None,
+    remote_correspondent_id: int | None,
+    local_tag_ids: list[int] | None,
+    remote_tag_ids: list[int] | None,
+    pending_tag_names: list[str] | None,
+    local_ai_summary: str | None = None,
+    remote_ai_summary: str | None = None,
+) -> bool:
+    if set(local_tag_ids or []) != set(remote_tag_ids or []):
+        return True
+    if _values_differ(local_title, remote_title):
+        return True
+    if _values_differ(local_issue_date, remote_issue_date):
+        return True
+    if _values_differ(local_correspondent_id, remote_correspondent_id):
+        return True
+    if pending_tag_names:
+        return True
+    if (local_ai_summary or "") != (remote_ai_summary or ""):
+        return True
+    return False
 
 
 def _normalize_review_status(value: str | None) -> str:
@@ -66,13 +107,16 @@ def _list_documents_from_paperless(
     document_date__lte: str | None,
     review_status: str,
 ) -> dict:
-    if review_status == "all":
+    missing_correspondent_only = correspondent__id == -1
+    effective_correspondent = None if missing_correspondent_only else correspondent__id
+
+    if review_status == "all" and not missing_correspondent_only:
         return paperless.list_documents(
             settings,
             page=page,
             page_size=page_size,
             ordering=ordering,
-            correspondent__id=correspondent__id,
+            correspondent__id=effective_correspondent,
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
@@ -87,15 +131,28 @@ def _list_documents_from_paperless(
             page=current_page,
             page_size=fetch_size,
             ordering=ordering,
-            correspondent__id=correspondent__id,
+            correspondent__id=effective_correspondent,
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
         )
-        all_results.extend(payload.get("results", []) or [])
+        batch = payload.get("results", []) or []
+        if missing_correspondent_only:
+            batch = [row for row in batch if row.get("correspondent") is None]
+        all_results.extend(batch)
         if not payload.get("next"):
             break
         current_page += 1
+    if review_status == "all":
+        start = max(0, (max(1, page) - 1) * max(1, page_size))
+        end = start + max(1, page_size)
+        total = len(all_results)
+        return {
+            "count": total,
+            "next": None if end >= total else "filtered",
+            "previous": None if start <= 0 else "filtered",
+            "results": all_results[start:end],
+        }
     return {"count": len(all_results), "next": None, "previous": None, "results": all_results}
 
 
@@ -103,6 +160,7 @@ def _apply_derived_fields_and_review_status(
     payload: dict,
     db: Session,
     include_derived: bool,
+    include_summary_preview: bool,
     review_status: str,
     page: int,
     page_size: int,
@@ -130,7 +188,17 @@ def _apply_derived_fields_and_review_status(
     }
     local_docs = (
         db.query(Document)
-        .options(joinedload(Document.tags), joinedload(Document.correspondent))
+        .options(
+            load_only(
+                Document.id,
+                Document.title,
+                Document.document_date,
+                Document.created,
+                Document.correspondent_id,
+            ),
+            joinedload(Document.tags).load_only(Tag.id),
+            joinedload(Document.correspondent).load_only(Correspondent.name),
+        )
         .filter(Document.id.in_(doc_ids))
         .all()
     )
@@ -139,14 +207,34 @@ def _apply_derived_fields_and_review_status(
         int(row[0])
         for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
     }
+    suggestion_columns = [DocumentSuggestion.doc_id, DocumentSuggestion.source]
+    if include_summary_preview:
+        suggestion_columns.append(DocumentSuggestion.payload)
     suggestion_rows = (
-        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+        db.query(*suggestion_columns)
         .filter(DocumentSuggestion.doc_id.in_(doc_ids))
         .all()
     )
     suggestions_by_doc: dict[int, set[str]] = {}
-    for doc_id, source in suggestion_rows:
+    for row in suggestion_rows:
+        doc_id, source = row[0], row[1]
         suggestions_by_doc.setdefault(int(doc_id), set()).add(str(source or ""))
+    summary_preview_by_doc: dict[int, str] = {}
+    if include_summary_preview:
+        for row in suggestion_rows:
+            doc_id = row[0]
+            preview_payload = row[2] if len(row) > 2 else None
+            normalized_doc_id = int(doc_id)
+            if normalized_doc_id in summary_preview_by_doc:
+                continue
+            parsed_payload = parse_json_object(str(preview_payload or ""))
+            summary = parsed_payload.get("summary")
+            if not isinstance(summary, str):
+                continue
+            preview = " ".join(summary.split()).strip()
+            if not preview:
+                continue
+            summary_preview_by_doc[normalized_doc_id] = preview[:240]
     vision_pages = {
         int(row[0])
         for row in db.query(DocumentPageText.doc_id)
@@ -167,14 +255,7 @@ def _apply_derived_fields_and_review_status(
     )
     pending_tags_by_doc: dict[int, list[str]] = {}
     for row in pending_tag_rows:
-        names: list[str] = []
-        raw = row.names_json or ""
-        if raw:
-            try:
-                names = [str(name).strip() for name in json.loads(raw) if str(name).strip()]
-            except Exception:
-                names = []
-        pending_tags_by_doc[int(row.doc_id)] = names
+        pending_tags_by_doc[int(row.doc_id)] = parse_string_list_json(row.names_json)
 
     filtered_results: list[dict] = []
     for doc in results:
@@ -190,16 +271,17 @@ def _apply_derived_fields_and_review_status(
             remote_issue_date = doc.get("created")
             local_tags = [tag.id for tag in local_doc.tags]
             paperless_tags = doc.get("tags") or []
-            if set(local_tags) != set(paperless_tags):
-                local_overrides = True
-            if local_doc.title and local_doc.title != doc.get("title"):
-                local_overrides = True
-            if local_issue_date and local_issue_date != remote_issue_date:
-                local_overrides = True
-            if local_doc.correspondent_id and local_doc.correspondent_id != doc.get("correspondent"):
-                local_overrides = True
-            if pending_tag_names:
-                local_overrides = True
+            local_overrides = _has_local_overrides(
+                local_title=local_doc.title,
+                remote_title=doc.get("title"),
+                local_issue_date=local_issue_date,
+                remote_issue_date=remote_issue_date,
+                local_correspondent_id=local_doc.correspondent_id,
+                remote_correspondent_id=doc.get("correspondent"),
+                local_tag_ids=local_tags,
+                remote_tag_ids=paperless_tags,
+                pending_tag_names=pending_tag_names,
+            )
             if local_overrides:
                 doc["title"] = local_doc.title
                 doc["document_date"] = local_doc.document_date
@@ -215,6 +297,7 @@ def _apply_derived_fields_and_review_status(
         doc["has_suggestions"] = bool(sources)
         doc["has_suggestions_paperless"] = "paperless_ocr" in sources
         doc["has_suggestions_vision"] = "vision_ocr" in sources
+        doc["ai_summary_preview"] = summary_preview_by_doc.get(int(doc_id))
         doc["has_vision_pages"] = doc_id in vision_pages
 
         reviewed_at_raw = reviewed_at_by_doc.get(doc_id)
@@ -252,11 +335,14 @@ def list_documents(
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
     include_derived: bool = False,
+    include_summary_preview: bool = False,
     review_status: str = "all",
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
     normalized_review_status = _normalize_review_status(review_status)
+    missing_correspondent_only = correspondent__id == -1
+    effective_correspondent = None if missing_correspondent_only else correspondent__id
     if normalized_review_status != "all":
         current_page = 1
         fetch_size = max(page_size, 200)
@@ -270,7 +356,7 @@ def list_documents(
                 page=current_page,
                 page_size=fetch_size,
                 ordering=ordering,
-                correspondent__id=correspondent__id,
+                correspondent__id=effective_correspondent,
                 tags__id=tags__id,
                 document_date__gte=document_date__gte,
                 document_date__lte=document_date__lte,
@@ -280,12 +366,15 @@ def list_documents(
                     payload={"results": batch_payload.get("results", []) or []},
                     db=db,
                     include_derived=True,
+                    include_summary_preview=include_summary_preview,
                     review_status="all",
                     page=1,
                     page_size=fetch_size,
                 ).get("results", [])
                 or []
             )
+            if missing_correspondent_only:
+                batch_results = [row for row in batch_results if row.get("correspondent") is None]
             matching = [row for row in batch_results if row.get("review_status") == normalized_review_status]
             batch_count = len(matching)
             if batch_count > 0 and len(selected_results) < max(1, page_size):
@@ -319,6 +408,7 @@ def list_documents(
         payload=payload,
         db=db,
         include_derived=include_derived,
+        include_summary_preview=include_summary_preview,
         review_status=normalized_review_status,
         page=page,
         page_size=page_size,
@@ -383,24 +473,22 @@ def get_local_document(
     ) or 0
     has_vision_pages = vision_done_pages > 0
     has_complete_vision_pages = vision_done_pages >= expected_pages if expected_pages else has_vision_pages
-    page_notes_paperless_done = (
-        db.query(func.count(func.distinct(DocumentPageNote.page)))
+    page_notes_counts = (
+        db.query(
+            DocumentPageNote.source,
+            func.count(func.distinct(DocumentPageNote.page)).label("count"),
+        )
         .filter(
             DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.source == "paperless_ocr",
             DocumentPageNote.status == "ok",
+            DocumentPageNote.source.in_(("paperless_ocr", "vision_ocr")),
         )
-        .scalar()
-    ) or 0
-    page_notes_vision_done = (
-        db.query(func.count(func.distinct(DocumentPageNote.page)))
-        .filter(
-            DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.source == "vision_ocr",
-            DocumentPageNote.status == "ok",
-        )
-        .scalar()
-    ) or 0
+        .group_by(DocumentPageNote.source)
+        .all()
+    )
+    page_notes_by_source = {str(source): int(count or 0) for source, count in page_notes_counts}
+    page_notes_paperless_done = page_notes_by_source.get("paperless_ocr", 0)
+    page_notes_vision_done = page_notes_by_source.get("vision_ocr", 0)
     has_page_notes_paperless = page_notes_paperless_done > 0
     has_page_notes_vision = page_notes_vision_done > 0
     has_complete_page_notes_paperless = (
@@ -420,12 +508,7 @@ def get_local_document(
         .filter(DocumentPendingTag.doc_id == doc_id)
         .one_or_none()
     )
-    pending_tag_names: list[str] = []
-    if pending_row and pending_row.names_json:
-        try:
-            pending_tag_names = [str(name).strip() for name in json.loads(pending_row.names_json) if str(name).strip()]
-        except Exception:
-            pending_tag_names = []
+    pending_tag_names = parse_string_list_json(pending_row.names_json if pending_row else None)
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []
@@ -437,21 +520,21 @@ def get_local_document(
     _, remote_ai_note = extract_ai_summary_note(
         remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
     )
-    local_overrides = False
-    if set(local_tags) != set(remote_tags):
-        local_overrides = True
-    if doc.title and doc.title != remote_doc.get("title"):
-        local_overrides = True
-    if local_issue_date and local_issue_date != remote_issue_date:
-        local_overrides = True
-    if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
-        local_overrides = True
-    if pending_tag_names:
-        local_overrides = True
     local_ai_summary = canonical_ai_summary(local_ai_note)
     remote_ai_summary = canonical_ai_summary(remote_ai_note)
-    if local_ai_summary and local_ai_summary != remote_ai_summary:
-        local_overrides = True
+    local_overrides = _has_local_overrides(
+        local_title=doc.title,
+        remote_title=remote_doc.get("title"),
+        local_issue_date=local_issue_date,
+        remote_issue_date=remote_issue_date,
+        local_correspondent_id=doc.correspondent_id,
+        remote_correspondent_id=remote_doc.get("correspondent"),
+        local_tag_ids=local_tags,
+        remote_tag_ids=remote_tags,
+        pending_tag_names=pending_tag_names,
+        local_ai_summary=local_ai_summary if local_ai_summary else None,
+        remote_ai_summary=remote_ai_summary if remote_ai_summary else None,
+    )
 
     remote_modified_raw = remote_doc.get("modified")
     sync_status = derive_sync_status(local_modified=doc.modified, remote_modified=remote_modified_raw)
@@ -558,15 +641,9 @@ def get_document_ocr_scores(
         row = ensure_document_ocr_score(settings, db, doc, src, force=refresh)
         if not row:
             continue
-        components = {}
-        noise = {}
-        ppl = {}
-        if row.components_json:
-            components = json.loads(row.components_json)
-        if row.noise_json:
-            noise = json.loads(row.noise_json)
-        if row.ppl_json:
-            ppl = json.loads(row.ppl_json)
+        components = parse_json_object(row.components_json)
+        noise = parse_json_object(row.noise_json)
+        ppl = parse_json_object(row.ppl_json)
         scores.append(
             {
                 "source": row.source,
@@ -621,11 +698,12 @@ def get_document_page_texts(
             }
         )
     for page in vision_pages:
+        vision_text = page.clean_text if isinstance(page.clean_text, str) and page.clean_text.strip() else page.text
         pages.append(
             {
                 "page": page.page,
                 "source": page.source,
-                "text": page.text,
+                "text": vision_text,
                 "quality": {
                     "score": page.quality_score,
                     "reasons": [],

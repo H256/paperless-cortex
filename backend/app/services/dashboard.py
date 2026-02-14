@@ -36,7 +36,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     if unassigned_count:
         correspondents.append({"id": None, "name": "Unassigned correspondent", "count": unassigned_count})
     correspondents.sort(key=lambda item: item["count"], reverse=True)
-    top_correspondents = correspondents[:8]
+    top_correspondents = correspondents[:10]
 
     tag_rows = (
         db.query(Tag.id, Tag.name, func.count(document_tags.c.document_id))
@@ -50,7 +50,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     if untagged_count:
         tags.append({"id": None, "name": "No tags", "count": untagged_count})
     tags.sort(key=lambda item: item["count"], reverse=True)
-    top_tags = tags[:8]
+    top_tags = tags[:10]
 
     type_rows = (
         db.query(DocumentType.id, DocumentType.name, func.count(Document.id))
@@ -129,7 +129,8 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         func.sum(case((and_(Document.page_count >= 7, Document.page_count <= 10), 1), else_=0)).label("p7_10"),
         func.sum(case((and_(Document.page_count >= 11, Document.page_count <= 20), 1), else_=0)).label("p11_20"),
         func.sum(case((and_(Document.page_count >= 21, Document.page_count <= 50), 1), else_=0)).label("p21_50"),
-        func.sum(case((Document.page_count >= 51, 1), else_=0)).label("p51p"),
+        func.sum(case((and_(Document.page_count >= 51, Document.page_count <= 99), 1), else_=0)).label("p51_99"),
+        func.sum(case((Document.page_count >= 100, 1), else_=0)).label("p100p"),
     ).one()
     page_counts = [
         {"label": "1", "count": int(page_bucket_row.p1 or 0)},
@@ -138,7 +139,8 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         {"label": "7-10", "count": int(page_bucket_row.p7_10 or 0)},
         {"label": "11-20", "count": int(page_bucket_row.p11_20 or 0)},
         {"label": "21-50", "count": int(page_bucket_row.p21_50 or 0)},
-        {"label": "51+", "count": int(page_bucket_row.p51p or 0)},
+        {"label": "51-99", "count": int(page_bucket_row.p51_99 or 0)},
+        {"label": "100+", "count": int(page_bucket_row.p100p or 0)},
         {"label": "Unknown", "count": int(page_bucket_row.unknown or 0)},
     ]
 

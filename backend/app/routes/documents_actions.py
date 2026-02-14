@@ -621,8 +621,7 @@ def delete_vision_ocr(
     query = db.query(DocumentPageText).filter(DocumentPageText.source == "vision_ocr")
     if doc_id is not None:
         query = query.filter(DocumentPageText.doc_id == doc_id)
-    count = query.count()
-    query.delete(synchronize_session=False)
+    count = int(query.delete(synchronize_session=False) or 0)
     score_query = db.query(DocumentOcrScore).filter(DocumentOcrScore.source == "vision_ocr")
     if doc_id is not None:
         score_query = score_query.filter(DocumentOcrScore.doc_id == doc_id)
@@ -639,8 +638,7 @@ def delete_suggestions(
     query = db.query(DocumentSuggestion)
     if doc_id is not None:
         query = query.filter(DocumentSuggestion.doc_id == doc_id)
-    count = query.count()
-    query.delete(synchronize_session=False)
+    count = int(query.delete(synchronize_session=False) or 0)
     db.commit()
     return {"deleted": count}
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -53,6 +54,7 @@ from app.api_models import (
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
+logger = logging.getLogger(__name__)
 
 
 class QueueEnqueue(BaseModel):
@@ -267,28 +269,36 @@ def get_task_runs(
     )
     items: list[TaskRunItem] = []
     for row in rows:
-        error_details = get_error_type_details(row.error_type)
-        items.append(
-            TaskRunItem(
-                id=int(row.id),
-                doc_id=int(row.doc_id) if row.doc_id is not None else None,
-                task=str(row.task),
-                source=row.source,
-                status=str(row.status),
-                worker_id=row.worker_id,
-                attempt=int(row.attempt or 1),
-                checkpoint=_parse_json_object(row.checkpoint_json),
-                error_type=row.error_type,
-                error_retryable=error_details.get("retryable") if error_details else None,
-                error_category=error_details.get("category") if error_details else None,
-                error_message=row.error_message,
-                started_at=row.started_at,
-                finished_at=row.finished_at,
-                duration_ms=int(row.duration_ms) if row.duration_ms is not None else None,
-                created_at=row.created_at,
-                updated_at=row.updated_at,
+        try:
+            error_details = get_error_type_details(row.error_type)
+            items.append(
+                TaskRunItem(
+                    id=int(row.id),
+                    doc_id=int(row.doc_id) if row.doc_id is not None else None,
+                    task=str(row.task),
+                    source=row.source,
+                    status=str(row.status),
+                    worker_id=row.worker_id,
+                    attempt=int(row.attempt or 1),
+                    checkpoint=_parse_json_object(row.checkpoint_json),
+                    error_type=row.error_type,
+                    error_retryable=error_details.get("retryable") if error_details else None,
+                    error_category=error_details.get("category") if error_details else None,
+                    error_message=row.error_message,
+                    started_at=row.started_at,
+                    finished_at=row.finished_at,
+                    duration_ms=int(row.duration_ms) if row.duration_ms is not None else None,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at,
+                )
             )
-        )
+        except Exception:
+            logger.exception(
+                "Failed to serialize task-run row id=%s doc_id=%s task=%s",
+                getattr(row, "id", None),
+                getattr(row, "doc_id", None),
+                getattr(row, "task", None),
+            )
     return {"enabled": True, "count": total, "items": items}
 
 

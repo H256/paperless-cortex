@@ -153,3 +153,37 @@ def test_list_task_runs_recovers_from_pending_rollback(session_factory):
         total, rows = list_task_runs(db, doc_id=3002, limit=10)
         assert total >= 1
         assert any(item.id == row_id for item in rows)
+
+
+def test_list_task_runs_reports_total_with_paged_results(session_factory):
+    with session_factory() as db:
+        for doc_id in (4001, 4002, 4003):
+            create_task_run(
+                db,
+                doc_id=doc_id,
+                task="sync",
+                source=None,
+                payload={"doc_id": doc_id, "task": "sync"},
+                worker_id="worker:test",
+                attempt=1,
+            )
+        total, rows = list_task_runs(db, task="sync", limit=1, offset=1)
+        assert total == 3
+        assert len(rows) == 1
+
+
+def test_list_task_runs_reports_total_for_empty_page_offset(session_factory):
+    with session_factory() as db:
+        for doc_id in (5001, 5002):
+            create_task_run(
+                db,
+                doc_id=doc_id,
+                task="sync",
+                source=None,
+                payload={"doc_id": doc_id, "task": "sync"},
+                worker_id="worker:test",
+                attempt=1,
+            )
+        total, rows = list_task_runs(db, task="sync", limit=1, offset=10)
+        assert total == 2
+        assert rows == []

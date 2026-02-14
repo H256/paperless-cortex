@@ -12,6 +12,7 @@ export interface DocumentPipelineStatusResponse {
   preferred_source: string;
   is_large_document: boolean;
   sync_ok: boolean;
+  evidence_ok: boolean;
   paperless_ok: boolean;
   vision_ok: boolean;
   large_ok: boolean;

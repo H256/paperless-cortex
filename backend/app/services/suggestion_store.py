@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from app.models import Document, DocumentSuggestion, SuggestionAudit
+from app.services.json_utils import parse_json_object
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +63,7 @@ def update_suggestion_field(
     )
     if not row:
         return None
-    try:
-        payload = json.loads(row.payload)
-    except Exception:
-        payload = {}
+    payload = parse_json_object(row.payload)
     old_value = payload.get(field) if isinstance(payload, dict) else None
     if isinstance(payload, dict) and "parsed" in payload and isinstance(payload["parsed"], dict):
         payload["parsed"][field] = value

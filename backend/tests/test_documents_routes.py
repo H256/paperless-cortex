@@ -39,7 +39,13 @@ def _insert_suggestion_audit(
         db.commit()
 
 
-def _insert_local_document(doc_id: int, title: str, created: str):
+def _insert_local_document(
+    doc_id: int,
+    title: str,
+    created: str,
+    *,
+    correspondent_id: int | None = None,
+):
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -48,6 +54,7 @@ def _insert_local_document(doc_id: int, title: str, created: str):
                 title=title,
                 created=created,
                 modified=created,
+                correspondent_id=correspondent_id,
             )
         )
         db.commit()
@@ -61,6 +68,21 @@ def _insert_pending_tags(doc_id: int, names: list[str]):
                 doc_id=doc_id,
                 names_json=__import__("json").dumps(names, ensure_ascii=False),
                 updated_at="2026-02-10T10:10:00+00:00",
+            )
+        )
+        db.commit()
+
+
+def _insert_suggestion(doc_id: int, source: str, payload: str):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentSuggestion(
+                doc_id=doc_id,
+                source=source,
+                payload=payload,
+                created_at="2026-02-10T10:20:00+00:00",
+                processed_at="2026-02-10T10:20:00+00:00",
             )
         )
         db.commit()
@@ -185,7 +207,6 @@ def test_list_documents_local_overrides_force_needs_review(api_client, monkeypat
             ],
         },
     )
-
     response = api_client.get("/documents", params={"include_derived": True, "review_status": "needs_review"})
     assert response.status_code == 200
     payload = response.json()
@@ -227,6 +248,45 @@ def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
     assert payload["count"] == 1
     assert payload["results"][0]["id"] == 5
     assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_list_documents_filter_without_correspondent(api_client, monkeypatch):
+    from app.services import paperless
+
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 2,
+            "next": None,
+            "previous": None,
+            "results": [
+                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
+                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents_cached",
+        lambda *args, **kwargs: {
+            "count": 2,
+            "next": None,
+            "previous": None,
+            "results": [
+                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
+                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"correspondent__id": -1})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert len(payload["results"]) == 1
+    assert payload["results"][0]["id"] == 11
+    assert payload["results"][0]["correspondent"] is None
 
 
 def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch):
@@ -430,3 +490,110 @@ def test_get_local_document_note_override_sets_needs_review(api_client, monkeypa
     payload = response.json()
     assert payload["local_overrides"] is True
     assert payload["review_status"] == "needs_review"
+
+
+def test_list_documents_detects_correspondent_clear_as_override(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(
+        doc_id=42,
+        title="Doc 42",
+        created="2026-02-10T10:00:00+00:00",
+        correspondent_id=None,
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 42,
+                    "title": "Doc 42",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": 7,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True, "review_status": "needs_review"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["results"][0]["id"] == 42
+    assert payload["results"][0]["local_overrides"] is True
+    assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_get_local_document_detects_empty_title_as_override(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=43, title="", created="2026-02-10T10:00:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {
+            "id": 43,
+            "title": "Remote title",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    response = api_client.get("/documents/43/local")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["local_overrides"] is True
+    assert payload["review_status"] == "needs_review"
+
+
+def test_list_documents_summary_preview_only_when_requested(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_suggestion(
+        doc_id=44,
+        source="paperless_ocr",
+        payload='{"summary":"Kurzfassung fuer Vorschau","title":"Doc 44"}',
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 44,
+                    "title": "Doc 44",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    without_preview = api_client.get("/documents", params={"include_derived": True})
+    assert without_preview.status_code == 200
+    without_payload = without_preview.json()
+    assert without_payload["count"] == 1
+    assert without_payload["results"][0].get("ai_summary_preview") in (None, "")
+
+    with_preview = api_client.get(
+        "/documents",
+        params={"include_derived": True, "include_summary_preview": True},
+    )
+    assert with_preview.status_code == 200
+    with_payload = with_preview.json()
+    assert with_payload["count"] == 1
+    assert with_payload["results"][0].get("ai_summary_preview") == "Kurzfassung fuer Vorschau"

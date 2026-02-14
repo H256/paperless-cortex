@@ -787,6 +787,12 @@ class WritebackJobListResponse(BaseModel):
     items: list[WritebackJobSummary] = []
 
 
+class WritebackJobDeleteResponse(BaseModel):
+    ok: bool
+    removed: bool
+    job_id: int
+
+
 class WritebackHistoryResponse(BaseModel):
     items: list[WritebackJobSummary] = []
 

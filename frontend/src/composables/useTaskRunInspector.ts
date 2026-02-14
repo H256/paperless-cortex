@@ -9,7 +9,6 @@ type TaskRunPreset = {
   task: string
   status: string
   errorType: string
-  query: string
   limit: number
   offset: number
 }
@@ -32,7 +31,6 @@ const loadPresets = (): TaskRunPreset[] => {
         task: String(item.task || ''),
         status: String(item.status || ''),
         errorType: String(item.errorType || ''),
-        query: String(item.query || ''),
         limit: Number(item.limit || 100),
         offset: Number(item.offset || 0),
       }))
@@ -50,12 +48,11 @@ export const useTaskRunInspector = () => {
   const task = ref('')
   const status = ref('')
   const errorType = ref('')
-  const query = ref('')
   const limit = ref(100)
   const offset = ref(0)
   const autoRefresh = ref(true)
 
-  watch([docId, task, status, errorType, query], () => {
+  watch([docId, task, status, errorType], () => {
     offset.value = 0
   })
 
@@ -75,7 +72,6 @@ export const useTaskRunInspector = () => {
       task.value,
       status.value,
       errorType.value,
-      query.value,
       limit.value,
       offset.value,
     ]),
@@ -85,7 +81,6 @@ export const useTaskRunInspector = () => {
         task: task.value || undefined,
         status: status.value || undefined,
         error_type: errorType.value || undefined,
-        q: query.value || undefined,
         limit: limit.value,
         offset: offset.value,
       }),
@@ -103,7 +98,6 @@ export const useTaskRunInspector = () => {
       task: task.value,
       status: status.value,
       errorType: errorType.value,
-      query: query.value,
       limit: limit.value,
       offset: offset.value,
     }
@@ -118,7 +112,6 @@ export const useTaskRunInspector = () => {
     task.value = preset.task
     status.value = preset.status
     errorType.value = preset.errorType
-    query.value = preset.query
     limit.value = preset.limit
     return true
   }
@@ -132,7 +125,6 @@ export const useTaskRunInspector = () => {
     task.value = ''
     status.value = ''
     errorType.value = ''
-    query.value = ''
     limit.value = 100
     offset.value = 0
   }
@@ -155,7 +147,6 @@ export const useTaskRunInspector = () => {
       task,
       status,
       errorType,
-      query,
       limit,
       offset,
       autoRefresh,

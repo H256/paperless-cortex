@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from hashlib import sha256
 import logging
-from sqlalchemy import func
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -35,6 +34,7 @@ from app.services.meta_sync import (
     sync_document_types_page,
     sync_tags_page,
 )
+from app.services.note_ids import next_local_note_id
 from app.api_models import (
     SyncDocumentsResponse,
     SyncStatusResponse,
@@ -49,19 +49,6 @@ from app.services.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 logger = logging.getLogger(__name__)
-
-
-def _next_local_note_id(db: Session) -> int:
-    min_id = db.query(func.min(DocumentNote.id)).scalar()
-    if min_id is None:
-        return -1
-    try:
-        value = int(min_id)
-    except Exception:
-        return -1
-    if value >= 0:
-        return -1
-    return value - 1
 
 
 def _apply_note_fields(target: DocumentNote, *, note_body: str, created: str | None, user: dict) -> None:
@@ -102,7 +89,7 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
                 if int(global_note.document_id) != int(doc.id):
                     # Resolve collisions where legacy local AI notes used positive ids
                     # that now overlap with Paperless ids.
-                    global_note.id = _next_local_note_id(db)
+                    global_note.id = next_local_note_id(db)
                     db.flush()
                 else:
                     existing = global_note

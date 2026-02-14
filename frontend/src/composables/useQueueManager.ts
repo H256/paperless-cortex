@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   clearQueue,
   fetchQueuePeek,
@@ -69,6 +69,7 @@ export const useQueueManager = () => {
   const peekQuery = useQuery({
     queryKey: computed(() => ['queue-peek', peekLimit.value]),
     queryFn: () => fetchQueuePeek(peekLimit.value),
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
     staleTime: 5_000,
   })
@@ -92,18 +93,21 @@ export const useQueueManager = () => {
         error_type: taskRunsErrorType.value || undefined,
         q: taskRunsSearch.value || undefined,
       }),
+    placeholderData: keepPreviousData,
     staleTime: 5_000,
   })
 
   const dlqQuery = useQuery({
     queryKey: computed(() => ['queue-dlq', dlqLimit.value]),
     queryFn: () => fetchQueueDlq(dlqLimit.value),
+    placeholderData: keepPreviousData,
     staleTime: 5_000,
   })
 
   const delayedQuery = useQuery({
     queryKey: computed(() => ['queue-delayed', delayedLimit.value]),
     queryFn: () => fetchQueueDelayed(delayedLimit.value),
+    placeholderData: keepPreviousData,
     staleTime: 5_000,
   })
 

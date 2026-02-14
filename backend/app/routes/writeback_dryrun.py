@@ -28,6 +28,7 @@ from app.api_models import (
     WritebackExecutePendingJobResult,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
+    WritebackJobDeleteResponse,
     WritebackJobSummary,
     WritebackDryRunItem,
     WritebackDryRunPreviewResponse,
@@ -38,6 +39,8 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
+from app.services.note_ids import next_local_note_id
+from app.services.string_list_json import parse_string_list_json
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 logger = logging.getLogger(__name__)
@@ -58,19 +61,6 @@ def _metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:
         for tag_id, name in db.query(Tag.id, Tag.name).all()
     }
     return correspondents_by_id, tags_by_id
-
-
-def _next_local_note_id(db: Session) -> int:
-    min_id = db.query(func.min(DocumentNote.id)).scalar()
-    if min_id is None:
-        return -1
-    try:
-        value = int(min_id)
-    except Exception:
-        return -1
-    if value >= 0:
-        return -1
-    return value - 1
 
 
 def _missing_writeback_jobs_table(exc: Exception) -> bool:
@@ -203,21 +193,17 @@ def _preview_for_doc_ids(
     )
     pending_by_doc: dict[int, list[str]] = {}
     for row in pending_rows:
-        names: list[str] = []
-        raw = row.names_json or ""
-        if raw:
-            try:
-                names = [str(name).strip() for name in json.loads(raw) if str(name).strip()]
-            except Exception:
-                names = []
-        pending_by_doc[int(row.doc_id)] = names
+        pending_by_doc[int(row.doc_id)] = parse_string_list_json(row.names_json)
 
+    remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
     items: list[WritebackDryRunItem] = []
     for doc_id in doc_ids:
         local_doc = local_by_id.get(doc_id)
         if not local_doc:
             continue
-        remote_doc = paperless.get_document_cached(settings, doc_id)
+        remote_doc = remote_docs.get(int(doc_id))
+        if not remote_doc:
+            remote_doc = paperless.get_document_cached(settings, doc_id)
         items.append(
             _build_item(
                 local_doc=local_doc,
@@ -559,7 +545,7 @@ def _sync_local_field_from_paperless(
         if remote_note_id and remote_note_text:
             db.add(
                 DocumentNote(
-                    id=_next_local_note_id(db),
+                    id=next_local_note_id(db),
                     document_id=local_doc.id,
                     note=remote_note_text,
                     created=_now_iso(),
@@ -596,14 +582,7 @@ def execute_writeback_direct_for_document(
     )
     pending_tag_names: list[str] = []
     if pending_row and pending_row.names_json:
-        try:
-            pending_tag_names = [
-                str(name).strip()
-                for name in json.loads(pending_row.names_json)
-                if str(name).strip()
-            ]
-        except Exception:
-            pending_tag_names = []
+        pending_tag_names = parse_string_list_json(pending_row.names_json)
     remote_doc = paperless.get_document_cached(settings, doc_id)
     item = _build_item(
         local_doc=local_doc,
@@ -828,7 +807,7 @@ def dry_run_preview(
         doc_ids = [int(doc_id)]
         total_count = 1
     else:
-        payload = paperless.list_documents(settings, page=page, page_size=page_size)
+        payload = paperless.list_documents_cached(settings, page=page, page_size=page_size)
         results = payload.get("results") or []
         doc_ids = [int(doc["id"]) for doc in results if isinstance(doc.get("id"), int)]
         total_count = int(payload.get("count") or 0)
@@ -959,6 +938,23 @@ def get_writeback_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Writeback job not found")
     return _job_detail(job)
+
+
+@router.delete("/jobs/{job_id}", response_model=WritebackJobDeleteResponse)
+def delete_writeback_job(job_id: int, db: Session = Depends(get_db)):
+    try:
+        job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    except (OperationalError, ProgrammingError) as exc:
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
+    if not job:
+        return WritebackJobDeleteResponse(ok=True, removed=False, job_id=int(job_id))
+    if str(job.status or "") == "running":
+        raise HTTPException(status_code=409, detail="Cannot delete a running writeback job")
+    db.delete(job)
+    db.commit()
+    return WritebackJobDeleteResponse(ok=True, removed=True, job_id=int(job_id))
 
 
 @router.post("/jobs/{job_id}/execute", response_model=WritebackJobDetail)

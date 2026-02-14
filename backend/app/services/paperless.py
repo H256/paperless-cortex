@@ -5,6 +5,7 @@ import os
 import threading
 import time
 from typing import Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
 
@@ -103,6 +104,59 @@ def get_document_cached(settings: Settings, doc_id: int, *, ttl_seconds: int = _
     with _CACHE_LOCK:
         _DOC_CACHE[int(doc_id)] = (now, payload)
     return dict(payload)
+
+
+def get_documents_cached(
+    settings: Settings,
+    doc_ids: list[int],
+    *,
+    ttl_seconds: int = _DOC_CACHE_TTL_SECONDS,
+    max_workers: int = 8,
+) -> dict[int, dict[str, Any]]:
+    unique_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_id in doc_ids:
+        doc_id = int(raw_id)
+        if doc_id <= 0 or doc_id in seen:
+            continue
+        seen.add(doc_id)
+        unique_ids.append(doc_id)
+    if not unique_ids:
+        return {}
+
+    if not _cache_enabled(settings, ttl_seconds):
+        return {doc_id: get_document(settings, doc_id) for doc_id in unique_ids}
+
+    now = time.time()
+    ttl = max(0, int(ttl_seconds))
+    cached_results: dict[int, dict[str, Any]] = {}
+    missing_ids: list[int] = []
+    with _CACHE_LOCK:
+        for doc_id in unique_ids:
+            cached = _DOC_CACHE.get(doc_id)
+            if cached and (now - cached[0]) < ttl:
+                cached_results[doc_id] = dict(cached[1])
+            else:
+                missing_ids.append(doc_id)
+
+    if not missing_ids:
+        return cached_results
+
+    worker_count = max(1, min(int(max_workers), len(missing_ids)))
+    fetched_results: dict[int, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        future_by_doc = {executor.submit(get_document, settings, doc_id): doc_id for doc_id in missing_ids}
+        for future in as_completed(future_by_doc):
+            doc_id = future_by_doc[future]
+            payload = future.result()
+            fetched_results[doc_id] = payload
+
+    with _CACHE_LOCK:
+        stamp = time.time()
+        for doc_id, payload in fetched_results.items():
+            _DOC_CACHE[doc_id] = (stamp, payload)
+
+    return {**cached_results, **{doc_id: dict(payload) for doc_id, payload in fetched_results.items()}}
 
 
 def list_documents_cached(

@@ -29,9 +29,12 @@ from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
+from app.services.note_ids import next_local_note_id
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions, merge_suggestions
 from app.services.text_pages import get_page_text_layers
+from app.services.json_utils import parse_json_object
+from app.services.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
@@ -69,19 +72,6 @@ class ApplySuggestionToDocument(BaseModel):
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _next_local_note_id(db: Session) -> int:
-    min_id = db.query(func.min(DocumentNote.id)).scalar()
-    if min_id is None:
-        return -1
-    try:
-        value = int(min_id)
-    except Exception:
-        return -1
-    if value >= 0:
-        return -1
-    return value - 1
 
 
 @router.get("/{doc_id}/suggestions", response_model=SuggestionsResponse)
@@ -325,12 +315,8 @@ def suggest_field_variants(
         .one_or_none()
     )
     if stored:
-        try:
-            payload_json = json.loads(stored.payload)
-        except Exception:
-            payload_json = {}
-        if isinstance(payload_json, dict):
-            current = payload_json.get(payload.field)
+        payload_json = parse_json_object(stored.payload)
+        current = payload_json.get(payload.field)
     if require_queue_enabled(settings) and not priority:
         task = {
             "doc_id": doc_id,
@@ -375,10 +361,7 @@ def get_field_variants(
     )
     if not row:
         return {"doc_id": doc_id, "source": source, "field": field, "variants": []}
-    try:
-        payload_json = json.loads(row.payload)
-    except Exception:
-        payload_json = {}
+    payload_json = parse_json_object(row.payload)
     variants = payload_json.get("variants") or []
     return {"doc_id": doc_id, "source": source, "field": field, "variants": variants}
 
@@ -414,12 +397,25 @@ def apply_suggestion_to_document(
         model_name: str | None,
         processed_at: str | None,
     ) -> str:
+        def _format_created(value: str | None) -> str | None:
+            raw = str(value or "").strip()
+            if not raw:
+                return None
+            candidate = f"{raw[:-1]}+00:00" if raw.endswith("Z") else raw
+            try:
+                parsed = datetime.fromisoformat(candidate)
+                return parsed.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                compact = raw.replace("T", " ")
+                return compact[:19]
+
         summary = summary_text.strip()
         meta_parts: list[str] = []
         if model_name:
             meta_parts.append(f"Model:{model_name}")
-        if processed_at:
-            meta_parts.append(f"Created:{processed_at}")
+        created = _format_created(processed_at)
+        if created:
+            meta_parts.append(f"Created:{created}")
         meta_line = ", ".join(meta_parts)
         if meta_line:
             return f"{summary}\n\n{meta_line}\nKI-Zusammenfassung"
@@ -500,10 +496,7 @@ def apply_suggestion_to_document(
         )
         old_pending: list[str] = []
         if pending_row and pending_row.names_json:
-            try:
-                old_pending = [str(name).strip() for name in json.loads(pending_row.names_json) if str(name).strip()]
-            except Exception:
-                old_pending = []
+            old_pending = parse_string_list_json(pending_row.names_json)
         tag_names: list[str] = []
         if isinstance(value, list):
             tag_names = [str(v).strip() for v in value if str(v).strip()]
@@ -520,9 +513,9 @@ def apply_suggestion_to_document(
         if matched:
             doc.tags = matched
             updated = True
-        normalized_unmatched = sorted(set(unmatched), key=str.lower)
+        normalized_unmatched = normalize_string_list(unmatched)
         if normalized_unmatched:
-            names_payload = json.dumps(normalized_unmatched, ensure_ascii=False)
+            names_payload = dumps_normalized_string_list(normalized_unmatched)
             if pending_row is None:
                 db.add(
                     DocumentPendingTag(
@@ -571,7 +564,7 @@ def apply_suggestion_to_document(
                 updated = True
             else:
                 note = DocumentNote(
-                    id=_next_local_note_id(db),
+                    id=next_local_note_id(db),
                     document_id=doc_id,
                     note=marker_text,
                     created=datetime.now(timezone.utc).isoformat(),

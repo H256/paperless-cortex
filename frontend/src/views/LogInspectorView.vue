@@ -21,7 +21,7 @@
     </div>
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <details class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+      <details class="rounded-lg border border-slate-200 p-3 pb-4 dark:border-slate-700">
         <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">
           Error type reference
         </summary>
@@ -75,14 +75,13 @@
         </label>
         <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
           Error type
-          <input v-model="filters.errorType.value" class="mt-1 h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <select v-model="filters.errorType.value" class="mt-1 h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+            <option value="">all</option>
+            <option v-for="entry in errorTypes" :key="entry.code" :value="entry.code">{{ entry.code }}</option>
+          </select>
         </label>
       </div>
-      <div class="mt-3 grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
-        <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
-          Full-text search
-          <input v-model="filters.query.value" class="mt-1 h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="task/source/status/error..." />
-        </label>
+      <div class="mt-3 grid gap-3 md:grid-cols-[auto_auto_auto]">
         <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
           Limit
           <input v-model.number="filters.limit.value" type="number" min="1" max="500" class="mt-1 h-9 w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
@@ -331,7 +330,7 @@ const applyQuickFilter = (kind: 'failed' | 'retrying' | 'embedding_overflow') =>
   } else {
     filters.status.value = 'failed'
     filters.task.value = 'embeddings_vision'
-    filters.query.value = 'overflow'
+    filters.errorType.value = 'EMBED_CONTEXT_OVERFLOW'
   }
 }
 
@@ -352,7 +351,6 @@ const exportJson = () => {
       task: filters.task.value || null,
       status: filters.status.value || null,
       error_type: filters.errorType.value || null,
-      q: filters.query.value || null,
       limit: filters.limit.value,
       offset: filters.offset.value,
     },

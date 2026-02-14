@@ -18,6 +18,13 @@
             | {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
           </span>
         </div>
+        <div
+          v-if="summaryPreview(doc)"
+          class="mt-2 line-clamp-3 text-xs text-slate-600 dark:text-slate-300"
+          :title="summaryPreview(doc)"
+        >
+          {{ summaryPreview(doc) }}
+        </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <div
             class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -93,7 +100,83 @@
       </button>
     </div>
 
-    <div v-else class="overflow-x-auto">
+    <div v-else class="p-3 sm:p-4 md:hidden">
+      <div class="space-y-2">
+        <button
+          v-for="doc in documents"
+          :key="`m-${doc.id ?? `${doc.title}-${doc.created ?? ''}`}`"
+          type="button"
+          class="block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left dark:border-slate-700 dark:bg-slate-800"
+          @click="onOpenDoc(doc.id)"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {{ doc.title || `Document ${doc.id ?? '-'}` }}
+              </div>
+              <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {{ formatDate(doc.document_date || doc.created) || '-' }}
+              </div>
+              <div
+                v-if="correspondentLabel(doc.correspondent, doc.correspondent_name)"
+                class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
+              </div>
+            </div>
+            <div class="shrink-0">
+              <button
+                type="button"
+                class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                @click.stop="copyDocId(doc.id)"
+              >
+                {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
+              </button>
+            </div>
+          </div>
+          <div class="mt-2">
+            <DocumentProcessingBadges :doc="doc" />
+          </div>
+          <div
+            v-if="doc.id != null && runningByDocId[doc.id]"
+            class="mt-1 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+            :title="runningByDocId[doc.id]"
+          >
+            {{ runningByDocId[doc.id] }}
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+              @click.stop="onOpenDocOperations(doc.id)"
+            >
+              Continue
+            </button>
+            <button
+              v-if="needsReview(doc)"
+              type="button"
+              class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+              @click.stop="onOpenDocSuggestions(doc.id)"
+            >
+              Review
+            </button>
+            <a
+              v-if="paperlessBaseUrl"
+              class="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              :href="paperlessDocUrl(doc.id ?? 0)"
+              target="_blank"
+              rel="noopener"
+              @click.stop
+            >
+              <ExternalLink class="h-3 w-3" />
+              Paperless
+            </a>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div v-else class="hidden overflow-x-auto md:block">
       <table class="w-full min-w-[720px] border-collapse text-sm lg:min-w-[920px]">
         <thead
           class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
@@ -236,12 +319,13 @@
       class="flex flex-col gap-3 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:text-slate-300"
     >
       <button
+        v-if="page > 1"
         class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-        :disabled="page <= 1"
         @click="$emit('prev-page')"
       >
         Prev
       </button>
+      <div v-else class="hidden sm:block sm:w-[78px]" aria-hidden="true"></div>
       <div class="text-center sm:text-center">
         <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
           Page {{ page }} of {{ totalPages }}
@@ -257,6 +341,7 @@
             :max="totalPages"
             class="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             @keyup.enter="applyPageJump"
+            @blur="applyPageJump"
           />
           <button
             type="button"
@@ -268,12 +353,13 @@
         </div>
       </div>
       <button
+        v-if="page < totalPages"
         class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-        :disabled="page >= totalPages"
         @click="$emit('next-page')"
       >
         Next
       </button>
+      <div v-else class="hidden sm:block sm:w-[78px]" aria-hidden="true"></div>
     </div>
   </section>
 </template>
@@ -357,6 +443,11 @@ const copyDocId = async (id: number | null | undefined) => {
   } catch {
     // no-op fallback; clipboard may be unavailable in some contexts
   }
+}
+
+const summaryPreview = (doc: DocumentRow): string => {
+  const value = (doc as unknown as Record<string, unknown>).ai_summary_preview
+  return typeof value === 'string' ? value : ''
 }
 
 const needsReview = (doc: DocumentRow) =>

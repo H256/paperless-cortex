@@ -16,6 +16,8 @@ export interface TaskRunItem {
   attempt: number;
   checkpoint?: TaskRunItemCheckpoint;
   error_type?: string | null;
+  error_retryable?: boolean | null;
+  error_category?: string | null;
   error_message?: string | null;
   started_at?: string | null;
   finished_at?: string | null;

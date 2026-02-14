@@ -1,9 +1,9 @@
-import { computed, ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { computed, ref, type Ref } from 'vue'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { getCorrespondents, getTags, listDocuments, type DocumentRow } from '../services/documents'
 import { toOptionalNumber } from '../utils/number'
 
-export const useDocumentsCatalog = () => {
+export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<boolean> }) => {
   const page = ref(1)
   const pageSize = ref(20)
   const ordering = ref('-date')
@@ -24,6 +24,7 @@ export const useDocumentsCatalog = () => {
       selectedReviewStatus.value,
       dateFrom.value,
       dateTo.value,
+      options?.includeSummaryPreview?.value ?? false,
     ]),
     queryFn: () =>
       listDocuments({
@@ -35,8 +36,10 @@ export const useDocumentsCatalog = () => {
         document_date__gte: dateFrom.value || undefined,
         document_date__lte: dateTo.value || undefined,
         include_derived: true,
+        include_summary_preview: options?.includeSummaryPreview?.value ?? false,
         review_status: selectedReviewStatus.value,
       }),
+    placeholderData: keepPreviousData,
     staleTime: 10_000,
   })
 

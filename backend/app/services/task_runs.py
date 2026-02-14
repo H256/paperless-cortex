@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 
 from sqlalchemy.exc import PendingRollbackError
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import TaskRun
@@ -208,7 +208,7 @@ def list_task_runs(
     row_offset = max(0, int(offset))
 
     def _list() -> tuple[int, list[TaskRun]]:
-        query = _build_task_runs_query(
+        base_query = _build_task_runs_query(
             db,
             doc_id=doc_id,
             task=task,
@@ -216,8 +216,19 @@ def list_task_runs(
             error_type=error_type,
             query_text=query_text,
         )
-        total = query.count()
-        rows = query.order_by(TaskRun.id.desc()).offset(row_offset).limit(row_limit).all()
+        rows_with_total = (
+            base_query.with_entities(TaskRun, func.count(TaskRun.id).over().label("total_rows"))
+            .order_by(TaskRun.id.desc())
+            .offset(row_offset)
+            .limit(row_limit)
+            .all()
+        )
+        if rows_with_total:
+            total = int(rows_with_total[0][1] or 0)
+            rows = [row for row, _total in rows_with_total]
+            return total, rows
+        total = 0 if row_offset == 0 else int(base_query.count() or 0)
+        rows: list[TaskRun] = []
         return total, rows
 
     return _run_task_runs_operation(

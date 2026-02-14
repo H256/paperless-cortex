@@ -1,6 +1,7 @@
 import { unwrap } from '../api/orval'
 import {
   createWritebackJobWritebackJobsPost,
+  deleteWritebackJobWritebackJobsJobIdDelete,
   dryRunExecuteWritebackDryRunExecutePost,
   dryRunPreviewWritebackDryRunPreviewGet,
   executePendingWritebackJobsWritebackJobsExecutePendingPost,
@@ -24,6 +25,7 @@ import type {
   WritebackJobListResponse,
   WritebackJobSummary as WritebackJobSummaryModel,
   WritebackConflictField as WritebackConflictFieldModel,
+  WritebackJobDeleteResponse,
 } from '../api/generated/model'
 
 export type WritebackFieldDiff = WritebackDryRunItemModel['title']
@@ -37,6 +39,7 @@ export type WritebackExecutePending = WritebackExecutePendingResponse
 export type WritebackJobSummary = WritebackJobSummaryModel
 export type WritebackDryRunItem = WritebackDryRunItemModel
 export type WritebackConflictField = WritebackConflictFieldModel
+export type WritebackJobDeleteResult = WritebackJobDeleteResponse
 
 export const getWritebackDryRunPreview = (params: DryRunPreviewWritebackDryRunPreviewGetParams) =>
   unwrap<WritebackDryRunPreviewResponse>(dryRunPreviewWritebackDryRunPreviewGet(params))
@@ -91,3 +94,6 @@ export const executePendingWritebackJobs = (dryRun = true, limit = 0) =>
       limit,
     }),
   )
+
+export const deleteWritebackJob = (jobId: number) =>
+  unwrap<WritebackJobDeleteResult>(deleteWritebackJobWritebackJobsJobIdDelete(jobId))

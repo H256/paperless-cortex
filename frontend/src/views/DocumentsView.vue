@@ -83,10 +83,8 @@
     />
 
     <DocumentsQuickControls
-      :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
       :running-only="runningOnly"
-      @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
       @update:runningOnly="setRunningOnly"
       @reset-quick-filters="resetQuickFilters"
@@ -149,6 +147,8 @@ import DocumentsTable from '../components/DocumentsTable.vue'
 const router = useRouter()
 const route = useRoute()
 const toastStore = useToastStore()
+const listViewMode = ref<'table' | 'cards'>('table')
+const includeSummaryPreview = computed(() => listViewMode.value === 'cards')
 const {
   documents,
   page,
@@ -164,7 +164,7 @@ const {
   dateTo,
   documentsLoading,
   refetchDocuments,
-} = useDocumentsCatalog()
+} = useDocumentsCatalog({ includeSummaryPreview })
 const {
   syncStatus,
   embedStatus,
@@ -180,7 +180,6 @@ const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
 const searchQuery = ref('')
 const runningOnly = ref(false)
-const listViewMode = ref<'table' | 'cards'>('table')
 const { visibleDocuments: filteredDocuments } = useVisibleDocuments(
   documents,
   analysisFilter,
@@ -291,11 +290,6 @@ const hasExplicitViewQuery = computed(() => {
   const normalized = Array.isArray(value) ? value[0] : value
   return normalized === 'cards' || normalized === 'table'
 })
-
-const setReviewQuickFilter = (value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review') => {
-  selectedReviewStatus.value = value
-  page.value = 1
-}
 
 const setListViewMode = (value: 'table' | 'cards') => {
   listViewMode.value = value
