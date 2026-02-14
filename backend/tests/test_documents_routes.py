@@ -39,7 +39,13 @@ def _insert_suggestion_audit(
         db.commit()
 
 
-def _insert_local_document(doc_id: int, title: str, created: str):
+def _insert_local_document(
+    doc_id: int,
+    title: str,
+    created: str,
+    *,
+    correspondent_id: int | None = None,
+):
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -48,6 +54,7 @@ def _insert_local_document(doc_id: int, title: str, created: str):
                 title=title,
                 created=created,
                 modified=created,
+                correspondent_id=correspondent_id,
             )
         )
         db.commit()
@@ -464,6 +471,69 @@ def test_get_local_document_note_override_sets_needs_review(api_client, monkeypa
     )
 
     response = api_client.get("/documents/41/local")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["local_overrides"] is True
+    assert payload["review_status"] == "needs_review"
+
+
+def test_list_documents_detects_correspondent_clear_as_override(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(
+        doc_id=42,
+        title="Doc 42",
+        created="2026-02-10T10:00:00+00:00",
+        correspondent_id=None,
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 42,
+                    "title": "Doc 42",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": 7,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True, "review_status": "needs_review"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["results"][0]["id"] == 42
+    assert payload["results"][0]["local_overrides"] is True
+    assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_get_local_document_detects_empty_title_as_override(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=43, title="", created="2026-02-10T10:00:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {
+            "id": 43,
+            "title": "Remote title",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    response = api_client.get("/documents/43/local")
     assert response.status_code == 200
     payload = response.json()
     assert payload["local_overrides"] is True

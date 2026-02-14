@@ -50,6 +50,26 @@ _DASHBOARD_CACHE: dict[str, object] = {"ts": 0.0, "data": None}
 _DASHBOARD_CACHE_TTL_SECONDS = 15
 
 
+def _normalized_scalar(value: object) -> object:
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _values_differ(local_value: object, remote_value: object) -> bool:
+    return _normalized_scalar(local_value) != _normalized_scalar(remote_value)
+
+
+def _safe_json_object(raw: str | None) -> dict:
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def _normalize_review_status(value: str | None) -> str:
     if value in {"all", "unreviewed", "reviewed", "needs_review"}:
         return value
@@ -236,11 +256,11 @@ def _apply_derived_fields_and_review_status(
             paperless_tags = doc.get("tags") or []
             if set(local_tags) != set(paperless_tags):
                 local_overrides = True
-            if local_doc.title and local_doc.title != doc.get("title"):
+            if _values_differ(local_doc.title, doc.get("title")):
                 local_overrides = True
-            if local_issue_date and local_issue_date != remote_issue_date:
+            if _values_differ(local_issue_date, remote_issue_date):
                 local_overrides = True
-            if local_doc.correspondent_id and local_doc.correspondent_id != doc.get("correspondent"):
+            if _values_differ(local_doc.correspondent_id, doc.get("correspondent")):
                 local_overrides = True
             if pending_tag_names:
                 local_overrides = True
@@ -489,11 +509,11 @@ def get_local_document(
     local_overrides = False
     if set(local_tags) != set(remote_tags):
         local_overrides = True
-    if doc.title and doc.title != remote_doc.get("title"):
+    if _values_differ(doc.title, remote_doc.get("title")):
         local_overrides = True
-    if local_issue_date and local_issue_date != remote_issue_date:
+    if _values_differ(local_issue_date, remote_issue_date):
         local_overrides = True
-    if doc.correspondent_id and doc.correspondent_id != remote_doc.get("correspondent"):
+    if _values_differ(doc.correspondent_id, remote_doc.get("correspondent")):
         local_overrides = True
     if pending_tag_names:
         local_overrides = True
@@ -607,15 +627,9 @@ def get_document_ocr_scores(
         row = ensure_document_ocr_score(settings, db, doc, src, force=refresh)
         if not row:
             continue
-        components = {}
-        noise = {}
-        ppl = {}
-        if row.components_json:
-            components = json.loads(row.components_json)
-        if row.noise_json:
-            noise = json.loads(row.noise_json)
-        if row.ppl_json:
-            ppl = json.loads(row.ppl_json)
+        components = _safe_json_object(row.components_json)
+        noise = _safe_json_object(row.noise_json)
+        ppl = _safe_json_object(row.ppl_json)
         scores.append(
             {
                 "source": row.source,
