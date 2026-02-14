@@ -1,8 +1,13 @@
 import { unwrap } from '../api/orval'
-import { chatChatPost } from '../api/generated/client'
+import { chatChatPost, getChatStreamChatStreamPostUrl } from '../api/generated/client'
 import type { ChatCitation, ChatRequest, ChatResponse } from '@/api/generated/model'
 
 export type { ChatCitation, ChatResponse }
+type ChatStreamDone = {
+  answer: string
+  conversation_id?: string
+  citations: ChatCitation[]
+}
 
 export const sendChat = (payload: ChatRequest) => unwrap<ChatResponse>(chatChatPost(payload))
 
@@ -20,11 +25,11 @@ const buildApiUrl = (path: string) => {
 export const streamChat = async (
   payload: ChatRequest,
   onToken: (token: string) => void,
-  onDone: (data: { answer: string; conversation_id?: string; citations: ChatCitation[] }) => void,
+  onDone: (data: ChatStreamDone) => void,
   onError: (message: string) => void,
   signal?: AbortSignal,
 ) => {
-  const response = await fetch(buildApiUrl('/chat/stream'), {
+  const response = await fetch(buildApiUrl(getChatStreamChatStreamPostUrl()), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -70,8 +75,12 @@ export const streamChat = async (
     for (const evt of events) {
       if (evt.event === 'done') {
         try {
-          const data = JSON.parse(evt.data)
-          onDone({ answer: data.answer || '', citations: data.citations || [] })
+          const data = JSON.parse(evt.data) as Partial<ChatStreamDone>
+          onDone({
+            answer: data.answer || '',
+            conversation_id: data.conversation_id || undefined,
+            citations: (data.citations || []) as ChatCitation[],
+          })
         } catch {
           onDone({ answer: '', citations: [] })
         }
