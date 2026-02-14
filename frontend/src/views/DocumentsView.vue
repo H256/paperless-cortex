@@ -66,6 +66,12 @@
       @clear-all="clearAllFilters"
     />
 
+    <DocumentsPresetBar
+      :analysis-filter="analysisFilter"
+      :review-status="selectedReviewStatus"
+      @apply-preset="applyTriagePreset"
+    />
+
     <DocumentsQuickControls
       :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
@@ -111,6 +117,7 @@ import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
+import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
@@ -275,6 +282,26 @@ const clearAllFilters = () => {
   selectedReviewStatus.value = 'all'
   analysisFilter.value = 'all'
   modelFilter.value = ''
+  page.value = 1
+}
+
+const applyTriagePreset = (key: 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox') => {
+  if (key === 'unreviewed') {
+    selectedReviewStatus.value = 'unreviewed'
+    analysisFilter.value = 'all'
+  }
+  if (key === 'needs_review') {
+    selectedReviewStatus.value = 'needs_review'
+    analysisFilter.value = 'all'
+  }
+  if (key === 'not_analyzed') {
+    selectedReviewStatus.value = 'all'
+    analysisFilter.value = 'not_analyzed'
+  }
+  if (key === 'inbox') {
+    selectedReviewStatus.value = 'unreviewed'
+    analysisFilter.value = 'not_analyzed'
+  }
   page.value = 1
 }
 
