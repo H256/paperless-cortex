@@ -17,8 +17,16 @@
     </div>
     <div class="mt-3 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
       <div>
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Quick search</label>
+        <label class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Quick search
+          <span
+            class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:border-slate-700 dark:text-slate-400"
+          >
+            /
+          </span>
+        </label>
         <input
+          ref="searchInputRef"
           v-model="searchQueryModel"
           type="text"
           placeholder="ID, title, content..."
@@ -146,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-vue-next'
 import type { Correspondent, Tag } from '../services/documents'
 
@@ -181,6 +189,7 @@ const emit = defineEmits<{
 }>()
 
 const advancedOpen = ref(false)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const orderingModel = computed({
   get: () => props.ordering,
@@ -233,4 +242,32 @@ watch(
   },
   { immediate: true },
 )
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName.toLowerCase()
+  return tag === 'input' || tag === 'textarea' || target.isContentEditable
+}
+
+const handleGlobalKeydown = (event: KeyboardEvent) => {
+  if (event.key === '/' && !isEditableTarget(event.target)) {
+    event.preventDefault()
+    searchInputRef.value?.focus()
+    searchInputRef.value?.select()
+  }
+  if (event.key === 'Escape' && document.activeElement === searchInputRef.value) {
+    if (searchQueryModel.value) {
+      searchQueryModel.value = ''
+    }
+    searchInputRef.value?.blur()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
 </script>
