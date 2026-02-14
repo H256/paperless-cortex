@@ -15,19 +15,32 @@
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Query</label>
           <div class="mt-1 flex items-center gap-2">
             <input
-              v-model="searchStore.query"
+              v-model="query"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
               placeholder="Ask a question or search..."
-              @keyup.enter="runSearch"
+              @keyup.enter="runSearchAction"
             />
             <button
               class="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-              :disabled="searchStore.loading || !searchStore.query"
-              @click="runSearch"
+              :disabled="loading || !query"
+              @click="runSearchAction"
             >
               <Search class="h-4 w-4" />
               Search
+            </button>
+            <button
+              class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              :disabled="loading"
+              @click="resetSearch"
+            >
+              Reset
+            </button>
+            <button
+              class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copySearchLink"
+            >
+              Copy link
             </button>
           </div>
         </div>
@@ -36,7 +49,7 @@
             >Top K</label
           >
           <select
-            v-model.number="searchStore.topK"
+            v-model.number="topK"
             class="h-10 min-w-[84px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option :value="5">5</option>
@@ -49,7 +62,7 @@
             >Source</label
           >
           <select
-            v-model="searchStore.source"
+            v-model="source"
             class="h-10 min-w-[160px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">All</option>
@@ -60,13 +73,13 @@
         </div>
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-            >Min quality: {{ searchStore.minQuality }}</label
+            >Min quality: {{ minQuality }}</label
           >
           <input
             type="range"
             min="0"
             max="100"
-            v-model.number="searchStore.minQuality"
+            v-model.number="minQuality"
             class="h-10 w-40"
           />
         </div>
@@ -74,29 +87,29 @@
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="searchStore.onlyVision" class="h-4 w-4" />
+            <input type="checkbox" v-model="onlyVision" class="h-4 w-4" />
             Only vision OCR
           </label>
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="searchStore.dedupe" class="h-4 w-4" />
+            <input type="checkbox" v-model="dedupe" class="h-4 w-4" />
             Dedupe
           </label>
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="searchStore.rerank" class="h-4 w-4" />
+            <input type="checkbox" v-model="rerank" class="h-4 w-4" />
             Rerank
           </label>
         </div>
       </div>
 
       <div
-        v-if="searchStore.error"
+        v-if="error"
         class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
       >
-        {{ searchStore.error }}
+        {{ error }}
       </div>
       <div
         v-else-if="filteredResults.length === 0"
@@ -136,13 +149,15 @@
           </div>
           <div class="mt-2 text-sm text-slate-700 dark:text-slate-200">{{ result.snippet }}</div>
           <div class="mt-3 flex items-center gap-2 text-xs">
-            <RouterLink
+            <a
               v-if="result.doc_id"
               class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-              :to="resultLink(result)"
+              :href="resultLink(result)"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               Open details
-            </RouterLink>
+            </a>
             <a
               v-if="paperlessBaseUrl"
               class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200"
@@ -161,22 +176,30 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
-import type { SearchResult } from '../services/search'
-import { RouterLink } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useSearchStore } from '../stores/searchStore'
+import { onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
+import { buildDocumentCitationLink } from '../services/citationJump'
+import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
+import { useToastStore } from '../stores/toastStore'
 
-const searchStore = useSearchStore()
-const { filteredResults } = storeToRefs(searchStore)
+const {
+  query,
+  topK,
+  source,
+  onlyVision,
+  minQuality,
+  dedupe,
+  rerank,
+  filteredResults,
+  loading,
+  error,
+  runSearch,
+} = useSearchSession()
+const route = useRoute()
+const router = useRouter()
+const toastStore = useToastStore()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
-
-const encodeBBox = (bbox: unknown) => {
-  if (!Array.isArray(bbox) || bbox.length !== 4) return ''
-  const nums = bbox.map((value) => Number(value))
-  if (nums.some((value) => Number.isNaN(value))) return ''
-  return nums.map((value) => value.toFixed(5)).join(',')
-}
 
 const combinedScore = (result: SearchResult) => {
   const value = (result as { combined_score?: number }).combined_score
@@ -186,16 +209,97 @@ const combinedScore = (result: SearchResult) => {
 }
 
 const resultLink = (result: SearchResult) => {
-  if (!result?.doc_id) return ''
-  const params = new URLSearchParams()
-  if (result.page) params.set('page', String(result.page))
-  const bbox = encodeBBox(result.bbox)
-  if (bbox) params.set('bbox', bbox)
-  const qs = params.toString()
-  return qs ? `/documents/${result.doc_id}?${qs}` : `/documents/${result.doc_id}`
+  return buildDocumentCitationLink({
+    docId: result?.doc_id,
+    page: result?.page,
+    bbox: result?.bbox,
+    source: result?.source,
+    snippet: result?.snippet,
+  })
 }
 
-const runSearch = async () => {
-  await searchStore.runSearch()
+const runSearchAction = async () => runSearch()
+
+const parseBool = (value: unknown, fallback: boolean) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === '1' || raw === 'true') return true
+  if (raw === '0' || raw === 'false') return false
+  return fallback
 }
+
+const parseNumber = (value: unknown, fallback: number) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const buildQueryState = () => {
+  const next: Record<string, string> = {}
+  if (query.value.trim()) next.q = query.value.trim()
+  if (topK.value !== 10) next.k = String(topK.value)
+  if (source.value) next.src = source.value
+  if (onlyVision.value) next.v = '1'
+  if (minQuality.value > 0) next.minq = String(minQuality.value)
+  if (!dedupe.value) next.dd = '0'
+  if (!rerank.value) next.rr = '0'
+  return next
+}
+
+const syncFromRoute = () => {
+  const q = Array.isArray(route.query.q) ? route.query.q[0] : route.query.q
+  query.value = typeof q === 'string' ? q : ''
+  topK.value = parseNumber(route.query.k, 10)
+  source.value = typeof route.query.src === 'string' ? route.query.src : ''
+  onlyVision.value = parseBool(route.query.v, false)
+  minQuality.value = parseNumber(route.query.minq, 0)
+  dedupe.value = parseBool(route.query.dd, true)
+  rerank.value = parseBool(route.query.rr, true)
+}
+
+const syncToRoute = async () => {
+  const next = buildQueryState()
+  const current = route.query
+  const same =
+    String(current.q || '') === String(next.q || '') &&
+    String(current.k || '') === String(next.k || '') &&
+    String(current.src || '') === String(next.src || '') &&
+    String(current.v || '') === String(next.v || '') &&
+    String(current.minq || '') === String(next.minq || '') &&
+    String(current.dd || '') === String(next.dd || '') &&
+    String(current.rr || '') === String(next.rr || '')
+  if (same) return
+  await router.replace({ query: next })
+}
+
+const resetSearch = async () => {
+  query.value = ''
+  topK.value = 10
+  source.value = ''
+  onlyVision.value = false
+  minQuality.value = 0
+  dedupe.value = true
+  rerank.value = true
+  await syncToRoute()
+}
+
+const copySearchLink = async () => {
+  try {
+    const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildQueryState() }).href}`
+    await navigator.clipboard.writeText(href)
+    toastStore.push('Search link copied.', 'success', 'Search', 1600)
+  } catch {
+    toastStore.push('Failed to copy search link.', 'danger', 'Search', 2200)
+  }
+}
+
+onMounted(async () => {
+  syncFromRoute()
+  if (query.value.trim()) {
+    await runSearchAction()
+  }
+})
+
+watch([query, topK, source, onlyVision, minQuality, dedupe, rerank], () => {
+  void syncToRoute()
+})
 </script>

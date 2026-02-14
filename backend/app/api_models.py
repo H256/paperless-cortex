@@ -23,6 +23,8 @@ class StatusResponse(BaseModel):
     text_model: Optional[str] = None
     embedding_model: Optional[str] = None
     vision_model: Optional[str] = None
+    evidence_max_pages: Optional[int] = None
+    evidence_min_snippet_chars: Optional[int] = None
     latency_ms: Optional[int] = None
 
 
@@ -127,6 +129,18 @@ class QueueDelayedResponse(BaseModel):
     items: list[QueueDelayedItem] = []
 
 
+class ErrorTypeDetail(BaseModel):
+    code: str
+    retryable: bool
+    category: str
+    description: str
+
+
+class ErrorTypeCatalogResponse(BaseModel):
+    enabled: bool
+    items: list[ErrorTypeDetail] = []
+
+
 class TaskRunItem(BaseModel):
     id: int
     doc_id: Optional[int] = None
@@ -137,6 +151,8 @@ class TaskRunItem(BaseModel):
     attempt: int
     checkpoint: Optional[dict[str, Any]] = None
     error_type: Optional[str] = None
+    error_retryable: Optional[bool] = None
+    error_category: Optional[str] = None
     error_message: Optional[str] = None
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
@@ -493,6 +509,7 @@ class ProcessMissingResponse(BaseModel):
     missing_embeddings_vision: Optional[int] = None
     missing_page_notes: Optional[int] = None
     missing_summary_hierarchical: Optional[int] = None
+    missing_evidence_index: Optional[int] = None
     missing_suggestions_paperless: Optional[int] = None
     missing_suggestions_vision: Optional[int] = None
     missing_by_step: dict[str, int] = {}
@@ -511,6 +528,7 @@ class DocumentPipelineStatusResponse(BaseModel):
     preferred_source: str
     is_large_document: bool
     sync_ok: bool
+    evidence_ok: bool
     paperless_ok: bool
     vision_ok: bool
     large_ok: bool
@@ -605,11 +623,15 @@ class ChatCitation(BaseModel):
     score: Optional[float] = None
     quality_score: Optional[float] = None
     snippet: Optional[str] = None
+    evidence_status: Optional[str] = None
+    evidence_confidence: Optional[float] = None
+    evidence_error: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     question: str
     answer: str
+    conversation_id: str
     citations: list[ChatCitation] = []
 
 
@@ -624,6 +646,36 @@ class ChatRequest(BaseModel):
     source: Optional[str] = None
     min_quality: Optional[int] = None
     history: Optional[list[ChatHistoryItem]] = None
+    conversation_id: Optional[str] = None
+
+
+class EvidenceCitationRequest(BaseModel):
+    doc_id: int
+    page: int
+    snippet: str
+    source: Optional[str] = None
+    bbox: Optional[Any] = None
+
+
+class EvidenceResolveRequest(BaseModel):
+    citations: list[EvidenceCitationRequest] = []
+    max_pages: int = 3
+    timeout_seconds: int = 45
+
+
+class EvidenceMatch(BaseModel):
+    doc_id: int
+    page: int
+    snippet: str
+    bbox: Optional[Any] = None
+    confidence: float = 0.0
+    status: str
+    error: Optional[str] = None
+
+
+class EvidenceResolveResponse(BaseModel):
+    count: int
+    matches: list[EvidenceMatch] = []
 
 
 class WritebackFieldDiff(BaseModel):

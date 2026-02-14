@@ -439,6 +439,18 @@
                 </button>
               </dd>
             </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Evidence max pages</dt>
+              <dd class="text-right text-slate-900 dark:text-slate-100">
+                {{ runtime.evidence_max_pages || '—' }}
+              </dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-slate-500 dark:text-slate-400">Evidence min snippet chars</dt>
+              <dd class="text-right text-slate-900 dark:text-slate-100">
+                {{ runtime.evidence_min_snippet_chars || '—' }}
+              </dd>
+            </div>
           </dl>
         </div>
       </div>

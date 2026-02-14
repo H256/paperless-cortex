@@ -17,13 +17,32 @@
     </div>
     <div class="mt-3 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
       <div>
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Quick search</label>
-        <input
-          v-model="searchQueryModel"
-          type="text"
-          placeholder="ID, title, content..."
-          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
+        <label class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Quick search
+          <span
+            class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:border-slate-700 dark:text-slate-400"
+          >
+            /
+          </span>
+        </label>
+        <div class="relative mt-1">
+          <input
+            ref="searchInputRef"
+            v-model="searchQueryModel"
+            type="text"
+            placeholder="ID, title, content..."
+            class="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <button
+            v-if="searchQueryModel.trim()"
+            type="button"
+            class="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            @click="searchQueryModel = ''"
+            title="Clear search"
+          >
+            <X class="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <div>
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort</label>
@@ -146,8 +165,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-vue-next'
 import type { Correspondent, Tag } from '../services/documents'
 
 const props = defineProps<{
@@ -181,6 +200,7 @@ const emit = defineEmits<{
 }>()
 
 const advancedOpen = ref(false)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const orderingModel = computed({
   get: () => props.ordering,
@@ -233,4 +253,32 @@ watch(
   },
   { immediate: true },
 )
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName.toLowerCase()
+  return tag === 'input' || tag === 'textarea' || target.isContentEditable
+}
+
+const handleGlobalKeydown = (event: KeyboardEvent) => {
+  if (event.key === '/' && !isEditableTarget(event.target)) {
+    event.preventDefault()
+    searchInputRef.value?.focus()
+    searchInputRef.value?.select()
+  }
+  if (event.key === 'Escape' && document.activeElement === searchInputRef.value) {
+    if (searchQueryModel.value) {
+      searchQueryModel.value = ''
+    }
+    searchInputRef.value?.blur()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
 </script>

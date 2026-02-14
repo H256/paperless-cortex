@@ -85,6 +85,8 @@ def _status_payload(settings: Settings) -> dict[str, object]:
         "text_model": settings.text_model,
         "embedding_model": settings.embedding_model,
         "vision_model": settings.vision_model,
+        "evidence_max_pages": settings.evidence_max_pages,
+        "evidence_min_snippet_chars": settings.evidence_min_snippet_chars,
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }
 

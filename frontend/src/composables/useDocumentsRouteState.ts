@@ -18,6 +18,7 @@ type RouteStateRefs = {
   analysisFilter: Ref<AnalysisFilter>
   modelFilter: Ref<string>
   searchQuery: Ref<string>
+  runningOnly: Ref<boolean>
   viewMode?: Ref<ViewMode>
 }
 
@@ -49,6 +50,10 @@ const normalizeViewMode = (value: unknown): ViewMode => {
 }
 
 const hasDateLikeFormat = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+const toBoolFlag = (value: unknown): boolean => {
+  const normalized = toSingle(value).trim().toLowerCase()
+  return normalized === "1" || normalized === "true" || normalized === "yes"
+}
 
 const applyQueryToRefs = (query: LocationQuery, refs: RouteStateRefs) => {
   refs.page.value = toPositiveInt(query.page, 1)
@@ -60,6 +65,7 @@ const applyQueryToRefs = (query: LocationQuery, refs: RouteStateRefs) => {
   refs.analysisFilter.value = normalizeAnalysisFilter(query.analysis_filter)
   refs.modelFilter.value = toSingle(query.model)
   refs.searchQuery.value = toSingle(query.q)
+  refs.runningOnly.value = toBoolFlag(query.running_only)
   if (refs.viewMode) refs.viewMode.value = normalizeViewMode(query.view)
 
   const dateFrom = toSingle(query.date_from)
@@ -79,6 +85,7 @@ const buildQueryFromRefs = (refs: RouteStateRefs) => {
   if (refs.analysisFilter.value !== 'all') query.analysis_filter = refs.analysisFilter.value
   if (refs.modelFilter.value.trim()) query.model = refs.modelFilter.value.trim()
   if (refs.searchQuery.value.trim()) query.q = refs.searchQuery.value.trim()
+  if (refs.runningOnly.value) query.running_only = "1"
   if (refs.viewMode?.value === 'cards') query.view = 'cards'
   if (refs.dateFrom.value) query.date_from = refs.dateFrom.value
   if (refs.dateTo.value) query.date_to = refs.dateTo.value
@@ -135,6 +142,7 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
     refs.analysisFilter,
     refs.modelFilter,
     refs.searchQuery,
+    refs.runningOnly,
   ]
   if (refs.viewMode) watchedRefs.push(refs.viewMode)
 

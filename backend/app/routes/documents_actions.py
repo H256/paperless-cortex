@@ -15,6 +15,7 @@ from app.models import (
     Document,
     DocumentEmbedding,
     DocumentOcrScore,
+    DocumentPageAnchor,
     DocumentPageNote,
     DocumentPageText,
     DocumentSectionSummary,
@@ -51,6 +52,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 ALLOWED_DOC_TASKS = {
     "sync",
+    "evidence_index",
     "vision_ocr",
     "cleanup_texts",
     "embeddings_paperless",
@@ -79,6 +81,7 @@ class CleanupTextsRequest(BaseModel):
 
 class _PipelineOptions(BaseModel):
     include_sync: bool = False
+    include_evidence_index: bool = True
     include_vision_ocr: bool = True
     include_embeddings: bool = True
     include_embeddings_paperless: bool = True
@@ -122,6 +125,8 @@ def _dedupe_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: _PipelineOptions) -> list[dict[str, Any]]:
     normalized = int(doc_id)
     tasks: list[dict[str, Any]] = []
+    if options.include_evidence_index:
+        tasks.append({"doc_id": normalized, "task": "evidence_index"})
     use_vision = bool(settings.enable_vision_ocr and options.include_vision_ocr)
 
     if options.include_embeddings:
@@ -193,6 +198,9 @@ def _collect_pipeline_cache(db: Session) -> dict[str, Any]:
     page_notes_by_doc_source: dict[tuple[int, str], list[DocumentPageNote]] = {}
     for row in db.query(DocumentPageNote).all():
         page_notes_by_doc_source.setdefault((int(row.doc_id), str(row.source)), []).append(row)
+    anchors_by_doc: dict[int, list[DocumentPageAnchor]] = {}
+    for row in db.query(DocumentPageAnchor).filter(DocumentPageAnchor.source == "paperless_pdf").all():
+        anchors_by_doc.setdefault(int(row.doc_id), []).append(row)
 
     hier_summaries = {
         int(row.doc_id): row for row in db.query(DocumentSuggestion).filter(DocumentSuggestion.source == "hier_summary").all()
@@ -203,6 +211,7 @@ def _collect_pipeline_cache(db: Session) -> dict[str, Any]:
         "vision_latest": vision_latest,
         "vision_pages_by_doc": vision_pages_by_doc,
         "page_notes_by_doc_source": page_notes_by_doc_source,
+        "anchors_by_doc": anchors_by_doc,
         "hier_summaries": hier_summaries,
     }
 
@@ -215,6 +224,31 @@ def _evaluate_doc_pipeline(
     options: _PipelineOptions,
 ) -> dict[str, Any]:
     tasks: list[dict[str, Any]] = []
+    anchors_by_doc: dict[int, list[DocumentPageAnchor]] = cache["anchors_by_doc"]
+    anchor_rows = anchors_by_doc.get(int(doc.id), [])
+    expected_anchor_pages = int(doc.page_count or 0)
+    completed_anchor_pages = {
+        int(row.page)
+        for row in anchor_rows
+        if str(row.status or "") in {"ok", "no_text_layer"}
+    }
+    has_evidence_index = (
+        len(completed_anchor_pages) > 0
+        if expected_anchor_pages <= 0
+        else len(completed_anchor_pages) >= expected_anchor_pages
+    )
+    has_text_layer = any(
+        str(row.status or "") == "ok" and int(row.token_count or 0) > 0
+        for row in anchor_rows
+    )
+    no_text_layer_complete = bool(anchor_rows) and has_evidence_index and not has_text_layer
+    anchor_has_errors = any(str(row.status or "") == "error" for row in anchor_rows)
+    evidence_required = not no_text_layer_complete
+    needs_evidence_index = options.include_evidence_index and evidence_required and (
+        (not has_evidence_index) or anchor_has_errors
+    )
+    if needs_evidence_index:
+        tasks.append({"doc_id": int(doc.id), "task": "evidence_index"})
 
     embeddings: dict[int, DocumentEmbedding] = cache["embeddings"]
     embedding = embeddings.get(int(doc.id))
@@ -323,6 +357,9 @@ def _evaluate_doc_pipeline(
         "needs_suggestions_vision": needs_sugg_v,
         "needs_page_notes": needs_page_notes,
         "needs_summary_hierarchical": needs_summary,
+        "needs_evidence_index": needs_evidence_index,
+        "evidence_required": evidence_required,
+        "evidence_no_text_layer": no_text_layer_complete,
     }
 
 
@@ -408,6 +445,7 @@ def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentOcrScore))
     db.execute(delete(DocumentPageNote))
     db.execute(delete(DocumentSectionSummary))
+    db.execute(delete(DocumentPageAnchor))
     db.commit()
 
 
@@ -420,6 +458,7 @@ def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
     db.query(DocumentSectionSummary).filter(DocumentSectionSummary.doc_id == doc_id).delete(
         synchronize_session=False
     )
+    db.query(DocumentPageAnchor).filter(DocumentPageAnchor.doc_id == doc_id).delete(synchronize_session=False)
     db.commit()
 
 
@@ -427,6 +466,7 @@ def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
 def process_missing(
     dry_run: bool = False,
     include_sync: bool = True,
+    include_evidence_index: bool = True,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
@@ -472,6 +512,7 @@ def process_missing(
     cache = _collect_pipeline_cache(db)
     options = _PipelineOptions(
         include_sync=include_sync,
+        include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
@@ -492,6 +533,7 @@ def process_missing(
     missing_embeddings_vision = 0
     missing_page_notes = 0
     missing_summary_hier = 0
+    missing_evidence_index = 0
     missing_sugg_p = 0
     missing_sugg_v = 0
     checked_docs = 0
@@ -522,6 +564,8 @@ def process_missing(
             missing_page_notes += 1
         if evaluation["needs_summary_hierarchical"]:
             missing_summary_hier += 1
+        if evaluation["needs_evidence_index"]:
+            missing_evidence_index += 1
         if evaluation["needs_suggestions_paperless"]:
             missing_sugg_p += 1
         if evaluation["needs_suggestions_vision"]:
@@ -569,6 +613,7 @@ def process_missing(
         "missing_embeddings_vision": missing_embeddings_vision,
         "missing_page_notes": missing_page_notes,
         "missing_summary_hierarchical": missing_summary_hier,
+        "missing_evidence_index": missing_evidence_index,
         "missing_suggestions_paperless": missing_sugg_p,
         "missing_suggestions_vision": missing_sugg_v,
         "missing_by_step": missing_by_step,
@@ -621,9 +666,22 @@ def get_document_pipeline_status(
     large_ok = True if not is_large_doc else not (
         evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]
     )
+    evidence_required = bool(evaluation.get("evidence_required", True))
+    evidence_no_text_layer = bool(evaluation.get("evidence_no_text_layer", False))
+    evidence_ok = (not evidence_required) or (not evaluation["needs_evidence_index"])
 
     steps = [
         {"key": "sync", "required": True, "done": sync_ok, "detail": "Local document is up to date with Paperless."},
+        {
+            "key": "evidence",
+            "required": evidence_required,
+            "done": evidence_ok,
+            "detail": (
+                "Skipped: PDF has no text layer for anchor indexing."
+                if evidence_no_text_layer
+                else "PDF text-layer anchor index is ready for evidence mapping."
+            ),
+        },
         {
             "key": "paperless",
             "required": True,
@@ -648,6 +706,7 @@ def get_document_pipeline_status(
         "preferred_source": preferred_source,
         "is_large_document": is_large_doc,
         "sync_ok": sync_ok,
+        "evidence_ok": evidence_ok,
         "paperless_ok": paperless_ok,
         "vision_ok": vision_ok,
         "large_ok": large_ok,
@@ -660,6 +719,7 @@ def get_document_pipeline_status(
 def get_document_pipeline_fanout(
     doc_id: int,
     include_sync: bool = True,
+    include_evidence_index: bool = True,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
@@ -679,6 +739,7 @@ def get_document_pipeline_fanout(
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     options = _PipelineOptions(
         include_sync=include_sync,
+        include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
@@ -713,6 +774,7 @@ def continue_document_pipeline(
     doc_id: int,
     dry_run: bool = False,
     include_sync: bool = True,
+    include_evidence_index: bool = True,
     include_vision_ocr: bool = True,
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
@@ -735,6 +797,7 @@ def continue_document_pipeline(
 
     options = _PipelineOptions(
         include_sync=include_sync,
+        include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
@@ -750,6 +813,8 @@ def continue_document_pipeline(
     tasks = list(evaluation["tasks"])
     if include_sync and not _sync_ok(settings, doc):
         followups = _post_sync_followup_tasks(int(doc_id), settings=settings, options=options)
+        if not evaluation.get("needs_evidence_index", False):
+            followups = [task for task in followups if str(task.get("task") or "") != "evidence_index"]
         tasks = _dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}] + tasks + followups)
     enqueued = 0
     if tasks and not dry_run:

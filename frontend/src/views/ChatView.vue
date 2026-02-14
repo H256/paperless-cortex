@@ -15,7 +15,7 @@
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Question</label>
           <div class="mt-1 flex items-center gap-2">
             <input
-              v-model="chatStore.question"
+              v-model="question"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
               placeholder="Ask a question about your documents..."
@@ -23,14 +23,14 @@
             />
             <button
               class="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-              :disabled="chatStore.loading || askLoading || !chatStore.question"
+              :disabled="loading || !question"
               @click="ask"
             >
               <MessageCircle class="h-4 w-4" />
-              {{ chatStore.loading ? 'Thinking...' : 'Ask' }}
+              {{ loading ? 'Thinking...' : 'Ask' }}
             </button>
             <button
-              v-if="chatStore.loading && chatStore.streaming"
+              v-if="loading && streaming"
               class="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
               @click="stop"
             >
@@ -43,7 +43,7 @@
             >Top K</label
           >
           <select
-            v-model.number="chatStore.topK"
+            v-model.number="topK"
             class="h-10 min-w-[84px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option :value="3">3</option>
@@ -56,8 +56,8 @@
             >Source</label
           >
           <select
-            v-model="chatStore.source"
-            :disabled="chatStore.onlyVision"
+            v-model="source"
+            :disabled="onlyVision"
             class="h-10 min-w-[160px] rounded-lg border border-slate-200 bg-white px-2 text-sm disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
           >
             <option value="">All</option>
@@ -68,50 +68,102 @@
         </div>
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-            >Min quality: {{ chatStore.minQuality }}</label
+            >Min quality: {{ minQuality }}</label
           >
           <input
             type="range"
             min="0"
             max="100"
-            v-model.number="chatStore.minQuality"
+            v-model.number="minQuality"
             class="h-10 w-40"
           />
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-3">
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="chatStore.onlyVision" class="h-4 w-4" />
+            <input type="checkbox" v-model="onlyVision" class="h-4 w-4" />
             Only vision OCR
           </label>
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="chatStore.streaming" class="h-4 w-4" />
+            <input type="checkbox" v-model="streaming" class="h-4 w-4" />
             Streaming
           </label>
+          <label
+            class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+            title="Include recent turns to support follow-up questions."
+          >
+            <input type="checkbox" v-model="useHistory" class="h-4 w-4" />
+            Follow-up context
+          </label>
+          <label
+            v-if="useHistory"
+            class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+          >
+            Turns
+            <select
+              v-model.number="historyTurns"
+              class="h-8 min-w-[64px] rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option :value="2">2</option>
+              <option :value="4">4</option>
+              <option :value="6">6</option>
+              <option :value="8">8</option>
+              <option :value="12">12</option>
+            </select>
+          </label>
+          <button
+            class="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="loading"
+            @click="newConversation()"
+          >
+            <MessageSquarePlus class="h-3.5 w-3.5" />
+            New thread
+          </button>
+          <button
+            class="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="loading || messages.length === 0"
+            @click="clearConversation()"
+          >
+            <Trash2 class="h-3.5 w-3.5" />
+            Clear
+          </button>
         </div>
       </div>
 
       <div
-        v-if="chatStore.error"
+        v-if="error"
         class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
       >
-        {{ chatStore.error }}
+        {{ error }}
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <span>Conversation:</span>
+        <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">
+          {{ conversationId || 'new (will be created on next question)' }}
+        </code>
+        <button
+          class="inline-flex h-6 items-center rounded border border-slate-200 bg-white px-1.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+          :disabled="!conversationId"
+          @click="copyConversationId"
+        >
+          Copy id
+        </button>
       </div>
     </section>
 
     <section class="mt-6 space-y-4">
       <div
-        v-if="chatStore.messages.length === 0"
+        v-if="messages.length === 0"
         class="text-sm text-slate-500 dark:text-slate-400"
       >
         No chat responses yet.
       </div>
       <div
         v-else
-        v-for="message in chatStore.messages"
+        v-for="message in messages"
         :key="message.id"
         class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
       >
@@ -119,18 +171,29 @@
           class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
         >
           <span>Question</span>
-          <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">{{
-            formatAge(message.createdAt)
-          }}</span>
+          <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">
+            {{ formatAge(message.createdAt) }}
+            <template v-if="message.conversationId"> | {{ shortConversationId(message.conversationId) }}</template>
+          </span>
         </div>
         <div class="mt-2 text-sm text-slate-900 dark:text-slate-100">{{ message.question }}</div>
+        <div class="mt-2">
+          <button
+            class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="loading"
+            @click="startFollowUp(message.question)"
+          >
+            <CornerDownRight class="h-3.5 w-3.5" />
+            Follow-up
+          </button>
+        </div>
 
         <div
           class="mt-4 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
         >
           <span>Answer</span>
           <span
-            v-if="chatStore.loading && chatStore.messages[0]?.id === message.id"
+            v-if="loading && messages[0]?.id === message.id"
             class="inline-flex items-center gap-2 text-[11px] font-normal text-slate-500 dark:text-slate-400"
           >
             Thinking
@@ -161,9 +224,12 @@
               class="relative group"
             >
               <component
-                :is="citation.doc_id ? RouterLink : 'span'"
-                :to="citation.doc_id ? citationLink(citation) : undefined"
-                class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:border-slate-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                :is="citation.doc_id ? 'a' : 'span'"
+                :href="citation.doc_id ? citationLink(citation) : undefined"
+                :target="citation.doc_id ? '_blank' : undefined"
+                :rel="citation.doc_id ? 'noopener noreferrer' : undefined"
+                class="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm hover:text-indigo-600 dark:bg-slate-900 dark:text-slate-300"
+                :class="citationClass(citation)"
                 :aria-label="`Source ${citation.id}`"
               >
                 <BookOpen class="h-4 w-4" />
@@ -188,6 +254,23 @@
                   {{ citation.quality_score ?? 'n/a' }}
                 </div>
                 <div
+                  v-if="evidenceStatus(citation)"
+                  class="mt-1 text-[11px]"
+                  :class="
+                    evidenceStatus(citation) === 'ok'
+                      ? 'text-emerald-600 dark:text-emerald-300'
+                      : evidenceStatus(citation) === 'no_match'
+                        ? 'text-amber-600 dark:text-amber-300'
+                        : 'text-rose-600 dark:text-rose-300'
+                  "
+                >
+                  Evidence: {{ evidenceStatus(citation) }}
+                  <template v-if="evidenceConfidence(citation) !== null">
+                    ({{ evidenceConfidence(citation) }})
+                  </template>
+                  <template v-if="evidenceError(citation)"> - {{ evidenceError(citation) }}</template>
+                </div>
+                <div
                   v-if="citation.snippet"
                   class="mt-2 text-xs text-slate-700 dark:text-slate-200"
                 >
@@ -203,60 +286,100 @@
 </template>
 
 <script setup lang="ts">
-import { BookOpen, MessageCircle } from 'lucide-vue-next'
+import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } from 'lucide-vue-next'
 import { onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { useChatStore } from '../stores/chatStore'
-import type { ChatMessage } from '../stores/chatStore'
-import type { ChatCitation } from '../services/chat'
-import { useLoading } from '../composables/useLoading'
+import type { ChatCitation } from '../api/generated/model'
+import { buildDocumentCitationLink } from '../services/citationJump'
+import { useToastStore } from '../stores/toastStore'
+import { useChatSession, type ChatMessage } from '../composables/useChatSession'
 
-const chatStore = useChatStore()
-const { loading: askLoading, run: runAsk } = useLoading()
+const {
+  question,
+  topK,
+  source,
+  onlyVision,
+  minQuality,
+  streaming,
+  useHistory,
+  historyTurns,
+  loading,
+  error,
+  messages,
+  conversationId,
+  clearConversation,
+  newConversation,
+  startFollowUp,
+  stop,
+  ask,
+} = useChatSession()
+const toastStore = useToastStore()
 const now = ref(Date.now())
 
-const ask = async () => {
-  await runAsk(() => chatStore.ask())
-}
-
-const stop = () => {
-  chatStore.stop()
-}
-
-const encodeBBox = (bbox: unknown) => {
-  if (!Array.isArray(bbox) || bbox.length !== 4) return ''
-  const nums = bbox.map((value) => Number(value))
-  if (nums.some((value) => Number.isNaN(value))) return ''
-  return nums.map((value) => value.toFixed(5)).join(',')
-}
-
 const citationLink = (citation: ChatCitation) => {
-  if (!citation?.doc_id) return ''
-  const params = new URLSearchParams()
-  if (citation.page) params.set('page', String(citation.page))
-  const bbox = encodeBBox(citation.bbox)
-  if (bbox) params.set('bbox', bbox)
-  const qs = params.toString()
-  return qs ? `/documents/${citation.doc_id}?${qs}` : `/documents/${citation.doc_id}`
+  return buildDocumentCitationLink({
+    docId: citation?.doc_id,
+    page: citation?.page,
+    bbox: citation?.bbox,
+    source: citation?.source,
+    snippet: citation?.snippet,
+  })
 }
 
 const citationKey = (citation: ChatCitation, idx: number) =>
   `${citation.id ?? 'x'}-${citation.doc_id ?? 'doc'}-${citation.page ?? 'p'}-${idx}`
 
+const evidenceStatus = (citation: ChatCitation): string => {
+  return typeof citation.evidence_status === 'string' ? citation.evidence_status : ''
+}
+
+const evidenceConfidence = (citation: ChatCitation): string | null => {
+  const value = citation.evidence_confidence
+  if (typeof value !== 'number' || Number.isNaN(value)) return null
+  return value.toFixed(2)
+}
+
+const evidenceError = (citation: ChatCitation): string => {
+  return typeof citation.evidence_error === 'string' ? citation.evidence_error : ''
+}
+
+const citationClass = (citation: ChatCitation): string => {
+  const status = evidenceStatus(citation)
+  if (status === 'ok') {
+    return 'border-emerald-200 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:border-emerald-700'
+  }
+  if (status === 'no_match') {
+    return 'border-amber-200 hover:border-amber-300 dark:border-amber-900/50 dark:hover:border-amber-700'
+  }
+  if (status === 'error') {
+    return 'border-rose-200 hover:border-rose-300 dark:border-rose-900/50 dark:hover:border-rose-700'
+  }
+  return 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-500'
+}
+
 const renderMarkdown = (message: ChatMessage) => {
+  const escapeAttr = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+
   const map = new Map<number, { tooltip: string; href: string }>()
   ;(message.citations || []).forEach((cite) => {
     const tooltip = `Doc ${cite.doc_id ?? 'n/a'} - Page ${cite.page ?? 'n/a'} - ${cite.source || 'unknown'}`
-    const href = cite.doc_id ? citationLink(cite) : '#'
+    const href = cite.doc_id ? citationLink(cite) : ''
     map.set(cite.id, { tooltip, href })
   })
   const withCitations = message.answer.replace(/\\[(\\d+)\\]/g, (match, rawId) => {
     const id = Number(rawId)
     const info = map.get(id)
     if (!info) return match
-    return `<sup class="chat-citation" title="${info.tooltip}"><a href="${info.href}" class="chat-citation-link">[${id}]</a></sup>`
+    if (!info.href) {
+      return `<sup class="chat-citation" title="${escapeAttr(info.tooltip)}">[${id}]</sup>`
+    }
+    return `<sup class="chat-citation" title="${escapeAttr(info.tooltip)}"><a href="${escapeAttr(info.href)}" class="chat-citation-link" target="_blank" rel="noopener noreferrer">[${id}]</a></sup>`
   })
   const html = marked.parse(withCitations) as string
   return DOMPurify.sanitize(html, {
@@ -314,6 +437,24 @@ onUnmounted(() => {
 const formatScore = (score?: number | null) => {
   if (score === undefined || score === null) return 'n/a'
   return score.toFixed ? score.toFixed(3) : String(score)
+}
+
+const shortConversationId = (value: string) => {
+  const id = (value || '').trim()
+  if (!id) return ''
+  if (id.length <= 14) return id
+  return `${id.slice(0, 8)}...${id.slice(-4)}`
+}
+
+const copyConversationId = async () => {
+  const value = (conversationId.value || '').trim()
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+    toastStore.push('Conversation id copied.', 'success', 'Chat', 1500)
+  } catch {
+    toastStore.push('Failed to copy conversation id.', 'danger', 'Chat', 2200)
+  }
 }
 </script>
 

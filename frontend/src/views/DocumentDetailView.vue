@@ -533,6 +533,7 @@ import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
+import { consumeCitationJump } from '../services/citationJump'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
@@ -931,12 +932,28 @@ const headerMetaLine = computed(() => {
 })
 
 const syncPdfFromQuery = () => {
-  const pageValue = Number(route.query.page)
+  const jump = consumeCitationJump(route.query.jump)
+  if (route.query.jump !== undefined) {
+    const nextQuery = queryToRecord(['jump'])
+    void router.replace({ query: nextQuery })
+  }
+  const pageValue = Number(jump?.page ?? route.query.page)
   if (Number.isFinite(pageValue) && pageValue > 0) {
     pdfPage.value = pageValue
   }
-  const bbox = parseBBox(route.query.bbox)
+  const bbox = parseBBox(jump?.bbox ?? route.query.bbox)
   pdfHighlights.value = bbox ? [bbox] : []
+}
+
+const queryToRecord = (excludeKeys: string[] = []): Record<string, string> => {
+  const excluded = new Set(excludeKeys)
+  const nextQuery: Record<string, string> = {}
+  Object.entries(route.query).forEach(([key, val]) => {
+    if (excluded.has(key) || val === undefined || val === null) return
+    const entry = Array.isArray(val) ? val[0] : val
+    if (typeof entry === 'string') nextQuery[key] = entry
+  })
+  return nextQuery
 }
 
 const normalizeTabQuery = (value: unknown): DetailTabKey => {
@@ -954,12 +971,7 @@ const syncTabFromQuery = () => {
 const syncTabToQuery = async () => {
   const current = normalizeTabQuery(route.query.tab)
   if (current === activeTab.value) return
-  const nextQuery: Record<string, string> = {}
-  Object.entries(route.query).forEach(([key, val]) => {
-    if (val === undefined || val === null) return
-    const entry = Array.isArray(val) ? val[0] : val
-    if (typeof entry === 'string') nextQuery[key] = entry
-  })
+  const nextQuery = queryToRecord()
   if (activeTab.value === 'meta') {
     delete nextQuery.tab
   } else {
@@ -970,14 +982,7 @@ const syncTabToQuery = async () => {
 
 const onPdfPageChange = (value: number) => {
   pdfPage.value = value
-  const nextQuery: Record<string, string> = {}
-  Object.entries(route.query).forEach(([key, val]) => {
-    if (val === undefined || val === null) return
-    const entry = Array.isArray(val) ? val[0] : val
-    if (typeof entry === 'string') {
-      nextQuery[key] = entry
-    }
-  })
+  const nextQuery = queryToRecord()
   nextQuery.page = String(value)
   delete nextQuery.bbox
   router.replace({ query: nextQuery })

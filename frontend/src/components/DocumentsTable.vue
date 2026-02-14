@@ -63,6 +63,13 @@
           <button
             type="button"
             class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            @click.stop="copyDocId(doc.id)"
+          >
+            {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
+          </button>
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click.stop="onOpenDoc(doc.id)"
           >
             Open
@@ -89,7 +96,7 @@
     <div v-else class="overflow-x-auto">
       <table class="w-full min-w-[920px] border-collapse text-sm">
         <thead
-          class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+          class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
         >
           <tr>
             <th class="px-6 py-3">
@@ -130,8 +137,13 @@
           <tr
             v-for="doc in documents"
             :key="doc.id ?? `${doc.title}-${doc.created ?? ''}`"
-            class="border-b border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+            class="border-b border-slate-100 hover:bg-slate-50 focus-within:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 dark:focus-within:bg-slate-800"
+            tabindex="0"
+            role="button"
+            :aria-label="`Open document ${doc.title || doc.id || ''}`"
             @click="onOpenDoc(doc.id)"
+            @keydown.enter.prevent="onOpenDoc(doc.id)"
+            @keydown.space.prevent="onOpenDoc(doc.id)"
           >
             <td class="px-6 py-3 text-slate-900 dark:text-slate-100">{{ doc.title }}</td>
             <td class="px-6 py-3 text-slate-600">
@@ -186,6 +198,13 @@
                   <button
                     type="button"
                     class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    @click.stop="copyDocId(doc.id)"
+                  >
+                    {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     @click.stop="onOpenDoc(doc.id)"
                   >
                     Open
@@ -230,6 +249,23 @@
         <div class="text-xs text-slate-400 dark:text-slate-500">
           Last synced: {{ formatDateTime(lastSynced) }}
         </div>
+        <div class="mt-2 flex items-center justify-center gap-1">
+          <input
+            v-model.number="pageJumpValue"
+            type="number"
+            min="1"
+            :max="totalPages"
+            class="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            @keyup.enter="applyPageJump"
+          />
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            @click="applyPageJump"
+          >
+            Go
+          </button>
+        </div>
       </div>
       <button
         class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
@@ -243,6 +279,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { ChevronDown, Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
 import type { Correspondent, DocumentRow } from '../services/documents'
@@ -266,7 +303,27 @@ const emit = defineEmits<{
   'open-doc-suggestions': [id: number]
   'prev-page': []
   'next-page': []
+  'jump-page': [page: number]
 }>()
+
+const pageJumpValue = ref<number>(props.page)
+const copiedDocId = ref<number | null>(null)
+
+watch(
+  () => props.page,
+  (value) => {
+    pageJumpValue.value = value
+  },
+)
+
+const applyPageJump = () => {
+  const next = Number(pageJumpValue.value)
+  if (!Number.isFinite(next)) return
+  const clamped = Math.min(Math.max(1, Math.trunc(next)), props.totalPages)
+  if (clamped === props.page) return
+  pageJumpValue.value = clamped
+  emit('jump-page', clamped)
+}
 
 const sortDir = (field: string) => {
   const current = props.ordering.replace('-', '')
@@ -287,6 +344,19 @@ const onOpenDocOperations = (id: number | null | undefined) => {
 const onOpenDocSuggestions = (id: number | null | undefined) => {
   if (typeof id !== 'number') return
   emit('open-doc-suggestions', id)
+}
+
+const copyDocId = async (id: number | null | undefined) => {
+  if (typeof id !== 'number') return
+  try {
+    await navigator.clipboard.writeText(String(id))
+    copiedDocId.value = id
+    window.setTimeout(() => {
+      if (copiedDocId.value === id) copiedDocId.value = null
+    }, 1200)
+  } catch {
+    // no-op fallback; clipboard may be unavailable in some contexts
+  }
 }
 
 const needsReview = (doc: DocumentRow) =>

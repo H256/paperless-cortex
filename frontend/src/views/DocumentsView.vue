@@ -6,6 +6,12 @@
         <p class="text-sm text-slate-500">
           Manage ingestion, embedding, and review analysis status.
         </p>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Showing {{ visibleDocuments.length }} of {{ totalCount }} synced documents
+          <template v-if="searchQuery.trim()">
+            for "{{ searchQuery.trim() }}"
+          </template>
+        </p>
       </div>
       <DocumentsOverviewPanel
         :stats="stats"
@@ -64,6 +70,7 @@
       :selected-review-status="selectedReviewStatus"
       :model-filter="modelFilter"
       :search-query="searchQuery"
+      :running-only="runningOnly"
       @clear-filter="clearFilter"
       @clear-all="clearAllFilters"
     />
@@ -78,14 +85,25 @@
     <DocumentsQuickControls
       :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
+      :running-only="runningOnly"
       @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
+      @update:runningOnly="setRunningOnly"
       @reset-quick-filters="resetQuickFilters"
+      @clear-all-filters="clearAllFilters"
       @open-writeback="openWritebackQueue"
       @open-processing="openPreview"
     />
 
+    <DocumentsEmptyState
+      v-if="visibleDocuments.length === 0"
+      :mode="emptyStateMode"
+      @clear-filters="clearAllFilters"
+      @open-processing="openPreview"
+    />
+
     <DocumentsTable
+      v-else
       :documents="visibleDocuments"
       :running-by-doc-id="runningByDocId"
       :ordering="ordering"
@@ -101,6 +119,7 @@
       @open-doc-suggestions="openSuggestions"
       @prev-page="onPrevPage"
       @next-page="onNextPage"
+      @jump-page="onJumpPage"
     />
   </section>
 
@@ -120,6 +139,7 @@ import { useRunningTaskProgress } from '../composables/useRunningTaskProgress'
 import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
+import DocumentsEmptyState from '../components/DocumentsEmptyState.vue'
 import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
@@ -159,9 +179,26 @@ const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
 const searchQuery = ref('')
+const runningOnly = ref(false)
 const listViewMode = ref<'table' | 'cards'>('table')
-const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter, searchQuery)
+const { visibleDocuments: filteredDocuments } = useVisibleDocuments(
+  documents,
+  analysisFilter,
+  modelFilter,
+  searchQuery,
+)
 const { runningByDocId } = useRunningTaskProgress()
+const visibleDocuments = computed(() => {
+  if (!runningOnly.value) return filteredDocuments.value
+  return filteredDocuments.value.filter((doc) =>
+    typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
+  )
+})
+const emptyStateMode = computed<'filtered' | 'running_only' | 'empty'>(() => {
+  if (runningOnly.value) return 'running_only'
+  if (documents.value.length === 0) return 'empty'
+  return 'filtered'
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const {
@@ -216,6 +253,12 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
   load,
 )
 
+const onJumpPage = async (targetPage: number) => {
+  if (targetPage < 1 || targetPage > totalPages.value) return
+  page.value = targetPage
+  await load()
+}
+
 const open = (id: number) => {
   router.push({
     path: `/documents/${id}`,
@@ -258,16 +301,31 @@ const setListViewMode = (value: 'table' | 'cards') => {
   listViewMode.value = value
 }
 
+const setRunningOnly = (value: boolean) => {
+  runningOnly.value = value
+  page.value = 1
+}
+
 const resetQuickFilters = () => {
   selectedReviewStatus.value = 'all'
   analysisFilter.value = 'all'
   modelFilter.value = ''
   searchQuery.value = ''
+  runningOnly.value = false
   page.value = 1
 }
 
 const clearFilter = (
-  key: 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model' | 'search',
+  key:
+    | 'correspondent'
+    | 'tag'
+    | 'date_from'
+    | 'date_to'
+    | 'analysis'
+    | 'review'
+    | 'model'
+    | 'search'
+    | 'running_only',
 ) => {
   if (key === 'correspondent') selectedCorrespondent.value = ''
   if (key === 'tag') selectedTag.value = ''
@@ -277,6 +335,7 @@ const clearFilter = (
   if (key === 'review') selectedReviewStatus.value = 'all'
   if (key === 'model') modelFilter.value = ''
   if (key === 'search') searchQuery.value = ''
+  if (key === 'running_only') runningOnly.value = false
   page.value = 1
 }
 
@@ -289,6 +348,7 @@ const clearAllFilters = () => {
   analysisFilter.value = 'all'
   modelFilter.value = ''
   searchQuery.value = ''
+  runningOnly.value = false
   page.value = 1
 }
 
@@ -325,6 +385,7 @@ useDocumentsRouteState({
   analysisFilter,
   modelFilter,
   searchQuery,
+  runningOnly,
   viewMode: listViewMode,
 })
 

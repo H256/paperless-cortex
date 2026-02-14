@@ -68,6 +68,7 @@ from app.services.suggestion_store import audit_suggestion_run, persist_suggesti
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services import vision_ocr
 from app.services.text_cleaning import clean_ocr_text
+from app.services.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
 from app.services.error_types import classify_worker_error
 from app.services.error_types import is_retryable_error_type
 from app.services.error_types import task_source_from_payload
@@ -94,6 +95,14 @@ import json
 logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
 VISION_OCR_BATCH_DEFAULT = 25
+
+
+def _safe_rollback(db: Session, *, context: str = "") -> None:
+    try:
+        db.rollback()
+    except Exception:
+        if context:
+            logger.debug("DB rollback failed context=%s", context, exc_info=True)
 
 
 def _page_text_value(page: object) -> str:
@@ -133,7 +142,12 @@ def _set_task_checkpoint(
 def _get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
     if run_id is None:
         return None
-    row = db.get(TaskRun, run_id)
+    try:
+        row = db.get(TaskRun, run_id)
+    except Exception:
+        # Worker must stay operational even when task-runs schema is not ready yet.
+        logger.debug("Failed reading task run checkpoint run_id=%s", run_id, exc_info=True)
+        return None
     if not row or not row.checkpoint_json:
         return None
     raw = str(row.checkpoint_json).strip()
@@ -566,6 +580,7 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return
+    _process_evidence_index(settings, db, doc_id, run_id=run_id)
     ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
 
     # Embeddings (with vision OCR)
@@ -1120,6 +1135,36 @@ def _process_embeddings_paperless(settings, db: Session, doc_id: int, run_id: in
     _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless", run_id=run_id)
 
 
+def _process_evidence_index(
+    settings,
+    db: Session,
+    doc_id: int,
+    *,
+    source: str = "paperless_pdf",
+    run_id: int | None = None,
+) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort evidence index doc=%s", doc_id)
+        return
+    if source != "paperless_pdf":
+        logger.info("Evidence index source unsupported doc=%s source=%s", doc_id, source)
+        return
+    doc = get_document_or_none(db, doc_id)
+    if not doc:
+        return
+    pdf_bytes = fetch_pdf_bytes_for_doc(settings, doc)
+    rows = extract_pdf_page_anchors(pdf_bytes)
+    _set_task_checkpoint(
+        db,
+        run_id=run_id,
+        stage="evidence_index",
+        current=len(rows),
+        total=len(rows),
+        extra={"source": source},
+    )
+    upsert_page_anchors(db, doc_id=doc_id, source=source, rows=rows)
+
+
 def _process_embeddings_vision(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
@@ -1290,6 +1335,13 @@ def _dispatch_task(
 ) -> None:
     handlers = {
         "sync": lambda: _process_sync_only(settings, db, doc_id),
+        "evidence_index": lambda: _process_evidence_index(
+            settings,
+            db,
+            doc_id,
+            source=str((task or {}).get("source") or "paperless_pdf"),
+            run_id=run_id,
+        ),
         "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id, run_id=run_id),
         "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id, run_id=run_id),
         "cleanup_texts": lambda: _process_cleanup_texts(
@@ -1321,6 +1373,16 @@ def _dispatch_task(
         handler()
         return
     _process_doc(settings, db, doc_id, run_id=run_id)
+
+
+def _handle_worker_cancel_request(settings) -> bool:
+    if not is_cancel_requested(settings):
+        return False
+    logger.info("Worker cancel requested; clearing queue")
+    clear_queue(settings)
+    reset_stats(settings)
+    clear_cancel(settings)
+    return True
 
 
 def main() -> None:
@@ -1372,11 +1434,7 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             move_due_delayed_tasks(settings, limit=100)
-            if is_cancel_requested(settings):
-                logger.info("Worker cancel requested; clearing queue")
-                clear_queue(settings)
-                reset_stats(settings)
-                clear_cancel(settings)
+            if _handle_worker_cancel_request(settings):
                 time.sleep(0.5)
                 continue
             item = client.blpop(QUEUE_KEY, timeout=5)
@@ -1399,11 +1457,8 @@ def main() -> None:
                     logger.warning("Invalid doc_id in queue: %s", doc_id_str)
                     continue
                 task_type = "full"
-            if is_cancel_requested(settings):
+            if _handle_worker_cancel_request(settings):
                 logger.info("Worker cancel requested; skipping doc=%s", doc_id)
-                clear_queue(settings)
-                reset_stats(settings)
-                clear_cancel(settings)
                 time.sleep(0.5)
                 continue
             running_task = task if isinstance(task, dict) else {"doc_id": doc_id, "task": "full"}
@@ -1461,10 +1516,7 @@ def main() -> None:
                             run_id=run_id,
                         )
                     except Exception as exc:
-                        try:
-                            db.rollback()
-                        except Exception:
-                            pass
+                        _safe_rollback(db, context="dispatch_task_failed")
                         run_status = "failed"
                         run_error_type = classify_worker_error(exc)
                         run_error_message = str(exc)
@@ -1512,10 +1564,7 @@ def main() -> None:
                                 "attempt": retry_attempt + 1,
                             }
                         if run_id is not None:
-                            try:
-                                db.rollback()
-                            except Exception:
-                                pass
+                            _safe_rollback(db, context="before_finish_task_run")
                             finish_task_run(
                                 db,
                                 run_id=run_id,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+import logging
 from sqlalchemy import func
 
 from fastapi import APIRouter, Depends
@@ -47,6 +48,7 @@ from app.services.queue_tasks import build_task_sequence
 from app.services.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+logger = logging.getLogger(__name__)
 
 
 def _next_local_note_id(db: Session) -> int:
@@ -62,40 +64,61 @@ def _next_local_note_id(db: Session) -> int:
     return value - 1
 
 
+def _apply_note_fields(target: DocumentNote, *, note_body: str, created: str | None, user: dict) -> None:
+    target.note = note_body
+    target.created = created
+    target.user_id = user.get("id")
+    target.user_username = user.get("username")
+    target.user_first_name = user.get("first_name")
+    target.user_last_name = user.get("last_name")
+
+
 def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> None:
     existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
     incoming_ids: set[int] = set()
+    saw_malformed_id = False
 
     for note in incoming_notes:
-        note_id = int(note.id)
+        try:
+            note_id = int(note.id)
+        except Exception:
+            saw_malformed_id = True
+            logger.warning(
+                "Skipping malformed note id during sync doc_id=%s note_id=%s",
+                getattr(doc, "id", None),
+                getattr(note, "id", None),
+            )
+            continue
+        if note_id in incoming_ids:
+            # Defensive: ignore duplicate note ids in one payload (Paperless/api anomalies)
+            # to avoid duplicate-PK inserts in a single sync pass.
+            continue
         incoming_ids.add(note_id)
         user = note.user or {}
         existing = existing_by_id.get(note_id)
         if existing is None:
-            # Resolve collisions where legacy local AI notes used positive ids that now overlap with Paperless ids.
             global_note = db.get(DocumentNote, note_id)
-            if global_note is not None and int(global_note.document_id) != int(doc.id):
-                global_note.id = _next_local_note_id(db)
-                db.flush()
+            if global_note is not None:
+                if int(global_note.document_id) != int(doc.id):
+                    # Resolve collisions where legacy local AI notes used positive ids
+                    # that now overlap with Paperless ids.
+                    global_note.id = _next_local_note_id(db)
+                    db.flush()
+                else:
+                    existing = global_note
+                    existing_by_id[note_id] = global_note
         if existing:
-            existing.note = note.note
-            existing.created = note.created
-            existing.user_id = user.get("id")
-            existing.user_username = user.get("username")
-            existing.user_first_name = user.get("first_name")
-            existing.user_last_name = user.get("last_name")
+            _apply_note_fields(existing, note_body=note.note, created=note.created, user=user)
             continue
-        doc.notes.append(
-            DocumentNote(
-                id=note_id,
-                note=note.note,
-                created=note.created,
-                user_id=user.get("id"),
-                user_username=user.get("username"),
-                user_first_name=user.get("first_name"),
-                user_last_name=user.get("last_name"),
-            )
-        )
+        created = DocumentNote(id=note_id)
+        _apply_note_fields(created, note_body=note.note, created=note.created, user=user)
+        doc.notes.append(created)
+        existing_by_id[note_id] = created
+
+    if saw_malformed_id:
+        # Safety-first: avoid destructive stale cleanup when incoming note ids are malformed.
+        logger.warning("Skipping stale note cleanup due to malformed note ids doc_id=%s", getattr(doc, "id", None))
+        return
 
     for stale in [note for note in list(doc.notes or []) if int(note.id) not in incoming_ids]:
         doc.notes.remove(stale)
@@ -347,7 +370,6 @@ def sync_document(
     force_embed: bool = False,
     priority: bool = False,
 ):
-    logger = __import__("logging").getLogger(__name__)
     if embed is None:
         embed = settings.embed_on_sync
     logger.info("Sync doc=%s embed=%s force_embed=%s", doc_id, embed, force_embed)

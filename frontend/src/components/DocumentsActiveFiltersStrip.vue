@@ -46,6 +46,7 @@ type FilterKey =
   | 'review'
   | 'model'
   | 'search'
+  | 'running_only'
 
 const props = defineProps<{
   tags: Tag[]
@@ -58,6 +59,7 @@ const props = defineProps<{
   selectedReviewStatus: ReviewStatus
   modelFilter: string
   searchQuery: string
+  runningOnly: boolean
 }>()
 
 defineEmits<{
@@ -120,6 +122,9 @@ const activeFilters = computed(() => {
   }
   if (props.searchQuery.trim()) {
     items.push({ key: 'search', label: 'Search', value: props.searchQuery.trim() })
+  }
+  if (props.runningOnly) {
+    items.push({ key: 'running_only', label: 'State', value: 'Running only' })
   }
   return items
 })

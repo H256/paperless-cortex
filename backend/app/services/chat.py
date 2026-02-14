@@ -4,6 +4,8 @@ import json
 import logging
 from typing import Any, Iterable
 from pathlib import Path
+from uuid import uuid4
+from sqlalchemy.orm import Session
 
 from fastapi.responses import StreamingResponse
 
@@ -11,11 +13,14 @@ from app.config import Settings
 from app.services import llm_client
 from app.services.guard import ensure_text_llm_ready, ensure_qdrant_ready
 from app.services.embeddings import embed_text, search_points
+from app.services.evidence import resolve_evidence_matches
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat.txt"
 _prompt_cache: dict[str, str] = {}
+MAX_HISTORY_TURNS = 12
+MAX_HISTORY_CHARS = 1600
 
 
 def _load_prompt(settings: Settings) -> str:
@@ -73,6 +78,12 @@ def _dedupe_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(deduped.values())
 
 
+def _renumber_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for idx, item in enumerate(sources, start=1):
+        item["id"] = idx
+    return sources
+
+
 def _format_sources(sources: list[dict[str, Any]]) -> str:
     lines = []
     for source in sources:
@@ -82,21 +93,95 @@ def _format_sources(sources: list[dict[str, Any]]) -> str:
         )
     return "\n".join(lines)
 
-def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
+def _normalize_history(history: list[dict[str, str]] | list[Any]) -> list[tuple[str, str]]:
     if not history:
-        return "None"
-    blocks = []
-    for item in history[-6:]:
+        return []
+    items: list[tuple[str, str]] = []
+    for item in history[-MAX_HISTORY_TURNS:]:
         if isinstance(item, dict):
             question = (item.get("question") or "").strip()
             answer = (item.get("answer") or "").strip()
         else:
             question = (getattr(item, "question", "") or "").strip()
             answer = (getattr(item, "answer", "") or "").strip()
+        if len(question) > MAX_HISTORY_CHARS:
+            question = question[:MAX_HISTORY_CHARS].strip()
+        if len(answer) > MAX_HISTORY_CHARS:
+            answer = answer[:MAX_HISTORY_CHARS].strip()
         if not question and not answer:
             continue
+        items.append((question, answer))
+    return items
+
+
+def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
+    items = _normalize_history(history)
+    if not items:
+        return "None"
+    blocks = []
+    for question, answer in items:
         blocks.append(f"Q: {question}\nA: {answer}".strip())
     return "\n\n".join(blocks) if blocks else "None"
+
+
+def _ensure_conversation_id(value: str | None) -> str:
+    raw = (value or "").strip()
+    if raw:
+        return raw
+    return uuid4().hex
+
+
+def _resolve_evidence_for_sources(
+    settings: Settings,
+    sources: list[dict[str, Any]],
+    *,
+    db: Session | None = None,
+) -> None:
+    candidates: list[dict[str, Any]] = []
+    for source in sources:
+        snippet = str(source.get("snippet") or "").strip()
+        if len(snippet) < settings.evidence_min_snippet_chars:
+            continue
+        candidates.append(
+            {
+                "doc_id": source.get("doc_id"),
+                "page": source.get("page"),
+                "snippet": snippet,
+                "source": source.get("source"),
+                "bbox": source.get("bbox"),
+            }
+        )
+    if not candidates:
+        return
+    matches = resolve_evidence_matches(
+        candidates,
+        max_pages=settings.evidence_max_pages,
+        settings=settings,
+        db=db,
+    )
+    index: dict[tuple[int, int, str], dict[str, Any]] = {}
+    for match in matches:
+        key = (
+            int(match.get("doc_id") or 0),
+            int(match.get("page") or 0),
+            str(match.get("snippet") or "").strip(),
+        )
+        index[key] = match
+    for source in sources:
+        key = (
+            int(source.get("doc_id") or 0),
+            int(source.get("page") or 0),
+            str(source.get("snippet") or "").strip(),
+        )
+        resolved = index.get(key)
+        if not resolved:
+            continue
+        source["evidence_status"] = resolved.get("status")
+        source["evidence_confidence"] = float(resolved.get("confidence") or 0.0)
+        source["evidence_error"] = resolved.get("error")
+        resolved_bbox = resolved.get("bbox")
+        if resolved_bbox is not None:
+            source["bbox"] = resolved_bbox
 
 
 def answer_question(
@@ -106,7 +191,9 @@ def answer_question(
     source: str | None = None,
     min_quality: int | None = None,
     history: list[dict[str, str]] | None = None,
+    conversation_id: str | None = None,
     stream: bool = False,
+    db: Session | None = None,
 ) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
     ensure_text_llm_ready(settings)
     ensure_qdrant_ready(settings)
@@ -118,11 +205,13 @@ def answer_question(
     sources = _build_sources(hits, min_quality=min_quality)
     sources = _dedupe_sources(sources)
     sources = sources[:top_k]
+    sources = _renumber_sources(sources)
     if sources:
         sources_text = _format_sources(sources)
     else:
         sources_text = "No sources available."
     prompt = _load_prompt(settings)
+    resolved_conversation_id = _ensure_conversation_id(conversation_id)
     prompt = (
         prompt.replace("{question}", question.strip())
         .replace("{sources}", sources_text)
@@ -136,11 +225,13 @@ def answer_question(
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
         )
+        _resolve_evidence_for_sources(settings, sources, db=db)
         for source in sources:
             source.pop("text", None)
         return {
             "question": question,
             "answer": answer,
+            "conversation_id": resolved_conversation_id,
             "citations": sources,
         }
 
@@ -156,9 +247,16 @@ def answer_question(
             payload = json.dumps({"token": token})
             yield f"data: {payload}\n\n".encode("utf-8")
         answer = "".join(answer_chunks).strip()
+        _resolve_evidence_for_sources(settings, sources, db=db)
         for source in sources:
             source.pop("text", None)
-        done_payload = json.dumps({"answer": answer, "citations": sources})
+        done_payload = json.dumps(
+            {
+                "answer": answer,
+                "conversation_id": resolved_conversation_id,
+                "citations": sources,
+            }
+        )
         yield f"event: done\ndata: {done_payload}\n\n".encode("utf-8")
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

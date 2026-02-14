@@ -9,6 +9,7 @@ from app.models import (
     Document,
     DocumentEmbedding,
     DocumentNote,
+    DocumentPageAnchor,
     DocumentPageText,
     DocumentPendingTag,
     DocumentSuggestion,
@@ -316,6 +317,18 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
             )
         )
         db.add(
+            DocumentPageAnchor(
+                doc_id=31,
+                page=1,
+                source="paperless_pdf",
+                anchors_json='[{"text":"Stable","bbox":[1,2,3,4]}]',
+                token_count=1,
+                status="ok",
+                created_at="2026-02-10T10:04:00+00:00",
+                processed_at="2026-02-10T10:04:00+00:00",
+            )
+        )
+        db.add(
             DocumentSuggestion(
                 doc_id=31,
                 source="paperless_ocr",
@@ -347,6 +360,46 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
     assert payload["sync_ok"] is True
     assert payload["paperless_ok"] is True
     assert payload["missing_tasks"] == []
+
+
+def test_pipeline_status_marks_evidence_optional_for_no_text_layer(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=32, title="Image Only", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.get(Document, 32)
+        assert doc is not None
+        doc.page_count = 1
+        db.add(
+            DocumentPageAnchor(
+                doc_id=32,
+                page=1,
+                source="paperless_pdf",
+                anchors_json="[]",
+                token_count=0,
+                status="no_text_layer",
+                created_at="2026-02-10T10:04:00+00:00",
+                processed_at="2026-02-10T10:04:00+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {"id": 32, "modified": "2026-02-10T10:00:00+00:00"},
+    )
+
+    response = api_client.get("/documents/32/pipeline-status")
+    assert response.status_code == 200
+    payload = response.json()
+    evidence_step = next((item for item in payload["steps"] if item["key"] == "evidence"), None)
+    assert evidence_step is not None
+    assert evidence_step["required"] is False
+    assert evidence_step["done"] is True
+    assert payload["evidence_ok"] is True
+    assert all(task.get("task") != "evidence_index" for task in payload["missing_tasks"])
 
 
 def test_get_local_document_note_override_sets_needs_review(api_client, monkeypatch):
