@@ -101,6 +101,7 @@ All granular implementation slices and refactors are tracked here.
 - `020d65e` feat(search): added per-result “Copy details link” quick action and switched search link copy flow to shared clipboard composable.
 - `298cc2a` refactor(chat): switched chat copy actions (`Copy link`/`Copy id`) to shared clipboard composable for consistent UX/error handling.
 - `a99630e` refactor(search): replaced SearchView’s local query-watch/sync flag boilerplate with shared `useRouteQuerySync` orchestration.
+- `a837006` refactor(chat): replaced ChatView’s local query-watch/sync flag boilerplate with shared `useRouteQuerySync` orchestration.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
 ## Historical note
