@@ -15,16 +15,16 @@
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Query</label>
           <div class="mt-1 flex items-center gap-2">
             <input
-              v-model="searchStore.query"
+              v-model="query"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
               placeholder="Ask a question or search..."
-              @keyup.enter="runSearch"
+              @keyup.enter="runSearchAction"
             />
             <button
               class="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-              :disabled="searchStore.loading || !searchStore.query"
-              @click="runSearch"
+              :disabled="loading || !query"
+              @click="runSearchAction"
             >
               <Search class="h-4 w-4" />
               Search
@@ -36,7 +36,7 @@
             >Top K</label
           >
           <select
-            v-model.number="searchStore.topK"
+            v-model.number="topK"
             class="h-10 min-w-[84px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option :value="5">5</option>
@@ -49,7 +49,7 @@
             >Source</label
           >
           <select
-            v-model="searchStore.source"
+            v-model="source"
             class="h-10 min-w-[160px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">All</option>
@@ -60,13 +60,13 @@
         </div>
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-            >Min quality: {{ searchStore.minQuality }}</label
+            >Min quality: {{ minQuality }}</label
           >
           <input
             type="range"
             min="0"
             max="100"
-            v-model.number="searchStore.minQuality"
+            v-model.number="minQuality"
             class="h-10 w-40"
           />
         </div>
@@ -74,29 +74,29 @@
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="searchStore.onlyVision" class="h-4 w-4" />
+            <input type="checkbox" v-model="onlyVision" class="h-4 w-4" />
             Only vision OCR
           </label>
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="searchStore.dedupe" class="h-4 w-4" />
+            <input type="checkbox" v-model="dedupe" class="h-4 w-4" />
             Dedupe
           </label>
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
-            <input type="checkbox" v-model="searchStore.rerank" class="h-4 w-4" />
+            <input type="checkbox" v-model="rerank" class="h-4 w-4" />
             Rerank
           </label>
         </div>
       </div>
 
       <div
-        v-if="searchStore.error"
+        v-if="error"
         class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
       >
-        {{ searchStore.error }}
+        {{ error }}
       </div>
       <div
         v-else-if="filteredResults.length === 0"
@@ -164,13 +164,23 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
 import type { SearchResult } from '../services/search'
-import { storeToRefs } from 'pinia'
-import { useSearchStore } from '../stores/searchStore'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
+import { useSearchSession } from '../composables/useSearchSession'
 
-const searchStore = useSearchStore()
-const { filteredResults } = storeToRefs(searchStore)
+const {
+  query,
+  topK,
+  source,
+  onlyVision,
+  minQuality,
+  dedupe,
+  rerank,
+  filteredResults,
+  loading,
+  error,
+  runSearch,
+} = useSearchSession()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 
 const combinedScore = (result: SearchResult) => {
@@ -190,7 +200,5 @@ const resultLink = (result: SearchResult) => {
   })
 }
 
-const runSearch = async () => {
-  await searchStore.runSearch()
-}
+const runSearchAction = async () => runSearch()
 </script>
