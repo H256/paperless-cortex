@@ -97,6 +97,7 @@ All granular implementation slices and refactors are tracked here.
 - `9f1d8d4` feat(chat): added keyboard shortcuts (`/` focus question, `Ctrl+Enter` ask) for parity with search and faster follow-up interactions.
 - `d44b747` refactor(search): extracted global keyboard listener lifecycle into reusable `useGlobalHotkeys` composable and simplified SearchView hotkey wiring.
 - `046c132` refactor(chat): switched ChatView hotkey listener lifecycle to shared `useGlobalHotkeys` composable for consistency with search.
+- `84d8b00` refactor(ui): introduced reusable clipboard composable (`useClipboardCopy`) to centralize copy behavior/error mapping across views.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
