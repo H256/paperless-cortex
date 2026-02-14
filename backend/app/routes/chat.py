@@ -6,7 +6,13 @@ import logging
 from app.config import Settings
 from app.deps import get_settings
 from app.services.chat import answer_question
-from app.api_models import ChatRequest, ChatResponse
+from app.services.evidence import resolve_evidence_matches
+from app.api_models import (
+    ChatRequest,
+    ChatResponse,
+    EvidenceResolveRequest,
+    EvidenceResolveResponse,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -37,3 +43,22 @@ def chat_stream(payload: ChatRequest, settings: Settings = Depends(get_settings)
         history=payload.history or [],
         stream=True,
     )
+
+
+@router.post("/resolve-evidence", response_model=EvidenceResolveResponse)
+def resolve_evidence(payload: EvidenceResolveRequest, settings: Settings = Depends(get_settings)):
+    _ = settings  # reserved for upcoming Phase 2 OCR/bbox resolution integration
+    matches = resolve_evidence_matches(
+        [
+            {
+                "doc_id": item.doc_id,
+                "page": item.page,
+                "snippet": item.snippet,
+                "source": item.source,
+                "bbox": item.bbox,
+            }
+            for item in payload.citations
+        ],
+        max_pages=payload.max_pages,
+    )
+    return {"count": len(matches), "matches": matches}

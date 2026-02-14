@@ -640,6 +640,36 @@ class ChatRequest(BaseModel):
     history: Optional[list[ChatHistoryItem]] = None
 
 
+class EvidenceCitationRequest(BaseModel):
+    doc_id: int
+    page: int
+    snippet: str
+    source: Optional[str] = None
+    bbox: Optional[Any] = None
+
+
+class EvidenceResolveRequest(BaseModel):
+    citations: list[EvidenceCitationRequest] = []
+    max_pages: int = 3
+    timeout_seconds: int = 45
+    min_match_ratio: float = 0.8
+
+
+class EvidenceMatch(BaseModel):
+    doc_id: int
+    page: int
+    snippet: str
+    bbox: Optional[Any] = None
+    confidence: float = 0.0
+    status: str
+    error: Optional[str] = None
+
+
+class EvidenceResolveResponse(BaseModel):
+    count: int
+    matches: list[EvidenceMatch] = []
+
+
 class WritebackFieldDiff(BaseModel):
     field: str
     original: Any = None
