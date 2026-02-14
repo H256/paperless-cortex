@@ -213,12 +213,15 @@ def _preview_for_doc_ids(
                 names = []
         pending_by_doc[int(row.doc_id)] = names
 
+    remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
     items: list[WritebackDryRunItem] = []
     for doc_id in doc_ids:
         local_doc = local_by_id.get(doc_id)
         if not local_doc:
             continue
-        remote_doc = paperless.get_document_cached(settings, doc_id)
+        remote_doc = remote_docs.get(int(doc_id))
+        if not remote_doc:
+            remote_doc = paperless.get_document_cached(settings, doc_id)
         items.append(
             _build_item(
                 local_doc=local_doc,
@@ -829,7 +832,7 @@ def dry_run_preview(
         doc_ids = [int(doc_id)]
         total_count = 1
     else:
-        payload = paperless.list_documents(settings, page=page, page_size=page_size)
+        payload = paperless.list_documents_cached(settings, page=page, page_size=page_size)
         results = payload.get("results") or []
         doc_ids = [int(doc["id"]) for doc in results if isinstance(doc.get("id"), int)]
         total_count = int(payload.get("count") or 0)
