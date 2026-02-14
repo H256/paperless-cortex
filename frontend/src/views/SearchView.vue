@@ -189,11 +189,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
-import { useToastStore } from '../stores/toastStore'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
-import { useClipboardCopy } from '../composables/useClipboardCopy'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
+import { useShareLink } from '../composables/useShareLink'
 
 const {
   query,
@@ -211,8 +210,7 @@ const {
 } = useSearchSession()
 const route = useRoute()
 const router = useRouter()
-const toastStore = useToastStore()
-const { copyText, errorMessage: copyError } = useClipboardCopy()
+const { copyResolvedLink, copyHrefLink } = useShareLink(router, 'Search')
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const queryInputRef = ref<HTMLInputElement | null>(null)
 
@@ -275,24 +273,15 @@ const resetSearch = async () => {
 }
 
 const copySearchLink = async () => {
-  try {
-    const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildQueryState() }).href}`
-    await copyText(href)
-    toastStore.push('Search link copied.', 'success', 'Search', 1600)
-  } catch (err) {
-    toastStore.push(copyError(err), 'danger', 'Search', 2200)
-  }
+  await copyResolvedLink(route.path, buildQueryState(), {
+    successMessage: 'Search link copied.',
+  })
 }
 
 const copyResultLink = async (result: SearchResult) => {
-  const href = resultLink(result)
-  if (!href) return
-  try {
-    await copyText(`${window.location.origin}${href}`)
-    toastStore.push('Result link copied.', 'success', 'Search', 1600)
-  } catch (err) {
-    toastStore.push(copyError(err), 'danger', 'Search', 2200)
-  }
+  await copyHrefLink(resultLink(result), {
+    successMessage: 'Result link copied.',
+  })
 }
 
 onMounted(async () => {

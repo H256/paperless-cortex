@@ -313,6 +313,7 @@ import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/
 import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 import { useClipboardCopy } from '../composables/useClipboardCopy'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
+import { useShareLink } from '../composables/useShareLink'
 
 const {
   question,
@@ -337,6 +338,7 @@ const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
 const { copyText, errorMessage: copyError } = useClipboardCopy()
+const { copyResolvedLink } = useShareLink(router, 'Chat')
 const now = ref(Date.now())
 const questionInputRef = ref<HTMLInputElement | null>(null)
 
@@ -380,13 +382,9 @@ const resetControls = async () => {
 }
 
 const copyChatLink = async () => {
-  try {
-    const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildChatQuery() }).href}`
-    await copyText(href)
-    toastStore.push('Chat link copied.', 'success', 'Chat', 1600)
-  } catch (err) {
-    toastStore.push(copyError(err), 'danger', 'Chat', 2200)
-  }
+  await copyResolvedLink(route.path, buildChatQuery(), {
+    successMessage: 'Chat link copied.',
+  })
 }
 
 const citationLink = (citation: ChatCitation) => {
