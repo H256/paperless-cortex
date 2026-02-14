@@ -290,6 +290,8 @@ const querySync = useRouteQuerySync({
   readFromRoute: syncFromRoute,
   buildQuery: buildQueryState,
   sources: [query, topK, source, onlyVision, minQuality, dedupe, rerank],
+  debounceMs: 120,
+  preserveUnknownQueryKeys: true,
 })
 
 useInputCommandHotkeys({
