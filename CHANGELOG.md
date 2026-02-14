@@ -106,6 +106,7 @@ All granular implementation slices and refactors are tracked here.
 - `55302f5` refactor(ui): switched Search/Chat link-copy actions to shared `useShareLink` paths, reducing view-level copy/toast duplication.
 - `34442f5` refactor(search): replaced SearchView’s inline keydown logic with shared `useInputCommandHotkeys` for slash-focus/Ctrl+Enter behavior.
 - `1445ee8` refactor(chat): replaced ChatView’s inline keydown logic with shared `useInputCommandHotkeys` for slash-focus/Ctrl+Enter behavior.
+- `aa3c2ad` refactor(ui): simplified hotkey composition by inlining listener lifecycle in `useInputCommandHotkeys` and removing obsolete `useGlobalHotkeys`.
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
