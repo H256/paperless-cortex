@@ -196,3 +196,37 @@ def test_upsert_document_notes_skips_malformed_note_ids(session_factory):
         assert len(notes) == 1
         assert notes[0].id == 12880
         assert notes[0].note == "valid"
+
+
+def test_upsert_document_notes_malformed_ids_do_not_trigger_stale_removal(session_factory):
+    with session_factory() as db:
+        doc = Document(id=1959, title="Test doc")
+        db.add(doc)
+        db.flush()
+        doc.notes.append(
+            DocumentNote(
+                id=12880,
+                note="keep-me",
+                created="2026-02-10T18:44:30.261279+01:00",
+                user_id=4,
+                user_username="klemens",
+            )
+        )
+        db.commit()
+
+        incoming_notes = [
+            SimpleNamespace(
+                id="broken-id",
+                note="invalid",
+                created="2026-02-10T18:44:30.261279+01:00",
+                user={"id": 4, "username": "klemens"},
+            ),
+        ]
+
+        _merge_document_notes(db, doc, incoming_notes)
+        db.commit()
+
+        notes = db.query(DocumentNote).filter(DocumentNote.document_id == 1959).all()
+        assert len(notes) == 1
+        assert notes[0].id == 12880
+        assert notes[0].note == "keep-me"

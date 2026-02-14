@@ -76,11 +76,13 @@ def _apply_note_fields(target: DocumentNote, *, note_body: str, created: str | N
 def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> None:
     existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
     incoming_ids: set[int] = set()
+    saw_malformed_id = False
 
     for note in incoming_notes:
         try:
             note_id = int(note.id)
         except Exception:
+            saw_malformed_id = True
             logger.warning(
                 "Skipping malformed note id during sync doc_id=%s note_id=%s",
                 getattr(doc, "id", None),
@@ -112,6 +114,11 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
         _apply_note_fields(created, note_body=note.note, created=note.created, user=user)
         doc.notes.append(created)
         existing_by_id[note_id] = created
+
+    if saw_malformed_id:
+        # Safety-first: avoid destructive stale cleanup when incoming note ids are malformed.
+        logger.warning("Skipping stale note cleanup due to malformed note ids doc_id=%s", getattr(doc, "id", None))
+        return
 
     for stale in [note for note in list(doc.notes or []) if int(note.id) not in incoming_ids]:
         doc.notes.remove(stale)
