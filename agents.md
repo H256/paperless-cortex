@@ -732,3 +732,4 @@ umber input + Go + Enter) to table footer with bounded clamping and new jump-pag
 - Preset keyboard ergonomics slice: added Alt+1..Alt+4 shortcuts for triage presets in DocumentsPresetBar, plus visible shortcut hints and tooltip metadata on preset buttons.
 - Documents table accessibility slice: rows are now keyboard-activatable (	abindex, ole=button, Enter/Space handlers) with aria labels, improving non-mouse triage and navigation.
 - Troubleshooting speed slice: added Copy ID quick actions to both card and table document rows (DocumentsTable) for faster queue/log/doc cross-referencing.
+- Backend stability slice: hardened _merge_document_notes in sync upsert to ignore duplicate note ids within a single payload, reuse existing same-doc note rows safely, and keep in-memory id map updated after inserts; added regression test for duplicate incoming note-id payloads to prevent document_notes_pkey collisions.

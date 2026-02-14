@@ -117,3 +117,52 @@ def test_upsert_document_notes_remaps_legacy_positive_collision(session_factory)
             .first()
         )
         assert moved is not None
+
+
+def test_upsert_document_notes_ignores_duplicate_ids_in_single_payload(session_factory):
+    settings = load_settings()
+    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    payload = {
+        "id": 1959,
+        "title": "Test doc",
+        "content": "abc",
+        "correspondent": None,
+        "document_type": None,
+        "document_date": None,
+        "created": "2026-02-12T10:00:00+00:00",
+        "modified": "2026-02-12T10:00:00+00:00",
+        "added": None,
+        "deleted_at": None,
+        "archive_serial_number": None,
+        "original_file_name": None,
+        "mime_type": None,
+        "page_count": 1,
+        "owner": None,
+        "user_can_change": True,
+        "is_shared_by_requester": False,
+        "notes": [
+            {
+                "id": 12880,
+                "note": "first",
+                "created": "2026-02-10T18:44:30.261279+01:00",
+                "user": {"id": 4, "username": "klemens"},
+            },
+            {
+                "id": 12880,
+                "note": "duplicate should be ignored",
+                "created": "2026-02-10T18:44:30.261279+01:00",
+                "user": {"id": 4, "username": "klemens"},
+            },
+        ],
+        "tags": [],
+    }
+    data = DocumentIn.model_validate(payload)
+
+    with session_factory() as db:
+        _upsert_document(db, settings, data, cache)
+        db.commit()
+
+        notes = db.query(DocumentNote).filter(DocumentNote.document_id == 1959).all()
+        assert len(notes) == 1
+        assert notes[0].id == 12880
+        assert notes[0].note == "first"

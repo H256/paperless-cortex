@@ -68,15 +68,24 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
 
     for note in incoming_notes:
         note_id = int(note.id)
+        if note_id in incoming_ids:
+            # Defensive: ignore duplicate note ids in one payload (Paperless/api anomalies)
+            # to avoid duplicate-PK inserts in a single sync pass.
+            continue
         incoming_ids.add(note_id)
         user = note.user or {}
         existing = existing_by_id.get(note_id)
         if existing is None:
-            # Resolve collisions where legacy local AI notes used positive ids that now overlap with Paperless ids.
             global_note = db.get(DocumentNote, note_id)
-            if global_note is not None and int(global_note.document_id) != int(doc.id):
-                global_note.id = _next_local_note_id(db)
-                db.flush()
+            if global_note is not None:
+                if int(global_note.document_id) != int(doc.id):
+                    # Resolve collisions where legacy local AI notes used positive ids
+                    # that now overlap with Paperless ids.
+                    global_note.id = _next_local_note_id(db)
+                    db.flush()
+                else:
+                    existing = global_note
+                    existing_by_id[note_id] = global_note
         if existing:
             existing.note = note.note
             existing.created = note.created
@@ -85,17 +94,17 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
             existing.user_first_name = user.get("first_name")
             existing.user_last_name = user.get("last_name")
             continue
-        doc.notes.append(
-            DocumentNote(
-                id=note_id,
-                note=note.note,
-                created=note.created,
-                user_id=user.get("id"),
-                user_username=user.get("username"),
-                user_first_name=user.get("first_name"),
-                user_last_name=user.get("last_name"),
-            )
+        created = DocumentNote(
+            id=note_id,
+            note=note.note,
+            created=note.created,
+            user_id=user.get("id"),
+            user_username=user.get("username"),
+            user_first_name=user.get("first_name"),
+            user_last_name=user.get("last_name"),
         )
+        doc.notes.append(created)
+        existing_by_id[note_id] = created
 
     for stale in [note for note in list(doc.notes or []) if int(note.id) not in incoming_ids]:
         doc.notes.remove(stale)
