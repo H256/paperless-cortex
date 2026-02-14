@@ -3784,6 +3784,46 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "writeback"
+        ],
+        "summary": "Delete Writeback Job",
+        "operationId": "delete_writeback_job_writeback_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritebackJobDeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/writeback/jobs/{job_id}/execute": {
@@ -8818,6 +8858,29 @@
           "doc_ids"
         ],
         "title": "WritebackJobCreateRequest"
+      },
+      "WritebackJobDeleteResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "removed": {
+            "type": "boolean",
+            "title": "Removed"
+          },
+          "job_id": {
+            "type": "integer",
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "removed",
+          "job_id"
+        ],
+        "title": "WritebackJobDeleteResponse"
       },
       "WritebackJobDetail": {
         "properties": {

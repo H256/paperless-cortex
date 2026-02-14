@@ -116,6 +116,7 @@ import type {
   WritebackHistoryResponse,
   WritebackHistoryWritebackHistoryGetParams,
   WritebackJobCreateRequest,
+  WritebackJobDeleteResponse,
   WritebackJobDetail,
   WritebackJobExecuteRequest,
   WritebackJobListResponse
@@ -3914,6 +3915,55 @@ export const getWritebackJobWritebackJobsJobIdGet = async (jobId: number, option
   
   const data: getWritebackJobWritebackJobsJobIdGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getWritebackJobWritebackJobsJobIdGetResponse
+}
+
+
+
+/**
+ * @summary Delete Writeback Job
+ */
+export type deleteWritebackJobWritebackJobsJobIdDeleteResponse200 = {
+  data: WritebackJobDeleteResponse
+  status: 200
+}
+
+export type deleteWritebackJobWritebackJobsJobIdDeleteResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type deleteWritebackJobWritebackJobsJobIdDeleteResponseSuccess = (deleteWritebackJobWritebackJobsJobIdDeleteResponse200) & {
+  headers: Headers;
+};
+export type deleteWritebackJobWritebackJobsJobIdDeleteResponseError = (deleteWritebackJobWritebackJobsJobIdDeleteResponse422) & {
+  headers: Headers;
+};
+
+export type deleteWritebackJobWritebackJobsJobIdDeleteResponse = (deleteWritebackJobWritebackJobsJobIdDeleteResponseSuccess | deleteWritebackJobWritebackJobsJobIdDeleteResponseError)
+
+export const getDeleteWritebackJobWritebackJobsJobIdDeleteUrl = (jobId: number,) => {
+
+
+  
+
+  return `/api/writeback/jobs/${jobId}`
+}
+
+export const deleteWritebackJobWritebackJobsJobIdDelete = async (jobId: number, options?: RequestInit): Promise<deleteWritebackJobWritebackJobsJobIdDeleteResponse> => {
+  
+  const res = await fetch(getDeleteWritebackJobWritebackJobsJobIdDeleteUrl(jobId),
+  {      
+    ...options,
+    method: 'DELETE'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: deleteWritebackJobWritebackJobsJobIdDeleteResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as deleteWritebackJobWritebackJobsJobIdDeleteResponse
 }
 
 

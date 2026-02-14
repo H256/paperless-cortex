@@ -164,6 +164,7 @@ export * from './writebackFieldDiff';
 export * from './writebackHistoryResponse';
 export * from './writebackHistoryWritebackHistoryGetParams';
 export * from './writebackJobCreateRequest';
+export * from './writebackJobDeleteResponse';
 export * from './writebackJobDetail';
 export * from './writebackJobExecuteRequest';
 export * from './writebackJobListResponse';
