@@ -23,6 +23,9 @@ class StatusResponse(BaseModel):
     text_model: Optional[str] = None
     embedding_model: Optional[str] = None
     vision_model: Optional[str] = None
+    evidence_vector_lookup_enabled: Optional[bool] = None
+    evidence_max_pages: Optional[int] = None
+    evidence_min_snippet_chars: Optional[int] = None
     latency_ms: Optional[int] = None
 
 
