@@ -6,7 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
-- `pending` fix(documents/ui): fixed `DocumentsTable.vue` template structure by replacing invalid double `v-else` chain with a single `v-else` wrapper template for mobile+desktop non-card layouts (resolves Vite compile error “v-else has no adjacent v-if”).
+- `24f31bd` fix(documents/ui): fixed `DocumentsTable.vue` template structure by replacing invalid double `v-else` chain with a single `v-else` wrapper template for mobile+desktop non-card layouts (resolves Vite compile error “v-else has no adjacent v-if”).
 - `1e9b35b` ux(task-runs): enabled Vue Query `keepPreviousData` in `useDocumentTaskRuns` to prevent task-run list flicker in document-detail run inspector filters.
 - `6681bf4` ux(queue): added a compact “Recent task runs” timeline card in `QueueView` (latest runs with status, error type, duration, timestamp) for faster worker triage without navigating the full history table.
 - `b4a1c75` ux(task-runs): enabled Vue Query `keepPreviousData` in `useTaskRunInspector` so paginated/filter changes keep previous rows visible until refreshed data arrives.
