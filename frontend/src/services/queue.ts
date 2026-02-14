@@ -1,5 +1,4 @@
 import { unwrap } from '../api/orval'
-import { request } from './http'
 import {
   getQueueStatusQueueStatusGet,
   peekQueuePeekGet,
@@ -16,6 +15,10 @@ import {
   getDlqQueueDlqGet,
   clearDlqQueueDlqClearPost,
   requeueDlqQueueDlqRequeuePost,
+  getRunningQueueRunningGet,
+  getWorkerLockQueueWorkerLockGet,
+  resetWorkerLockRouteQueueWorkerLockResetPost,
+  getErrorTypesQueueErrorTypesGet,
 } from '../api/generated/client'
 import type {
   QueueStatusResponse,
@@ -35,27 +38,18 @@ import type {
   QueueDlqItem,
   QueueDlqResponse,
   QueueDlqActionResponse,
+  QueueRunningResponse,
+  QueueWorkerLockStatusResponse,
+  QueueWorkerLockResetResponse,
+  ErrorTypeCatalogResponse,
+  ResetWorkerLockRouteQueueWorkerLockResetPostParams,
 } from '../api/generated/model'
 
 export type QueueStatus = QueueStatusResponse
 export type QueuePeekItem = QueuePeekItemModel
-export type QueueWorkerLockStatus = {
-  enabled: boolean
-  has_lock: boolean
-  owner?: string | null
-  ttl_seconds?: number | null
-}
-export type QueueWorkerLockReset = {
-  enabled: boolean
-  reset: boolean
-  had_lock: boolean
-  reason?: string | null
-}
-export type QueueRunningStatus = {
-  enabled: boolean
-  task?: QueuePeekItem | null
-  started_at?: number | null
-}
+export type QueueWorkerLockStatus = QueueWorkerLockStatusResponse
+export type QueueWorkerLockReset = QueueWorkerLockResetResponse
+export type QueueRunningStatus = QueueRunningResponse
 export type QueueTaskRun = TaskRunItem
 export type QueueTaskRunList = TaskRunListResponse
 export type QueueDelayedEntry = QueueDelayedItem
@@ -68,10 +62,7 @@ export type QueueErrorTypeDetail = {
   category: string
   description: string
 }
-export type QueueErrorTypeCatalog = {
-  enabled: boolean
-  items: QueueErrorTypeDetail[]
-}
+export type QueueErrorTypeCatalog = ErrorTypeCatalogResponse
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -99,7 +90,7 @@ export const moveQueueItemBottom = (payload: QueueMoveEdgeRequest) =>
   unwrap<QueueMoveResponse>(moveBottomQueueMoveBottomPost(payload))
 
 export const fetchQueueRunning = () =>
-  request<QueueRunningStatus>('/queue/running')
+  unwrap<QueueRunningStatus>(getRunningQueueRunningGet())
 
 export const fetchQueueTaskRuns = (params?: GetTaskRunsQueueTaskRunsGetParams) =>
   unwrap<QueueTaskRunList>(getTaskRunsQueueTaskRunsGet(params))
@@ -117,13 +108,14 @@ export const requeueQueueDlqItem = (index: number) =>
   unwrap<QueueDlqActionResponse>(requeueDlqQueueDlqRequeuePost({ index }))
 
 export const fetchWorkerLockStatus = () =>
-  request<QueueWorkerLockStatus>('/queue/worker-lock')
+  unwrap<QueueWorkerLockStatus>(getWorkerLockQueueWorkerLockGet())
 
 export const resetWorkerLock = (force = false) =>
-  request<QueueWorkerLockReset>('/queue/worker-lock/reset', {
-    method: 'POST',
-    params: { force },
-  })
+  unwrap<QueueWorkerLockReset>(
+    resetWorkerLockRouteQueueWorkerLockResetPost({
+      force,
+    } as ResetWorkerLockRouteQueueWorkerLockResetPostParams),
+  )
 
 export const fetchQueueErrorTypes = () =>
-  request<QueueErrorTypeCatalog>('/queue/error-types')
+  unwrap<QueueErrorTypeCatalog>(getErrorTypesQueueErrorTypesGet())
