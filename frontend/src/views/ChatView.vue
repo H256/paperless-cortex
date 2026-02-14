@@ -290,7 +290,7 @@ import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } f
 import { onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { ChatCitation } from '../services/chat'
+import type { ChatCitation } from '../api/generated/model'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
