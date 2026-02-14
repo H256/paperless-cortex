@@ -63,6 +63,7 @@
           class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         >
           <option value="">All</option>
+          <option value="-1">Without correspondent</option>
           <option
             v-for="c in correspondents"
             :key="c.id ?? `corr-${c.name}`"

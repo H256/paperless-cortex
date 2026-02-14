@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   createWritebackJob,
+  deleteWritebackJob,
   executePendingWritebackJobs,
   executeWritebackJob,
   getWritebackDryRunPreview,
@@ -139,6 +140,16 @@ export const useWritebackManager = () => {
     },
   })
 
+  const deleteJobMutation = useMutation({
+    mutationFn: (jobId: number) => deleteWritebackJob(jobId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['writeback-jobs'] }),
+        queryClient.invalidateQueries({ queryKey: ['writeback-history'] }),
+      ])
+    },
+  })
+
   return {
     onlyChanged,
     selectedSet,
@@ -155,6 +166,7 @@ export const useWritebackManager = () => {
     enqueueMutation,
     executeJobMutation,
     executeAllMutation,
+    deleteJobMutation,
     toggleSelect,
     selectAllChanged,
     clearSelection,

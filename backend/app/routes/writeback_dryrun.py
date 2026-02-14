@@ -28,6 +28,7 @@ from app.api_models import (
     WritebackExecutePendingJobResult,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
+    WritebackJobDeleteResponse,
     WritebackJobSummary,
     WritebackDryRunItem,
     WritebackDryRunPreviewResponse,
@@ -959,6 +960,23 @@ def get_writeback_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Writeback job not found")
     return _job_detail(job)
+
+
+@router.delete("/jobs/{job_id}", response_model=WritebackJobDeleteResponse)
+def delete_writeback_job(job_id: int, db: Session = Depends(get_db)):
+    try:
+        job = db.query(WritebackJob).filter(WritebackJob.id == job_id).first()
+    except (OperationalError, ProgrammingError) as exc:
+        if _missing_writeback_jobs_table(exc):
+            _raise_missing_table_message()
+        raise
+    if not job:
+        return WritebackJobDeleteResponse(ok=True, removed=False, job_id=int(job_id))
+    if str(job.status or "") == "running":
+        raise HTTPException(status_code=409, detail="Cannot delete a running writeback job")
+    db.delete(job)
+    db.commit()
+    return WritebackJobDeleteResponse(ok=True, removed=True, job_id=int(job_id))
 
 
 @router.post("/jobs/{job_id}/execute", response_model=WritebackJobDetail)

@@ -233,10 +233,17 @@
                 <button
                   class="rounded-md px-2 py-1 font-semibold text-white disabled:opacity-60"
                   :class="executeDryRunMode ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'"
-                  :disabled="executeLoading || job.status !== 'pending'"
+                  :disabled="executeLoading || deleteLoading || job.status !== 'pending'"
                   @click="runOrConfirmExecute(job.id)"
                 >
                   {{ executeDryRunMode ? 'Run dry-run' : 'Run execute' }}
+                </button>
+                <button
+                  class="ml-2 rounded-md border border-rose-300 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/60 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                  :disabled="deleteLoading || job.status !== 'pending'"
+                  @click="removeQueuedJob(job.id)"
+                >
+                  Remove
                 </button>
               </td>
             </tr>
@@ -340,6 +347,7 @@ const historyLoading = computed(() => writeback.historyQuery.isFetching.value)
 const queueLoading = computed(() => writeback.enqueueMutation.isPending.value)
 const executeLoading = computed(() => writeback.executeJobMutation.isPending.value)
 const executeAllLoading = computed(() => writeback.executeAllMutation.isPending.value)
+const deleteLoading = computed(() => writeback.deleteJobMutation.isPending.value)
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const baseOrigin = window.location.origin
@@ -404,6 +412,25 @@ const loadJobs = async () => {
     const message = err instanceof Error ? err.message : 'Failed to load writeback jobs'
     errorMessage.value = message
     toastStore.push(message, 'danger', 'Writeback', 3200)
+  }
+}
+
+const removeQueuedJob = async (jobId: number) => {
+  try {
+    const result = await writeback.deleteJobMutation.mutateAsync(jobId)
+    if (result.removed) {
+      toastStore.push(`Removed job #${jobId} from queue.`, 'success', 'Writeback', 2200)
+    } else {
+      toastStore.push(`Job #${jobId} not found.`, 'warning', 'Writeback', 2200)
+    }
+    await loadJobs()
+  } catch (err: unknown) {
+    toastStore.push(
+      err instanceof Error ? err.message : 'Failed to remove writeback job',
+      'danger',
+      'Writeback',
+      2800,
+    )
   }
 }
 

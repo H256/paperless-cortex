@@ -1,4 +1,5 @@
 import { unwrap } from '../api/orval'
+import { request } from './http'
 import {
   createWritebackJobWritebackJobsPost,
   dryRunExecuteWritebackDryRunExecutePost,
@@ -37,6 +38,11 @@ export type WritebackExecutePending = WritebackExecutePendingResponse
 export type WritebackJobSummary = WritebackJobSummaryModel
 export type WritebackDryRunItem = WritebackDryRunItemModel
 export type WritebackConflictField = WritebackConflictFieldModel
+export type WritebackJobDeleteResult = {
+  ok: boolean
+  removed: boolean
+  job_id: number
+}
 
 export const getWritebackDryRunPreview = (params: DryRunPreviewWritebackDryRunPreviewGetParams) =>
   unwrap<WritebackDryRunPreviewResponse>(dryRunPreviewWritebackDryRunPreviewGet(params))
@@ -91,3 +97,8 @@ export const executePendingWritebackJobs = (dryRun = true, limit = 0) =>
       limit,
     }),
   )
+
+export const deleteWritebackJob = (jobId: number) =>
+  request<WritebackJobDeleteResult>(`/api/writeback/jobs/${jobId}`, {
+    method: 'DELETE',
+  })

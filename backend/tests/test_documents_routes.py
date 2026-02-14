@@ -185,7 +185,6 @@ def test_list_documents_local_overrides_force_needs_review(api_client, monkeypat
             ],
         },
     )
-
     response = api_client.get("/documents", params={"include_derived": True, "review_status": "needs_review"})
     assert response.status_code == 200
     payload = response.json()
@@ -227,6 +226,45 @@ def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
     assert payload["count"] == 1
     assert payload["results"][0]["id"] == 5
     assert payload["results"][0]["review_status"] == "needs_review"
+
+
+def test_list_documents_filter_without_correspondent(api_client, monkeypatch):
+    from app.services import paperless
+
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 2,
+            "next": None,
+            "previous": None,
+            "results": [
+                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
+                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents_cached",
+        lambda *args, **kwargs: {
+            "count": 2,
+            "next": None,
+            "previous": None,
+            "results": [
+                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
+                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"correspondent__id": -1})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert len(payload["results"]) == 1
+    assert payload["results"][0]["id"] == 11
+    assert payload["results"][0]["correspondent"] is None
 
 
 def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch):

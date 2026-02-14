@@ -164,6 +164,35 @@ def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
     assert payload["failed"] == 0
 
 
+def test_writeback_job_delete_removes_pending_job(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(530, "Local title 530")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote title 530",
+            "document_date": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    create_resp = api_client.post("/writeback/jobs", json={"doc_ids": [530]})
+    assert create_resp.status_code == 200
+    job_id = int(create_resp.json()["id"])
+
+    delete_resp = api_client.delete(f"/writeback/jobs/{job_id}")
+    assert delete_resp.status_code == 200
+    payload = delete_resp.json()
+    assert payload["ok"] is True
+    assert payload["removed"] is True
+    assert int(payload["job_id"]) == job_id
+
+
 def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
     from app.services import paperless
 

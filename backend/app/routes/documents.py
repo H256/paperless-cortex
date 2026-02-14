@@ -67,13 +67,16 @@ def _list_documents_from_paperless(
     document_date__lte: str | None,
     review_status: str,
 ) -> dict:
-    if review_status == "all":
+    missing_correspondent_only = correspondent__id == -1
+    effective_correspondent = None if missing_correspondent_only else correspondent__id
+
+    if review_status == "all" and not missing_correspondent_only:
         return paperless.list_documents(
             settings,
             page=page,
             page_size=page_size,
             ordering=ordering,
-            correspondent__id=correspondent__id,
+            correspondent__id=effective_correspondent,
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
@@ -88,15 +91,28 @@ def _list_documents_from_paperless(
             page=current_page,
             page_size=fetch_size,
             ordering=ordering,
-            correspondent__id=correspondent__id,
+            correspondent__id=effective_correspondent,
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
         )
-        all_results.extend(payload.get("results", []) or [])
+        batch = payload.get("results", []) or []
+        if missing_correspondent_only:
+            batch = [row for row in batch if row.get("correspondent") is None]
+        all_results.extend(batch)
         if not payload.get("next"):
             break
         current_page += 1
+    if review_status == "all":
+        start = max(0, (max(1, page) - 1) * max(1, page_size))
+        end = start + max(1, page_size)
+        total = len(all_results)
+        return {
+            "count": total,
+            "next": None if end >= total else "filtered",
+            "previous": None if start <= 0 else "filtered",
+            "results": all_results[start:end],
+        }
     return {"count": len(all_results), "next": None, "previous": None, "results": all_results}
 
 
@@ -268,6 +284,8 @@ def list_documents(
     db: Session = Depends(get_db),
 ):
     normalized_review_status = _normalize_review_status(review_status)
+    missing_correspondent_only = correspondent__id == -1
+    effective_correspondent = None if missing_correspondent_only else correspondent__id
     if normalized_review_status != "all":
         current_page = 1
         fetch_size = max(page_size, 200)
@@ -281,7 +299,7 @@ def list_documents(
                 page=current_page,
                 page_size=fetch_size,
                 ordering=ordering,
-                correspondent__id=correspondent__id,
+                correspondent__id=effective_correspondent,
                 tags__id=tags__id,
                 document_date__gte=document_date__gte,
                 document_date__lte=document_date__lte,
@@ -297,6 +315,8 @@ def list_documents(
                 ).get("results", [])
                 or []
             )
+            if missing_correspondent_only:
+                batch_results = [row for row in batch_results if row.get("correspondent") is None]
             matching = [row for row in batch_results if row.get("review_status") == normalized_review_status]
             batch_count = len(matching)
             if batch_count > 0 and len(selected_results) < max(1, page_size):
