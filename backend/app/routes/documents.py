@@ -243,12 +243,12 @@ def _apply_derived_fields_and_review_status(
             .filter(DocumentSuggestion.doc_id.in_(doc_ids))
             .all()
         )
-        for doc_id, payload in preview_rows:
+        for doc_id, preview_payload in preview_rows:
             normalized_doc_id = int(doc_id)
             if normalized_doc_id in summary_preview_by_doc:
                 continue
             try:
-                parsed_payload = json.loads(str(payload or ""))
+                parsed_payload = json.loads(str(preview_payload or ""))
             except Exception:
                 parsed_payload = None
             if not isinstance(parsed_payload, dict):

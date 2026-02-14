@@ -73,6 +73,21 @@ def _insert_pending_tags(doc_id: int, names: list[str]):
         db.commit()
 
 
+def _insert_suggestion(doc_id: int, source: str, payload: str):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentSuggestion(
+                doc_id=doc_id,
+                source=source,
+                payload=payload,
+                created_at="2026-02-10T10:20:00+00:00",
+                processed_at="2026-02-10T10:20:00+00:00",
+            )
+        )
+        db.commit()
+
+
 def test_get_local_document_missing(api_client):
     response = api_client.get("/documents/999/local")
     assert response.status_code == 200
@@ -538,3 +553,47 @@ def test_get_local_document_detects_empty_title_as_override(api_client, monkeypa
     payload = response.json()
     assert payload["local_overrides"] is True
     assert payload["review_status"] == "needs_review"
+
+
+def test_list_documents_summary_preview_only_when_requested(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_suggestion(
+        doc_id=44,
+        source="paperless_ocr",
+        payload='{"summary":"Kurzfassung fuer Vorschau","title":"Doc 44"}',
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 44,
+                    "title": "Doc 44",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    without_preview = api_client.get("/documents", params={"include_derived": True})
+    assert without_preview.status_code == 200
+    without_payload = without_preview.json()
+    assert without_payload["count"] == 1
+    assert without_payload["results"][0].get("ai_summary_preview") in (None, "")
+
+    with_preview = api_client.get(
+        "/documents",
+        params={"include_derived": True, "include_summary_preview": True},
+    )
+    assert with_preview.status_code == 200
+    with_payload = with_preview.json()
+    assert with_payload["count"] == 1
+    assert with_payload["results"][0].get("ai_summary_preview") == "Kurzfassung fuer Vorschau"
