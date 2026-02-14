@@ -14,4 +14,7 @@ export interface ChatCitation {
   score?: number | null;
   quality_score?: number | null;
   snippet?: string | null;
+  evidence_status?: string | null;
+  evidence_confidence?: number | null;
+  evidence_error?: string | null;
 }

@@ -315,19 +315,17 @@ const citationKey = (citation: ChatCitation, idx: number) =>
   `${citation.id ?? 'x'}-${citation.doc_id ?? 'doc'}-${citation.page ?? 'p'}-${idx}`
 
 const evidenceStatus = (citation: ChatCitation): string => {
-  const value = (citation as unknown as Record<string, unknown>).evidence_status
-  return typeof value === 'string' ? value : ''
+  return typeof citation.evidence_status === 'string' ? citation.evidence_status : ''
 }
 
 const evidenceConfidence = (citation: ChatCitation): string | null => {
-  const value = (citation as unknown as Record<string, unknown>).evidence_confidence
+  const value = citation.evidence_confidence
   if (typeof value !== 'number' || Number.isNaN(value)) return null
   return value.toFixed(2)
 }
 
 const evidenceError = (citation: ChatCitation): string => {
-  const value = (citation as unknown as Record<string, unknown>).evidence_error
-  return typeof value === 'string' ? value : ''
+  return typeof citation.evidence_error === 'string' ? citation.evidence_error : ''
 }
 
 const citationClass = (citation: ChatCitation): string => {
