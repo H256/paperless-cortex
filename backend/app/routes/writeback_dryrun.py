@@ -48,6 +48,12 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:
+    correspondents_by_id = {row.id: (row.name or "") for row in db.query(Correspondent).all()}
+    tags_by_id = {row.id: (row.name or "") for row in db.query(Tag).all()}
+    return correspondents_by_id, tags_by_id
+
+
 def _next_local_note_id(db: Session) -> int:
     min_id = db.query(func.min(DocumentNote.id)).scalar()
     if min_id is None:
@@ -183,11 +189,7 @@ def _preview_for_doc_ids(
     if not local_by_id:
         return []
 
-    correspondents_by_id = {
-        row.id: (row.name or "")
-        for row in db.query(Correspondent).all()
-    }
-    tags_by_id = {row.id: (row.name or "") for row in db.query(Tag).all()}
+    correspondents_by_id, tags_by_id = _metadata_maps(db)
     pending_rows = (
         db.query(DocumentPendingTag)
         .filter(DocumentPendingTag.doc_id.in_(list(local_by_id.keys())))
@@ -209,7 +211,7 @@ def _preview_for_doc_ids(
         local_doc = local_by_id.get(doc_id)
         if not local_doc:
             continue
-        remote_doc = paperless.get_document(settings, doc_id)
+        remote_doc = paperless.get_document_cached(settings, doc_id)
         items.append(
             _build_item(
                 local_doc=local_doc,
@@ -411,7 +413,7 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
 
 def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) -> str:
     try:
-        remote_doc = paperless.get_document(settings, int(doc_id))
+        remote_doc = paperless.get_document_cached(settings, int(doc_id))
         modified = str(remote_doc.get("modified") or "").strip()
         if modified:
             local_doc = db.get(Document, int(doc_id))
@@ -580,8 +582,7 @@ def execute_writeback_direct_for_document(
     )
     if not local_doc:
         raise HTTPException(status_code=404, detail="Local document not found")
-    correspondents_by_id = {row.id: (row.name or "") for row in db.query(Correspondent).all()}
-    tags_by_id = {row.id: (row.name or "") for row in db.query(Tag).all()}
+    correspondents_by_id, tags_by_id = _metadata_maps(db)
     pending_row = (
         db.query(DocumentPendingTag)
         .filter(DocumentPendingTag.doc_id == int(doc_id))
@@ -597,7 +598,7 @@ def execute_writeback_direct_for_document(
             ]
         except Exception:
             pending_tag_names = []
-    remote_doc = paperless.get_document(settings, doc_id)
+    remote_doc = paperless.get_document_cached(settings, doc_id)
     item = _build_item(
         local_doc=local_doc,
         remote_doc=remote_doc,

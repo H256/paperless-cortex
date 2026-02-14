@@ -6,7 +6,7 @@ import json
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import and_, case, exists, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.config import Settings
 from app.db import get_db
@@ -129,16 +129,28 @@ def _apply_derived_fields_and_review_status(
         .filter(Document.id.in_(doc_ids))
         .all()
     }
-    local_docs = db.query(Document).filter(Document.id.in_(doc_ids)).all()
+    local_docs = (
+        db.query(Document)
+        .options(joinedload(Document.tags), joinedload(Document.correspondent))
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    )
     local_by_id = {doc.id: doc for doc in local_docs}
-    embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
-    suggestion_rows = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id.in_(doc_ids)).all()
+    embed_ids = {
+        int(row[0])
+        for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
+    }
+    suggestion_rows = (
+        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+        .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+        .all()
+    )
     suggestions_by_doc: dict[int, set[str]] = {}
-    for row in suggestion_rows:
-        suggestions_by_doc.setdefault(row.doc_id, set()).add(row.source)
+    for doc_id, source in suggestion_rows:
+        suggestions_by_doc.setdefault(int(doc_id), set()).add(str(source or ""))
     vision_pages = {
-        row.doc_id
-        for row in db.query(DocumentPageText)
+        int(row[0])
+        for row in db.query(DocumentPageText.doc_id)
         .filter(DocumentPageText.doc_id.in_(doc_ids), DocumentPageText.source == "vision_ocr")
         .all()
     }
@@ -410,7 +422,11 @@ def get_dashboard(db: Session = Depends(get_db)):
         .all()
     )
 
-    correspondents_map = {row[0]: row[1] for row in db.query(Correspondent.id, Correspondent.name).all()}
+    unprocessed_corr_ids = [corr_id for corr_id in unprocessed_by_correspondent.keys() if corr_id is not None]
+    correspondents_map = {
+        row[0]: row[1]
+        for row in db.query(Correspondent.id, Correspondent.name).filter(Correspondent.id.in_(unprocessed_corr_ids)).all()
+    } if unprocessed_corr_ids else {}
     unprocessed_corr_list = [
         {
             "id": corr_id,
