@@ -3,7 +3,7 @@ import { useGlobalHotkeys } from './useGlobalHotkeys'
 
 type Options = {
   inputRef: Ref<HTMLInputElement | null>
-  onSubmit: () => void | Promise<void>
+  onSubmit: () => unknown | Promise<unknown>
   focusKey?: string
   enableSubmitCombo?: boolean
 }
@@ -33,4 +33,3 @@ export const useInputCommandHotkeys = (options: Options) => {
 
   useGlobalHotkeys(onWindowKeydown)
 }
-

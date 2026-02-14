@@ -190,9 +190,9 @@ import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
-import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 import { useShareLink } from '../composables/useShareLink'
+import { useInputCommandHotkeys } from '../composables/useInputCommandHotkeys'
 
 const {
   query,
@@ -298,22 +298,8 @@ useRouteQuerySync({
   sources: [query, topK, source, onlyVision, minQuality, dedupe, rerank],
 })
 
-const onWindowKeydown = (event: KeyboardEvent) => {
-  const target = event.target as HTMLElement | null
-  const tag = target?.tagName?.toLowerCase()
-  const isTypingTarget =
-    tag === 'input' || tag === 'textarea' || target?.isContentEditable === true
-  if (!isTypingTarget && event.key === '/') {
-    event.preventDefault()
-    queryInputRef.value?.focus()
-    queryInputRef.value?.select()
-    return
-  }
-  if (event.ctrlKey && event.key === 'Enter') {
-    event.preventDefault()
-    void runSearchAction()
-  }
-}
-
-useGlobalHotkeys(onWindowKeydown)
+useInputCommandHotkeys({
+  inputRef: queryInputRef,
+  onSubmit: runSearchAction,
+})
 </script>
