@@ -276,8 +276,9 @@ def suggest_field_variants(
     correspondents = get_cached_correspondents(settings)
     if payload.source not in ("paperless_ocr", "vision_ocr"):
         raise ValueError("Invalid source")
-    if payload.field not in ("title", "date", "correspondent", "tags"):
+    if payload.field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
+    target_field = "summary" if payload.field == "note" else payload.field
 
     if payload.source == "vision_ocr":
         vision_pages = (
@@ -316,7 +317,7 @@ def suggest_field_variants(
     )
     if stored:
         payload_json = parse_json_object(stored.payload)
-        current = payload_json.get(payload.field)
+        current = payload_json.get(target_field)
     if require_queue_enabled(settings) and not priority:
         task = {
             "doc_id": doc_id,
@@ -374,9 +375,10 @@ def apply_field_suggestion(
 ):
     if payload.source not in ("paperless_ocr", "vision_ocr"):
         raise ValueError("Invalid source")
-    if payload.field not in ("title", "date", "correspondent", "tags"):
+    if payload.field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
-    updated = update_suggestion_field(db, doc_id, payload.source, payload.field, payload.value)
+    target_field = "summary" if payload.field == "note" else payload.field
+    updated = update_suggestion_field(db, doc_id, payload.source, target_field, payload.value)
     if updated is None:
         return {"status": "missing"}
     return {"status": "ok", "suggestions": {payload.source: updated}}
