@@ -227,17 +227,26 @@ def _evaluate_doc_pipeline(
     anchors_by_doc: dict[int, list[DocumentPageAnchor]] = cache["anchors_by_doc"]
     anchor_rows = anchors_by_doc.get(int(doc.id), [])
     expected_anchor_pages = int(doc.page_count or 0)
-    done_anchor_pages = {
+    completed_anchor_pages = {
         int(row.page)
         for row in anchor_rows
         if str(row.status or "") in {"ok", "no_text_layer"}
     }
     has_evidence_index = (
-        len(done_anchor_pages) > 0
+        len(completed_anchor_pages) > 0
         if expected_anchor_pages <= 0
-        else len(done_anchor_pages) >= expected_anchor_pages
+        else len(completed_anchor_pages) >= expected_anchor_pages
     )
-    needs_evidence_index = options.include_evidence_index and (not has_evidence_index)
+    has_text_layer = any(
+        str(row.status or "") == "ok" and int(row.token_count or 0) > 0
+        for row in anchor_rows
+    )
+    no_text_layer_complete = bool(anchor_rows) and has_evidence_index and not has_text_layer
+    anchor_has_errors = any(str(row.status or "") == "error" for row in anchor_rows)
+    evidence_required = not no_text_layer_complete
+    needs_evidence_index = options.include_evidence_index and evidence_required and (
+        (not has_evidence_index) or anchor_has_errors
+    )
     if needs_evidence_index:
         tasks.append({"doc_id": int(doc.id), "task": "evidence_index"})
 
@@ -349,6 +358,8 @@ def _evaluate_doc_pipeline(
         "needs_page_notes": needs_page_notes,
         "needs_summary_hierarchical": needs_summary,
         "needs_evidence_index": needs_evidence_index,
+        "evidence_required": evidence_required,
+        "evidence_no_text_layer": no_text_layer_complete,
     }
 
 
@@ -655,15 +666,21 @@ def get_document_pipeline_status(
     large_ok = True if not is_large_doc else not (
         evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]
     )
-    evidence_ok = not evaluation["needs_evidence_index"]
+    evidence_required = bool(evaluation.get("evidence_required", True))
+    evidence_no_text_layer = bool(evaluation.get("evidence_no_text_layer", False))
+    evidence_ok = (not evidence_required) or (not evaluation["needs_evidence_index"])
 
     steps = [
         {"key": "sync", "required": True, "done": sync_ok, "detail": "Local document is up to date with Paperless."},
         {
             "key": "evidence",
-            "required": True,
+            "required": evidence_required,
             "done": evidence_ok,
-            "detail": "PDF text-layer anchor index is ready for evidence mapping.",
+            "detail": (
+                "Skipped: PDF has no text layer for anchor indexing."
+                if evidence_no_text_layer
+                else "PDF text-layer anchor index is ready for evidence mapping."
+            ),
         },
         {
             "key": "paperless",
@@ -796,6 +813,8 @@ def continue_document_pipeline(
     tasks = list(evaluation["tasks"])
     if include_sync and not _sync_ok(settings, doc):
         followups = _post_sync_followup_tasks(int(doc_id), settings=settings, options=options)
+        if not evaluation.get("needs_evidence_index", False):
+            followups = [task for task in followups if str(task.get("task") or "") != "evidence_index"]
         tasks = _dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}] + tasks + followups)
     enqueued = 0
     if tasks and not dry_run:
