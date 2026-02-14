@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
@@ -62,7 +63,7 @@ def update_suggestion_field(
     if not row:
         return None
     try:
-        payload = __import__("json").loads(row.payload)
+        payload = json.loads(row.payload)
     except Exception:
         payload = {}
     old_value = payload.get(field) if isinstance(payload, dict) else None
@@ -70,7 +71,7 @@ def update_suggestion_field(
         payload["parsed"][field] = value
     if isinstance(payload, dict):
         payload[field] = value
-    row.payload = __import__("json").dumps(payload, ensure_ascii=False)
+    row.payload = json.dumps(payload, ensure_ascii=False)
     db.commit()
     logger.info("Updated suggestion doc=%s source=%s field=%s", doc_id, source, field)
     audit = SuggestionAudit(
@@ -78,8 +79,8 @@ def update_suggestion_field(
         action="field_override",
         source=source,
         field=field,
-        old_value=__import__("json").dumps(old_value, ensure_ascii=False) if old_value is not None else None,
-        new_value=__import__("json").dumps(value, ensure_ascii=False) if value is not None else None,
+        old_value=json.dumps(old_value, ensure_ascii=False) if old_value is not None else None,
+        new_value=json.dumps(value, ensure_ascii=False) if value is not None else None,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(audit)
@@ -119,9 +120,11 @@ def persist_suggestions(
         db,
         doc_id,
         source,
-        __import__("json").dumps(payload, ensure_ascii=False),
+        json.dumps(payload, ensure_ascii=False),
         model_name=model_name,
         commit=False,
     )
     audit_suggestion_run(db, doc_id, source, action, commit=False)
     db.commit()
+
+

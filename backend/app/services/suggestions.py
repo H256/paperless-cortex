@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import json
 import logging
 from typing import Any
@@ -212,7 +213,7 @@ def generate_suggestions(
         len(trimmed),
         document.get("id"),
     )
-    if __import__("os").getenv("LLM_DEBUG") == "1":
+    if os.getenv("LLM_DEBUG") == "1":
         logger.info("Suggestions prompt:\n%s", prompt)
     raw_text = llm_client.chat_completion(
         settings,
@@ -286,7 +287,7 @@ def generate_field_variants(
         count,
         document.get("id"),
     )
-    if __import__("os").getenv("LLM_DEBUG") == "1":
+    if os.getenv("LLM_DEBUG") == "1":
         logger.info("Suggestions field prompt:\n%s", prompt)
     raw_text = llm_client.chat_completion(
         settings,
@@ -303,3 +304,5 @@ def generate_field_variants(
     if settings.suggestions_debug:
         parsed = {"raw": raw_text, "parsed": parsed}
     return parsed
+
+

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import json
 import time
 
@@ -128,11 +129,9 @@ def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, obj
     if settings.queue_enabled:
         stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
         status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
-        if status == "running" and state and not state.started_at:
-            state.started_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
-            state.status = "running"
-            db.commit()
         started_at = state.started_at if state else None
+        if status == "running" and not started_at:
+            started_at = datetime.now(timezone.utc).isoformat()
         eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
         return {
             "status": status,

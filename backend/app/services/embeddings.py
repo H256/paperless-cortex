@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import json
 import math
 import re
 import logging
@@ -205,7 +207,7 @@ def embed_text(
         vectors = [embed_text(settings, part, telemetry=telemetry) for part in fallback_parts]
         embedding = _average_vectors(vectors)
     if settings.llm_base_url and settings.embedding_model:
-        if __import__("os").getenv("LLM_DEBUG") == "1":
+        if os.getenv("LLM_DEBUG") == "1":
             sample = embedding[:5]
             logger.info(
                 "LLM embed model=%s len=%s sample=%s",
@@ -515,7 +517,7 @@ def _chunk_points_by_size(points: list[dict[str, Any]], max_bytes: int) -> list[
     current: list[dict[str, Any]] = []
     current_size = 0
     for point in points:
-        point_json = __import__("json").dumps(point, ensure_ascii=False)
+        point_json = json.dumps(point, ensure_ascii=False)
         point_size = len(point_json.encode("utf-8"))
         if current and current_size + point_size > max_bytes:
             batches.append(current)
@@ -570,3 +572,5 @@ def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = 
 
 def search_points(settings: Settings, vector: list[float], limit: int = 5) -> dict[str, Any]:
     return qdrant.search(settings, vector, limit=limit, with_payload=True)
+
+

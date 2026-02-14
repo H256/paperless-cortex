@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -487,7 +488,7 @@ def _build_pipeline_fanout_items(
             raw = str(run.checkpoint_json).strip()
             if raw.startswith(("{", "[")):
                 try:
-                    parsed = __import__("json").loads(raw)
+                    parsed = json.loads(raw)
                 except Exception:
                     parsed = None
                 if isinstance(parsed, dict):
@@ -562,7 +563,7 @@ def process_missing(
     if include_sync:
         run_sync_documents(
             page_size=200,
-            incremental=False,
+            incremental=True,
             embed=False,
             page=1,
             page_only=False,
@@ -573,16 +574,13 @@ def process_missing(
             db=db,
         )
 
-    docs = db.query(Document).order_by(Document.id.asc()).all()
+    docs_query = db.query(Document)
     if include_vision_ocr:
-        docs.sort(
-            key=lambda doc: (
-                doc.page_count is None,
-                doc.page_count or 0,
-                doc.id,
-            )
-        )
-    cache = _collect_pipeline_cache(db, doc_ids={int(doc.id) for doc in docs})
+        docs_query = docs_query.order_by(Document.page_count.is_(None).asc(), Document.page_count.asc(), Document.id.asc())
+    else:
+        docs_query = docs_query.order_by(Document.id.asc())
+    doc_ids = {int(row[0]) for row in db.query(Document.id).yield_per(1000)}
+    cache = _collect_pipeline_cache(db, doc_ids=doc_ids)
     options = _PipelineOptions(
         include_sync=include_sync,
         include_evidence_index=include_evidence_index,
@@ -614,7 +612,7 @@ def process_missing(
     missing_by_step = {"paperless": 0, "vision": 0, "large": 0}
     preview_docs: list[dict[str, Any]] = []
     preview_docs_limit = 20
-    for doc in docs:
+    for doc in docs_query.yield_per(250):
         if should_skip_doc(doc):
             continue
         checked_docs += 1

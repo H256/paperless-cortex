@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import base64
 from dataclasses import dataclass
 from pathlib import Path
@@ -173,7 +174,7 @@ def _vision_generate(
         len(prompt),
         len(image_bytes),
     )
-    if __import__("os").getenv("LLM_DEBUG") == "1":
+    if os.getenv("LLM_DEBUG") == "1":
         logger.info("Vision OCR prompt:\n%s", prompt)
     content: list[dict[str, object]] = [
         {"type": "text", "text": prompt},
@@ -186,7 +187,7 @@ def _vision_generate(
         timeout=settings.vision_ocr_timeout_seconds,
         purpose="vision",
     )
-    if __import__("os").getenv("LLM_DEBUG") == "1":
+    if os.getenv("LLM_DEBUG") == "1":
         sample = text[:300]
         logger.info("Vision OCR response len=%s sample=%s", len(text), sample)
     else:
@@ -232,3 +233,5 @@ def ocr_pdf_pages(
     )
     logger.info("Vision OCR completed pages=%s", [p.page for p in results])
     return results
+
+
