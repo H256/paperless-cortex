@@ -332,6 +332,7 @@ const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
 const now = ref(Date.now())
+let syncingFromRoute = false
 
 const parseBool = (value: unknown, fallback: boolean) => {
   const raw = Array.isArray(value) ? value[0] : value
@@ -359,6 +360,7 @@ const buildChatQuery = () => {
 }
 
 const syncChatFromRoute = () => {
+  syncingFromRoute = true
   topK.value = parseNumber(route.query.k, 6)
   source.value = typeof route.query.src === 'string' ? route.query.src : ''
   onlyVision.value = parseBool(route.query.v, false)
@@ -366,6 +368,7 @@ const syncChatFromRoute = () => {
   streaming.value = parseBool(route.query.stream, true)
   useHistory.value = parseBool(route.query.hist, true)
   historyTurns.value = parseNumber(route.query.turns, 6)
+  syncingFromRoute = false
 }
 
 const syncChatToRoute = async () => {
@@ -546,8 +549,16 @@ const copyConversationId = async () => {
 }
 
 watch([topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns], () => {
+  if (syncingFromRoute) return
   void syncChatToRoute()
 })
+
+watch(
+  () => route.query,
+  () => {
+    syncChatFromRoute()
+  },
+)
 </script>
 
 <style scoped>
