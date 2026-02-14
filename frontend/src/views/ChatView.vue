@@ -30,6 +30,19 @@
               {{ loading ? 'Thinking...' : 'Ask' }}
             </button>
             <button
+              class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              :disabled="loading"
+              @click="resetControls"
+            >
+              Reset
+            </button>
+            <button
+              class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copyChatLink"
+            >
+              Copy link
+            </button>
+            <button
               v-if="loading && streaming"
               class="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
               @click="stop"
@@ -287,7 +300,8 @@
 
 <script setup lang="ts">
 import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } from 'lucide-vue-next'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type { ChatCitation } from '../api/generated/model'
@@ -314,8 +328,81 @@ const {
   stop,
   ask,
 } = useChatSession()
+const route = useRoute()
+const router = useRouter()
 const toastStore = useToastStore()
 const now = ref(Date.now())
+
+const parseBool = (value: unknown, fallback: boolean) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === '1' || raw === 'true') return true
+  if (raw === '0' || raw === 'false') return false
+  return fallback
+}
+
+const parseNumber = (value: unknown, fallback: number) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const buildChatQuery = () => {
+  const next: Record<string, string> = {}
+  if (topK.value !== 6) next.k = String(topK.value)
+  if (source.value) next.src = source.value
+  if (onlyVision.value) next.v = '1'
+  if (minQuality.value > 0) next.minq = String(minQuality.value)
+  if (!streaming.value) next.stream = '0'
+  if (!useHistory.value) next.hist = '0'
+  if (historyTurns.value !== 6) next.turns = String(historyTurns.value)
+  return next
+}
+
+const syncChatFromRoute = () => {
+  topK.value = parseNumber(route.query.k, 6)
+  source.value = typeof route.query.src === 'string' ? route.query.src : ''
+  onlyVision.value = parseBool(route.query.v, false)
+  minQuality.value = parseNumber(route.query.minq, 0)
+  streaming.value = parseBool(route.query.stream, true)
+  useHistory.value = parseBool(route.query.hist, true)
+  historyTurns.value = parseNumber(route.query.turns, 6)
+}
+
+const syncChatToRoute = async () => {
+  const next = buildChatQuery()
+  const current = route.query
+  const same =
+    String(current.k || '') === String(next.k || '') &&
+    String(current.src || '') === String(next.src || '') &&
+    String(current.v || '') === String(next.v || '') &&
+    String(current.minq || '') === String(next.minq || '') &&
+    String(current.stream || '') === String(next.stream || '') &&
+    String(current.hist || '') === String(next.hist || '') &&
+    String(current.turns || '') === String(next.turns || '')
+  if (same) return
+  await router.replace({ query: next })
+}
+
+const resetControls = async () => {
+  topK.value = 6
+  source.value = ''
+  onlyVision.value = false
+  minQuality.value = 0
+  streaming.value = true
+  useHistory.value = true
+  historyTurns.value = 6
+  await syncChatToRoute()
+}
+
+const copyChatLink = async () => {
+  try {
+    const href = `${window.location.origin}${router.resolve({ path: route.path, query: buildChatQuery() }).href}`
+    await navigator.clipboard.writeText(href)
+    toastStore.push('Chat link copied.', 'success', 'Chat', 1600)
+  } catch {
+    toastStore.push('Failed to copy chat link.', 'danger', 'Chat', 2200)
+  }
+}
 
 const citationLink = (citation: ChatCitation) => {
   return buildDocumentCitationLink({
@@ -426,6 +513,7 @@ const formatAge = (timestamp: number) => {
 
 let timer: number | null = null
 onMounted(() => {
+  syncChatFromRoute()
   timer = window.setInterval(() => {
     now.value = Date.now()
   }, 30000)
@@ -456,6 +544,10 @@ const copyConversationId = async () => {
     toastStore.push('Failed to copy conversation id.', 'danger', 'Chat', 2200)
   }
 }
+
+watch([topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns], () => {
+  void syncChatToRoute()
+})
 </script>
 
 <style scoped>
