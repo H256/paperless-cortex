@@ -16,7 +16,19 @@ const toNumber = (value: unknown): number | null => {
   return n
 }
 
+const parseBBoxString = (value: string): string | undefined => {
+  const numbers = value
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((part) => Number.isFinite(part))
+  if (numbers.length !== 4) return undefined
+  return numbers.map((part) => part.toFixed(5)).join(',')
+}
+
 const toBBoxString = (value: unknown): string | undefined => {
+  if (typeof value === 'string') {
+    return parseBBoxString(value)
+  }
   if (!Array.isArray(value) || value.length !== 4) return undefined
   const numbers = value.map((part) => Number(part))
   if (numbers.some((part) => Number.isNaN(part))) return undefined
@@ -30,11 +42,40 @@ const createJumpToken = (): string => {
 
 const writeJumpPayload = (payload: CitationJumpPayload): string | null => {
   try {
+    pruneCitationJumps()
     const token = createJumpToken()
     window.sessionStorage.setItem(`${JUMP_STORAGE_PREFIX}${token}`, JSON.stringify(payload))
     return token
   } catch {
     return null
+  }
+}
+
+const pruneCitationJumps = () => {
+  try {
+    const now = Date.now()
+    const removeKeys: string[] = []
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const key = window.sessionStorage.key(i)
+      if (!key || !key.startsWith(JUMP_STORAGE_PREFIX)) continue
+      const raw = window.sessionStorage.getItem(key)
+      if (!raw) {
+        removeKeys.push(key)
+        continue
+      }
+      try {
+        const parsed = JSON.parse(raw) as CitationJumpPayload
+        const createdAt = Number(parsed?.createdAt || 0)
+        if (!createdAt || now - createdAt > JUMP_TTL_MS) {
+          removeKeys.push(key)
+        }
+      } catch {
+        removeKeys.push(key)
+      }
+    }
+    removeKeys.forEach((key) => window.sessionStorage.removeItem(key))
+  } catch {
+    // ignore storage errors
   }
 }
 
@@ -90,4 +131,3 @@ export const consumeCitationJump = (jumpQueryValue: unknown): { page?: number; b
     return null
   }
 }
-
