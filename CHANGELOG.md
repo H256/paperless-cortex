@@ -64,6 +64,7 @@ All granular implementation slices and refactors are tracked here.
 - `2abdd84` feat(ux): chat now supports explicit follow-up context controls (toggle + turn depth + quick follow-up from prior message), and citation/detail links in both chat and search now open Document Details in a new tab while preserving `page` + `bbox` query payload for viewer focus.
 - `cafe56f` feat(ux): added shared citation jump handoff service (`sessionStorage` token + query `jump`) so chat/search source links open in a new tab with resilient page/bbox pickup in Document Details, while keeping URL fallback params for direct links.
 - `ecd4dd1` refactor(ux): Document Details now consumes-and-cleans one-time `jump` query tokens after citation handoff and reuses a shared query-copy helper to reduce duplicated route-query logic.
+- `54f20aa` fix(chat): normalized chat citation numbering after source filtering/deduplication so citations remain contiguous (`[1..n]`) and follow-up references stay stable.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
