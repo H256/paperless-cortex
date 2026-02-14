@@ -414,12 +414,25 @@ def apply_suggestion_to_document(
         model_name: str | None,
         processed_at: str | None,
     ) -> str:
+        def _format_created(value: str | None) -> str | None:
+            raw = str(value or "").strip()
+            if not raw:
+                return None
+            candidate = f"{raw[:-1]}+00:00" if raw.endswith("Z") else raw
+            try:
+                parsed = datetime.fromisoformat(candidate)
+                return parsed.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                compact = raw.replace("T", " ")
+                return compact[:19]
+
         summary = summary_text.strip()
         meta_parts: list[str] = []
         if model_name:
             meta_parts.append(f"Model:{model_name}")
-        if processed_at:
-            meta_parts.append(f"Created:{processed_at}")
+        created = _format_created(processed_at)
+        if created:
+            meta_parts.append(f"Created:{created}")
         meta_line = ", ".join(meta_parts)
         if meta_line:
             return f"{summary}\n\n{meta_line}\nKI-Zusammenfassung"
