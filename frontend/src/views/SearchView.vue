@@ -177,13 +177,14 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
 import { useToastStore } from '../stores/toastStore'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
+import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 
 const {
   query,
@@ -281,11 +282,6 @@ onMounted(async () => {
   if (query.value.trim()) {
     await runSearchAction()
   }
-  window.addEventListener('keydown', onWindowKeydown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onWindowKeydown)
 })
 
 watch([query, topK, source, onlyVision, minQuality, dedupe, rerank], () => {
@@ -316,4 +312,6 @@ const onWindowKeydown = (event: KeyboardEvent) => {
     void runSearchAction()
   }
 }
+
+useGlobalHotkeys(onWindowKeydown)
 </script>
