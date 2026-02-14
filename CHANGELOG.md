@@ -74,6 +74,7 @@ All granular implementation slices and refactors are tracked here.
 - `da7eeb2` test(chat): added route-level tests for `/chat` and `/chat/stream` to verify `conversation_id` contract behavior in sync and SSE done-payload responses.
 - `bc7b00b` feat(chat-ui): added active conversation-id copy action and normalized per-message thread separator to ASCII (`|`) for consistent rendering.
 - `5c481ec` refactor(chat-store): extracted shared chat history/message builders to reduce duplication across streaming/non-streaming ask flows while preserving behavior.
+- `511eaee` chore(chat): enriched chat route logging with source and `conversation_id` context for easier follow-up thread diagnostics in backend logs.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
