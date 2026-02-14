@@ -62,6 +62,15 @@ def _next_local_note_id(db: Session) -> int:
     return value - 1
 
 
+def _apply_note_fields(target: DocumentNote, *, note_body: str, created: str | None, user: dict) -> None:
+    target.note = note_body
+    target.created = created
+    target.user_id = user.get("id")
+    target.user_username = user.get("username")
+    target.user_first_name = user.get("first_name")
+    target.user_last_name = user.get("last_name")
+
+
 def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> None:
     existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
     incoming_ids: set[int] = set()
@@ -87,22 +96,10 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
                     existing = global_note
                     existing_by_id[note_id] = global_note
         if existing:
-            existing.note = note.note
-            existing.created = note.created
-            existing.user_id = user.get("id")
-            existing.user_username = user.get("username")
-            existing.user_first_name = user.get("first_name")
-            existing.user_last_name = user.get("last_name")
+            _apply_note_fields(existing, note_body=note.note, created=note.created, user=user)
             continue
-        created = DocumentNote(
-            id=note_id,
-            note=note.note,
-            created=note.created,
-            user_id=user.get("id"),
-            user_username=user.get("username"),
-            user_first_name=user.get("first_name"),
-            user_last_name=user.get("last_name"),
-        )
+        created = DocumentNote(id=note_id)
+        _apply_note_fields(created, note_body=note.note, created=note.created, user=user)
         doc.notes.append(created)
         existing_by_id[note_id] = created
 
