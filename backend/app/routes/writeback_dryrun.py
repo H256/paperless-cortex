@@ -39,6 +39,7 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
+from app.services.json_utils import parse_json_list
 from app.services.note_ids import next_local_note_id
 from app.services.string_list_json import parse_string_list_json
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
@@ -282,21 +283,25 @@ def _job_summary(job: WritebackJob) -> WritebackJobSummary:
 
 
 def _deserialize_doc_ids(job: WritebackJob) -> list[int]:
-    if not job.doc_ids_json:
-        return []
-    try:
-        return [int(item) for item in json.loads(job.doc_ids_json)]
-    except Exception:
-        return []
+    doc_ids: list[int] = []
+    for item in parse_json_list(job.doc_ids_json):
+        try:
+            doc_ids.append(int(item))
+        except Exception:
+            continue
+    return doc_ids
 
 
 def _deserialize_calls(job: WritebackJob) -> list[WritebackDryRunCall]:
-    if not job.calls_json:
-        return []
-    try:
-        return [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
-    except Exception:
-        return []
+    calls: list[WritebackDryRunCall] = []
+    for item in parse_json_list(job.calls_json):
+        if not isinstance(item, dict):
+            continue
+        try:
+            calls.append(WritebackDryRunCall(**item))
+        except Exception:
+            continue
+    return calls
 
 
 def _job_detail(job: WritebackJob) -> WritebackJobDetail:

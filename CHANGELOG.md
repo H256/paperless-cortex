@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `pending` refactor(writeback/json): extended `json_utils` with `parse_json_list` and reused it in writeback job deserialization (`doc_ids_json`, `calls_json`) to reduce duplicated JSON error handling and make partial-bad payloads more tolerant.
 - `739bd91` observability(api): added configurable slow-request logging middleware on `/api` routes (`API_SLOW_REQUEST_LOG_MS`) with method/path/status/duration output, reused a single module-level settings instance in `main.py`, and documented the new env var in `.env.example` and `.env.worker.example`.
 - `deb425a` docs(todo): refreshed `docs/TODO.md` with compact post-QA backlog items (responsive polish, endpoint timing observability, compact worker timeline UX).
 - `517ebad` ux(writeback): enabled Vue Query `keepPreviousData` for writeback preview/jobs/history queries to reduce list flicker during reloads and query transitions.
