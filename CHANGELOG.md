@@ -5,7 +5,14 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-02-14 (current branch: feat/documents-triage-presets-search)
 
+### Documentation / governance
+- `1dbf86e` docs: compacted `README.md`/`agents.md` and moved granular history into `CHANGELOG.md`.
+- `2a2f2e5` docs(agents): require changelog entries with git hashes when available.
+- `5506b30` docs(agents): recorded sync logger cleanup slice after command quoting issue.
+
 ### Backend stability / quality
+- `f915df1` feat(logs): task-runs now include error retryability/category metadata for faster triage.
+- `85201c3` feat(observability): added queue error-type catalog endpoint + Log Inspector reference table.
 - `3bb8f5e` fix(worker): tolerate missing `task_runs` when reading checkpoints.
 - `807639e` refactor(worker): centralize main-loop cancel handling.
 - `8e049a5` fix(sync): skip malformed note IDs during note merge.

@@ -9,7 +9,7 @@ Build a robust, safe Paperless intelligence layer:
 
 ## Phase status
 - `MVP`: **Done**
-- `Phase 1 (robustness + UX)`: **In progress (late)**
+- `Phase 1 (robustness + UX)`: **Done**
 - `Phase 2 (advanced evidence locator with bbox on-demand)`: **Planned**
 
 ## What is stable now
@@ -23,14 +23,14 @@ Build a robust, safe Paperless intelligence layer:
 - Active branch: `feat/documents-triage-presets-search`
 
 ## Current focus (short-term)
-1. Backend stability hardening (sync/worker edge cases, retry safety, rollback safety).
-2. UX friction removal for document triage and processing visibility.
-3. Keep codebase lean: KISS/DRY/SOLID, composables/components, generated API client + vue-query.
+1. Phase 2 planning and delivery slices (evidence locator + bbox enrichment path).
+2. Load/real-world validation on large documents and production-like queue behavior.
+3. Continue strict KISS/DRY/SOLID cleanup during feature work.
 
 ## Open work (high-level)
-- Finish Phase 1 hardening pass (error taxonomy clarity, worker observability polish).
-- Validate full end-to-end behavior on large docs under real load.
-- Prepare focused Phase 2 implementation slice for evidence locator.
+- Implement Phase 2 evidence-resolution endpoint and chat pipeline integration.
+- Add targeted integration tests for bbox evidence fallback behavior.
+- Continue UX polish where operational friction is still observed.
 
 ## Working agreements
 - No commits on `master`.

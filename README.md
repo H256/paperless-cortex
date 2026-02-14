@@ -8,8 +8,8 @@ It keeps Paperless as source-of-truth, processes documents locally (sync, OCR la
 ### Delivery phases
 - `MVP` (core intelligence layer): **Done**
   - Sync from Paperless, local storage, embeddings, semantic search, suggestions, queue/worker, manual writeback.
-- `Phase 1` (robustness + UX streamlining): **In progress (late stage)**
-  - Main pipeline and triage UX are largely in place; current work is hardening and simplification.
+- `Phase 1` (robustness + UX streamlining): **Done**
+  - Pipeline hardening + triage/log observability baseline delivered.
 - `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Planned / partial design only**
   - Spec exists, full implementation not complete yet.
 
