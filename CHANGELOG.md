@@ -114,6 +114,7 @@ All granular implementation slices and refactors are tracked here.
 - `5cb53b6` feat(chat): chat draft question is now included in URL-synced state (`q`) so in-progress prompts can be resumed/shared alongside chat controls.
 - `9255da2` feat(search): added `Ctrl+Shift+Enter` shortcut to open the first visible search result directly, accelerating keyboard-only review flow.
 - `5b436e1` fix(ui): `useRouteQuerySync` now clears pending debounce timers on unmount to prevent delayed stale route updates after view teardown.
+- `e75e990` feat(search): added inline shortcut hint text near search controls to improve discoverability of keyboard flow (`/`, `Ctrl+Enter`, `Ctrl+Shift+Enter`).
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
