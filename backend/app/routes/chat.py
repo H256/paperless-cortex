@@ -26,7 +26,13 @@ def chat(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    logger.info("Chat request question_len=%s top_k=%s", len(payload.question), payload.top_k)
+    logger.info(
+        "Chat request question_len=%s top_k=%s source=%s conversation_id=%s",
+        len(payload.question),
+        payload.top_k,
+        payload.source or "all",
+        (payload.conversation_id or "new"),
+    )
     return answer_question(
         settings,
         question=payload.question,
@@ -45,7 +51,13 @@ def chat_stream(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    logger.info("Chat stream request question_len=%s top_k=%s", len(payload.question), payload.top_k)
+    logger.info(
+        "Chat stream request question_len=%s top_k=%s source=%s conversation_id=%s",
+        len(payload.question),
+        payload.top_k,
+        payload.source or "all",
+        (payload.conversation_id or "new"),
+    )
     return answer_question(
         settings,
         question=payload.question,
