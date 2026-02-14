@@ -725,3 +725,4 @@ eeds_review / eviewed / ll) with one-click reset.
 - Documents list clarity slice: added inline header result summary showing visible vs synced total document counts and active quick-search query context.
 - Documents pagination UX slice: added direct page jump controls (
 umber input + Go + Enter) to table footer with bounded clamping and new jump-page event handling in DocumentsView.
+- Documents table scanability slice: made desktop table header sticky (	head sticky top-0) so sort labels and columns remain visible during long-list scrolling.

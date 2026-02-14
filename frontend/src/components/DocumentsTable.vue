@@ -89,7 +89,7 @@
     <div v-else class="overflow-x-auto">
       <table class="w-full min-w-[920px] border-collapse text-sm">
         <thead
-          class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+          class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
         >
           <tr>
             <th class="px-6 py-3">
