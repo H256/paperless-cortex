@@ -34,6 +34,7 @@ def chat(
         source=payload.source,
         min_quality=payload.min_quality,
         history=payload.history or [],
+        conversation_id=payload.conversation_id,
         db=db,
     )
 
@@ -52,6 +53,7 @@ def chat_stream(
         source=payload.source,
         min_quality=payload.min_quality,
         history=payload.history or [],
+        conversation_id=payload.conversation_id,
         stream=True,
         db=db,
     )

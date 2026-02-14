@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Iterable
 from pathlib import Path
+from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from fastapi.responses import StreamingResponse
@@ -107,6 +108,13 @@ def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
     return "\n\n".join(blocks) if blocks else "None"
 
 
+def _ensure_conversation_id(value: str | None) -> str:
+    raw = (value or "").strip()
+    if raw:
+        return raw
+    return uuid4().hex
+
+
 def _resolve_evidence_for_sources(
     settings: Settings,
     sources: list[dict[str, Any]],
@@ -167,6 +175,7 @@ def answer_question(
     source: str | None = None,
     min_quality: int | None = None,
     history: list[dict[str, str]] | None = None,
+    conversation_id: str | None = None,
     stream: bool = False,
     db: Session | None = None,
 ) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
@@ -186,6 +195,7 @@ def answer_question(
     else:
         sources_text = "No sources available."
     prompt = _load_prompt(settings)
+    resolved_conversation_id = _ensure_conversation_id(conversation_id)
     prompt = (
         prompt.replace("{question}", question.strip())
         .replace("{sources}", sources_text)
@@ -205,6 +215,7 @@ def answer_question(
         return {
             "question": question,
             "answer": answer,
+            "conversation_id": resolved_conversation_id,
             "citations": sources,
         }
 
@@ -223,7 +234,13 @@ def answer_question(
         _resolve_evidence_for_sources(settings, sources, db=db)
         for source in sources:
             source.pop("text", None)
-        done_payload = json.dumps({"answer": answer, "citations": sources})
+        done_payload = json.dumps(
+            {
+                "answer": answer,
+                "conversation_id": resolved_conversation_id,
+                "citations": sources,
+            }
+        )
         yield f"event: done\ndata: {done_payload}\n\n".encode("utf-8")
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

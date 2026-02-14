@@ -221,3 +221,29 @@ def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
     assert isinstance(result, dict)
     citation_ids = [item["id"] for item in result["citations"]]
     assert citation_ids == [1, 2]
+
+
+def test_answer_question_generates_and_echoes_conversation_id(monkeypatch):
+    settings = load_settings()
+    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.chat.search_points", lambda *_args, **_kwargs: {"result": []})
+    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
+
+    generated = answer_question(settings, question="What changed?", top_k=3)
+    assert isinstance(generated, dict)
+    generated_id = generated.get("conversation_id")
+    assert isinstance(generated_id, str)
+    assert len(generated_id) >= 12
+
+    echoed = answer_question(
+        settings,
+        question="And after that?",
+        top_k=3,
+        conversation_id="thread-123",
+    )
+    assert isinstance(echoed, dict)
+    assert echoed["conversation_id"] == "thread-123"

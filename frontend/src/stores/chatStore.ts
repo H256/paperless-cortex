@@ -1,24 +1,47 @@
 import { defineStore } from 'pinia'
 import { sendChat, type ChatResponse, streamChat } from '../services/chat'
 
-const storageKey = 'paperless_chat_history'
-const loadMessages = (): ChatMessage[] => {
+const storageKey = 'paperless_chat_state'
+
+type PersistedChatState = {
+  messages: ChatMessage[]
+  conversationId: string
+}
+
+const loadState = (): PersistedChatState => {
   try {
     const raw = window.localStorage?.getItem(storageKey)
-    if (!raw) return []
+    if (!raw) return { messages: [], conversationId: '' }
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (Array.isArray(parsed)) {
+      return { messages: parsed, conversationId: '' }
+    }
+    if (parsed && typeof parsed === 'object') {
+      return {
+        messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+        conversationId: typeof parsed.conversationId === 'string' ? parsed.conversationId : '',
+      }
+    }
+    return { messages: [], conversationId: '' }
   } catch {
-    return []
+    return { messages: [], conversationId: '' }
   }
 }
-const saveMessages = (messages: ChatMessage[]) => {
+const saveState = (state: PersistedChatState) => {
   try {
-    window.localStorage?.setItem(storageKey, JSON.stringify(messages.slice(0, 30)))
+    window.localStorage?.setItem(
+      storageKey,
+      JSON.stringify({
+        messages: state.messages.slice(0, 30),
+        conversationId: state.conversationId || '',
+      }),
+    )
   } catch {
     // ignore
   }
 }
+
+const initialState = loadState()
 
 export interface ChatMessage {
   id: string
@@ -49,13 +72,15 @@ export const useChatStore = defineStore('chat', {
     historyTurns: 6,
     loading: false,
     error: '',
-    messages: loadMessages(),
+    messages: initialState.messages,
+    conversationId: initialState.conversationId,
     activeAbort: null as AbortController | null,
   }),
   actions: {
     clearConversation() {
       this.messages = []
-      saveMessages(this.messages)
+      this.conversationId = ''
+      saveState({ messages: this.messages, conversationId: this.conversationId })
     },
     startFollowUp(seedQuestion: string) {
       const seed = (seedQuestion || '').trim()
@@ -92,7 +117,7 @@ export const useChatStore = defineStore('chat', {
             createdAt: Date.now(),
           }
           this.messages.unshift(message)
-          saveMessages(this.messages)
+          saveState({ messages: this.messages, conversationId: this.conversationId })
           const controller = new AbortController()
           this.activeAbort = controller
           const questionText = this.question
@@ -104,6 +129,7 @@ export const useChatStore = defineStore('chat', {
               source,
               min_quality: this.minQuality || undefined,
               history,
+              conversation_id: this.conversationId || undefined,
             },
             (token) => {
               message.answer += token
@@ -111,7 +137,8 @@ export const useChatStore = defineStore('chat', {
             (done) => {
               message.answer = done.answer || message.answer
               message.citations = done.citations ?? []
-              saveMessages(this.messages)
+              this.conversationId = done.conversation_id || this.conversationId
+              saveState({ messages: this.messages, conversationId: this.conversationId })
             },
             (err) => {
               this.error = err
@@ -125,7 +152,9 @@ export const useChatStore = defineStore('chat', {
             source,
             min_quality: this.minQuality || undefined,
             history,
+            conversation_id: this.conversationId || undefined,
           })
+          this.conversationId = data.conversation_id || this.conversationId
           this.messages.unshift({
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
             question: data.question,
@@ -133,7 +162,7 @@ export const useChatStore = defineStore('chat', {
             citations: data.citations ?? [],
             createdAt: Date.now(),
           })
-          saveMessages(this.messages)
+          saveState({ messages: this.messages, conversationId: this.conversationId })
           this.question = ''
         }
       } catch (err: unknown) {

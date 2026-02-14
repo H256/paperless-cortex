@@ -631,6 +631,7 @@ class ChatCitation(BaseModel):
 class ChatResponse(BaseModel):
     question: str
     answer: str
+    conversation_id: str
     citations: list[ChatCitation] = []
 
 
@@ -645,6 +646,7 @@ class ChatRequest(BaseModel):
     source: Optional[str] = None
     min_quality: Optional[int] = None
     history: Optional[list[ChatHistoryItem]] = None
+    conversation_id: Optional[str] = None
 
 
 class EvidenceCitationRequest(BaseModel):

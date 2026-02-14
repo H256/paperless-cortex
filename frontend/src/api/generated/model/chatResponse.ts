@@ -9,5 +9,6 @@ import type { ChatCitation } from './chatCitation';
 export interface ChatResponse {
   question: string;
   answer: string;
+  conversation_id: string;
   citations?: ChatCitation[];
 }

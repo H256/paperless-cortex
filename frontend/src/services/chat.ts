@@ -20,7 +20,7 @@ const buildApiUrl = (path: string) => {
 export const streamChat = async (
   payload: ChatRequest,
   onToken: (token: string) => void,
-  onDone: (data: { answer: string; citations: ChatCitation[] }) => void,
+  onDone: (data: { answer: string; conversation_id?: string; citations: ChatCitation[] }) => void,
   onError: (message: string) => void,
   signal?: AbortSignal,
 ) => {
