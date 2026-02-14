@@ -161,6 +161,22 @@ class DocumentSectionSummary(Base):
     document: Mapped[Document] = relationship()
 
 
+class DocumentPageAnchor(Base):
+    __tablename__ = "document_page_anchors"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    page: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    anchors_json: Mapped[str | None] = mapped_column(Text)
+    token_count: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str | None] = mapped_column(String(32))
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String(64))
+    processed_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
 class DocumentOcrScore(Base):
     __tablename__ = "document_ocr_scores"
 

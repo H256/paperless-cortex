@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 import logging
+from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.deps import get_settings
+from app.db import get_db
 from app.services.chat import answer_question
 from app.services.evidence import resolve_evidence_matches
 from app.api_models import (
@@ -19,7 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=ChatResponse)
-def chat(payload: ChatRequest, settings: Settings = Depends(get_settings)):
+def chat(
+    payload: ChatRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
     logger.info("Chat request question_len=%s top_k=%s", len(payload.question), payload.top_k)
     return answer_question(
         settings,
@@ -28,11 +34,16 @@ def chat(payload: ChatRequest, settings: Settings = Depends(get_settings)):
         source=payload.source,
         min_quality=payload.min_quality,
         history=payload.history or [],
+        db=db,
     )
 
 
 @router.post("/stream")
-def chat_stream(payload: ChatRequest, settings: Settings = Depends(get_settings)):
+def chat_stream(
+    payload: ChatRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
     logger.info("Chat stream request question_len=%s top_k=%s", len(payload.question), payload.top_k)
     return answer_question(
         settings,
@@ -42,11 +53,16 @@ def chat_stream(payload: ChatRequest, settings: Settings = Depends(get_settings)
         min_quality=payload.min_quality,
         history=payload.history or [],
         stream=True,
+        db=db,
     )
 
 
 @router.post("/resolve-evidence", response_model=EvidenceResolveResponse)
-def resolve_evidence(payload: EvidenceResolveRequest, settings: Settings = Depends(get_settings)):
+def resolve_evidence(
+    payload: EvidenceResolveRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
     matches = resolve_evidence_matches(
         [
             {
@@ -60,5 +76,6 @@ def resolve_evidence(payload: EvidenceResolveRequest, settings: Settings = Depen
         ],
         max_pages=payload.max_pages,
         settings=settings,
+        db=db,
     )
     return {"count": len(matches), "matches": matches}

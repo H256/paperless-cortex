@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import re
+import json
 from difflib import SequenceMatcher
 from typing import Any
+from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.models import DocumentPageAnchor
 from app.services.documents import fetch_pdf_bytes
 
 
@@ -94,11 +97,36 @@ def _load_page_words(
     page: int,
     pdf_cache: dict[int, bytes],
     words_cache: dict[tuple[int, int], list[dict[str, Any]]],
+    db: Session | None = None,
 ) -> list[dict[str, Any]]:
     cache_key = (doc_id, page)
     cached = words_cache.get(cache_key)
     if cached is not None:
         return cached
+    if db is not None:
+        row = db.get(DocumentPageAnchor, (int(doc_id), int(page), "paperless_pdf"))
+        if row:
+            if str(row.status or "") == "no_text_layer":
+                words_cache[cache_key] = []
+                return []
+            raw = str(row.anchors_json or "").strip()
+            if raw:
+                try:
+                    payload = json.loads(raw)
+                    if isinstance(payload, list):
+                        restored: list[dict[str, Any]] = []
+                        for item in payload:
+                            if not isinstance(item, dict):
+                                continue
+                            bbox = _normalize_bbox(item.get("bbox"))
+                            text = str(item.get("text") or "").strip()
+                            if bbox is None or not text:
+                                continue
+                            restored.append({"text": text, "bbox": bbox})
+                        words_cache[cache_key] = restored
+                        return restored
+                except Exception:
+                    pass
     pdf_bytes = pdf_cache.get(doc_id)
     if pdf_bytes is None:
         pdf_bytes = fetch_pdf_bytes(settings, doc_id)
@@ -129,6 +157,7 @@ def resolve_evidence_matches(
     *,
     max_pages: int = 3,
     settings: Settings | None = None,
+    db: Session | None = None,
 ) -> list[dict[str, Any]]:
     limit = max(1, min(int(max_pages), 5))
     matches: list[dict[str, Any]] = []
@@ -203,7 +232,7 @@ def resolve_evidence_matches(
             resolved = resolved_cache.get(cache_key)
             if resolved is None:
                 try:
-                    words = _load_page_words(settings, doc_id, page, pdf_cache, words_cache)
+                    words = _load_page_words(settings, doc_id, page, pdf_cache, words_cache, db=db)
                     resolved = _match_snippet_to_words(words, snippet)
                 except Exception:
                     resolved = (None, 0.0)

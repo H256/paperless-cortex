@@ -15,6 +15,7 @@ def build_task_sequence(
     normalized_id = int(doc_id)
     if include_sync:
         tasks.append({"doc_id": normalized_id, "task": "sync"})
+    tasks.append({"doc_id": normalized_id, "task": "evidence_index"})
     use_vision = settings.enable_vision_ocr if include_vision_ocr is None else include_vision_ocr
     if use_vision:
         tasks.append({"doc_id": normalized_id, "task": "vision_ocr", "force": force})

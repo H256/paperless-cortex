@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Iterable
 from pathlib import Path
+from sqlalchemy.orm import Session
 
 from fastapi.responses import StreamingResponse
 
@@ -100,7 +101,12 @@ def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
     return "\n\n".join(blocks) if blocks else "None"
 
 
-def _resolve_evidence_for_sources(settings: Settings, sources: list[dict[str, Any]]) -> None:
+def _resolve_evidence_for_sources(
+    settings: Settings,
+    sources: list[dict[str, Any]],
+    *,
+    db: Session | None = None,
+) -> None:
     candidates: list[dict[str, Any]] = []
     for source in sources:
         snippet = str(source.get("snippet") or "").strip()
@@ -121,6 +127,7 @@ def _resolve_evidence_for_sources(settings: Settings, sources: list[dict[str, An
         candidates,
         max_pages=settings.evidence_max_pages,
         settings=settings,
+        db=db,
     )
     index: dict[tuple[int, int, str], dict[str, Any]] = {}
     for match in matches:
@@ -155,6 +162,7 @@ def answer_question(
     min_quality: int | None = None,
     history: list[dict[str, str]] | None = None,
     stream: bool = False,
+    db: Session | None = None,
 ) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
     ensure_text_llm_ready(settings)
     ensure_qdrant_ready(settings)
@@ -184,7 +192,7 @@ def answer_question(
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
         )
-        _resolve_evidence_for_sources(settings, sources)
+        _resolve_evidence_for_sources(settings, sources, db=db)
         for source in sources:
             source.pop("text", None)
         return {
@@ -205,7 +213,7 @@ def answer_question(
             payload = json.dumps({"token": token})
             yield f"data: {payload}\n\n".encode("utf-8")
         answer = "".join(answer_chunks).strip()
-        _resolve_evidence_for_sources(settings, sources)
+        _resolve_evidence_for_sources(settings, sources, db=db)
         for source in sources:
             source.pop("text", None)
         done_payload = json.dumps({"answer": answer, "citations": sources})

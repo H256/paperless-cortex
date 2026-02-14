@@ -13,6 +13,7 @@ QUEUE_KEY = "paperless_intelligence:doc_queue"
 QUEUE_SET = "paperless_intelligence:doc_queue_set"
 TASK_TYPES = [
     "sync",
+    "evidence_index",
     "vision_ocr",
     "embeddings_paperless",
     "embeddings_vision",

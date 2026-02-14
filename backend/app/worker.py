@@ -68,6 +68,7 @@ from app.services.suggestion_store import audit_suggestion_run, persist_suggesti
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services import vision_ocr
 from app.services.text_cleaning import clean_ocr_text
+from app.services.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
 from app.services.error_types import classify_worker_error
 from app.services.error_types import is_retryable_error_type
 from app.services.error_types import task_source_from_payload
@@ -579,6 +580,7 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return
+    _process_evidence_index(settings, db, doc_id, run_id=run_id)
     ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
 
     # Embeddings (with vision OCR)
@@ -1133,6 +1135,36 @@ def _process_embeddings_paperless(settings, db: Session, doc_id: int, run_id: in
     _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless", run_id=run_id)
 
 
+def _process_evidence_index(
+    settings,
+    db: Session,
+    doc_id: int,
+    *,
+    source: str = "paperless_pdf",
+    run_id: int | None = None,
+) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort evidence index doc=%s", doc_id)
+        return
+    if source != "paperless_pdf":
+        logger.info("Evidence index source unsupported doc=%s source=%s", doc_id, source)
+        return
+    doc = get_document_or_none(db, doc_id)
+    if not doc:
+        return
+    pdf_bytes = fetch_pdf_bytes_for_doc(settings, doc)
+    rows = extract_pdf_page_anchors(pdf_bytes)
+    _set_task_checkpoint(
+        db,
+        run_id=run_id,
+        stage="evidence_index",
+        current=len(rows),
+        total=len(rows),
+        extra={"source": source},
+    )
+    upsert_page_anchors(db, doc_id=doc_id, source=source, rows=rows)
+
+
 def _process_embeddings_vision(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
@@ -1303,6 +1335,13 @@ def _dispatch_task(
 ) -> None:
     handlers = {
         "sync": lambda: _process_sync_only(settings, db, doc_id),
+        "evidence_index": lambda: _process_evidence_index(
+            settings,
+            db,
+            doc_id,
+            source=str((task or {}).get("source") or "paperless_pdf"),
+            run_id=run_id,
+        ),
         "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id, run_id=run_id),
         "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id, run_id=run_id),
         "cleanup_texts": lambda: _process_cleanup_texts(

@@ -9,6 +9,7 @@ from app.models import (
     Document,
     DocumentEmbedding,
     DocumentNote,
+    DocumentPageAnchor,
     DocumentPageText,
     DocumentPendingTag,
     DocumentSuggestion,
@@ -311,6 +312,18 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
                 page=1,
                 source="vision_ocr",
                 text="Vision text",
+                created_at="2026-02-10T10:04:00+00:00",
+                processed_at="2026-02-10T10:04:00+00:00",
+            )
+        )
+        db.add(
+            DocumentPageAnchor(
+                doc_id=31,
+                page=1,
+                source="paperless_pdf",
+                anchors_json='[{"text":"Stable","bbox":[1,2,3,4]}]',
+                token_count=1,
+                status="ok",
                 created_at="2026-02-10T10:04:00+00:00",
                 processed_at="2026-02-10T10:04:00+00:00",
             )

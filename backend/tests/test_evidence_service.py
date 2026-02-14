@@ -33,7 +33,7 @@ def test_resolve_evidence_uses_pdf_word_matching_when_settings_available(monkeyp
 
     monkeypatch.setattr(
         "app.services.evidence._load_page_words",
-        lambda _settings, _doc_id, _page, _pdf_cache, _words_cache: [
+        lambda _settings, _doc_id, _page, _pdf_cache, _words_cache, db=None: [
             {"text": "Invoice", "bbox": [10, 10, 40, 20]},
             {"text": "Number", "bbox": [42, 10, 80, 20]},
             {"text": "INV-2026-00421", "bbox": [82, 10, 150, 20]},

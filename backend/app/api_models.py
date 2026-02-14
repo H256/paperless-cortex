@@ -509,6 +509,7 @@ class ProcessMissingResponse(BaseModel):
     missing_embeddings_vision: Optional[int] = None
     missing_page_notes: Optional[int] = None
     missing_summary_hierarchical: Optional[int] = None
+    missing_evidence_index: Optional[int] = None
     missing_suggestions_paperless: Optional[int] = None
     missing_suggestions_vision: Optional[int] = None
     missing_by_step: dict[str, int] = {}
@@ -527,6 +528,7 @@ class DocumentPipelineStatusResponse(BaseModel):
     preferred_source: str
     is_large_document: bool
     sync_ok: bool
+    evidence_ok: bool
     paperless_ok: bool
     vision_ok: bool
     large_ok: bool
