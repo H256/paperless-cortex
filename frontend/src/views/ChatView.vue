@@ -195,14 +195,22 @@
         </div>
         <div class="mt-2 text-sm text-slate-900 dark:text-slate-100">{{ message.question }}</div>
         <div class="mt-2">
-          <button
-            class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-            :disabled="loading"
-            @click="startFollowUp(message.question)"
-          >
-            <CornerDownRight class="h-3.5 w-3.5" />
-            Follow-up
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button
+              class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              :disabled="loading"
+              @click="startFollowUp(message.question)"
+            >
+              <CornerDownRight class="h-3.5 w-3.5" />
+              Follow-up
+            </button>
+            <button
+              class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="copyAnswer(message)"
+            >
+              Copy answer
+            </button>
+          </div>
         </div>
 
         <div
@@ -517,6 +525,17 @@ const copyConversationId = async () => {
   try {
     await copyText(value)
     toastStore.push('Conversation id copied.', 'success', 'Chat', 1500)
+  } catch (err) {
+    toastStore.push(copyError(err), 'danger', 'Chat', 2200)
+  }
+}
+
+const copyAnswer = async (message: ChatMessage) => {
+  const text = String(message.answer || '').trim()
+  if (!text) return
+  try {
+    await copyText(text)
+    toastStore.push('Answer copied.', 'success', 'Chat', 1500)
   } catch (err) {
     toastStore.push(copyError(err), 'danger', 'Chat', 2200)
   }
