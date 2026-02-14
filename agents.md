@@ -728,3 +728,4 @@ umber input + Go + Enter) to table footer with bounded clamping and new jump-pag
 - Documents table scanability slice: made desktop table header sticky (	head sticky top-0) so sort labels and columns remain visible during long-list scrolling.
 - Documents quick-search polish slice: added inline clear action (x) inside the quick-search input with proper spacing (pr-8) for faster filter reset during triage.
 - Triage control completeness slice: added explicit Clear all action to DocumentsQuickControls and wired it to full filter reset in DocumentsView (not only review quick-filter reset).
+- Live-work triage slice: added Running only toggle in DocumentsQuickControls and view-level filtering in DocumentsView to focus on documents with active running/retrying task-runs.

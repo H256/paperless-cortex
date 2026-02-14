@@ -36,6 +36,14 @@
 
     <div class="mt-2 flex flex-wrap items-center gap-2">
       <button
+        class="rounded-md border px-2.5 py-1 text-xs font-semibold"
+        :class="buttonClass(runningOnly)"
+        @click="$emit('update:runningOnly', !runningOnly)"
+        title="Show only documents with active worker tasks"
+      >
+        Running only
+      </button>
+      <button
         class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
         @click="$emit('open-writeback')"
       >
@@ -77,6 +85,7 @@ type ViewMode = 'table' | 'cards'
 defineEmits<{
   'update:selectedReviewStatus': [value: ReviewStatus]
   'update:viewMode': [value: ViewMode]
+  'update:runningOnly': [value: boolean]
   'reset-quick-filters': []
   'clear-all-filters': []
   'open-writeback': []
@@ -98,5 +107,6 @@ const buttonClass = (active: boolean) =>
 const props = defineProps<{
   selectedReviewStatus: ReviewStatus
   viewMode: ViewMode
+  runningOnly: boolean
 }>()
 </script>

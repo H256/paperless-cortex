@@ -84,8 +84,10 @@
     <DocumentsQuickControls
       :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
+      :running-only="runningOnly"
       @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
+      @update:runningOnly="setRunningOnly"
       @reset-quick-filters="resetQuickFilters"
       @clear-all-filters="clearAllFilters"
       @open-writeback="openWritebackQueue"
@@ -175,9 +177,21 @@ const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
 const searchQuery = ref('')
+const runningOnly = ref(false)
 const listViewMode = ref<'table' | 'cards'>('table')
-const { visibleDocuments } = useVisibleDocuments(documents, analysisFilter, modelFilter, searchQuery)
+const { visibleDocuments: filteredDocuments } = useVisibleDocuments(
+  documents,
+  analysisFilter,
+  modelFilter,
+  searchQuery,
+)
 const { runningByDocId } = useRunningTaskProgress()
+const visibleDocuments = computed(() => {
+  if (!runningOnly.value) return filteredDocuments.value
+  return filteredDocuments.value.filter((doc) =>
+    typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
+  )
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const {
@@ -280,11 +294,17 @@ const setListViewMode = (value: 'table' | 'cards') => {
   listViewMode.value = value
 }
 
+const setRunningOnly = (value: boolean) => {
+  runningOnly.value = value
+  page.value = 1
+}
+
 const resetQuickFilters = () => {
   selectedReviewStatus.value = 'all'
   analysisFilter.value = 'all'
   modelFilter.value = ''
   searchQuery.value = ''
+  runningOnly.value = false
   page.value = 1
 }
 
@@ -311,6 +331,7 @@ const clearAllFilters = () => {
   analysisFilter.value = 'all'
   modelFilter.value = ''
   searchQuery.value = ''
+  runningOnly.value = false
   page.value = 1
 }
 
