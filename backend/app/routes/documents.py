@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import time
-import json
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import and_, func
@@ -33,6 +32,7 @@ from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.document_stats import compute_document_stats
 from app.services.document_review import derive_review_status, derive_sync_status
 from app.services.dashboard import build_dashboard_payload
+from app.services.json_utils import parse_json_object
 from app.services.string_list_json import parse_string_list_json
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
@@ -59,16 +59,6 @@ def _normalized_scalar(value: object) -> object:
 
 def _values_differ(local_value: object, remote_value: object) -> bool:
     return _normalized_scalar(local_value) != _normalized_scalar(remote_value)
-
-
-def _safe_json_object(raw: str | None) -> dict:
-    if not raw:
-        return {}
-    try:
-        payload = json.loads(raw)
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def _has_local_overrides(
@@ -236,10 +226,7 @@ def _apply_derived_fields_and_review_status(
             normalized_doc_id = int(doc_id)
             if normalized_doc_id in summary_preview_by_doc:
                 continue
-            try:
-                parsed_payload = json.loads(str(preview_payload or ""))
-            except Exception:
-                parsed_payload = None
+            parsed_payload = parse_json_object(str(preview_payload or ""))
             if not isinstance(parsed_payload, dict):
                 continue
             summary = parsed_payload.get("summary")
@@ -655,9 +642,9 @@ def get_document_ocr_scores(
         row = ensure_document_ocr_score(settings, db, doc, src, force=refresh)
         if not row:
             continue
-        components = _safe_json_object(row.components_json)
-        noise = _safe_json_object(row.noise_json)
-        ppl = _safe_json_object(row.ppl_json)
+        components = parse_json_object(row.components_json)
+        noise = parse_json_object(row.noise_json)
+        ppl = parse_json_object(row.ppl_json)
         scores.append(
             {
                 "source": row.source,

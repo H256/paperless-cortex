@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-import json
 
 from sqlalchemy.orm import Session
 
 from app.models import Document, DocumentSuggestion
+from app.services.json_utils import parse_json_object
 from app.services.suggestions import normalize_suggestions_payload
 
 
@@ -23,11 +23,10 @@ def should_skip_doc(doc: Document) -> bool:
 
 
 def parse_suggestion_payload(row: DocumentSuggestion, tags: list[str]) -> dict[str, object]:
-    try:
-        parsed = json.loads(row.payload)
-        return normalize_suggestions_payload(parsed, tags)
-    except Exception:
+    parsed = parse_json_object(row.payload)
+    if not parsed:
         return {"raw": row.payload}
+    return normalize_suggestions_payload(parsed, tags)
 
 
 def load_suggestions_map(
