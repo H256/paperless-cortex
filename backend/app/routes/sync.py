@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+import logging
 from sqlalchemy import func
 
 from fastapi import APIRouter, Depends
@@ -47,6 +48,7 @@ from app.services.queue_tasks import build_task_sequence
 from app.services.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+logger = logging.getLogger(__name__)
 
 
 def _next_local_note_id(db: Session) -> int:
@@ -79,7 +81,7 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
         try:
             note_id = int(note.id)
         except Exception:
-            __import__("logging").getLogger(__name__).warning(
+            logger.warning(
                 "Skipping malformed note id during sync doc_id=%s note_id=%s",
                 getattr(doc, "id", None),
                 getattr(note, "id", None),
@@ -361,7 +363,6 @@ def sync_document(
     force_embed: bool = False,
     priority: bool = False,
 ):
-    logger = __import__("logging").getLogger(__name__)
     if embed is None:
         embed = settings.embed_on_sync
     logger.info("Sync doc=%s embed=%s force_embed=%s", doc_id, embed, force_embed)
