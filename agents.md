@@ -723,3 +723,5 @@ eeds_review / eviewed / ll) with one-click reset.
 - Documents quick-search ergonomics slice: added global keyboard shortcut support in DocumentsFiltersPanel (/ focuses/selects quick search when not typing in an input; Esc clears active quick search and blurs), plus inline shortcut hint badge next to the search label.
 - Documents empty-state UX slice: added reusable DocumentsEmptyState and wired Documents view to show actionable empty state (Clear filters, Continue processing) whenever current triage filters return zero rows.
 - Documents list clarity slice: added inline header result summary showing visible vs synced total document counts and active quick-search query context.
+- Documents pagination UX slice: added direct page jump controls (
+umber input + Go + Enter) to table footer with bounded clamping and new jump-page event handling in DocumentsView.

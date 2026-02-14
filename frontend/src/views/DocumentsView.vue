@@ -114,6 +114,7 @@
       @open-doc-suggestions="openSuggestions"
       @prev-page="onPrevPage"
       @next-page="onNextPage"
+      @jump-page="onJumpPage"
     />
   </section>
 
@@ -229,6 +230,12 @@ const { toggleSort, onPrevPage, onNextPage } = useDocumentsTableControls(
   totalPages,
   load,
 )
+
+const onJumpPage = async (targetPage: number) => {
+  if (targetPage < 1 || targetPage > totalPages.value) return
+  page.value = targetPage
+  await load()
+}
 
 const open = (id: number) => {
   router.push({

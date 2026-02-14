@@ -230,6 +230,23 @@
         <div class="text-xs text-slate-400 dark:text-slate-500">
           Last synced: {{ formatDateTime(lastSynced) }}
         </div>
+        <div class="mt-2 flex items-center justify-center gap-1">
+          <input
+            v-model.number="pageJumpValue"
+            type="number"
+            min="1"
+            :max="totalPages"
+            class="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            @keyup.enter="applyPageJump"
+          />
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            @click="applyPageJump"
+          >
+            Go
+          </button>
+        </div>
       </div>
       <button
         class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
@@ -243,6 +260,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { ChevronDown, Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
 import type { Correspondent, DocumentRow } from '../services/documents'
@@ -266,7 +284,26 @@ const emit = defineEmits<{
   'open-doc-suggestions': [id: number]
   'prev-page': []
   'next-page': []
+  'jump-page': [page: number]
 }>()
+
+const pageJumpValue = ref<number>(props.page)
+
+watch(
+  () => props.page,
+  (value) => {
+    pageJumpValue.value = value
+  },
+)
+
+const applyPageJump = () => {
+  const next = Number(pageJumpValue.value)
+  if (!Number.isFinite(next)) return
+  const clamped = Math.min(Math.max(1, Math.trunc(next)), props.totalPages)
+  if (clamped === props.page) return
+  pageJumpValue.value = clamped
+  emit('jump-page', clamped)
+}
 
 const sortDir = (field: string) => {
   const current = props.ordering.replace('-', '')
