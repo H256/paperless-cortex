@@ -199,6 +199,7 @@ const {
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
+let syncingFromRoute = false
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 
 const combinedScore = (result: SearchResult) => {
@@ -246,6 +247,7 @@ const buildQueryState = () => {
 }
 
 const syncFromRoute = () => {
+  syncingFromRoute = true
   const q = Array.isArray(route.query.q) ? route.query.q[0] : route.query.q
   query.value = typeof q === 'string' ? q : ''
   topK.value = parseNumber(route.query.k, 10)
@@ -254,6 +256,7 @@ const syncFromRoute = () => {
   minQuality.value = parseNumber(route.query.minq, 0)
   dedupe.value = parseBool(route.query.dd, true)
   rerank.value = parseBool(route.query.rr, true)
+  syncingFromRoute = false
 }
 
 const syncToRoute = async () => {
@@ -300,6 +303,14 @@ onMounted(async () => {
 })
 
 watch([query, topK, source, onlyVision, minQuality, dedupe, rerank], () => {
+  if (syncingFromRoute) return
   void syncToRoute()
 })
+
+watch(
+  () => route.query,
+  () => {
+    syncFromRoute()
+  },
+)
 </script>
