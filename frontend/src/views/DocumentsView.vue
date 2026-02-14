@@ -83,10 +83,8 @@
     />
 
     <DocumentsQuickControls
-      :selected-review-status="selectedReviewStatus"
       :view-mode="listViewMode"
       :running-only="runningOnly"
-      @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
       @update:runningOnly="setRunningOnly"
       @reset-quick-filters="resetQuickFilters"
@@ -291,11 +289,6 @@ const hasExplicitViewQuery = computed(() => {
   const normalized = Array.isArray(value) ? value[0] : value
   return normalized === 'cards' || normalized === 'table'
 })
-
-const setReviewQuickFilter = (value: 'all' | 'unreviewed' | 'reviewed' | 'needs_review') => {
-  selectedReviewStatus.value = value
-  page.value = 1
-}
 
 const setListViewMode = (value: 'table' | 'cards') => {
   listViewMode.value = value
