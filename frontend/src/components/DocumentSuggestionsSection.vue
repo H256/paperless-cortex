@@ -134,22 +134,6 @@
               </div>
             </div>
 
-            <div
-              v-if="
-                tagList(bestPickPanel.suggestion.data, 'suggested_tags_existing').length ||
-                tagList(bestPickPanel.suggestion.data, 'suggested_tags_new').length
-              "
-              class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-            >
-              <div>
-                Existing tags:
-                {{ tagList(bestPickPanel.suggestion.data, 'suggested_tags_existing').join(', ') }}
-              </div>
-              <div>
-                New tags: {{ tagList(bestPickPanel.suggestion.data, 'suggested_tags_new').join(', ') }}
-              </div>
-            </div>
-
           </div>
         </div>
       </div>
@@ -217,6 +201,20 @@
                   </span>
                 </div>
                 <button
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                  :disabled="suggestionsLoading || isVariantLoading(panel.source, 'note')"
+                  @click="emit('suggestField', panel.source, 'note')"
+                >
+                  <span
+                    v-if="isVariantLoading(panel.source, 'note')"
+                    class="inline-flex items-center gap-2"
+                  >
+                    <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </span>
+                  <span v-else>Suggest new</span>
+                </button>
+                <button
                   v-if="panel.allowNoteSave"
                   class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
                   :disabled="suggestionsLoading"
@@ -227,6 +225,43 @@
               </div>
               <div class="text-sm text-slate-900 dark:text-slate-100">
                 {{ panel.suggestion.data.summary }}
+              </div>
+              <div
+                v-if="
+                  variantError(panel.source, 'note') ||
+                  isVariantLoading(panel.source, 'note') ||
+                  (variantsFor(panel.source, 'note') || []).length
+                "
+                class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                  Summary variants
+                </div>
+                <div v-if="variantError(panel.source, 'note')" class="mt-2 text-xs text-rose-600">
+                  {{ variantError(panel.source, 'note') }}
+                </div>
+                <div
+                  v-else-if="isVariantLoading(panel.source, 'note')"
+                  class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                >
+                  <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                  Generating variants...
+                </div>
+                <div
+                  v-else
+                  v-for="(variant, index) in variantsFor(panel.source, 'note')"
+                  :key="`${panel.key}-note-${index}-${variant}`"
+                  class="mt-2 flex items-start justify-between gap-2 text-xs"
+                  :class="index > 0 ? 'border-t border-slate-200 pt-2 dark:border-slate-700' : ''"
+                >
+                  <span class="text-slate-700 dark:text-slate-200">{{ variant }}</span>
+                  <button
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    @click="openVariantDialog(panel.source, 'note', variant)"
+                  >
+                    Apply
+                  </button>
+                </div>
               </div>
               <div class="grid gap-2">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
@@ -279,6 +314,45 @@
                         : currentValueFor(field.key) || '—'
                     }}
                   </div>
+                  <div
+                    v-if="
+                      variantError(panel.source, field.key) ||
+                      isVariantLoading(panel.source, field.key) ||
+                      (variantsFor(panel.source, field.key) || []).length
+                    "
+                    class="mt-2 rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                      Variants for {{ field.label }}
+                    </div>
+                    <div v-if="variantError(panel.source, field.key)" class="mt-2 text-xs text-rose-600">
+                      {{ variantError(panel.source, field.key) }}
+                    </div>
+                    <div
+                      v-else-if="isVariantLoading(panel.source, field.key)"
+                      class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                    >
+                      <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                      Generating variants...
+                    </div>
+                    <div
+                      v-else
+                      v-for="(variant, index) in variantsFor(panel.source, field.key)"
+                      :key="`${panel.key}-${field.key}-${index}-${variant}`"
+                      class="mt-2 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <span class="text-slate-700 dark:text-slate-200">{{
+                        Array.isArray(variant) ? variant.join(', ') : variant
+                      }}</span>
+                      <button
+                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
+                        :disabled="suggestionsLoading"
+                        @click="openVariantDialog(panel.source, field.key, variant)"
+                      >
+                        Use
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div class="flex items-start gap-2">
                   <button
@@ -305,69 +379,6 @@
                 </div>
               </div>
 
-              <div
-                v-if="
-                  tagList(panel.suggestion.data, 'suggested_tags_existing').length ||
-                  tagList(panel.suggestion.data, 'suggested_tags_new').length
-                "
-                class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              >
-                <div>
-                  Existing tags:
-                  {{ tagList(panel.suggestion.data, 'suggested_tags_existing').join(', ') }}
-                </div>
-                <div>
-                  New tags: {{ tagList(panel.suggestion.data, 'suggested_tags_new').join(', ') }}
-                </div>
-              </div>
-
-              <div
-                v-for="field in suggestionFields"
-                :key="`${panel.key}-variants-${field.key}`"
-                class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
-              >
-                <details
-                  v-if="
-                    variantError(panel.source, field.key) ||
-                    isVariantLoading(panel.source, field.key) ||
-                    (variantsFor(panel.source, field.key) || []).length
-                  "
-                  class="group"
-                >
-                  <summary
-                    class="cursor-pointer text-xs font-semibold text-slate-500 dark:text-slate-300"
-                  >
-                    Variants for {{ field.label }}
-                  </summary>
-                  <div v-if="variantError(panel.source, field.key)" class="mt-2 text-xs text-rose-600">
-                    {{ variantError(panel.source, field.key) }}
-                  </div>
-                  <div
-                    v-else-if="isVariantLoading(panel.source, field.key)"
-                    class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
-                  >
-                    <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                    Generating variants...
-                  </div>
-                  <div
-                    v-else
-                    v-for="variant in variantsFor(panel.source, field.key)"
-                    :key="`${panel.key}-${field.key}-${variant}`"
-                    class="mt-2 flex items-center justify-between gap-2 text-xs"
-                  >
-                    <span class="text-slate-700 dark:text-slate-200">{{
-                      Array.isArray(variant) ? variant.join(', ') : variant
-                    }}</span>
-                    <button
-                      class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
-                      :disabled="suggestionsLoading"
-                      @click="openVariantDialog(panel.source, field.key, variant)"
-                    >
-                      Use
-                    </button>
-                  </div>
-                </details>
-              </div>
             </div>
           </div>
         </div>
@@ -561,12 +572,6 @@ const normalizedTags = (data: SuggestionPayload): string[] => {
   return [String(raw)]
 }
 
-const tagList = (data: SuggestionPayload, field: string): string[] => {
-  const value = data[field]
-  if (Array.isArray(value)) return value.map((entry) => String(entry)).filter(Boolean)
-  return []
-}
-
 const currentValueFor = (field: string) => {
   if (field === 'title') return props.currentValues.title
   if (field === 'date') return props.currentValues.date
@@ -662,3 +667,4 @@ const formatDateTime = (value?: string | null) => {
   }).format(parsed)
 }
 </script>
+

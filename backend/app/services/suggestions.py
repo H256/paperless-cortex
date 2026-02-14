@@ -21,6 +21,7 @@ FIELD_PROMPTS = {
     "date": "suggestions_date.txt",
     "correspondent": "suggestions_correspondent.txt",
     "tags": "suggestions_tags.txt",
+    "note": "suggestions_summary.txt",
 }
 
 

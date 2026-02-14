@@ -212,7 +212,7 @@
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
               Downstream fan-out
             </div>
@@ -230,8 +230,27 @@
           <div v-else-if="!pipelineFanoutItems.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
             No downstream fan-out tasks available.
           </div>
-          <div v-else class="mt-2 overflow-x-auto">
-            <table class="min-w-full text-xs">
+          <template v-else>
+            <div class="mt-2 space-y-2 md:hidden">
+              <article
+                v-for="item in pipelineFanoutItems"
+                :key="`fanout-mobile-${item.order}-${item.task}-${item.source || ''}`"
+                class="rounded-md border border-slate-200 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-semibold">{{ item.order }}. {{ item.task }}</div>
+                  <div class="font-semibold" :class="fanoutStatusClass(item.status)">{{ item.status }}</div>
+                </div>
+                <div v-if="item.source" class="mt-1 text-slate-500 dark:text-slate-400">Source: {{ item.source }}</div>
+                <div class="mt-1 text-slate-500 dark:text-slate-400">
+                  Last run: {{ toRelativeTime(item.last_started_at) }}
+                  <span v-if="item.checkpoint" class="ml-1">· {{ checkpointLabel(item.checkpoint as Record<string, unknown>) }}</span>
+                </div>
+                <div class="mt-1 text-rose-600 dark:text-rose-300">Error: {{ item.error_type || '-' }}</div>
+              </article>
+            </div>
+            <div class="mt-2 hidden overflow-x-auto md:block">
+              <table class="min-w-full text-xs">
               <thead class="text-left text-slate-500 dark:text-slate-400">
                 <tr>
                   <th class="px-2 py-1">#</th>
@@ -253,16 +272,17 @@
                   <td class="px-2 py-1.5">{{ item.error_type || '-' }}</td>
                 </tr>
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+          </template>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
               Processing timeline
             </div>
-            <div class="flex items-end gap-2">
+            <div class="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end">
               <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
                 Status
                 <select
@@ -282,7 +302,7 @@
                   v-model="timelineQueryFilter"
                   type="text"
                   placeholder="task/error..."
-                  class="mt-1 h-8 w-32 rounded-md border border-slate-200 bg-white px-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  class="mt-1 h-8 w-40 rounded-md border border-slate-200 bg-white px-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
               </label>
               <button
@@ -300,8 +320,59 @@
           <div v-else-if="!taskRuns.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
             No task runs for this document yet.
           </div>
-          <div v-else class="mt-2 overflow-x-auto">
-            <table class="min-w-full text-xs">
+          <template v-else>
+            <div class="mt-2 space-y-2 md:hidden">
+              <article
+                v-for="run in taskRuns"
+                :key="`taskrun-mobile-${run.id}`"
+                class="rounded-md border border-slate-200 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-semibold">{{ run.task }}</div>
+                  <div
+                    class="font-semibold"
+                    :class="run.status === 'failed' ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-200'"
+                  >
+                    {{ run.status }}
+                  </div>
+                </div>
+                <div class="mt-1 text-slate-500 dark:text-slate-400">
+                  Started: {{ toRelativeTime(run.started_at) }} · Attempt {{ run.attempt ?? 1 }}
+                </div>
+                <div class="mt-1 text-slate-500 dark:text-slate-400">
+                  Checkpoint: {{ checkpointLabel(run.checkpoint) }}
+                </div>
+                <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="mt-1 text-[11px] text-amber-600 dark:text-amber-300">
+                  {{ embeddingTelemetryLabel(run.checkpoint) }}
+                </div>
+                <div class="mt-1 text-rose-600 dark:text-rose-300">
+                  {{ run.error_type || '-' }}
+                </div>
+                <div v-if="run.error_message" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
+                  {{ compactErrorMessage(run.error_message) }}
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                  <button
+                    v-if="run.status === 'failed'"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    :disabled="docOpsLoading"
+                    @click="retryTaskRun(run)"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    v-if="run.error_message"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    :disabled="docOpsLoading"
+                    @click="copyRunError(run.error_message)"
+                  >
+                    Copy error
+                  </button>
+                </div>
+              </article>
+            </div>
+            <div class="mt-2 hidden overflow-x-auto md:block">
+              <table class="min-w-full text-xs">
               <thead class="text-left text-slate-500 dark:text-slate-400">
                 <tr>
                   <th class="px-2 py-1">Started</th>
@@ -356,8 +427,9 @@
                   </td>
                 </tr>
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+          </template>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">

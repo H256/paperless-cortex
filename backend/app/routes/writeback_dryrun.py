@@ -39,6 +39,7 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
+from app.services.json_utils import parse_json_list
 from app.services.note_ids import next_local_note_id
 from app.services.string_list_json import parse_string_list_json
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
@@ -216,6 +217,36 @@ def _preview_for_doc_ids(
     return items
 
 
+def _local_writeback_candidate_doc_ids(db: Session) -> list[int]:
+    audit_rows = (
+        db.query(
+            SuggestionAudit.doc_id,
+            func.max(SuggestionAudit.created_at).label("last_applied_at"),
+        )
+        .filter(SuggestionAudit.action.like("apply_to_document:%"))
+        .group_by(SuggestionAudit.doc_id)
+        .order_by(func.max(SuggestionAudit.created_at).desc().nullslast())
+        .all()
+    )
+    ordered_ids: list[int] = []
+    seen: set[int] = set()
+    for row in audit_rows:
+        doc_id = int(row.doc_id)
+        if doc_id <= 0 or doc_id in seen:
+            continue
+        ordered_ids.append(doc_id)
+        seen.add(doc_id)
+
+    pending_rows = db.query(DocumentPendingTag.doc_id).all()
+    for row in pending_rows:
+        doc_id = int(row.doc_id)
+        if doc_id <= 0 or doc_id in seen:
+            continue
+        ordered_ids.append(doc_id)
+        seen.add(doc_id)
+    return ordered_ids
+
+
 def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall]:
     calls: list[WritebackDryRunCall] = []
     if not item.changed:
@@ -282,21 +313,25 @@ def _job_summary(job: WritebackJob) -> WritebackJobSummary:
 
 
 def _deserialize_doc_ids(job: WritebackJob) -> list[int]:
-    if not job.doc_ids_json:
-        return []
-    try:
-        return [int(item) for item in json.loads(job.doc_ids_json)]
-    except Exception:
-        return []
+    doc_ids: list[int] = []
+    for item in parse_json_list(job.doc_ids_json):
+        try:
+            doc_ids.append(int(item))
+        except Exception:
+            continue
+    return doc_ids
 
 
 def _deserialize_calls(job: WritebackJob) -> list[WritebackDryRunCall]:
-    if not job.calls_json:
-        return []
-    try:
-        return [WritebackDryRunCall(**item) for item in json.loads(job.calls_json)]
-    except Exception:
-        return []
+    calls: list[WritebackDryRunCall] = []
+    for item in parse_json_list(job.calls_json):
+        if not isinstance(item, dict):
+            continue
+        try:
+            calls.append(WritebackDryRunCall(**item))
+        except Exception:
+            continue
+    return calls
 
 
 def _job_detail(job: WritebackJob) -> WritebackJobDetail:
@@ -405,7 +440,7 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
 
 def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) -> str:
     try:
-        remote_doc = paperless.get_document_cached(settings, int(doc_id))
+        remote_doc = paperless.get_document(settings, int(doc_id))
         modified = str(remote_doc.get("modified") or "").strip()
         if modified:
             local_doc = db.get(Document, int(doc_id))
@@ -806,6 +841,12 @@ def dry_run_preview(
     if doc_id is not None and doc_id > 0:
         doc_ids = [int(doc_id)]
         total_count = 1
+    elif only_changed:
+        candidate_ids = _local_writeback_candidate_doc_ids(db)
+        total_count = len(candidate_ids)
+        start = max(0, (max(1, page) - 1) * max(1, page_size))
+        end = start + max(1, page_size)
+        doc_ids = candidate_ids[start:end]
     else:
         payload = paperless.list_documents_cached(settings, page=page, page_size=page_size)
         results = payload.get("results") or []

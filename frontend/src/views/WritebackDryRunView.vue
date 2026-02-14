@@ -10,12 +10,12 @@
     </div>
 
     <div
-      class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+      class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
     >
       <button
         v-for="tab in tabs"
         :key="tab"
-        class="rounded-lg px-3 py-1.5"
+        class="mr-2 inline-flex whitespace-nowrap rounded-lg px-3 py-1.5 last:mr-0"
         :class="
           activeTab === tab
             ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -29,34 +29,34 @@
 
     <section v-if="activeTab === 'Preview'" class="space-y-4">
       <div class="flex flex-wrap items-end justify-between gap-3">
-        <div class="flex items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
             <input type="checkbox" v-model="onlyChanged" />
             Changed documents only
           </label>
           <button
-            class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 sm:ml-1"
             :disabled="previewLoading"
             @click="loadPreview"
           >
             {{ previewLoading ? 'Loading...' : 'Reload preview' }}
           </button>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           <button
-            class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             @click="selectAllChanged"
           >
             Select all changed
           </button>
           <button
-            class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             @click="clearSelection"
           >
             Clear
           </button>
           <button
-            class="rounded-md bg-indigo-600 px-3 py-1 font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+            class="rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
             :disabled="queueLoading || selectedIds.length === 0"
             @click="enqueueSelected"
           >
@@ -76,7 +76,7 @@
           class="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900"
           :class="item.changed ? 'border-amber-300 dark:border-amber-700/50' : 'border-slate-200 dark:border-slate-800'"
         >
-          <div class="mb-3 flex items-center justify-between gap-3">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
               <input
                 type="checkbox"
@@ -86,7 +86,7 @@
               />
               Document {{ item.doc_id }}
             </label>
-            <div class="flex items-center gap-2">
+            <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
               <a
                 :href="documentLink(item.doc_id)"
                 target="_blank"
@@ -105,7 +105,29 @@
             </div>
           </div>
 
-          <div class="overflow-x-auto">
+          <div class="space-y-2 md:hidden">
+            <div
+              v-for="row in rowsFor(item)"
+              :key="`mobile-${item.doc_id}-${row.field}`"
+              class="rounded-lg border p-2 text-xs dark:border-slate-700"
+              :class="row.changed ? 'border-amber-200 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-900/10' : 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/40'"
+            >
+              <div class="font-semibold text-slate-700 dark:text-slate-200">{{ fieldLabel(row.field) }}</div>
+              <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Original</div>
+              <div class="whitespace-pre-wrap text-slate-700 dark:text-slate-200">
+                {{ displayValue(row.field, row.original, row.changed, 'original') }}
+              </div>
+              <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">New</div>
+              <div
+                class="whitespace-pre-wrap"
+                :class="row.changed ? 'font-semibold text-amber-800 dark:text-amber-200' : 'text-slate-400 dark:text-slate-500'"
+              >
+                {{ displayValue(row.field, row.proposed, row.changed, 'proposed') }}
+              </div>
+            </div>
+          </div>
+
+          <div class="hidden overflow-x-auto md:block">
             <table class="min-w-full table-fixed text-xs">
               <colgroup>
                 <col class="w-32" />
@@ -135,7 +157,7 @@
     </section>
 
     <section v-if="activeTab === 'Queue'" class="space-y-4">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="space-y-1">
           <div class="text-sm text-slate-600 dark:text-slate-300">Pending and recent jobs</div>
           <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
@@ -143,7 +165,7 @@
             Execute mode: {{ executeDryRunMode ? 'Dry-run' : 'Real writeback' }}
           </label>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           <button
             class="rounded-lg px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
             :class="executeDryRunMode ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'"
@@ -208,7 +230,40 @@
           </table>
         </div>
       </div>
-      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div class="space-y-2 md:hidden">
+        <article
+          v-for="job in jobs"
+          :key="`job-mobile-${job.id}`"
+          class="rounded-xl border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-900"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold">#{{ job.id }}</div>
+            <div>{{ job.status }}</div>
+          </div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300">{{ job.dry_run ? 'Dry-run' : 'Execute' }}</div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300">Docs: {{ job.docs_changed }}/{{ job.docs_selected }}</div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300">Calls: {{ job.calls_count }}</div>
+          <div class="mt-1 text-slate-500 dark:text-slate-400">{{ formatDateTime(job.created_at) }}</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button
+              class="rounded-md px-2 py-1 font-semibold text-white disabled:opacity-60"
+              :class="executeDryRunMode ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'"
+              :disabled="executeLoading || deleteLoading || job.status !== 'pending'"
+              @click="runOrConfirmExecute(job.id)"
+            >
+              {{ executeDryRunMode ? 'Run dry-run' : 'Run execute' }}
+            </button>
+            <button
+              class="rounded-md border border-rose-300 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/60 dark:text-rose-300 dark:hover:bg-rose-950/30"
+              :disabled="deleteLoading || job.status !== 'pending'"
+              @click="removeQueuedJob(job.id)"
+            >
+              Remove
+            </button>
+          </div>
+        </article>
+      </div>
+      <div class="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block dark:border-slate-800 dark:bg-slate-900">
         <table class="w-full text-xs">
           <thead class="bg-slate-50 text-left text-slate-500 dark:bg-slate-800 dark:text-slate-400">
             <tr>
@@ -263,7 +318,23 @@
           {{ historyLoading ? 'Loading...' : 'Reload history' }}
         </button>
       </div>
-      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div class="space-y-2 md:hidden">
+        <article
+          v-for="job in historyItems"
+          :key="`history-mobile-${job.id}`"
+          class="rounded-xl border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-900"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold">#{{ job.id }}</div>
+            <div>{{ job.status }}</div>
+          </div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300">{{ job.dry_run ? 'Dry-run' : 'Execute' }}</div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300">Docs: {{ job.docs_changed }}/{{ job.docs_selected }}</div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300">Calls: {{ job.calls_count }}</div>
+          <div class="mt-1 text-slate-500 dark:text-slate-400">{{ formatDateTime(job.finished_at || job.created_at) }}</div>
+        </article>
+      </div>
+      <div class="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block dark:border-slate-800 dark:bg-slate-900">
         <table class="w-full text-xs">
           <thead class="bg-slate-50 text-left text-slate-500 dark:bg-slate-800 dark:text-slate-400">
             <tr>

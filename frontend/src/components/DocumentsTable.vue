@@ -100,7 +100,8 @@
       </button>
     </div>
 
-    <div v-else class="p-3 sm:p-4 md:hidden">
+    <template v-else>
+    <div class="p-3 sm:p-4 md:hidden">
       <div class="space-y-2">
         <button
           v-for="doc in documents"
@@ -176,7 +177,7 @@
       </div>
     </div>
 
-    <div v-else class="hidden overflow-x-auto md:block">
+    <div class="hidden overflow-x-auto md:block">
       <table class="w-full min-w-[720px] border-collapse text-sm lg:min-w-[920px]">
         <thead
           class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
@@ -314,6 +315,7 @@
         </tbody>
       </table>
     </div>
+    </template>
 
     <div
       class="flex flex-col gap-3 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:text-slate-300"

@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   createWritebackJob,
   deleteWritebackJob,
@@ -38,16 +38,19 @@ export const useWritebackManager = () => {
         page_size: 100,
         only_changed: onlyChanged.value,
       }),
+    placeholderData: keepPreviousData,
   })
 
   const jobsQuery = useQuery({
     queryKey: ['writeback-jobs'],
     queryFn: () => listWritebackJobs(150),
+    placeholderData: keepPreviousData,
   })
 
   const historyQuery = useQuery({
     queryKey: ['writeback-history'],
     queryFn: () => listWritebackHistory(150),
+    placeholderData: keepPreviousData,
   })
 
   const selectedIds = computed(() => Array.from(selectedSet.value))

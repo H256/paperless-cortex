@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { fetchQueueTaskRuns, type QueueTaskRun } from '../services/queue'
 
 type TaskRunPreset = {
@@ -84,6 +84,7 @@ export const useTaskRunInspector = () => {
         limit: limit.value,
         offset: offset.value,
       }),
+    placeholderData: keepPreviousData,
     staleTime: 5_000,
     refetchInterval: computed(() => (autoRefresh.value ? 5_000 : false)),
   })

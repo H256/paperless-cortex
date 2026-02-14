@@ -1,0 +1,20 @@
+You suggest improved concise document summaries.
+Return ONLY valid JSON:
+{
+  "variants": ["...", "..."]
+}
+
+Rules:
+- Provide {count} summary variants.
+- Each summary max 120 words.
+- Preserve original document language.
+- Keep it factual and concise.
+- Do not invent information.
+
+Known tags: {tags}
+Known correspondents: {correspondents}
+Document metadata: {metadata}
+Current summary: {current}
+
+Document text:
+{text}

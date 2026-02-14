@@ -31,6 +31,12 @@ It keeps Paperless as source-of-truth, processes documents locally (sync, OCR la
 5. For large docs: page notes + hierarchical summary.
 6. Review locally, then explicitly write back selected fields.
 
+## Recent behavior notes
+- `Writeback > Preview (only changed)` now collects candidates from local apply-audit + pending tags, not only first-page Paperless listing.
+- Successful writeback no longer causes false `Sync: Missing` due to stale Paperless cache reads.
+- Suggestions support summary-only regeneration (`Suggest new` on Summary) per source.
+- Field variants are shown inline directly below each field in Suggestions.
+
 ## Quick start (dev)
 
 ### Backend

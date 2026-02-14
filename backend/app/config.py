@@ -11,6 +11,7 @@ from pathlib import Path
 class Settings:
     log_level: str
     log_json: bool
+    api_slow_request_log_ms: int
     worker_max_retries: int
     paperless_base_url: str
     paperless_api_token: str
@@ -89,6 +90,7 @@ def load_settings() -> Settings:
     return Settings(
         log_level=(os.getenv("LOG_LEVEL", "INFO") or "INFO").upper(),
         log_json=os.getenv("LOG_JSON", "0") == "1",
+        api_slow_request_log_ms=max(0, int(os.getenv("API_SLOW_REQUEST_LOG_MS", "1200"))),
         worker_max_retries=max(0, int(os.getenv("WORKER_MAX_RETRIES", "2"))),
         paperless_base_url=paperless_base_url,
         paperless_api_token=paperless_api_token,

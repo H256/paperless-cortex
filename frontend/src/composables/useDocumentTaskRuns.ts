@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { fetchQueueTaskRuns } from '../services/queue'
 
 type DocumentTaskRunFilters = {
@@ -36,6 +36,7 @@ export const useDocumentTaskRuns = (docId: () => number, filters?: DocumentTaskR
         error_type: errorTypeRef?.value || undefined,
         q: queryRef?.value || undefined,
       }),
+    placeholderData: keepPreviousData,
     enabled: computed(() => Number.isFinite(docId()) && docId() > 0),
     staleTime: 5_000,
   })
