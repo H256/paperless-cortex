@@ -98,6 +98,7 @@ All granular implementation slices and refactors are tracked here.
 - `d44b747` refactor(search): extracted global keyboard listener lifecycle into reusable `useGlobalHotkeys` composable and simplified SearchView hotkey wiring.
 - `046c132` refactor(chat): switched ChatView hotkey listener lifecycle to shared `useGlobalHotkeys` composable for consistency with search.
 - `84d8b00` refactor(ui): introduced reusable clipboard composable (`useClipboardCopy`) to centralize copy behavior/error mapping across views.
+- `020d65e` feat(search): added per-result “Copy details link” quick action and switched search link copy flow to shared clipboard composable.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
