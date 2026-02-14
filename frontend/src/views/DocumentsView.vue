@@ -70,6 +70,7 @@
       :selected-review-status="selectedReviewStatus"
       :model-filter="modelFilter"
       :search-query="searchQuery"
+      :running-only="runningOnly"
       @clear-filter="clearFilter"
       @clear-all="clearAllFilters"
     />
@@ -309,7 +310,16 @@ const resetQuickFilters = () => {
 }
 
 const clearFilter = (
-  key: 'correspondent' | 'tag' | 'date_from' | 'date_to' | 'analysis' | 'review' | 'model' | 'search',
+  key:
+    | 'correspondent'
+    | 'tag'
+    | 'date_from'
+    | 'date_to'
+    | 'analysis'
+    | 'review'
+    | 'model'
+    | 'search'
+    | 'running_only',
 ) => {
   if (key === 'correspondent') selectedCorrespondent.value = ''
   if (key === 'tag') selectedTag.value = ''
@@ -319,6 +329,7 @@ const clearFilter = (
   if (key === 'review') selectedReviewStatus.value = 'all'
   if (key === 'model') modelFilter.value = ''
   if (key === 'search') searchQuery.value = ''
+  if (key === 'running_only') runningOnly.value = false
   page.value = 1
 }
 
@@ -368,6 +379,7 @@ useDocumentsRouteState({
   analysisFilter,
   modelFilter,
   searchQuery,
+  runningOnly,
   viewMode: listViewMode,
 })
 
