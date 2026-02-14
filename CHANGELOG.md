@@ -90,6 +90,7 @@ All granular implementation slices and refactors are tracked here.
 - `453a68f` fix(search): search controls now resync when route query changes via browser navigation, preventing stale UI state after back/forward transitions.
 - `1000550` fix(chat): chat controls now resync from route-query changes during browser navigation so shared/back-forward links keep UI controls consistent.
 - `0b18987` feat(search): improved empty-state clarity by distinguishing initial idle state from a completed query with no matches.
+- `d42ecab` refactor(ui): introduced shared query-state helpers (`queryString/queryBool/queryNumber/isSameQueryState`) to reduce duplicated URL-sync logic across views.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
