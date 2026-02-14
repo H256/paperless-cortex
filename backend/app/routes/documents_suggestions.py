@@ -33,6 +33,7 @@ from app.services.note_ids import next_local_note_id
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions, merge_suggestions
 from app.services.text_pages import get_page_text_layers
+from app.services.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
@@ -501,10 +502,7 @@ def apply_suggestion_to_document(
         )
         old_pending: list[str] = []
         if pending_row and pending_row.names_json:
-            try:
-                old_pending = [str(name).strip() for name in json.loads(pending_row.names_json) if str(name).strip()]
-            except Exception:
-                old_pending = []
+            old_pending = parse_string_list_json(pending_row.names_json)
         tag_names: list[str] = []
         if isinstance(value, list):
             tag_names = [str(v).strip() for v in value if str(v).strip()]
@@ -521,9 +519,9 @@ def apply_suggestion_to_document(
         if matched:
             doc.tags = matched
             updated = True
-        normalized_unmatched = sorted(set(unmatched), key=str.lower)
+        normalized_unmatched = normalize_string_list(unmatched)
         if normalized_unmatched:
-            names_payload = json.dumps(normalized_unmatched, ensure_ascii=False)
+            names_payload = dumps_normalized_string_list(normalized_unmatched)
             if pending_row is None:
                 db.add(
                     DocumentPendingTag(

@@ -33,6 +33,7 @@ from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.document_stats import compute_document_stats
 from app.services.document_review import derive_review_status, derive_sync_status
 from app.services.dashboard import build_dashboard_payload
+from app.services.string_list_json import parse_string_list_json
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,
@@ -68,18 +69,6 @@ def _safe_json_object(raw: str | None) -> dict:
     except Exception:
         return {}
     return payload if isinstance(payload, dict) else {}
-
-
-def _parse_pending_tag_names(raw: str | None) -> list[str]:
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-    except Exception:
-        return []
-    if not isinstance(parsed, list):
-        return []
-    return [str(name).strip() for name in parsed if str(name).strip()]
 
 
 def _has_local_overrides(
@@ -280,7 +269,7 @@ def _apply_derived_fields_and_review_status(
     )
     pending_tags_by_doc: dict[int, list[str]] = {}
     for row in pending_tag_rows:
-        pending_tags_by_doc[int(row.doc_id)] = _parse_pending_tag_names(row.names_json)
+        pending_tags_by_doc[int(row.doc_id)] = parse_string_list_json(row.names_json)
 
     filtered_results: list[dict] = []
     for doc in results:
@@ -533,7 +522,7 @@ def get_local_document(
         .filter(DocumentPendingTag.doc_id == doc_id)
         .one_or_none()
     )
-    pending_tag_names = _parse_pending_tag_names(pending_row.names_json if pending_row else None)
+    pending_tag_names = parse_string_list_json(pending_row.names_json if pending_row else None)
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []

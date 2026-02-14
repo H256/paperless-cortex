@@ -40,6 +40,7 @@ from app.deps import get_settings
 from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
 from app.services.note_ids import next_local_note_id
+from app.services.string_list_json import parse_string_list_json
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 logger = logging.getLogger(__name__)
@@ -192,14 +193,7 @@ def _preview_for_doc_ids(
     )
     pending_by_doc: dict[int, list[str]] = {}
     for row in pending_rows:
-        names: list[str] = []
-        raw = row.names_json or ""
-        if raw:
-            try:
-                names = [str(name).strip() for name in json.loads(raw) if str(name).strip()]
-            except Exception:
-                names = []
-        pending_by_doc[int(row.doc_id)] = names
+        pending_by_doc[int(row.doc_id)] = parse_string_list_json(row.names_json)
 
     remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
     items: list[WritebackDryRunItem] = []
@@ -588,14 +582,7 @@ def execute_writeback_direct_for_document(
     )
     pending_tag_names: list[str] = []
     if pending_row and pending_row.names_json:
-        try:
-            pending_tag_names = [
-                str(name).strip()
-                for name in json.loads(pending_row.names_json)
-                if str(name).strip()
-            ]
-        except Exception:
-            pending_tag_names = []
+        pending_tag_names = parse_string_list_json(pending_row.names_json)
     remote_doc = paperless.get_document_cached(settings, doc_id)
     item = _build_item(
         local_doc=local_doc,

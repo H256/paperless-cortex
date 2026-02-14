@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `pending` refactor(json-lists): extracted shared string-list JSON helpers (`parse`, `normalize`, `dump`) to `app/services/string_list_json.py` and reused them for pending-tag handling in `documents`, `documents_suggestions`, and `writeback_dryrun`.
 - `776ebd9` refactor(notes): extracted shared local-note id allocator to `app/services/note_ids.py` and removed duplicated `_next_local_note_id` implementations from `sync`, `documents_suggestions`, and `writeback_dryrun`.
 - `cba3f38` refactor(frontend/queue-types): replaced manual `QueueErrorTypeDetail` shape with alias to generated OpenAPI type `ErrorTypeDetail` to reduce duplicate type maintenance.
 - `b1428bc` fix(documents-list): resolved variable-shadowing regression in summary preview extraction (`payload` overwrite) and added route test coverage for `include_summary_preview` behavior (preview absent by default, present when requested).
