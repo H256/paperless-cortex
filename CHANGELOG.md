@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `deb425a` docs(todo): refreshed `docs/TODO.md` with compact post-QA backlog items (responsive polish, endpoint timing observability, compact worker timeline UX).
 - `517ebad` ux(writeback): enabled Vue Query `keepPreviousData` for writeback preview/jobs/history queries to reduce list flicker during reloads and query transitions.
 - `517ebad` fix(documents): made suggestions query ordering deterministic in `/documents` (`doc_id`, `source`) to keep summary-preview source selection stable across DB/plans.
 - `b4a024d` ux(queue): enabled Vue Query `keepPreviousData` for queue list queries (`peek`, `task-runs`, `delayed`, `dlq`) to reduce UI flicker while changing limits/filters.
