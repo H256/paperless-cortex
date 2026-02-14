@@ -117,6 +117,7 @@ All granular implementation slices and refactors are tracked here.
 - `e75e990` feat(search): added inline shortcut hint text near search controls to improve discoverability of keyboard flow (`/`, `Ctrl+Enter`, `Ctrl+Shift+Enter`).
 - `a137938` feat(search): reset action now clears stale results/error state in addition to control values, avoiding misleading old result lists after reset.
 - `ba7307b` refactor(chat): moved chat control reset behavior into `useChatSession` to reduce view-level state mutation noise and ensure consistent error reset.
+- `955e572` feat(chat): added inline shortcut hint text near chat controls to improve discoverability of keyboard ask flow (`/`, `Ctrl+Enter`).
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
