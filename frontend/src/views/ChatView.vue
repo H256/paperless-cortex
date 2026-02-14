@@ -153,6 +153,9 @@
       >
         {{ error }}
       </div>
+      <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        Shortcuts: <code>/</code> focus, <code>Ctrl+Enter</code> ask.
+      </div>
       <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         <span>Conversation:</span>
         <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">
