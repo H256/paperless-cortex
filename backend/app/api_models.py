@@ -127,6 +127,18 @@ class QueueDelayedResponse(BaseModel):
     items: list[QueueDelayedItem] = []
 
 
+class ErrorTypeDetail(BaseModel):
+    code: str
+    retryable: bool
+    category: str
+    description: str
+
+
+class ErrorTypeCatalogResponse(BaseModel):
+    enabled: bool
+    items: list[ErrorTypeDetail] = []
+
+
 class TaskRunItem(BaseModel):
     id: int
     doc_id: Optional[int] = None

@@ -52,6 +52,11 @@ def test_queue_task_runs_disabled_returns_empty():
     assert payload["enabled"] is False
     assert payload["count"] == 0
     assert payload["items"] == []
+    error_types_response = client.get("/queue/error-types")
+    assert error_types_response.status_code == 200
+    error_types_payload = error_types_response.json()
+    assert error_types_payload["enabled"] is False
+    assert error_types_payload["items"] == []
 
 
 def test_queue_task_runs_lists_rows():
@@ -163,3 +168,15 @@ def test_queue_task_runs_supports_text_query_filter():
     assert payload["count"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["doc_id"] == 1900
+
+
+def test_queue_error_types_lists_catalog():
+    client, _session_factory = _build_api_client(queue_enabled=True)
+    response = client.get("/queue/error-types")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is True
+    items = payload["items"]
+    assert isinstance(items, list)
+    assert any(item["code"] == "LLM_TIMEOUT" and item["retryable"] is True for item in items)
+    assert any(item["code"] == "INVALID_MODEL_OUTPUT" and item["retryable"] is False for item in items)

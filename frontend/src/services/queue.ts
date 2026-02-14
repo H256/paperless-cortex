@@ -62,6 +62,16 @@ export type QueueDelayedEntry = QueueDelayedItem
 export type QueueDelayedList = QueueDelayedResponse
 export type QueueDlqEntry = QueueDlqItem
 export type QueueDlqList = QueueDlqResponse
+export type QueueErrorTypeDetail = {
+  code: string
+  retryable: boolean
+  category: string
+  description: string
+}
+export type QueueErrorTypeCatalog = {
+  enabled: boolean
+  items: QueueErrorTypeDetail[]
+}
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
 
@@ -114,3 +124,6 @@ export const resetWorkerLock = (force = false) =>
     method: 'POST',
     params: { force },
   })
+
+export const fetchQueueErrorTypes = () =>
+  request<QueueErrorTypeCatalog>('/queue/error-types')

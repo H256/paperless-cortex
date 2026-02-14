@@ -30,6 +30,7 @@ from app.services.queue import (
     requeue_dead_letter_item,
 )
 from app.services.task_runs import list_task_runs
+from app.services.error_types import list_error_type_details
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
     QueueStatusResponse,
@@ -48,6 +49,7 @@ from app.api_models import (
     QueueDlqResponse,
     QueueDlqActionResponse,
     QueueDelayedResponse,
+    ErrorTypeCatalogResponse,
 )
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -284,3 +286,10 @@ def get_task_runs(
         for row in rows
     ]
     return {"enabled": True, "count": total, "items": items}
+
+
+@router.get("/error-types", response_model=ErrorTypeCatalogResponse)
+def get_error_types(settings: Settings = Depends(get_settings)):
+    if not settings.queue_enabled:
+        return {"enabled": False, "items": []}
+    return {"enabled": True, "items": list_error_type_details()}

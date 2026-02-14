@@ -7,6 +7,45 @@ def _text(exc: Exception) -> str:
     return str(exc).lower()
 
 
+ERROR_TYPE_CATALOG: dict[str, dict[str, Any]] = {
+    "EMBED_CONTEXT_OVERFLOW": {
+        "retryable": False,
+        "category": "embedding",
+        "description": "Embedding payload exceeded model context window.",
+    },
+    "LLM_TIMEOUT": {
+        "retryable": True,
+        "category": "llm",
+        "description": "LLM request timed out before completion.",
+    },
+    "LLM_RATE_LIMIT": {
+        "retryable": True,
+        "category": "llm",
+        "description": "LLM provider rate-limited the request.",
+    },
+    "QDRANT_UPSERT_FAIL": {
+        "retryable": True,
+        "category": "vector_store",
+        "description": "Qdrant rejected or failed vector upsert.",
+    },
+    "NETWORK_CONNECTION_ERROR": {
+        "retryable": True,
+        "category": "network",
+        "description": "Network/connection failure to external dependency.",
+    },
+    "INVALID_MODEL_OUTPUT": {
+        "retryable": False,
+        "category": "model_output",
+        "description": "Model output could not be parsed into expected format.",
+    },
+    "WORKER_TASK_ERROR": {
+        "retryable": False,
+        "category": "worker",
+        "description": "Unhandled worker task failure.",
+    },
+}
+
+
 def classify_worker_error(exc: Exception) -> str:
     message = _text(exc)
     class_name = exc.__class__.__name__.lower()
@@ -26,12 +65,32 @@ def classify_worker_error(exc: Exception) -> str:
 
 
 def is_retryable_error_type(error_type: str) -> bool:
-    return error_type in {
-        "LLM_TIMEOUT",
-        "LLM_RATE_LIMIT",
-        "NETWORK_CONNECTION_ERROR",
-        "QDRANT_UPSERT_FAIL",
+    payload = ERROR_TYPE_CATALOG.get(str(error_type or "").strip())
+    return bool(payload.get("retryable")) if isinstance(payload, dict) else False
+
+
+def get_error_type_details(error_type: str | None) -> dict[str, Any] | None:
+    normalized = str(error_type or "").strip()
+    if not normalized:
+        return None
+    payload = ERROR_TYPE_CATALOG.get(normalized)
+    if not isinstance(payload, dict):
+        return None
+    return {
+        "code": normalized,
+        "retryable": bool(payload.get("retryable")),
+        "category": str(payload.get("category") or "unknown"),
+        "description": str(payload.get("description") or ""),
     }
+
+
+def list_error_type_details() -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for code in sorted(ERROR_TYPE_CATALOG.keys()):
+        detail = get_error_type_details(code)
+        if detail is not None:
+            items.append(detail)
+    return items
 
 
 def task_source_from_payload(task: dict[str, Any] | None) -> str | None:

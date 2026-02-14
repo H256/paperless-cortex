@@ -21,6 +21,39 @@
     </div>
 
     <section class="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <details class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">
+          Error type reference
+        </summary>
+        <div v-if="errorTypes.length === 0" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          No error catalog available.
+        </div>
+        <div v-else class="mt-2 overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead class="text-left text-slate-500 dark:text-slate-400">
+              <tr>
+                <th class="px-2 py-1">Code</th>
+                <th class="px-2 py-1">Retryable</th>
+                <th class="px-2 py-1">Category</th>
+                <th class="px-2 py-1">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="entry in errorTypes"
+                :key="entry.code"
+                class="border-t border-slate-100 dark:border-slate-800"
+              >
+                <td class="px-2 py-1.5 font-mono">{{ entry.code }}</td>
+                <td class="px-2 py-1.5">{{ entry.retryable ? 'yes' : 'no' }}</td>
+                <td class="px-2 py-1.5">{{ entry.category }}</td>
+                <td class="px-2 py-1.5">{{ entry.description }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
       <div class="grid gap-3 md:grid-cols-4">
         <label class="flex flex-col text-xs font-medium text-slate-600 dark:text-slate-300">
           Doc ID
@@ -190,9 +223,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskRunInspector } from '../composables/useTaskRunInspector'
+import { fetchQueueErrorTypes, type QueueErrorTypeDetail } from '../services/queue'
 import { useToastStore } from '../stores/toastStore'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
@@ -200,6 +234,7 @@ import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 const router = useRouter()
 const toastStore = useToastStore()
 const presetName = ref('')
+const errorTypes = ref<QueueErrorTypeDetail[]>([])
 const {
   filters,
   taskRuns,
@@ -215,6 +250,15 @@ const {
   nextPage,
   prevPage,
 } = useTaskRunInspector()
+
+const loadErrorTypes = async () => {
+  try {
+    const response = await fetchQueueErrorTypes()
+    errorTypes.value = response.enabled ? response.items ?? [] : []
+  } catch {
+    errorTypes.value = []
+  }
+}
 
 const formatTaskCheckpoint = (checkpoint?: Record<string, unknown> | null) =>
   formatCheckpointLabel(checkpoint, '-')
@@ -331,4 +375,8 @@ const exportCsv = () => {
   }
   downloadBlob(`task-runs-${Date.now()}.csv`, lines.join('\n'), 'text/csv;charset=utf-8')
 }
+
+onMounted(() => {
+  void loadErrorTypes()
+})
 </script>
