@@ -33,3 +33,36 @@ def test_resolve_evidence_caps_to_max_pages(api_client):
     assert response.status_code == 200
     data = response.json()
     assert data["count"] == 2
+
+
+def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client):
+    payload = {
+        "citations": [
+            {"doc_id": 1, "page": 1, "snippet": "first"},
+            {"doc_id": 1, "page": 1, "snippet": "same page duplicate"},
+            {"doc_id": 1, "page": 2, "snippet": "second page"},
+            {"doc_id": 1, "page": 3, "snippet": "third page"},
+        ],
+        "max_pages": 2,
+    }
+    response = api_client.post("/chat/resolve-evidence", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 3
+    pages = [item["page"] for item in data["matches"]]
+    assert pages == [1, 1, 2]
+
+
+def test_resolve_evidence_marks_invalid_bbox(api_client):
+    payload = {
+        "citations": [
+            {"doc_id": 1, "page": 1, "snippet": "x", "bbox": [10, 10, 5, 5]},
+        ],
+        "max_pages": 3,
+    }
+    response = api_client.post("/chat/resolve-evidence", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 1
+    assert data["matches"][0]["status"] == "error"
+    assert data["matches"][0]["error"] == "invalid_bbox"
