@@ -87,36 +87,6 @@ class CleanupTextsRequest(BaseModel):
     enqueue: bool = True
 
 
-class _PipelineOptions(PipelineOptions):
-    pass
-
-
-def _task_signature(task: dict[str, Any]) -> tuple[str, str]:
-    return task_signature(task)
-
-
-def _dedupe_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return dedupe_tasks(tasks)
-
-
-def _post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: _PipelineOptions) -> list[dict[str, Any]]:
-    return post_sync_followup_tasks(doc_id, settings=settings, options=options)
-
-
-def _collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> dict[str, Any]:
-    return collect_pipeline_cache(db, doc_ids=doc_ids)
-
-
-def _evaluate_doc_pipeline(
-    *,
-    doc: Document,
-    settings: Settings,
-    cache: dict[str, Any],
-    options: _PipelineOptions,
-) -> dict[str, Any]:
-    return evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
-
-
 def _latest_task_runs_by_signature(
     db: Session,
     *,
@@ -163,21 +133,21 @@ def _build_pipeline_fanout_items(
     db: Session,
     doc: Document,
     settings: Settings,
-    options: _PipelineOptions,
+    options: PipelineOptions,
     evaluation: dict[str, Any],
     include_sync: bool,
 ) -> list[dict[str, Any]]:
-    planned = _post_sync_followup_tasks(int(doc.id), settings=settings, options=options)
+    planned = post_sync_followup_tasks(int(doc.id), settings=settings, options=options)
     if include_sync:
         planned = [{"doc_id": int(doc.id), "task": "sync"}] + planned
-    planned = _dedupe_tasks(planned)
-    missing_signatures = {_task_signature(task) for task in evaluation.get("tasks", [])}
-    planned_signatures = {_task_signature(task) for task in planned}
+    planned = dedupe_tasks(planned)
+    missing_signatures = {task_signature(task) for task in evaluation.get("tasks", [])}
+    planned_signatures = {task_signature(task) for task in planned}
     latest_runs = _latest_task_runs_by_signature(db, doc_id=int(doc.id), signatures=planned_signatures)
 
     items: list[dict[str, Any]] = []
     for index, task in enumerate(planned, start=1):
-        signature = _task_signature(task)
+        signature = task_signature(task)
         run = latest_runs.get(signature)
         checkpoint = None
         if run and run.checkpoint_json:
@@ -275,7 +245,7 @@ def process_missing(
         docs_query = docs_query.order_by(Document.page_count.is_(None).asc(), Document.page_count.asc(), Document.id.asc())
     else:
         docs_query = docs_query.order_by(Document.id.asc())
-    options = _PipelineOptions(
+    options = PipelineOptions(
         include_sync=include_sync,
         include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
@@ -326,12 +296,12 @@ def process_missing(
         nonlocal enqueued_tasks
         if not docs_batch:
             return
-        cache = _collect_pipeline_cache(db, doc_ids={int(doc.id) for doc in docs_batch})
+        cache = collect_pipeline_cache(db, doc_ids={int(doc.id) for doc in docs_batch})
         for doc in docs_batch:
             if should_skip_doc(doc):
                 continue
             checked_docs += 1
-            evaluation = _evaluate_doc_pipeline(
+            evaluation = evaluate_doc_pipeline(
                 doc=doc,
                 settings=settings,
                 cache=cache,
@@ -441,9 +411,9 @@ def get_document_pipeline_status(
     doc = db.get(Document, int(doc_id))
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    cache = _collect_pipeline_cache(db, doc_ids={int(doc_id)})
-    options = _PipelineOptions()
-    evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
+    options = PipelineOptions()
+    evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     sync_ok = _sync_ok(settings, doc)
     if not sync_ok:
         evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation["tasks"])
@@ -530,7 +500,7 @@ def get_document_pipeline_fanout(
         raise HTTPException(status_code=404, detail="Document not found")
     if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
-    options = _PipelineOptions(
+    options = PipelineOptions(
         include_sync=include_sync,
         include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
@@ -543,8 +513,8 @@ def get_document_pipeline_fanout(
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
     )
-    cache = _collect_pipeline_cache(db, doc_ids={int(doc_id)})
-    evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
+    evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     if include_sync and not _sync_ok(settings, doc):
         evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation.get("tasks", []))
     items = _build_pipeline_fanout_items(
@@ -588,7 +558,7 @@ def continue_document_pipeline(
     if not require_queue_enabled(settings):
         return {"enabled": False, "doc_id": int(doc_id), "dry_run": dry_run, "missing_tasks": 0, "enqueued": 0}
 
-    options = _PipelineOptions(
+    options = PipelineOptions(
         include_sync=include_sync,
         include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
@@ -601,14 +571,14 @@ def continue_document_pipeline(
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
     )
-    cache = _collect_pipeline_cache(db, doc_ids={int(doc_id)})
-    evaluation = _evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
+    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
+    evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     tasks = list(evaluation["tasks"])
     if include_sync and not _sync_ok(settings, doc):
-        followups = _post_sync_followup_tasks(int(doc_id), settings=settings, options=options)
+        followups = post_sync_followup_tasks(int(doc_id), settings=settings, options=options)
         if not evaluation.get("needs_evidence_index", False):
             followups = [task for task in followups if str(task.get("task") or "") != "evidence_index"]
-        tasks = _dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}] + tasks + followups)
+        tasks = dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}] + tasks + followups)
     enqueued = 0
     if tasks and not dry_run:
         enqueued = enqueue_task_sequence(settings, tasks)
