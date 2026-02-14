@@ -141,7 +141,12 @@ def _set_task_checkpoint(
 def _get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
     if run_id is None:
         return None
-    row = db.get(TaskRun, run_id)
+    try:
+        row = db.get(TaskRun, run_id)
+    except Exception:
+        # Worker must stay operational even when task-runs schema is not ready yet.
+        logger.debug("Failed reading task run checkpoint run_id=%s", run_id, exc_info=True)
+        return None
     if not row or not row.checkpoint_json:
         return None
     raw = str(row.checkpoint_json).strip()
