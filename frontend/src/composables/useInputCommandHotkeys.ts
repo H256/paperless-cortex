@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { useGlobalHotkeys } from './useGlobalHotkeys'
+import { onMounted, onUnmounted } from 'vue'
 
 type Options = {
   inputRef: Ref<HTMLInputElement | null>
@@ -31,5 +31,11 @@ export const useInputCommandHotkeys = (options: Options) => {
     }
   }
 
-  useGlobalHotkeys(onWindowKeydown)
+  onMounted(() => {
+    window.addEventListener('keydown', onWindowKeydown)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('keydown', onWindowKeydown)
+  })
 }
