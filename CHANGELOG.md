@@ -103,6 +103,7 @@ All granular implementation slices and refactors are tracked here.
 - `a99630e` refactor(search): replaced SearchView’s local query-watch/sync flag boilerplate with shared `useRouteQuerySync` orchestration.
 - `a837006` refactor(chat): replaced ChatView’s local query-watch/sync flag boilerplate with shared `useRouteQuerySync` orchestration.
 - `d0f52f7` refactor(ui): added `useShareLink` composable to standardize link copy + toast feedback flows across views.
+- `55302f5` refactor(ui): switched Search/Chat link-copy actions to shared `useShareLink` paths, reducing view-level copy/toast duplication.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
 ## Historical note
