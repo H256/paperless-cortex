@@ -167,13 +167,30 @@ def _apply_derived_fields_and_review_status(
         for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
     }
     suggestion_rows = (
-        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source, DocumentSuggestion.payload)
         .filter(DocumentSuggestion.doc_id.in_(doc_ids))
         .all()
     )
     suggestions_by_doc: dict[int, set[str]] = {}
-    for doc_id, source in suggestion_rows:
+    summary_preview_by_doc: dict[int, str] = {}
+    for doc_id, source, payload in suggestion_rows:
         suggestions_by_doc.setdefault(int(doc_id), set()).add(str(source or ""))
+        normalized_doc_id = int(doc_id)
+        if normalized_doc_id in summary_preview_by_doc:
+            continue
+        try:
+            parsed_payload = json.loads(str(payload or ""))
+        except Exception:
+            parsed_payload = None
+        if not isinstance(parsed_payload, dict):
+            continue
+        summary = parsed_payload.get("summary")
+        if not isinstance(summary, str):
+            continue
+        preview = " ".join(summary.split()).strip()
+        if not preview:
+            continue
+        summary_preview_by_doc[normalized_doc_id] = preview[:240]
     vision_pages = {
         int(row[0])
         for row in db.query(DocumentPageText.doc_id)
@@ -242,6 +259,7 @@ def _apply_derived_fields_and_review_status(
         doc["has_suggestions"] = bool(sources)
         doc["has_suggestions_paperless"] = "paperless_ocr" in sources
         doc["has_suggestions_vision"] = "vision_ocr" in sources
+        doc["ai_summary_preview"] = summary_preview_by_doc.get(int(doc_id))
         doc["has_vision_pages"] = doc_id in vision_pages
 
         reviewed_at_raw = reviewed_at_by_doc.get(doc_id)

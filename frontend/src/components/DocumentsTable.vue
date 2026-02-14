@@ -18,6 +18,13 @@
             | {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
           </span>
         </div>
+        <div
+          v-if="summaryPreview(doc)"
+          class="mt-2 line-clamp-3 text-xs text-slate-600 dark:text-slate-300"
+          :title="summaryPreview(doc)"
+        >
+          {{ summaryPreview(doc) }}
+        </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <div
             class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
@@ -360,6 +367,11 @@ const copyDocId = async (id: number | null | undefined) => {
   } catch {
     // no-op fallback; clipboard may be unavailable in some contexts
   }
+}
+
+const summaryPreview = (doc: DocumentRow): string => {
+  const value = (doc as unknown as Record<string, unknown>).ai_summary_preview
+  return typeof value === 'string' ? value : ''
 }
 
 const needsReview = (doc: DocumentRow) =>
