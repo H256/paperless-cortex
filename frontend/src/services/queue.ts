@@ -42,6 +42,7 @@ import type {
   QueueWorkerLockStatusResponse,
   QueueWorkerLockResetResponse,
   ErrorTypeCatalogResponse,
+  ErrorTypeDetail,
   ResetWorkerLockRouteQueueWorkerLockResetPostParams,
 } from '../api/generated/model'
 
@@ -56,12 +57,7 @@ export type QueueDelayedEntry = QueueDelayedItem
 export type QueueDelayedList = QueueDelayedResponse
 export type QueueDlqEntry = QueueDlqItem
 export type QueueDlqList = QueueDlqResponse
-export type QueueErrorTypeDetail = {
-  code: string
-  retryable: boolean
-  category: string
-  description: string
-}
+export type QueueErrorTypeDetail = ErrorTypeDetail
 export type QueueErrorTypeCatalog = ErrorTypeCatalogResponse
 
 export const fetchQueueStatus = () => unwrap<QueueStatus>(getQueueStatusQueueStatusGet())
