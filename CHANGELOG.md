@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `46b3ea4` fix(chat/docs): fixed streaming chat URL construction in `useChatSession` to avoid double `/api` prefixes (resolves `POST /api/api/chat/stream` 404), and added `docs/TODO.md` as central backlog capturing QA findings from live test runs.
 - `6483823` refactor(backend): replaced deprecated FastAPI `@on_event(\"startup\")` usage with lifespan-based startup hook while preserving startup cache/meta sync behavior; this removes recurring deprecation noise in tests/runtime.
 - `2dbd317` test(task-runs): added regression coverage for task-runs pagination totals (normal paged result and empty-page offset) to protect the new single-query/window-count list behavior.
 - `90674f0` chore(api): synchronized `backend/openapi.json` and frontend generated OpenAPI client/models (including queue error-type and evidence resolver models) to keep frontend contracts aligned with the latest backend API surface.
