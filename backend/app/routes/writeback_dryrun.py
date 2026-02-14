@@ -39,6 +39,7 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 from app.services import paperless
+from app.services.note_ids import next_local_note_id
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 logger = logging.getLogger(__name__)
@@ -59,19 +60,6 @@ def _metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:
         for tag_id, name in db.query(Tag.id, Tag.name).all()
     }
     return correspondents_by_id, tags_by_id
-
-
-def _next_local_note_id(db: Session) -> int:
-    min_id = db.query(func.min(DocumentNote.id)).scalar()
-    if min_id is None:
-        return -1
-    try:
-        value = int(min_id)
-    except Exception:
-        return -1
-    if value >= 0:
-        return -1
-    return value - 1
 
 
 def _missing_writeback_jobs_table(exc: Exception) -> bool:
@@ -563,7 +551,7 @@ def _sync_local_field_from_paperless(
         if remote_note_id and remote_note_text:
             db.add(
                 DocumentNote(
-                    id=_next_local_note_id(db),
+                    id=next_local_note_id(db),
                     document_id=local_doc.id,
                     note=remote_note_text,
                     created=_now_iso(),

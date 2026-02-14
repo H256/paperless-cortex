@@ -29,6 +29,7 @@ from app.services.ocr_scoring import ensure_document_ocr_score
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
+from app.services.note_ids import next_local_note_id
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions, merge_suggestions
 from app.services.text_pages import get_page_text_layers
@@ -69,19 +70,6 @@ class ApplySuggestionToDocument(BaseModel):
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _next_local_note_id(db: Session) -> int:
-    min_id = db.query(func.min(DocumentNote.id)).scalar()
-    if min_id is None:
-        return -1
-    try:
-        value = int(min_id)
-    except Exception:
-        return -1
-    if value >= 0:
-        return -1
-    return value - 1
 
 
 @router.get("/{doc_id}/suggestions", response_model=SuggestionsResponse)
@@ -584,7 +572,7 @@ def apply_suggestion_to_document(
                 updated = True
             else:
                 note = DocumentNote(
-                    id=_next_local_note_id(db),
+                    id=next_local_note_id(db),
                     document_id=doc_id,
                     note=marker_text,
                     created=datetime.now(timezone.utc).isoformat(),
