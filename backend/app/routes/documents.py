@@ -70,6 +70,47 @@ def _safe_json_object(raw: str | None) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def _parse_pending_tag_names(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(name).strip() for name in parsed if str(name).strip()]
+
+
+def _has_local_overrides(
+    *,
+    local_title: str | None,
+    remote_title: str | None,
+    local_issue_date: str | None,
+    remote_issue_date: str | None,
+    local_correspondent_id: int | None,
+    remote_correspondent_id: int | None,
+    local_tag_ids: list[int] | None,
+    remote_tag_ids: list[int] | None,
+    pending_tag_names: list[str] | None,
+    local_ai_summary: str | None = None,
+    remote_ai_summary: str | None = None,
+) -> bool:
+    if set(local_tag_ids or []) != set(remote_tag_ids or []):
+        return True
+    if _values_differ(local_title, remote_title):
+        return True
+    if _values_differ(local_issue_date, remote_issue_date):
+        return True
+    if _values_differ(local_correspondent_id, remote_correspondent_id):
+        return True
+    if pending_tag_names:
+        return True
+    if (local_ai_summary or "") != (remote_ai_summary or ""):
+        return True
+    return False
+
+
 def _normalize_review_status(value: str | None) -> str:
     if value in {"all", "unreviewed", "reviewed", "needs_review"}:
         return value
@@ -231,14 +272,7 @@ def _apply_derived_fields_and_review_status(
     )
     pending_tags_by_doc: dict[int, list[str]] = {}
     for row in pending_tag_rows:
-        names: list[str] = []
-        raw = row.names_json or ""
-        if raw:
-            try:
-                names = [str(name).strip() for name in json.loads(raw) if str(name).strip()]
-            except Exception:
-                names = []
-        pending_tags_by_doc[int(row.doc_id)] = names
+        pending_tags_by_doc[int(row.doc_id)] = _parse_pending_tag_names(row.names_json)
 
     filtered_results: list[dict] = []
     for doc in results:
@@ -254,16 +288,17 @@ def _apply_derived_fields_and_review_status(
             remote_issue_date = doc.get("created")
             local_tags = [tag.id for tag in local_doc.tags]
             paperless_tags = doc.get("tags") or []
-            if set(local_tags) != set(paperless_tags):
-                local_overrides = True
-            if _values_differ(local_doc.title, doc.get("title")):
-                local_overrides = True
-            if _values_differ(local_issue_date, remote_issue_date):
-                local_overrides = True
-            if _values_differ(local_doc.correspondent_id, doc.get("correspondent")):
-                local_overrides = True
-            if pending_tag_names:
-                local_overrides = True
+            local_overrides = _has_local_overrides(
+                local_title=local_doc.title,
+                remote_title=doc.get("title"),
+                local_issue_date=local_issue_date,
+                remote_issue_date=remote_issue_date,
+                local_correspondent_id=local_doc.correspondent_id,
+                remote_correspondent_id=doc.get("correspondent"),
+                local_tag_ids=local_tags,
+                remote_tag_ids=paperless_tags,
+                pending_tag_names=pending_tag_names,
+            )
             if local_overrides:
                 doc["title"] = local_doc.title
                 doc["document_date"] = local_doc.document_date
@@ -452,24 +487,22 @@ def get_local_document(
     ) or 0
     has_vision_pages = vision_done_pages > 0
     has_complete_vision_pages = vision_done_pages >= expected_pages if expected_pages else has_vision_pages
-    page_notes_paperless_done = (
-        db.query(func.count(func.distinct(DocumentPageNote.page)))
+    page_notes_counts = (
+        db.query(
+            DocumentPageNote.source,
+            func.count(func.distinct(DocumentPageNote.page)).label("count"),
+        )
         .filter(
             DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.source == "paperless_ocr",
             DocumentPageNote.status == "ok",
+            DocumentPageNote.source.in_(("paperless_ocr", "vision_ocr")),
         )
-        .scalar()
-    ) or 0
-    page_notes_vision_done = (
-        db.query(func.count(func.distinct(DocumentPageNote.page)))
-        .filter(
-            DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.source == "vision_ocr",
-            DocumentPageNote.status == "ok",
-        )
-        .scalar()
-    ) or 0
+        .group_by(DocumentPageNote.source)
+        .all()
+    )
+    page_notes_by_source = {str(source): int(count or 0) for source, count in page_notes_counts}
+    page_notes_paperless_done = page_notes_by_source.get("paperless_ocr", 0)
+    page_notes_vision_done = page_notes_by_source.get("vision_ocr", 0)
     has_page_notes_paperless = page_notes_paperless_done > 0
     has_page_notes_vision = page_notes_vision_done > 0
     has_complete_page_notes_paperless = (
@@ -489,12 +522,7 @@ def get_local_document(
         .filter(DocumentPendingTag.doc_id == doc_id)
         .one_or_none()
     )
-    pending_tag_names: list[str] = []
-    if pending_row and pending_row.names_json:
-        try:
-            pending_tag_names = [str(name).strip() for name in json.loads(pending_row.names_json) if str(name).strip()]
-        except Exception:
-            pending_tag_names = []
+    pending_tag_names = _parse_pending_tag_names(pending_row.names_json if pending_row else None)
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []
@@ -506,21 +534,21 @@ def get_local_document(
     _, remote_ai_note = extract_ai_summary_note(
         remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
     )
-    local_overrides = False
-    if set(local_tags) != set(remote_tags):
-        local_overrides = True
-    if _values_differ(doc.title, remote_doc.get("title")):
-        local_overrides = True
-    if _values_differ(local_issue_date, remote_issue_date):
-        local_overrides = True
-    if _values_differ(doc.correspondent_id, remote_doc.get("correspondent")):
-        local_overrides = True
-    if pending_tag_names:
-        local_overrides = True
     local_ai_summary = canonical_ai_summary(local_ai_note)
     remote_ai_summary = canonical_ai_summary(remote_ai_note)
-    if local_ai_summary and local_ai_summary != remote_ai_summary:
-        local_overrides = True
+    local_overrides = _has_local_overrides(
+        local_title=doc.title,
+        remote_title=remote_doc.get("title"),
+        local_issue_date=local_issue_date,
+        remote_issue_date=remote_issue_date,
+        local_correspondent_id=doc.correspondent_id,
+        remote_correspondent_id=remote_doc.get("correspondent"),
+        local_tag_ids=local_tags,
+        remote_tag_ids=remote_tags,
+        pending_tag_names=pending_tag_names,
+        local_ai_summary=local_ai_summary if local_ai_summary else None,
+        remote_ai_summary=remote_ai_summary if remote_ai_summary else None,
+    )
 
     remote_modified_raw = remote_doc.get("modified")
     sync_status = derive_sync_status(local_modified=doc.modified, remote_modified=remote_modified_raw)

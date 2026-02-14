@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `pending` refactor(documents): extracted shared helpers for pending-tag parsing and local-override evaluation to remove duplicated list/detail logic (DRY/SRP), and reduced `/documents/{id}/local` DB roundtrips by aggregating page-note counts in a single grouped query.
 - `7bbed1f` refactor(frontend/writeback): replaced custom HTTP delete call with generated OpenAPI client (`deleteWritebackJobWritebackJobsJobIdDelete`) in `services/writeback.ts`, keeping writeback API access fully contract-driven.
 - `0baac9b` fix(documents): hardened local-override detection for nullable/empty scalar fields (`title`, `document_date/created`, `correspondent`) so intentional clears are recognized consistently in list + local detail review state; also guarded OCR score JSON decoding against malformed payloads in `/documents/{id}/ocr-scores` and added regression tests.
 - `30bbb7f` feat(documents/mobile): added dedicated small-screen fallback list for table mode in `DocumentsTable` (title/date/correspondent/status/actions), while keeping the full table on `md+`; this removes horizontal cut-off pain on phones without changing desktop behavior.
