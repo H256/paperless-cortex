@@ -1,6 +1,10 @@
 import { computed, ref } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
-import { searchEmbeddings, type SearchResult } from '../services/search'
+import { unwrap } from '../api/orval'
+import { searchEmbeddingsSearchGet } from '../api/generated/client'
+import type { EmbeddingMatch, EmbeddingSearchResponse } from '../api/generated/model'
+
+export type SearchResult = EmbeddingMatch
 
 const errorMessage = (err: unknown, fallback: string) => {
   if (err instanceof Error) return err.message || fallback
@@ -28,14 +32,16 @@ export const useSearchSession = () => {
   const runMutation = useMutation({
     mutationFn: async () => {
       if (!query.value.trim()) return []
-      const data = await searchEmbeddings({
-        q: query.value,
-        top_k: topK.value,
-        source: effectiveSource.value || undefined,
-        dedupe: dedupe.value,
-        rerank: rerank.value,
-        min_quality: minQuality.value || undefined,
-      })
+      const data = await unwrap<EmbeddingSearchResponse>(
+        searchEmbeddingsSearchGet({
+          q: query.value,
+          top_k: topK.value,
+          source: effectiveSource.value || undefined,
+          dedupe: dedupe.value,
+          rerank: rerank.value,
+          min_quality: minQuality.value || undefined,
+        }),
+      )
       return data.matches ?? []
     },
     onMutate: () => {
@@ -64,4 +70,3 @@ export const useSearchSession = () => {
     runSearch: async () => runMutation.mutateAsync(),
   }
 }
-

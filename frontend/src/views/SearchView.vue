@@ -163,10 +163,9 @@
 
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
-import type { SearchResult } from '../services/search'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { buildDocumentCitationLink } from '../services/citationJump'
-import { useSearchSession } from '../composables/useSearchSession'
+import { useSearchSession, type SearchResult } from '../composables/useSearchSession'
 
 const {
   query,
