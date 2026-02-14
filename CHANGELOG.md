@@ -77,6 +77,7 @@ All granular implementation slices and refactors are tracked here.
 - `511eaee` chore(chat): enriched chat route logging with source and `conversation_id` context for easier follow-up thread diagnostics in backend logs.
 - `4e4dfb9` refactor(search): replaced Pinia-based search flow with `useSearchSession` (Vue Query mutation + generated client service), keeping SearchView state lean and composable-driven.
 - `7896801` chore(search): removed unused `searchStore` after SearchView migration to composable-based Vue Query state.
+- `4d3b92b` refactor(chat): replaced Pinia-driven chat view state with `useChatSession` (Vue Query mutation + generated client chat services) while preserving streaming, follow-up context, and local persistence behavior.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
