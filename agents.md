@@ -726,3 +726,4 @@ eeds_review / eviewed / ll) with one-click reset.
 - Documents pagination UX slice: added direct page jump controls (
 umber input + Go + Enter) to table footer with bounded clamping and new jump-page event handling in DocumentsView.
 - Documents table scanability slice: made desktop table header sticky (	head sticky top-0) so sort labels and columns remain visible during long-list scrolling.
+- Documents quick-search polish slice: added inline clear action (x) inside the quick-search input with proper spacing (pr-8) for faster filter reset during triage.
