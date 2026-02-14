@@ -75,6 +75,12 @@ def _dedupe_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(deduped.values())
 
 
+def _renumber_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for idx, item in enumerate(sources, start=1):
+        item["id"] = idx
+    return sources
+
+
 def _format_sources(sources: list[dict[str, Any]]) -> str:
     lines = []
     for source in sources:
@@ -174,6 +180,7 @@ def answer_question(
     sources = _build_sources(hits, min_quality=min_quality)
     sources = _dedupe_sources(sources)
     sources = sources[:top_k]
+    sources = _renumber_sources(sources)
     if sources:
         sources_text = _format_sources(sources)
     else:

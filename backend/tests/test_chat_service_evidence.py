@@ -168,3 +168,56 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
     assert called["max_pages"] == 2
+
+
+def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
+    settings = load_settings()
+
+    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "app.services.chat.search_points",
+        lambda _settings, _vector, limit=18: {
+            "result": [
+                {
+                    "score": 0.95,
+                    "payload": {
+                        "doc_id": 1,
+                        "page": 1,
+                        "source": "paperless_ocr",
+                        "text": "first source",
+                        "quality_score": 50,
+                    },
+                },
+                {
+                    "score": 0.90,
+                    "payload": {
+                        "doc_id": 2,
+                        "page": 2,
+                        "source": "paperless_ocr",
+                        "text": "second source",
+                        "quality_score": 90,
+                    },
+                },
+                {
+                    "score": 0.80,
+                    "payload": {
+                        "doc_id": 3,
+                        "page": 3,
+                        "source": "paperless_ocr",
+                        "text": "third source",
+                        "quality_score": 90,
+                    },
+                },
+            ]
+        },
+    )
+    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
+
+    result = answer_question(settings, question="What changed?", top_k=3, min_quality=80)
+    assert isinstance(result, dict)
+    citation_ids = [item["id"] for item in result["citations"]]
+    assert citation_ids == [1, 2]
