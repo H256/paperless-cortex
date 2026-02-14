@@ -730,3 +730,4 @@ umber input + Go + Enter) to table footer with bounded clamping and new jump-pag
 - Triage control completeness slice: added explicit Clear all action to DocumentsQuickControls and wired it to full filter reset in DocumentsView (not only review quick-filter reset).
 - Live-work triage slice: added Running only toggle in DocumentsQuickControls and view-level filtering in DocumentsView to focus on documents with active running/retrying task-runs.
 - Preset keyboard ergonomics slice: added Alt+1..Alt+4 shortcuts for triage presets in DocumentsPresetBar, plus visible shortcut hints and tooltip metadata on preset buttons.
+- Documents table accessibility slice: rows are now keyboard-activatable (	abindex, ole=button, Enter/Space handlers) with aria labels, improving non-mouse triage and navigation.

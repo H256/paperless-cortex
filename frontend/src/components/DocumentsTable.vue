@@ -130,8 +130,13 @@
           <tr
             v-for="doc in documents"
             :key="doc.id ?? `${doc.title}-${doc.created ?? ''}`"
-            class="border-b border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+            class="border-b border-slate-100 hover:bg-slate-50 focus-within:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 dark:focus-within:bg-slate-800"
+            tabindex="0"
+            role="button"
+            :aria-label="`Open document ${doc.title || doc.id || ''}`"
             @click="onOpenDoc(doc.id)"
+            @keydown.enter.prevent="onOpenDoc(doc.id)"
+            @keydown.space.prevent="onOpenDoc(doc.id)"
           >
             <td class="px-6 py-3 text-slate-900 dark:text-slate-100">{{ doc.title }}</td>
             <td class="px-6 py-3 text-slate-600">
