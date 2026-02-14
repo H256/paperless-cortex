@@ -181,6 +181,7 @@ def _apply_derived_fields_and_review_status(
     payload: dict,
     db: Session,
     include_derived: bool,
+    include_summary_preview: bool,
     review_status: str,
     page: int,
     page_size: int,
@@ -228,30 +229,37 @@ def _apply_derived_fields_and_review_status(
         for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
     }
     suggestion_rows = (
-        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source, DocumentSuggestion.payload)
+        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
         .filter(DocumentSuggestion.doc_id.in_(doc_ids))
         .all()
     )
     suggestions_by_doc: dict[int, set[str]] = {}
-    summary_preview_by_doc: dict[int, str] = {}
-    for doc_id, source, payload in suggestion_rows:
+    for doc_id, source in suggestion_rows:
         suggestions_by_doc.setdefault(int(doc_id), set()).add(str(source or ""))
-        normalized_doc_id = int(doc_id)
-        if normalized_doc_id in summary_preview_by_doc:
-            continue
-        try:
-            parsed_payload = json.loads(str(payload or ""))
-        except Exception:
-            parsed_payload = None
-        if not isinstance(parsed_payload, dict):
-            continue
-        summary = parsed_payload.get("summary")
-        if not isinstance(summary, str):
-            continue
-        preview = " ".join(summary.split()).strip()
-        if not preview:
-            continue
-        summary_preview_by_doc[normalized_doc_id] = preview[:240]
+    summary_preview_by_doc: dict[int, str] = {}
+    if include_summary_preview:
+        preview_rows = (
+            db.query(DocumentSuggestion.doc_id, DocumentSuggestion.payload)
+            .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+            .all()
+        )
+        for doc_id, payload in preview_rows:
+            normalized_doc_id = int(doc_id)
+            if normalized_doc_id in summary_preview_by_doc:
+                continue
+            try:
+                parsed_payload = json.loads(str(payload or ""))
+            except Exception:
+                parsed_payload = None
+            if not isinstance(parsed_payload, dict):
+                continue
+            summary = parsed_payload.get("summary")
+            if not isinstance(summary, str):
+                continue
+            preview = " ".join(summary.split()).strip()
+            if not preview:
+                continue
+            summary_preview_by_doc[normalized_doc_id] = preview[:240]
     vision_pages = {
         int(row[0])
         for row in db.query(DocumentPageText.doc_id)
@@ -352,6 +360,7 @@ def list_documents(
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
     include_derived: bool = False,
+    include_summary_preview: bool = False,
     review_status: str = "all",
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
@@ -382,6 +391,7 @@ def list_documents(
                     payload={"results": batch_payload.get("results", []) or []},
                     db=db,
                     include_derived=True,
+                    include_summary_preview=include_summary_preview,
                     review_status="all",
                     page=1,
                     page_size=fetch_size,
@@ -423,6 +433,7 @@ def list_documents(
         payload=payload,
         db=db,
         include_derived=include_derived,
+        include_summary_preview=include_summary_preview,
         review_status=normalized_review_status,
         page=page,
         page_size=page_size,

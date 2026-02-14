@@ -124,6 +124,16 @@
             }
           },
           {
+            "name": "include_summary_preview",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Summary Preview"
+            }
+          },
+          {
             "name": "review_status",
             "in": "query",
             "required": false,
