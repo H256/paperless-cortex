@@ -6,7 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
-- `pending` chore(api): regenerated OpenAPI spec + Orval client/models after recent backend route additions (`writebackJobDeleteResponse` now in generated frontend models), then revalidated with frontend type-check and backend compileall.
+- `1bfa215` chore(api): regenerated OpenAPI spec + Orval client/models after recent backend route additions (`writebackJobDeleteResponse` now in generated frontend models), then revalidated with frontend type-check and backend compileall.
 - `958647a` perf(writeback): reduced dry-run preview latency on larger selections by adding batched/parallel remote document fetch (`paperless.get_documents_cached`) and switching preview page list fetches to cached list calls.
 - `8ba4627` docs(todo): updated `docs/TODO.md` to reflect completed QA findings from the latest UX/flow validation pass and left only remaining backlog items (writeback preview performance optimization).
 - `f86e8c0` feat(documents/ui): card view now shows an AI summary preview (derived from stored suggestion payload summaries) to add context/value beyond status badges.
