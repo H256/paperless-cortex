@@ -736,3 +736,4 @@ umber input + Go + Enter) to table footer with bounded clamping and new jump-pag
 - Backend worker robustness/DRY slice: introduced shared _safe_rollback helper in worker.py and replaced duplicated rollback try/except blocks around task dispatch failure and task-run finalization bookkeeping.
 - Backend DRY/KISS slice: refactored 	ask_runs error-handling into shared _run_task_runs_operation wrapper, consolidating repeated pending-rollback/missing-table recovery across create/finish/checkpoint/list/find flows while preserving existing behavior and tests.
 - Backend sync-note DRY slice: extracted _apply_note_fields in outes/sync.py so note upsert/update paths share one field-mapping implementation, reducing duplication and keeping note-write semantics consistent.
+- Documents row action feedback slice: Copy ID now shows short-lived inline confirmation (Copied) in both card and table variants of DocumentsTable, improving action confidence during queue/log triage.

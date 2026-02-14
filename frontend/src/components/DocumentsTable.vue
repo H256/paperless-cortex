@@ -65,7 +65,7 @@
             class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
             @click.stop="copyDocId(doc.id)"
           >
-            Copy ID
+            {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
           </button>
           <button
             type="button"
@@ -200,7 +200,7 @@
                     class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     @click.stop="copyDocId(doc.id)"
                   >
-                    Copy ID
+                    {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
                   </button>
                   <button
                     type="button"
@@ -307,6 +307,7 @@ const emit = defineEmits<{
 }>()
 
 const pageJumpValue = ref<number>(props.page)
+const copiedDocId = ref<number | null>(null)
 
 watch(
   () => props.page,
@@ -349,6 +350,10 @@ const copyDocId = async (id: number | null | undefined) => {
   if (typeof id !== 'number') return
   try {
     await navigator.clipboard.writeText(String(id))
+    copiedDocId.value = id
+    window.setTimeout(() => {
+      if (copiedDocId.value === id) copiedDocId.value = null
+    }, 1200)
   } catch {
     // no-op fallback; clipboard may be unavailable in some contexts
   }
