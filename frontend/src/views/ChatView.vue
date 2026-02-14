@@ -310,6 +310,7 @@ import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
+import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 
 const {
   question,
@@ -501,11 +502,9 @@ onMounted(() => {
   timer = window.setInterval(() => {
     now.value = Date.now()
   }, 30000)
-  window.addEventListener('keydown', onWindowKeydown)
 })
 onUnmounted(() => {
   if (timer) window.clearInterval(timer)
-  window.removeEventListener('keydown', onWindowKeydown)
 })
 
 const formatScore = (score?: number | null) => {
@@ -559,6 +558,8 @@ const onWindowKeydown = (event: KeyboardEvent) => {
     void ask()
   }
 }
+
+useGlobalHotkeys(onWindowKeydown)
 </script>
 
 <style scoped>
