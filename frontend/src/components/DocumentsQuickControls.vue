@@ -12,6 +12,12 @@
       >
         Reset
       </button>
+      <button
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+        @click="$emit('clear-all-filters')"
+      >
+        Clear all
+      </button>
     </div>
 
     <div class="mt-2 overflow-x-auto pb-0.5">
@@ -72,6 +78,7 @@ defineEmits<{
   'update:selectedReviewStatus': [value: ReviewStatus]
   'update:viewMode': [value: ViewMode]
   'reset-quick-filters': []
+  'clear-all-filters': []
   'open-writeback': []
   'open-processing': []
 }>()

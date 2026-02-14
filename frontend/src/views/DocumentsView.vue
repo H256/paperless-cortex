@@ -87,6 +87,7 @@
       @update:selectedReviewStatus="setReviewQuickFilter"
       @update:viewMode="setListViewMode"
       @reset-quick-filters="resetQuickFilters"
+      @clear-all-filters="clearAllFilters"
       @open-writeback="openWritebackQueue"
       @open-processing="openPreview"
     />
