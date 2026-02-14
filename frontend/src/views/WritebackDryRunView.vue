@@ -62,13 +62,6 @@
           >
             {{ queueLoading ? 'Queueing...' : `Queue selected (${selectedIds.length})` }}
           </button>
-          <button
-            class="rounded-md bg-emerald-600 px-3 py-1 font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
-            :disabled="runLoading || selectedIds.length === 0"
-            @click="runDryRunNow"
-          >
-            {{ runLoading ? 'Running...' : `Run dry-run now (${selectedIds.length})` }}
-          </button>
         </div>
       </div>
 
@@ -344,7 +337,6 @@ const lastExecuteAllResults = writeback.lastExecuteAllResults
 const previewLoading = computed(() => writeback.previewQuery.isFetching.value)
 const jobsLoading = computed(() => writeback.jobsQuery.isFetching.value)
 const historyLoading = computed(() => writeback.historyQuery.isFetching.value)
-const runLoading = computed(() => writeback.runDryRunMutation.isPending.value)
 const queueLoading = computed(() => writeback.enqueueMutation.isPending.value)
 const executeLoading = computed(() => writeback.executeJobMutation.isPending.value)
 const executeAllLoading = computed(() => writeback.executeAllMutation.isPending.value)
@@ -385,20 +377,6 @@ const loadPreview = async () => {
     await writeback.reloadPreview()
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : 'Preview could not be loaded'
-  }
-}
-
-const runDryRunNow = async () => {
-  try {
-    const result = await writeback.runDryRunMutation.mutateAsync(selectedIds.value)
-    toastStore.push(
-      `Dry-run planned ${result.calls?.length || 0} call(s) for ${result.docs_changed} changed document(s).`,
-      'success',
-      'Writeback',
-      2400,
-    )
-  } catch (err: unknown) {
-    toastStore.push(err instanceof Error ? err.message : 'Dry-run failed', 'danger', 'Writeback', 2800)
   }
 }
 
