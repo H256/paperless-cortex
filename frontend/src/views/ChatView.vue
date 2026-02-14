@@ -331,6 +331,7 @@ const {
   clearConversation,
   newConversation,
   startFollowUp,
+  resetControls: resetChatControls,
   stop,
   ask,
 } = useChatSession()
@@ -367,14 +368,7 @@ const syncChatFromRoute = () => {
 }
 
 const resetControls = async () => {
-  question.value = ''
-  topK.value = 6
-  source.value = ''
-  onlyVision.value = false
-  minQuality.value = 0
-  streaming.value = true
-  useHistory.value = true
-  historyTurns.value = 6
+  resetChatControls()
   await querySync.syncToRoute()
 }
 
