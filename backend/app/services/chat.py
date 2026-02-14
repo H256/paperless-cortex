@@ -11,11 +11,14 @@ from app.config import Settings
 from app.services import llm_client
 from app.services.guard import ensure_text_llm_ready, ensure_qdrant_ready
 from app.services.embeddings import embed_text, search_points
+from app.services.evidence import resolve_evidence_matches
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat.txt"
 _prompt_cache: dict[str, str] = {}
+EVIDENCE_MIN_SNIPPET_CHARS = 20
+EVIDENCE_MAX_PAGES = 3
 
 
 def _load_prompt(settings: Settings) -> str:
@@ -99,6 +102,49 @@ def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
     return "\n\n".join(blocks) if blocks else "None"
 
 
+def _resolve_evidence_for_sources(sources: list[dict[str, Any]]) -> None:
+    candidates: list[dict[str, Any]] = []
+    for source in sources:
+        snippet = str(source.get("snippet") or "").strip()
+        if len(snippet) < EVIDENCE_MIN_SNIPPET_CHARS:
+            continue
+        candidates.append(
+            {
+                "doc_id": source.get("doc_id"),
+                "page": source.get("page"),
+                "snippet": snippet,
+                "source": source.get("source"),
+                "bbox": source.get("bbox"),
+            }
+        )
+    if not candidates:
+        return
+    matches = resolve_evidence_matches(candidates, max_pages=EVIDENCE_MAX_PAGES)
+    index: dict[tuple[int, int, str], dict[str, Any]] = {}
+    for match in matches:
+        key = (
+            int(match.get("doc_id") or 0),
+            int(match.get("page") or 0),
+            str(match.get("snippet") or "").strip(),
+        )
+        index[key] = match
+    for source in sources:
+        key = (
+            int(source.get("doc_id") or 0),
+            int(source.get("page") or 0),
+            str(source.get("snippet") or "").strip(),
+        )
+        resolved = index.get(key)
+        if not resolved:
+            continue
+        source["evidence_status"] = resolved.get("status")
+        source["evidence_confidence"] = float(resolved.get("confidence") or 0.0)
+        source["evidence_error"] = resolved.get("error")
+        resolved_bbox = resolved.get("bbox")
+        if resolved_bbox is not None:
+            source["bbox"] = resolved_bbox
+
+
 def answer_question(
     settings: Settings,
     question: str,
@@ -136,6 +182,7 @@ def answer_question(
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
         )
+        _resolve_evidence_for_sources(sources)
         for source in sources:
             source.pop("text", None)
         return {
@@ -156,6 +203,7 @@ def answer_question(
             payload = json.dumps({"token": token})
             yield f"data: {payload}\n\n".encode("utf-8")
         answer = "".join(answer_chunks).strip()
+        _resolve_evidence_for_sources(sources)
         for source in sources:
             source.pop("text", None)
         done_payload = json.dumps({"answer": answer, "citations": sources})

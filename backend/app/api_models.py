@@ -619,6 +619,9 @@ class ChatCitation(BaseModel):
     score: Optional[float] = None
     quality_score: Optional[float] = None
     snippet: Optional[str] = None
+    evidence_status: Optional[str] = None
+    evidence_confidence: Optional[float] = None
+    evidence_error: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
