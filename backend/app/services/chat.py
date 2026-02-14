@@ -120,6 +120,7 @@ def _resolve_evidence_for_sources(settings: Settings, sources: list[dict[str, An
     matches = resolve_evidence_matches(
         candidates,
         max_pages=settings.evidence_max_pages,
+        settings=settings,
     )
     index: dict[tuple[int, int, str], dict[str, Any]] = {}
     for match in matches:

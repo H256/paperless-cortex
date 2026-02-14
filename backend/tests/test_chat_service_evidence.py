@@ -30,7 +30,7 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
     )
     monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
     monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
-    def _resolver(citations, max_pages=3):
+    def _resolver(citations, max_pages=3, settings=None):
         return [
             {
                 "doc_id": 1756,
@@ -83,7 +83,7 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
 
     called = {"value": False}
 
-    def _resolver(citations, max_pages=3):
+    def _resolver(citations, max_pages=3, settings=None):
         called["value"] = True
         return []
 
@@ -148,7 +148,7 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
 
     called = {"max_pages": None}
 
-    def _resolver(citations, max_pages=3):
+    def _resolver(citations, max_pages=3, settings=None):
         called["max_pages"] = max_pages
         return [
             {

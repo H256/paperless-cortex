@@ -46,7 +46,7 @@ def chat_stream(payload: ChatRequest, settings: Settings = Depends(get_settings)
 
 
 @router.post("/resolve-evidence", response_model=EvidenceResolveResponse)
-def resolve_evidence(payload: EvidenceResolveRequest):
+def resolve_evidence(payload: EvidenceResolveRequest, settings: Settings = Depends(get_settings)):
     matches = resolve_evidence_matches(
         [
             {
@@ -59,5 +59,6 @@ def resolve_evidence(payload: EvidenceResolveRequest):
             for item in payload.citations
         ],
         max_pages=payload.max_pages,
+        settings=settings,
     )
     return {"count": len(matches), "matches": matches}
