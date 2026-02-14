@@ -115,7 +115,7 @@
         v-else-if="filteredResults.length === 0"
         class="mt-4 text-sm text-slate-500 dark:text-slate-400"
       >
-        No results yet.
+        {{ hasSearched ? 'No matches found for the current query.' : 'No results yet.' }}
       </div>
 
       <div v-else class="mt-4 space-y-3">
@@ -192,6 +192,7 @@ const {
   dedupe,
   rerank,
   filteredResults,
+  hasSearched,
   loading,
   error,
   runSearch,
