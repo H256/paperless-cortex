@@ -92,6 +92,7 @@ All granular implementation slices and refactors are tracked here.
 - `0b18987` feat(search): improved empty-state clarity by distinguishing initial idle state from a completed query with no matches.
 - `d42ecab` refactor(ui): introduced shared query-state helpers (`queryString/queryBool/queryNumber/isSameQueryState`) to reduce duplicated URL-sync logic across views.
 - `4d728c0` refactor(search): switched SearchView URL-sync parsing/comparison to shared query-state helpers, reducing local duplication and keeping sync behavior consistent.
+- `4347bc0` refactor(chat): switched ChatView URL-sync parsing/comparison to shared query-state helpers for consistent behavior and cleaner control-sync code.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
