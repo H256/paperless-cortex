@@ -1014,14 +1014,15 @@ def execute_pending_writeback_jobs(
     query = db.query(WritebackJob).filter(WritebackJob.status == "pending").order_by(WritebackJob.id.asc())
     if limit > 0:
         query = query.limit(limit)
-    pending_jobs = query.all()
 
     completed = 0
     failed = 0
     processed_ids: list[int] = []
     processed_doc_ids: set[int] = set()
     job_results: list[WritebackExecutePendingJobResult] = []
-    for job in pending_jobs:
+    for index, job in enumerate(query.yield_per(50), start=1):
+        if limit > 0 and index > limit:
+            break
         processed_ids.append(int(job.id))
         result = _run_job_execution(settings, db, job, request.dry_run)
         result_doc_ids = _deserialize_doc_ids(result)
