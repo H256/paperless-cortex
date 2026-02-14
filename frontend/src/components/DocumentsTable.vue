@@ -94,7 +94,7 @@
     </div>
 
     <div v-else class="overflow-x-auto">
-      <table class="w-full min-w-[920px] border-collapse text-sm">
+      <table class="w-full min-w-[720px] border-collapse text-sm lg:min-w-[920px]">
         <thead
           class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"
         >
@@ -128,8 +128,8 @@
               </button>
             </th>
             <th class="px-6 py-3">Correspondent</th>
-            <th class="px-6 py-3">Source</th>
-            <th class="px-6 py-3">Links</th>
+            <th class="hidden px-6 py-3 lg:table-cell">Source</th>
+            <th class="hidden px-6 py-3 xl:table-cell">Links</th>
             <th class="px-6 py-3">Status</th>
           </tr>
         </thead>
@@ -152,7 +152,7 @@
             <td class="px-6 py-3 text-slate-600">
               {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
             </td>
-            <td class="px-6 py-3">
+            <td class="hidden px-6 py-3 lg:table-cell">
               <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <div
                   class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900"
@@ -172,7 +172,7 @@
                 </div>
               </div>
             </td>
-            <td class="px-6 py-3 text-slate-600">
+            <td class="hidden px-6 py-3 text-slate-600 xl:table-cell">
               <a
                 v-if="paperlessBaseUrl"
                 class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
@@ -204,7 +204,7 @@
                   </button>
                   <button
                     type="button"
-                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    class="hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 md:inline-flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     @click.stop="onOpenDoc(doc.id)"
                   >
                     Open

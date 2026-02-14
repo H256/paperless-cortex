@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 import json
+import threading
 import time
 
 from fastapi import APIRouter, Depends
@@ -22,6 +23,8 @@ from app.services.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/status", tags=["status"])
 _model_cache: dict[str, object] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}
+_stream_cache_lock = threading.Lock()
+_stream_cache: dict[str, object] = {"ts": 0.0, "payload": None}
 
 
 def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, object]]]:
@@ -156,25 +159,44 @@ def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, obj
     }
 
 
+def _build_stream_payload(settings: Settings) -> dict[str, object]:
+    db = SessionLocal()
+    try:
+        return {
+            "status": _status_payload(settings),
+            "queue": _queue_status_payload(settings),
+            "sync": _sync_state_payload(db, "documents"),
+            "embeddings": _embeddings_status_payload(settings, db),
+            "stats": _document_stats_payload(db),
+            "timestamp": int(time.time()),
+        }
+    finally:
+        db.close()
+
+
+def _get_cached_stream_payload(settings: Settings, *, interval_seconds: int) -> dict[str, object]:
+    ttl = max(1, int(interval_seconds)) / 2.0
+    now = time.time()
+    with _stream_cache_lock:
+        cached_ts = float(_stream_cache.get("ts") or 0.0)
+        cached_payload = _stream_cache.get("payload")
+        if isinstance(cached_payload, dict) and (now - cached_ts) < ttl:
+            return cached_payload
+    payload = _build_stream_payload(settings)
+    with _stream_cache_lock:
+        _stream_cache["ts"] = now
+        _stream_cache["payload"] = payload
+    return payload
+
+
 @router.get("/stream")
 async def status_stream(settings: Settings = Depends(get_settings)):
     interval = max(1, settings.status_stream_interval_seconds)
 
     async def event_generator():
         while True:
-            db = SessionLocal()
-            try:
-                payload = {
-                    "status": _status_payload(settings),
-                    "queue": _queue_status_payload(settings),
-                    "sync": _sync_state_payload(db, "documents"),
-                    "embeddings": _embeddings_status_payload(settings, db),
-                    "stats": _document_stats_payload(db),
-                    "timestamp": int(time.time()),
-                }
-                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-            finally:
-                db.close()
+            payload = _get_cached_stream_payload(settings, interval_seconds=interval)
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
             await asyncio.sleep(interval)
 
     return StreamingResponse(

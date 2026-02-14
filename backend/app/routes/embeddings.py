@@ -106,7 +106,7 @@ def ingest_embeddings(
 
     ensure_embedding_collection(settings)
 
-    points = []
+    points_ingested = 0
     embedded = 0
     processed = 0
     state.total = len(documents)
@@ -177,7 +177,7 @@ def ingest_embeddings(
         if doc_points:
             logger.info("Upserting doc=%s points=%s", doc.id, len(doc_points))
             upsert_points(settings, doc_points)
-            points.extend(doc_points)
+            points_ingested += len(doc_points)
         else:
             logger.info("Skipping doc=%s (no chunks)", doc.id)
         if not existing:
@@ -198,13 +198,12 @@ def ingest_embeddings(
         if processed % 5 == 0 or processed == state.total:
             logger.info("Embedding progress %s/%s", processed, state.total)
             db.commit()
-    if points:
-        db.commit()
+    db.commit()
     state.status = "idle"
     state.last_synced_at = datetime.now(timezone.utc).isoformat()
     db.commit()
-    logger.info("Embedding ingest finished embedded=%s points=%s", embedded, len(points))
-    return {"ingested": len(points), "documents_embedded": embedded}
+    logger.info("Embedding ingest finished embedded=%s points=%s", embedded, points_ingested)
+    return {"ingested": points_ingested, "documents_embedded": embedded}
 
 
 @router.post("/ingest-docs", response_model=EmbeddingIngestResponse)
@@ -225,7 +224,7 @@ def ingest_documents(
     db.commit()
     logger.info("Embedding ingest-docs started count=%s force=%s", len(documents), force)
 
-    points = []
+    points_ingested = 0
     embedded = 0
     processed = 0
     for doc in documents:
@@ -294,7 +293,7 @@ def ingest_documents(
         if doc_points:
             logger.info("Upserting doc=%s points=%s", doc.id, len(doc_points))
             upsert_points(settings, doc_points)
-            points.extend(doc_points)
+            points_ingested += len(doc_points)
         else:
             logger.info("Skipping doc=%s (no chunks)", doc.id)
         if not existing:
@@ -315,13 +314,12 @@ def ingest_documents(
         if processed % 5 == 0 or processed == state.total:
             logger.info("Embedding progress %s/%s", processed, state.total)
             db.commit()
-    if points:
-        db.commit()
+    db.commit()
     state.status = "idle"
     state.last_synced_at = datetime.now(timezone.utc).isoformat()
     db.commit()
-    logger.info("Embedding ingest-docs finished embedded=%s points=%s", embedded, len(points))
-    return {"ingested": len(points), "documents_embedded": embedded}
+    logger.info("Embedding ingest-docs finished embedded=%s points=%s", embedded, points_ingested)
+    return {"ingested": points_ingested, "documents_embedded": embedded}
 
 
 @router.get("/search", response_model=EmbeddingSearchResponse)

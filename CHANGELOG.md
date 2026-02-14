@@ -6,8 +6,14 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `7815175` refactor(backend): simplified `documents_actions` by removing redundant local wrapper helpers around pipeline planner APIs and using shared service functions/types directly (same behavior, lower indirection).
+- `bf829d3` perf(backend): reduced `documents_actions` hot-path overhead by streaming latest task-run lookups (early break on required signatures), streaming global cleanup doc-id scans, and removing dead helper code to keep the route module leaner.
+- `904d54d` perf(backend): reduced memory pressure in pipeline planning by streaming cache source queries via `yield_per(500)` (embeddings/suggestions/vision/page-notes/anchors) and slimmed writeback dry-run metadata map loading to `id/name` projections instead of full ORM rows.
+- `0b1e65e` refactor(backend): extracted dashboard aggregation into `app/services/dashboard.py` to slim `documents` routes and improve SRP, and switched pending writeback execution iteration to `yield_per(50)` to reduce memory pressure on large pending queues.
 - `aaae285` perf(backend): reduced memory/latency overhead in pipeline routes by narrowing cache queries to required columns/doc scopes, optimized task-run fanout lookups to planned signatures, and consolidated document stats calculation into a single aggregate query shared by `/documents/stats` and status stream payloads.
 - `0638a6e` perf(backend): improved route hot paths and backend hygiene by streaming review-status document filtering, making process-missing sync incremental + lower-memory iteration, removing write-on-read behavior from `/status`, adding short-TTL Paperless/dashboard caching for expensive reads, extracting shared review/sync derivation helpers, and replacing remaining `__import__` anti-patterns in core backend modules.
+- `8ea99eb` perf(backend): removed document-list derived-field N+1 risks with eager loading and slimmer projections, switched `process-missing` to chunked cache evaluation (no global pre-scan cache load), added shared SSE payload caching in `/status/stream` to reduce per-client DB/LLM pressure, reduced embeddings ingest memory by tracking counts instead of storing all points in-route, and deduplicated writeback metadata-map loading while using cached Paperless document reads in preview/execute flows.
+- `6554848` refactor(ux+backend): improved mobile/responsive behavior for documents + continue-processing views/components and extracted pipeline planning/evaluation/cache logic from `documents_actions` into `app/services/pipeline_planner.py` to reduce route-module coupling and improve SRP.
 
 ## 2026-02-14 (documentation branch: docs/concise-manual)
 

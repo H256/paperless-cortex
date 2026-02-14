@@ -1,6 +1,6 @@
 <template>
   <section>
-    <div class="mb-4 flex items-center justify-between gap-3">
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight">Continue Processing</h2>
         <p class="text-sm text-slate-500">
@@ -16,6 +16,7 @@
     </div>
 
     <ContinueProcessingPanel
+      class="mx-auto w-full max-w-6xl"
       :sync-status="syncStatus"
       :progress-percent="progressPercent"
       :eta-text="etaText"

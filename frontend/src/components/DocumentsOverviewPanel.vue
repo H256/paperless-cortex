@@ -1,7 +1,7 @@
 <template>
   <div class="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-start">
     <div
-      class="grid w-full grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm sm:grid-cols-4 xl:w-auto dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      class="grid w-full grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm lg:grid-cols-4 xl:w-auto dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
     >
       <div class="text-slate-500">Synced</div>
       <div class="font-semibold text-slate-900 dark:text-slate-100">{{ stats.total }}</div>

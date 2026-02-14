@@ -5,8 +5,8 @@ import time
 import json
 
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import and_, case, exists, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+from sqlalchemy.orm import Session, joinedload
 
 from app.config import Settings
 from app.db import get_db
@@ -21,8 +21,6 @@ from app.models import (
     DocumentSuggestion,
     DocumentType,
     SuggestionAudit,
-    Tag,
-    document_tags,
 )
 from app.services import paperless
 from app.services.hierarchical_summary import is_large_document
@@ -33,6 +31,7 @@ from app.services.writeback_plan import canonical_ai_summary, extract_ai_summary
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.document_stats import compute_document_stats
 from app.services.document_review import derive_review_status, derive_sync_status
+from app.services.dashboard import build_dashboard_payload
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,
@@ -129,16 +128,28 @@ def _apply_derived_fields_and_review_status(
         .filter(Document.id.in_(doc_ids))
         .all()
     }
-    local_docs = db.query(Document).filter(Document.id.in_(doc_ids)).all()
+    local_docs = (
+        db.query(Document)
+        .options(joinedload(Document.tags), joinedload(Document.correspondent))
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    )
     local_by_id = {doc.id: doc for doc in local_docs}
-    embed_ids = {row.doc_id for row in db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()}
-    suggestion_rows = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id.in_(doc_ids)).all()
+    embed_ids = {
+        int(row[0])
+        for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
+    }
+    suggestion_rows = (
+        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+        .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+        .all()
+    )
     suggestions_by_doc: dict[int, set[str]] = {}
-    for row in suggestion_rows:
-        suggestions_by_doc.setdefault(row.doc_id, set()).add(row.source)
+    for doc_id, source in suggestion_rows:
+        suggestions_by_doc.setdefault(int(doc_id), set()).add(str(source or ""))
     vision_pages = {
-        row.doc_id
-        for row in db.query(DocumentPageText)
+        int(row[0])
+        for row in db.query(DocumentPageText.doc_id)
         .filter(DocumentPageText.doc_id.in_(doc_ids), DocumentPageText.source == "vision_ocr")
         .all()
     }
@@ -326,155 +337,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     cached_data = _DASHBOARD_CACHE.get("data")
     if cached_data and (now - cached_ts) < _DASHBOARD_CACHE_TTL_SECONDS:
         return cached_data
-
-    stats = get_document_stats(db)
-    is_processed = and_(
-        exists().where(DocumentEmbedding.doc_id == Document.id),
-        exists().where(and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")),
-        exists().where(DocumentSuggestion.doc_id == Document.id),
-    )
-
-    correspondents_rows = (
-        db.query(Correspondent.id, Correspondent.name, func.count(Document.id))
-        .join(Document, Document.correspondent_id == Correspondent.id)
-        .group_by(Correspondent.id)
-        .order_by(func.count(Document.id).desc(), Correspondent.name.asc())
-        .all()
-    )
-    unassigned_count = db.query(Document.id).filter(Document.correspondent_id.is_(None)).count()
-    correspondents = [
-        {"id": row[0], "name": row[1] or "Untitled", "count": row[2]}
-        for row in correspondents_rows
-    ]
-    if unassigned_count:
-        correspondents.append({"id": None, "name": "Unassigned correspondent", "count": unassigned_count})
-    correspondents.sort(key=lambda item: item["count"], reverse=True)
-    top_correspondents = correspondents[:8]
-
-    tag_rows = (
-        db.query(Tag.id, Tag.name, func.count(document_tags.c.document_id))
-        .join(document_tags, Tag.id == document_tags.c.tag_id)
-        .group_by(Tag.id)
-        .order_by(func.count(document_tags.c.document_id).desc(), Tag.name.asc())
-        .all()
-    )
-    untagged_count = (
-        db.query(Document.id)
-        .filter(~exists().where(document_tags.c.document_id == Document.id))
-        .count()
-    )
-    tags = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in tag_rows]
-    if untagged_count:
-        tags.append({"id": None, "name": "No tags", "count": untagged_count})
-    tags.sort(key=lambda item: item["count"], reverse=True)
-    top_tags = tags[:8]
-
-    type_rows = (
-        db.query(DocumentType.id, DocumentType.name, func.count(Document.id))
-        .join(Document, Document.document_type_id == DocumentType.id)
-        .group_by(DocumentType.id)
-        .order_by(func.count(Document.id).desc(), DocumentType.name.asc())
-        .all()
-    )
-    type_unknown = db.query(Document.id).filter(Document.document_type_id.is_(None)).count()
-    document_types = [
-        {"id": row[0], "name": row[1] or "Untitled", "count": row[2]}
-        for row in type_rows
-    ]
-    if type_unknown:
-        document_types.append({"id": None, "name": "No document type", "count": type_unknown})
-    document_types.sort(key=lambda item: item["count"], reverse=True)
-
-    unprocessed_rows = (
-        db.query(Document.correspondent_id, func.count(Document.id))
-        .filter(~is_processed)
-        .group_by(Document.correspondent_id)
-        .all()
-    )
-    unprocessed_by_correspondent = {row[0]: int(row[1]) for row in unprocessed_rows}
-
-    month_expr = func.coalesce(
-        func.nullif(func.substr(Document.document_date, 1, 7), ""),
-        func.nullif(func.substr(Document.created, 1, 7), ""),
-        "Unknown",
-    )
-    monthly_rows = (
-        db.query(
-            month_expr.label("month"),
-            func.count(Document.id).label("total"),
-            func.sum(case((is_processed, 1), else_=0)).label("processed"),
-            func.sum(case((is_processed, 0), else_=1)).label("unprocessed"),
-        )
-        .group_by("month")
-        .order_by("month")
-        .all()
-    )
-
-    correspondents_map = {row[0]: row[1] for row in db.query(Correspondent.id, Correspondent.name).all()}
-    unprocessed_corr_list = [
-        {
-            "id": corr_id,
-            "name": correspondents_map.get(corr_id) or ("Unassigned correspondent" if corr_id is None else "Untitled"),
-            "count": count,
-        }
-        for corr_id, count in unprocessed_by_correspondent.items()
-    ]
-    unprocessed_corr_list.sort(key=lambda item: item["count"], reverse=True)
-
-    monthly_processing = [
-        {
-            "label": str(row.month),
-            "total": int(row.total or 0),
-            "processed": int(row.processed or 0),
-            "unprocessed": int(row.unprocessed or 0),
-        }
-        for row in monthly_rows
-    ]
-    if monthly_processing and monthly_processing[0]["label"] == "Unknown":
-        monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
-
-    buckets = {
-        "1": 0,
-        "2-3": 0,
-        "4-6": 0,
-        "7-10": 0,
-        "11-20": 0,
-        "21-50": 0,
-        "51+": 0,
-        "Unknown": 0,
-    }
-    page_bucket_row = db.query(
-        func.sum(case((or_(Document.page_count.is_(None), Document.page_count < 1), 1), else_=0)).label("unknown"),
-        func.sum(case((Document.page_count == 1, 1), else_=0)).label("p1"),
-        func.sum(case((and_(Document.page_count >= 2, Document.page_count <= 3), 1), else_=0)).label("p2_3"),
-        func.sum(case((and_(Document.page_count >= 4, Document.page_count <= 6), 1), else_=0)).label("p4_6"),
-        func.sum(case((and_(Document.page_count >= 7, Document.page_count <= 10), 1), else_=0)).label("p7_10"),
-        func.sum(case((and_(Document.page_count >= 11, Document.page_count <= 20), 1), else_=0)).label("p11_20"),
-        func.sum(case((and_(Document.page_count >= 21, Document.page_count <= 50), 1), else_=0)).label("p21_50"),
-        func.sum(case((Document.page_count >= 51, 1), else_=0)).label("p51p"),
-    ).one()
-    buckets["Unknown"] = int(page_bucket_row.unknown or 0)
-    buckets["1"] = int(page_bucket_row.p1 or 0)
-    buckets["2-3"] = int(page_bucket_row.p2_3 or 0)
-    buckets["4-6"] = int(page_bucket_row.p4_6 or 0)
-    buckets["7-10"] = int(page_bucket_row.p7_10 or 0)
-    buckets["11-20"] = int(page_bucket_row.p11_20 or 0)
-    buckets["21-50"] = int(page_bucket_row.p21_50 or 0)
-    buckets["51+"] = int(page_bucket_row.p51p or 0)
-
-    page_counts = [{"label": label, "count": count} for label, count in buckets.items()]
-
-    payload = {
-        "stats": stats,
-        "correspondents": correspondents,
-        "top_correspondents": top_correspondents,
-        "tags": tags,
-        "top_tags": top_tags,
-        "page_counts": page_counts,
-        "document_types": document_types,
-        "unprocessed_by_correspondent": unprocessed_corr_list,
-        "monthly_processing": monthly_processing,
-    }
+    payload = build_dashboard_payload(db)
     _DASHBOARD_CACHE["ts"] = now
     _DASHBOARD_CACHE["data"] = payload
     return payload
