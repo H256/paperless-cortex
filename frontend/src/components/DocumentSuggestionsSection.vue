@@ -93,7 +93,7 @@
               class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
             >
               <span class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
-              <div class="text-sm text-slate-900 dark:text-slate-100">
+              <div class="min-w-0 text-sm text-slate-900 dark:text-slate-100">
                 <template v-if="field.key === 'tags'">
                   <div
                     v-if="normalizedTags(bestPickPanel.suggestion.data).length"
@@ -111,10 +111,10 @@
                     >No tags suggested</span
                   >
                 </template>
-                <template v-else>
-                  {{ fieldValue(bestPickPanel.suggestion.data, field.key) }}
-                </template>
-                <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <template v-else>
+                    <span class="break-words">{{ fieldValue(bestPickPanel.suggestion.data, field.key) }}</span>
+                  </template>
+                <div class="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">
                   Current:
                   {{
                     field.key === 'tags'
@@ -206,7 +206,7 @@
 
             <div v-if="panel.suggestion.data" class="space-y-2">
               <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                <div class="flex items-center gap-2">
+                <div class="flex items-start gap-2">
                   <span>Summary</span>
                   <span
                     v-if="currentValues.note"
@@ -250,7 +250,7 @@
                 class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
               >
                 <span class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
-                <div class="text-sm text-slate-900 dark:text-slate-100">
+                <div class="min-w-0 text-sm text-slate-900 dark:text-slate-100">
                   <template v-if="field.key === 'tags'">
                     <div
                       v-if="normalizedTags(panel.suggestion.data).length"
@@ -269,9 +269,9 @@
                     >
                   </template>
                   <template v-else>
-                    {{ fieldValue(panel.suggestion.data, field.key) }}
+                    <span class="break-words">{{ fieldValue(panel.suggestion.data, field.key) }}</span>
                   </template>
-                  <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <div class="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">
                     Current:
                     {{
                       field.key === 'tags'
@@ -280,7 +280,7 @@
                     }}
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-start gap-2">
                   <button
                     class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     :disabled="suggestionsLoading || isVariantLoading(panel.source, field.key)"
