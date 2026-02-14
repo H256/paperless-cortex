@@ -20,7 +20,7 @@ Build a robust, safe Paperless intelligence layer:
 - Continue-processing and triage UX with URL-synced filters
 
 ## Current branch
-- Active branch: `feat/phase2-evidence-resolver`
+- Active branch: `perf/ops-route-speedups`
 
 ## Current focus (short-term)
 1. UX/mobile polish pass for document operations and continue-processing ergonomics.
