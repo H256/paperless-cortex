@@ -159,19 +159,20 @@
                 Tags (top)
               </div>
               <div class="mt-4 flex items-center gap-6">
-                <div class="h-28 w-28 rounded-full" :style="donutStyle"></div>
+                <div class="h-28 w-28 rounded-full" :style="donutStyle" :title="tagDonutTitle"></div>
                 <div class="space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                  <div v-for="slice in tagSlices" :key="slice.name" class="flex items-center gap-2">
-                    <span
-                      class="h-2 w-2 rounded-full"
-                      :style="{ backgroundColor: slice.color }"
-                    ></span>
-                    <span class="text-slate-700 dark:text-slate-200">{{ slice.name }}</span>
-                    <span class="ml-auto text-slate-400">{{ slice.count }}</span>
-                  </div>
+                <div v-for="slice in tagSlices" :key="slice.name" class="flex items-center gap-2">
+                  <span
+                    class="h-2 w-2 rounded-full"
+                    :style="{ backgroundColor: slice.color }"
+                    :title="`${slice.name}: ${slice.count} (${slicePercent(slice.count)}%)`"
+                  ></span>
+                  <span class="text-slate-700 dark:text-slate-200">{{ slice.name }}</span>
+                  <span class="ml-auto text-slate-400">{{ slice.count }} ({{ slicePercent(slice.count) }}%)</span>
                 </div>
               </div>
             </div>
+          </div>
 
             <div
               class="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -223,7 +224,7 @@
               >
                 <div class="flex items-center justify-between">
                   <span class="text-slate-800 dark:text-slate-200">{{ item.name }}</span>
-                  <span>{{ item.count }}</span>
+                  <span>{{ item.count }} ({{ portion(item.count, stats.total) }}%)</span>
                 </div>
                 <div class="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
@@ -313,7 +314,7 @@
 
           <div class="mt-8 grid gap-6 lg:grid-cols-3">
             <div
-              class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
               <div class="flex items-center justify-between">
                 <div
@@ -350,18 +351,18 @@
             </div>
 
             <div
-              class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
               <div
                 class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
               >
                 Unprocessed by correspondent
               </div>
-              <div class="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                <div v-for="item in unprocessedByCorrespondent.slice(0, 8)" :key="item.name">
+              <div class="mt-4 max-h-72 space-y-2 overflow-auto pr-2 text-xs text-slate-500 dark:text-slate-400">
+                <div v-for="item in unprocessedByCorrespondent.slice(0, 10)" :key="item.name">
                   <div class="flex items-center justify-between">
                     <span class="text-slate-700 dark:text-slate-200">{{ item.name }}</span>
-                    <span>{{ item.count }}</span>
+                    <span>{{ item.count }} ({{ portion(item.count, stats.unprocessed) }}%)</span>
                   </div>
                   <div class="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
                     <div
@@ -374,18 +375,18 @@
             </div>
 
             <div
-              class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
               <div
                 class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
               >
                 Document types
               </div>
-              <div class="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                <div v-for="item in docTypes.slice(0, 8)" :key="item.name">
+              <div class="mt-4 max-h-72 space-y-2 overflow-auto pr-2 text-xs text-slate-500 dark:text-slate-400">
+                <div v-for="item in docTypes.slice(0, 10)" :key="item.name">
                   <div class="flex items-center justify-between">
                     <span class="text-slate-700 dark:text-slate-200">{{ item.name }}</span>
-                    <span>{{ item.count }}</span>
+                    <span>{{ item.count }} ({{ portion(item.count, stats.total) }}%)</span>
                   </div>
                   <div class="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
                     <div
@@ -485,8 +486,23 @@ const donutStyle = computed(() => {
   }
 })
 
+const tagDonutTitle = computed(() =>
+  tagSlices.value.map((slice) => `${slice.name}: ${slice.count} (${slicePercent(slice.count)}%)`).join(' | '),
+)
+
 const bucketPercent = (count: number) => {
   const total = pageCounts.value.reduce((sum, item) => sum + item.count, 0)
+  if (!total) return 0
+  return Math.round((count / total) * 100)
+}
+
+const portion = (value: number, total: number) => {
+  if (!total) return 0
+  return Math.round((value / total) * 100)
+}
+
+const slicePercent = (count: number) => {
+  const total = tagSlices.value.reduce((sum, item) => sum + item.count, 0)
   if (!total) return 0
   return Math.round((count / total) * 100)
 }
