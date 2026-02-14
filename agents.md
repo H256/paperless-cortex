@@ -37,3 +37,4 @@ Build a robust, safe Paperless intelligence layer:
 - Frequent small commits with clear scope.
 - Update this file only with big-picture state.
 - Put granular per-slice history into `CHANGELOG.md`.
+- Every change set should be documented in `CHANGELOG.md` and include the git hash whenever available.
