@@ -6,7 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
-- `pending` observability(api): added configurable slow-request logging middleware on `/api` routes (`API_SLOW_REQUEST_LOG_MS`) with method/path/status/duration output, reused a single module-level settings instance in `main.py`, and documented the new env var in `.env.example` and `.env.worker.example`.
+- `739bd91` observability(api): added configurable slow-request logging middleware on `/api` routes (`API_SLOW_REQUEST_LOG_MS`) with method/path/status/duration output, reused a single module-level settings instance in `main.py`, and documented the new env var in `.env.example` and `.env.worker.example`.
 - `deb425a` docs(todo): refreshed `docs/TODO.md` with compact post-QA backlog items (responsive polish, endpoint timing observability, compact worker timeline UX).
 - `517ebad` ux(writeback): enabled Vue Query `keepPreviousData` for writeback preview/jobs/history queries to reduce list flicker during reloads and query transitions.
 - `517ebad` fix(documents): made suggestions query ordering deterministic in `/documents` (`doc_id`, `source`) to keep summary-preview source selection stable across DB/plans.
