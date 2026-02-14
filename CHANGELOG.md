@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `96dd3a4` fix(writeback): `dry-run/preview` now uses local writeback candidates (`suggestion_audit` apply actions + pending-tag docs) when `only_changed=true`, instead of relying only on page-1 Paperless listing; this fixes missing changed documents in Writeback Preview after bulk suggestion-apply workflows. Added route regression test coverage.
 - `874850a` fix(details/ui): fixed Vue template compile error in `DocumentDetailView` by replacing invalid double `v-else` chains (fan-out and timeline mobile/desktop blocks) with `v-else` wrapper templates.
 - `4861a2c` fix(writeback/sync): fixed false `Sync: Missing` after successful writeback by avoiding stale Paperless reads (`_reviewed_timestamp_for_doc` now fetches uncached document), and by invalidating Paperless doc/list caches after document patch/note add/note delete operations; added regression coverage in `test_writeback_dryrun_routes.py`.
 - `333598d` perf(dashboard): reduced dashboard query load by deriving unknown correspondent/type counts from total docs and grouped rows, and replacing correlated untagged-doc counting with a single `count(distinct document_tags.document_id)` query.
