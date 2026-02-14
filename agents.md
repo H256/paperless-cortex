@@ -741,3 +741,4 @@ umber input + Go + Enter) to table footer with bounded clamping and new jump-pag
 - Backend worker DRY slice: extracted _handle_worker_cancel_request to centralize queue-clear/reset/cancel handling in main loop, removing duplicated cancel branches and keeping cancellation behavior consistent.
 - Backend sync hardening slice: _merge_document_notes now skips malformed/non-integer note ids with warning instead of aborting sync; added regression coverage for malformed note ids at merge-layer level.
 - Documents triage state slice: unningOnly is now URL-synced (unning_only=1) via useDocumentsRouteState and surfaced as a removable active-filter chip (Running only) in DocumentsActiveFiltersStrip, improving shareability and back/refresh consistency.
+- Backend cleanup slice: standardized sync-route logging with module-level logger (removed dynamic __import__("logging") usage), improving readability and keeping logging style consistent.
