@@ -154,7 +154,7 @@
         {{ error }}
       </div>
       <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Shortcuts: <code>/</code> focus, <code>Ctrl+Enter</code> ask.
+        Shortcuts: <code>/</code> focus, <code>Ctrl+Enter</code> ask, <code>Ctrl+Shift+Enter</code> open first citation.
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         <span>Conversation:</span>
@@ -541,6 +541,16 @@ const copyAnswer = async (message: ChatMessage) => {
   }
 }
 
+const openFirstCitation = () => {
+  const latest = messages.value[0]
+  if (!latest?.citations?.length) return
+  const first = latest.citations.find((citation) => Boolean(citation?.doc_id))
+  if (!first) return
+  const href = citationLink(first)
+  if (!href) return
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
 const querySync = useRouteQuerySync({
   route,
   router,
@@ -554,6 +564,7 @@ const querySync = useRouteQuerySync({
 useInputCommandHotkeys({
   inputRef: questionInputRef,
   onSubmit: ask,
+  onSecondarySubmit: openFirstCitation,
 })
 </script>
 
