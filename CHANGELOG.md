@@ -66,6 +66,7 @@ All granular implementation slices and refactors are tracked here.
 - `ecd4dd1` refactor(ux): Document Details now consumes-and-cleans one-time `jump` query tokens after citation handoff and reuses a shared query-copy helper to reduce duplicated route-query logic.
 - `54f20aa` fix(chat): normalized chat citation numbering after source filtering/deduplication so citations remain contiguous (`[1..n]`) and follow-up references stay stable.
 - `80952a5` feat(chat): introduced first-class `conversation_id` threading across chat request/response + stream done payload, persisted in chat store for follow-up continuity, and added backend tests for generated/echoed conversation IDs.
+- `86aedbc` feat(chat): added explicit thread controls in Chat UI (`New thread`), surfaced active conversation id, and tagged each message with its conversation id for easier follow-up traceability.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
