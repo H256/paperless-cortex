@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { getCorrespondents, getTags, listDocuments, type DocumentRow } from '../services/documents'
 import { toOptionalNumber } from '../utils/number'
 
@@ -39,6 +39,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
         include_summary_preview: options?.includeSummaryPreview?.value ?? false,
         review_status: selectedReviewStatus.value,
       }),
+    placeholderData: keepPreviousData,
     staleTime: 10_000,
   })
 
