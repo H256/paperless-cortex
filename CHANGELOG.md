@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `7815175` refactor(backend): simplified `documents_actions` by removing redundant local wrapper helpers around pipeline planner APIs and using shared service functions/types directly (same behavior, lower indirection).
 - `bf829d3` perf(backend): reduced `documents_actions` hot-path overhead by streaming latest task-run lookups (early break on required signatures), streaming global cleanup doc-id scans, and removing dead helper code to keep the route module leaner.
 - `904d54d` perf(backend): reduced memory pressure in pipeline planning by streaming cache source queries via `yield_per(500)` (embeddings/suggestions/vision/page-notes/anchors) and slimmed writeback dry-run metadata map loading to `id/name` projections instead of full ORM rows.
 - `0b1e65e` refactor(backend): extracted dashboard aggregation into `app/services/dashboard.py` to slim `documents` routes and improve SRP, and switched pending writeback execution iteration to `yield_per(50)` to reduce memory pressure on large pending queues.
