@@ -112,6 +112,7 @@ All granular implementation slices and refactors are tracked here.
 - `5f5f13e` perf(search): enabled debounced query-sync writes and preserved unrelated URL params in SearchView to keep navigation state stable while sliders/toggles change.
 - `d38292f` perf(chat): enabled debounced query-sync writes and preserved unrelated URL params in ChatView to keep navigation state stable while control toggles change.
 - `5cb53b6` feat(chat): chat draft question is now included in URL-synced state (`q`) so in-progress prompts can be resumed/shared alongside chat controls.
+- `9255da2` feat(search): added `Ctrl+Shift+Enter` shortcut to open the first visible search result directly, accelerating keyboard-only review flow.
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
