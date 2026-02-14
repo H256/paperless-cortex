@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+    class="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-xl sm:p-6 dark:border-slate-800 dark:bg-slate-900"
   >
       <div class="flex items-center justify-between">
         <div>
@@ -57,152 +57,15 @@
         </div>
       </div>
 
-      <div
-        v-if="showDiagnostics && !processPreviewLoading && processPreview"
-        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-      >
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Pipeline coverage
-        </div>
-        <div class="mt-2 grid gap-2 sm:grid-cols-2">
-          <div
-            v-for="item in coverageItems"
-            :key="item.key"
-            class="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
-          >
-            <span>{{ item.label }}</span>
-            <span
-              class="font-semibold"
-              :class="item.missing > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'"
-            >
-              {{ item.missing > 0 ? `${item.missing} missing` : 'covered' }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        v-if="showDiagnostics && !processPreviewLoading && processPreview"
-        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Detailed Missing Counters
-          </div>
-          <button
-            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-            @click="toggleDetailedCounters"
-          >
-            {{ showDetailedCounters ? 'Hide details' : 'Show details' }}
-          </button>
-        </div>
-        <label
-          v-if="showDetailedCounters"
-          class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400"
-        >
-          <input v-model="showOnlyNonZeroCounters" type="checkbox" class="h-3.5 w-3.5" />
-          Show only non-zero
-        </label>
-        <div v-if="showDetailedCounters" class="mt-2 grid gap-2 sm:grid-cols-2">
-          <div
-            v-for="item in visibleDetailedCounters"
-            :key="item.key"
-            class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
-          >
-            {{ item.label }}:
-            <strong class="text-slate-900 dark:text-slate-100">{{ item.value }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <div
-        v-if="showDiagnostics && !processPreviewLoading && previewDocs.length"
-        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Sample Documents With Gaps
-          </div>
-          <div
-            v-if="highPriorityPreviewCount > 0"
-            class="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
-          >
-            {{ highPriorityPreviewCount }} high-priority
-          </div>
-        </div>
-        <div class="mt-2 max-h-40 space-y-1 overflow-auto pr-1">
-          <div
-            v-for="item in prioritizedPreviewDocs"
-            :key="item.doc_id"
-            class="flex items-start justify-between gap-2 rounded-md border px-2 py-1.5"
-            :class="isHighPriorityPreviewDoc(item)
-              ? 'border-amber-300 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20'
-              : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'"
-          >
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <button
-                  class="truncate text-left font-semibold text-slate-800 underline-offset-2 hover:underline dark:text-slate-100"
-                  :title="`Open document ${item.doc_id}`"
-                  @click="$emit('open-doc', item.doc_id)"
-                >
-                  #{{ item.doc_id }} {{ item.title || 'Untitled' }}
-                </button>
-                <span
-                  v-if="isHighPriorityPreviewDoc(item)"
-                  class="shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
-                >
-                  priority
-                </span>
-              </div>
-              <div class="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                {{ (item.missing_tasks || []).join(', ') || '-' }}
-              </div>
-            </div>
-            <div class="shrink-0 text-right">
-              <div
-                v-if="isHighPriorityPreviewDoc(item)"
-                class="text-[11px] font-semibold text-amber-700 dark:text-amber-300"
-              >
-                High priority
-              </div>
-              <div class="text-[11px] font-semibold text-amber-600 dark:text-amber-300">
-                {{ formatMissingSteps(item.missing_steps) }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        v-if="!processPreviewLoading && processPreview"
-        class="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            Expected enqueue:
-            <strong class="text-slate-900 dark:text-slate-100">up to {{ expectedEnqueueDocs }} docs</strong>
-            <span class="text-slate-500 dark:text-slate-400"> ({{ expectedEnqueueTasksLabel }})</span>
-          </div>
-          <div
-            class="rounded-md border px-2 py-0.5 text-[11px] font-semibold"
-            :class="canStartProcessing
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
-              : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300'"
-          >
-            {{ canStartProcessing ? 'Ready to enqueue' : startDisabledReason }}
-          </div>
-        </div>
-      </div>
-
-      <div
+      <details
         class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        open
       >
-        <div
-          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        <summary
+          class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
         >
           Processing options
-        </div>
+        </summary>
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
           <div
             class="flex flex-col gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2"
@@ -279,6 +142,144 @@
             <div v-for="warning in strategyWarnings" :key="warning">
               {{ warning }}
             </div>
+          </div>
+        </div>
+      </details>
+
+      <div
+        v-if="showDiagnostics && !processPreviewLoading && processPreview"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Pipeline coverage
+        </div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+          <div
+            v-for="item in coverageItems"
+            :key="item.key"
+            class="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
+          >
+            <span>{{ item.label }}</span>
+            <span
+              class="font-semibold"
+              :class="item.missing > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'"
+            >
+              {{ item.missing > 0 ? `${item.missing} missing` : 'covered' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="showDiagnostics && !processPreviewLoading && processPreview"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Detailed Missing Counters
+          </div>
+          <button
+            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            @click="toggleDetailedCounters"
+          >
+            {{ showDetailedCounters ? 'Hide details' : 'Show details' }}
+          </button>
+        </div>
+        <label
+          v-if="showDetailedCounters"
+          class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400"
+        >
+          <input v-model="showOnlyNonZeroCounters" type="checkbox" class="h-3.5 w-3.5" />
+          Show only non-zero
+        </label>
+        <div v-if="showDetailedCounters" class="mt-2 grid gap-2 sm:grid-cols-2">
+          <div
+            v-for="item in visibleDetailedCounters"
+            :key="item.key"
+            class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800"
+          >
+            {{ item.label }}:
+            <strong class="text-slate-900 dark:text-slate-100">{{ item.value }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="showDiagnostics && !processPreviewLoading && previewDocs.length"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Sample Documents With Gaps
+          </div>
+          <div
+            v-if="highPriorityPreviewCount > 0"
+            class="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            {{ highPriorityPreviewCount }} high-priority
+          </div>
+        </div>
+        <div class="mt-2 max-h-32 space-y-1 overflow-auto pr-1 sm:max-h-40">
+          <div
+            v-for="item in prioritizedPreviewDocs"
+            :key="item.doc_id"
+            class="flex items-start justify-between gap-2 rounded-md border px-2 py-1.5"
+            :class="isHighPriorityPreviewDoc(item)
+              ? 'border-amber-300 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20'
+              : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'"
+          >
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <button
+                  class="truncate text-left font-semibold text-slate-800 underline-offset-2 hover:underline dark:text-slate-100"
+                  :title="`Open document ${item.doc_id}`"
+                  @click="$emit('open-doc', item.doc_id)"
+                >
+                  #{{ item.doc_id }} {{ item.title || 'Untitled' }}
+                </button>
+                <span
+                  v-if="isHighPriorityPreviewDoc(item)"
+                  class="shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                >
+                  priority
+                </span>
+              </div>
+              <div class="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                {{ (item.missing_tasks || []).join(', ') || '-' }}
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <div
+                v-if="isHighPriorityPreviewDoc(item)"
+                class="text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+              >
+                High priority
+              </div>
+              <div class="text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                {{ formatMissingSteps(item.missing_steps) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="!processPreviewLoading && processPreview"
+        class="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            Expected enqueue:
+            <strong class="text-slate-900 dark:text-slate-100">up to {{ expectedEnqueueDocs }} docs</strong>
+            <span class="text-slate-500 dark:text-slate-400"> ({{ expectedEnqueueTasksLabel }})</span>
+          </div>
+          <div
+            class="rounded-md border px-2 py-0.5 text-[11px] font-semibold"
+            :class="canStartProcessing
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
+              : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300'"
+          >
+            {{ canStartProcessing ? 'Ready to enqueue' : startDisabledReason }}
           </div>
         </div>
       </div>

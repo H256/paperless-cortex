@@ -2,7 +2,7 @@
   <section
     class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
-    <div class="flex w-full flex-wrap items-center justify-end gap-2">
+    <div class="flex w-full flex-wrap items-center justify-start gap-2 lg:justify-end">
       <button
         class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
         @click="$emit('open-queue')"

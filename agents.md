@@ -23,14 +23,14 @@ Build a robust, safe Paperless intelligence layer:
 - Active branch: `feat/phase2-evidence-resolver`
 
 ## Current focus (short-term)
-1. Phase 2 planning and delivery slices (evidence locator + bbox enrichment path).
-2. Load/real-world validation on large documents and production-like queue behavior.
+1. UX/mobile polish pass for document operations and continue-processing ergonomics.
+2. Backend SRP refactor of largest route modules by extracting pipeline/writeback planning helpers into services.
 3. Continue strict KISS/DRY/SOLID cleanup during feature work.
 
 ## Open work (high-level)
-- Implement Phase 2 evidence-resolution endpoint and chat pipeline integration.
-- Add targeted integration tests for bbox evidence fallback behavior.
-- Continue UX polish where operational friction is still observed.
+- Complete responsive/mobile fit-and-finish across key screens (documents, processing, detail-heavy actions).
+- Continue extracting large route logic into dedicated services/composables to reduce coupling.
+- Validate changes under large-dataset load and queue-heavy scenarios before release.
 
 ## Working agreements
 - No commits on `master`.
