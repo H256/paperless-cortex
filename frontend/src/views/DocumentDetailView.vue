@@ -533,6 +533,7 @@ import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
+import { consumeCitationJump } from '../services/citationJump'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
@@ -931,11 +932,12 @@ const headerMetaLine = computed(() => {
 })
 
 const syncPdfFromQuery = () => {
-  const pageValue = Number(route.query.page)
+  const jump = consumeCitationJump(route.query.jump)
+  const pageValue = Number(jump?.page ?? route.query.page)
   if (Number.isFinite(pageValue) && pageValue > 0) {
     pdfPage.value = pageValue
   }
-  const bbox = parseBBox(route.query.bbox)
+  const bbox = parseBBox(jump?.bbox ?? route.query.bbox)
   pdfHighlights.value = bbox ? [bbox] : []
 }
 

@@ -167,17 +167,11 @@ import type { SearchResult } from '../services/search'
 import { storeToRefs } from 'pinia'
 import { useSearchStore } from '../stores/searchStore'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
+import { buildDocumentCitationLink } from '../services/citationJump'
 
 const searchStore = useSearchStore()
 const { filteredResults } = storeToRefs(searchStore)
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
-
-const encodeBBox = (bbox: unknown) => {
-  if (!Array.isArray(bbox) || bbox.length !== 4) return ''
-  const nums = bbox.map((value) => Number(value))
-  if (nums.some((value) => Number.isNaN(value))) return ''
-  return nums.map((value) => value.toFixed(5)).join(',')
-}
 
 const combinedScore = (result: SearchResult) => {
   const value = (result as { combined_score?: number }).combined_score
@@ -187,13 +181,13 @@ const combinedScore = (result: SearchResult) => {
 }
 
 const resultLink = (result: SearchResult) => {
-  if (!result?.doc_id) return ''
-  const params = new URLSearchParams()
-  if (result.page) params.set('page', String(result.page))
-  const bbox = encodeBBox(result.bbox)
-  if (bbox) params.set('bbox', bbox)
-  const qs = params.toString()
-  return qs ? `/documents/${result.doc_id}?${qs}` : `/documents/${result.doc_id}`
+  return buildDocumentCitationLink({
+    docId: result?.doc_id,
+    page: result?.page,
+    bbox: result?.bbox,
+    source: result?.source,
+    snippet: result?.snippet,
+  })
 }
 
 const runSearch = async () => {

@@ -271,6 +271,7 @@ import DOMPurify from 'dompurify'
 import { useChatStore } from '../stores/chatStore'
 import type { ChatMessage } from '../stores/chatStore'
 import type { ChatCitation } from '../services/chat'
+import { buildDocumentCitationLink } from '../services/citationJump'
 import { useLoading } from '../composables/useLoading'
 
 const chatStore = useChatStore()
@@ -285,21 +286,14 @@ const stop = () => {
   chatStore.stop()
 }
 
-const encodeBBox = (bbox: unknown) => {
-  if (!Array.isArray(bbox) || bbox.length !== 4) return ''
-  const nums = bbox.map((value) => Number(value))
-  if (nums.some((value) => Number.isNaN(value))) return ''
-  return nums.map((value) => value.toFixed(5)).join(',')
-}
-
 const citationLink = (citation: ChatCitation) => {
-  if (!citation?.doc_id) return ''
-  const params = new URLSearchParams()
-  if (citation.page) params.set('page', String(citation.page))
-  const bbox = encodeBBox(citation.bbox)
-  if (bbox) params.set('bbox', bbox)
-  const qs = params.toString()
-  return qs ? `/documents/${citation.doc_id}?${qs}` : `/documents/${citation.doc_id}`
+  return buildDocumentCitationLink({
+    docId: citation?.doc_id,
+    page: citation?.page,
+    bbox: citation?.bbox,
+    source: citation?.source,
+    snippet: citation?.snippet,
+  })
 }
 
 const citationKey = (citation: ChatCitation, idx: number) =>
