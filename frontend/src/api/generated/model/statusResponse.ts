@@ -20,5 +20,8 @@ export interface StatusResponse {
   text_model?: string | null;
   embedding_model?: string | null;
   vision_model?: string | null;
+  evidence_vector_lookup_enabled?: boolean | null;
+  evidence_max_pages?: number | null;
+  evidence_min_snippet_chars?: number | null;
   latency_ms?: number | null;
 }

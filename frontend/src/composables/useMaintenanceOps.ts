@@ -49,6 +49,9 @@ const EMPTY_RUNTIME = {
   text_model: '',
   embedding_model: '',
   vision_model: '',
+  evidence_vector_lookup_enabled: false,
+  evidence_max_pages: 0,
+  evidence_min_snippet_chars: 0,
 }
 
 const REPROCESS_SYNC_PARAMS = {
