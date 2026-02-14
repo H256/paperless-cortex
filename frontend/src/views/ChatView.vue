@@ -345,17 +345,27 @@ const citationClass = (citation: ChatCitation): string => {
 }
 
 const renderMarkdown = (message: ChatMessage) => {
+  const escapeAttr = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+
   const map = new Map<number, { tooltip: string; href: string }>()
   ;(message.citations || []).forEach((cite) => {
     const tooltip = `Doc ${cite.doc_id ?? 'n/a'} - Page ${cite.page ?? 'n/a'} - ${cite.source || 'unknown'}`
-    const href = cite.doc_id ? citationLink(cite) : '#'
+    const href = cite.doc_id ? citationLink(cite) : ''
     map.set(cite.id, { tooltip, href })
   })
   const withCitations = message.answer.replace(/\\[(\\d+)\\]/g, (match, rawId) => {
     const id = Number(rawId)
     const info = map.get(id)
     if (!info) return match
-    return `<sup class="chat-citation" title="${info.tooltip}"><a href="${info.href}" class="chat-citation-link" target="_blank" rel="noopener noreferrer">[${id}]</a></sup>`
+    if (!info.href) {
+      return `<sup class="chat-citation" title="${escapeAttr(info.tooltip)}">[${id}]</sup>`
+    }
+    return `<sup class="chat-citation" title="${escapeAttr(info.tooltip)}"><a href="${escapeAttr(info.href)}" class="chat-citation-link" target="_blank" rel="noopener noreferrer">[${id}]</a></sup>`
   })
   const html = marked.parse(withCitations) as string
   return DOMPurify.sanitize(html, {
