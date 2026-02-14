@@ -308,6 +308,7 @@ import type { ChatCitation } from '../api/generated/model'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
+import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 
 const {
   question,
@@ -334,19 +335,6 @@ const toastStore = useToastStore()
 const now = ref(Date.now())
 let syncingFromRoute = false
 
-const parseBool = (value: unknown, fallback: boolean) => {
-  const raw = Array.isArray(value) ? value[0] : value
-  if (raw === '1' || raw === 'true') return true
-  if (raw === '0' || raw === 'false') return false
-  return fallback
-}
-
-const parseNumber = (value: unknown, fallback: number) => {
-  const raw = Array.isArray(value) ? value[0] : value
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
-
 const buildChatQuery = () => {
   const next: Record<string, string> = {}
   if (topK.value !== 6) next.k = String(topK.value)
@@ -361,28 +349,19 @@ const buildChatQuery = () => {
 
 const syncChatFromRoute = () => {
   syncingFromRoute = true
-  topK.value = parseNumber(route.query.k, 6)
-  source.value = typeof route.query.src === 'string' ? route.query.src : ''
-  onlyVision.value = parseBool(route.query.v, false)
-  minQuality.value = parseNumber(route.query.minq, 0)
-  streaming.value = parseBool(route.query.stream, true)
-  useHistory.value = parseBool(route.query.hist, true)
-  historyTurns.value = parseNumber(route.query.turns, 6)
+  topK.value = queryNumber(route.query.k, 6)
+  source.value = queryString(route.query.src, '')
+  onlyVision.value = queryBool(route.query.v, false)
+  minQuality.value = queryNumber(route.query.minq, 0)
+  streaming.value = queryBool(route.query.stream, true)
+  useHistory.value = queryBool(route.query.hist, true)
+  historyTurns.value = queryNumber(route.query.turns, 6)
   syncingFromRoute = false
 }
 
 const syncChatToRoute = async () => {
   const next = buildChatQuery()
-  const current = route.query
-  const same =
-    String(current.k || '') === String(next.k || '') &&
-    String(current.src || '') === String(next.src || '') &&
-    String(current.v || '') === String(next.v || '') &&
-    String(current.minq || '') === String(next.minq || '') &&
-    String(current.stream || '') === String(next.stream || '') &&
-    String(current.hist || '') === String(next.hist || '') &&
-    String(current.turns || '') === String(next.turns || '')
-  if (same) return
+  if (isSameQueryState(route.query, next)) return
   await router.replace({ query: next })
 }
 
