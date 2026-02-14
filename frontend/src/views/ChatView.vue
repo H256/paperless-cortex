@@ -301,7 +301,7 @@
 
 <script setup lang="ts">
 import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } from 'lucide-vue-next'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -312,6 +312,7 @@ import { useChatSession, type ChatMessage } from '../composables/useChatSession'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
 import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 import { useClipboardCopy } from '../composables/useClipboardCopy'
+import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 
 const {
   question,
@@ -337,7 +338,6 @@ const router = useRouter()
 const toastStore = useToastStore()
 const { copyText, errorMessage: copyError } = useClipboardCopy()
 const now = ref(Date.now())
-let syncingFromRoute = false
 const questionInputRef = ref<HTMLInputElement | null>(null)
 
 const buildChatQuery = () => {
@@ -353,7 +353,6 @@ const buildChatQuery = () => {
 }
 
 const syncChatFromRoute = () => {
-  syncingFromRoute = true
   topK.value = queryNumber(route.query.k, 6)
   source.value = queryString(route.query.src, '')
   onlyVision.value = queryBool(route.query.v, false)
@@ -361,7 +360,6 @@ const syncChatFromRoute = () => {
   streaming.value = queryBool(route.query.stream, true)
   useHistory.value = queryBool(route.query.hist, true)
   historyTurns.value = queryNumber(route.query.turns, 6)
-  syncingFromRoute = false
 }
 
 const syncChatToRoute = async () => {
@@ -532,17 +530,13 @@ const copyConversationId = async () => {
   }
 }
 
-watch([topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns], () => {
-  if (syncingFromRoute) return
-  void syncChatToRoute()
+useRouteQuerySync({
+  route,
+  router,
+  readFromRoute: syncChatFromRoute,
+  buildQuery: buildChatQuery,
+  sources: [topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
 })
-
-watch(
-  () => route.query,
-  () => {
-    syncChatFromRoute()
-  },
-)
 
 const onWindowKeydown = (event: KeyboardEvent) => {
   const target = event.target as HTMLElement | null
