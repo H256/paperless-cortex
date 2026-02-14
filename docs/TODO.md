@@ -36,6 +36,6 @@
 
 ## Ongoing backlog (post-QA)
 
-- [ ] Continue responsive/mobile polish on detail-heavy screens (`DocumentDetail`, `Writeback`) and check overlap/overflow edge-cases on narrow widths.
+- [x] Continue responsive/mobile polish on detail-heavy screens (`DocumentDetail`, `Writeback`) and check overlap/overflow edge-cases on narrow widths.
 - [x] Add lightweight structured request timing logging for slow backend endpoints (route + duration + key params, without sensitive payloads).
 - [x] Add an optional compact worker-run timeline card in UI (recent task runs with error type + elapsed) for faster issue triage.
