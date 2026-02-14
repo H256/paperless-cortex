@@ -6,7 +6,7 @@ import json
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import and_, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.config import Settings
 from app.db import get_db
@@ -21,6 +21,7 @@ from app.models import (
     DocumentSuggestion,
     DocumentType,
     SuggestionAudit,
+    Tag,
 )
 from app.services import paperless
 from app.services.hierarchical_summary import is_large_document
@@ -130,7 +131,17 @@ def _apply_derived_fields_and_review_status(
     }
     local_docs = (
         db.query(Document)
-        .options(joinedload(Document.tags), joinedload(Document.correspondent))
+        .options(
+            load_only(
+                Document.id,
+                Document.title,
+                Document.document_date,
+                Document.created,
+                Document.correspondent_id,
+            ),
+            joinedload(Document.tags).load_only(Tag.id),
+            joinedload(Document.correspondent).load_only(Correspondent.name),
+        )
         .filter(Document.id.in_(doc_ids))
         .all()
     )
