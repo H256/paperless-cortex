@@ -6,6 +6,7 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
+- `20a3d96` refactor(documents/ui): removed duplicate review-state controls from the sticky quick bar so review filtering is driven by the Presets section only, reducing Triage/Preset overlap.
 - `f59032d` feat(dashboard/ui): top dashboard lists are now padded to always render 10 rows for consistent scanability (even on smaller datasets).
 - `68d2427` fix(pages): document page-text endpoint now prefers `clean_text` for vision OCR rows (fallback to raw text), so Details > Pages shows normalized vision text instead of noisy raw output when cleanup exists.
 - `b62e9e0` feat(dashboard): updated dashboard aggregations/UI to use top-10 lists, split page-count bucket `51+` into `51-99` and `100+`, show ratio percentages alongside counts, add tag donut tooltip details, and improve extended-section narrow-screen stability with `min-w-0` + scrollable card content.
