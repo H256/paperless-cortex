@@ -15,6 +15,7 @@
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Question</label>
           <div class="mt-1 flex items-center gap-2">
             <input
+              ref="questionInputRef"
               v-model="question"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
@@ -334,6 +335,7 @@ const router = useRouter()
 const toastStore = useToastStore()
 const now = ref(Date.now())
 let syncingFromRoute = false
+const questionInputRef = ref<HTMLInputElement | null>(null)
 
 const buildChatQuery = () => {
   const next: Record<string, string> = {}
@@ -499,9 +501,11 @@ onMounted(() => {
   timer = window.setInterval(() => {
     now.value = Date.now()
   }, 30000)
+  window.addEventListener('keydown', onWindowKeydown)
 })
 onUnmounted(() => {
   if (timer) window.clearInterval(timer)
+  window.removeEventListener('keydown', onWindowKeydown)
 })
 
 const formatScore = (score?: number | null) => {
@@ -538,6 +542,23 @@ watch(
     syncChatFromRoute()
   },
 )
+
+const onWindowKeydown = (event: KeyboardEvent) => {
+  const target = event.target as HTMLElement | null
+  const tag = target?.tagName?.toLowerCase()
+  const isTypingTarget =
+    tag === 'input' || tag === 'textarea' || target?.isContentEditable === true
+  if (!isTypingTarget && event.key === '/') {
+    event.preventDefault()
+    questionInputRef.value?.focus()
+    questionInputRef.value?.select()
+    return
+  }
+  if (event.ctrlKey && event.key === 'Enter') {
+    event.preventDefault()
+    void ask()
+  }
+}
 </script>
 
 <style scoped>
