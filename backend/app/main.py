@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
@@ -16,16 +17,17 @@ from app.services.meta_sync import sync_correspondents_all, sync_tags_all
 from app.db import SessionLocal
 from app.services.logging_setup import configure_logging
 
+SETTINGS = load_settings()
+
 def _run_startup_sync() -> None:
     try:
-        refresh_cache(load_settings())
+        refresh_cache(SETTINGS)
     except Exception as exc:
         logging.getLogger(__name__).warning("Meta cache preload failed: %s", exc, exc_info=True)
 
-    settings = load_settings()
     with SessionLocal() as db:
         try:
-            total, upserted = sync_tags_all(settings, db)
+            total, upserted = sync_tags_all(SETTINGS, db)
             logging.getLogger(__name__).info(
                 "Startup sync tags total=%s upserted=%s", total, upserted
             )
@@ -35,7 +37,7 @@ def _run_startup_sync() -> None:
             )
 
         try:
-            total, upserted = sync_correspondents_all(settings, db)
+            total, upserted = sync_correspondents_all(SETTINGS, db)
             logging.getLogger(__name__).info(
                 "Startup sync correspondents total=%s upserted=%s", total, upserted
             )
@@ -51,7 +53,7 @@ async def _app_lifespan(_app: FastAPI):
     yield
 
 
-configure_logging(load_settings(), service="api")
+configure_logging(SETTINGS, service="api")
 app = FastAPI(title="Paperless-NGX Cortex API", lifespan=_app_lifespan)
 
 app.add_middleware(
@@ -63,6 +65,32 @@ app.add_middleware(
 )
 
 api = FastAPI(title="Paperless-NGX Cortex API")
+slow_request_logger = logging.getLogger("app.slow_requests")
+
+
+@api.middleware("http")
+async def log_slow_requests(request, call_next):
+    threshold_ms = SETTINGS.api_slow_request_log_ms
+    if threshold_ms <= 0:
+        return await call_next(request)
+
+    started = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        if elapsed_ms >= threshold_ms:
+            slow_request_logger.warning(
+                "Slow request method=%s path=%s status=%s duration_ms=%.1f threshold_ms=%s",
+                request.method,
+                request.url.path,
+                status_code,
+                elapsed_ms,
+                threshold_ms,
+            )
 
 api.include_router(documents.router)
 api.include_router(documents_actions.router)
