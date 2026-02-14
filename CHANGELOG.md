@@ -70,6 +70,7 @@ All granular implementation slices and refactors are tracked here.
 - `cffbb6f` fix(chat): hardened prompt assembly by normalizing history (max turns + max chars per entry) before rendering, with regression tests to prevent oversized follow-up context payloads.
 - `759c062` fix(ux): hardened citation jump handoff parsing to accept bbox strings/arrays consistently and added stale jump-token pruning in `sessionStorage` to avoid long-lived navigation residue.
 - `74b541b` fix(chat-ui): markdown citation superscripts now render as plain markers when no document link is available, and citation tooltip/href attributes are escaped before HTML injection.
+- `74f8b9b` refactor(chat-ui): extended generated `ChatCitation` typing with evidence fields and removed unsafe type-cast access in `ChatView` evidence rendering helpers.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
