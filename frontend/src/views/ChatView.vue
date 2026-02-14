@@ -310,10 +310,10 @@ import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
 import { useChatSession, type ChatMessage } from '../composables/useChatSession'
 import { isSameQueryState, queryBool, queryNumber, queryString } from '../utils/queryState'
-import { useGlobalHotkeys } from '../composables/useGlobalHotkeys'
 import { useClipboardCopy } from '../composables/useClipboardCopy'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 import { useShareLink } from '../composables/useShareLink'
+import { useInputCommandHotkeys } from '../composables/useInputCommandHotkeys'
 
 const {
   question,
@@ -536,24 +536,10 @@ useRouteQuerySync({
   sources: [topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
 })
 
-const onWindowKeydown = (event: KeyboardEvent) => {
-  const target = event.target as HTMLElement | null
-  const tag = target?.tagName?.toLowerCase()
-  const isTypingTarget =
-    tag === 'input' || tag === 'textarea' || target?.isContentEditable === true
-  if (!isTypingTarget && event.key === '/') {
-    event.preventDefault()
-    questionInputRef.value?.focus()
-    questionInputRef.value?.select()
-    return
-  }
-  if (event.ctrlKey && event.key === 'Enter') {
-    event.preventDefault()
-    void ask()
-  }
-}
-
-useGlobalHotkeys(onWindowKeydown)
+useInputCommandHotkeys({
+  inputRef: questionInputRef,
+  onSubmit: ask,
+})
 </script>
 
 <style scoped>
