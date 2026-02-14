@@ -528,6 +528,8 @@ const querySync = useRouteQuerySync({
   readFromRoute: syncChatFromRoute,
   buildQuery: buildChatQuery,
   sources: [topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
+  debounceMs: 120,
+  preserveUnknownQueryKeys: true,
 })
 
 useInputCommandHotkeys({
