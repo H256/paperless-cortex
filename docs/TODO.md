@@ -17,7 +17,7 @@
 
 ### Writeback
 - [x] Remove "Run Dry-Run Now" green button from Writeback page (use queue flow only).
-- [ ] Performance backlog: optimize dry-run preview for large Paperless datasets.
+- [x] Performance backlog: optimize dry-run preview for large Paperless datasets.
 - [x] Add "remove from queue" capability for writeback queue items.
 
 ### Documents Page
