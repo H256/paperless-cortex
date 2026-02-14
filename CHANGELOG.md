@@ -100,6 +100,7 @@ All granular implementation slices and refactors are tracked here.
 - `84d8b00` refactor(ui): introduced reusable clipboard composable (`useClipboardCopy`) to centralize copy behavior/error mapping across views.
 - `020d65e` feat(search): added per-result “Copy details link” quick action and switched search link copy flow to shared clipboard composable.
 - `298cc2a` refactor(chat): switched chat copy actions (`Copy link`/`Copy id`) to shared clipboard composable for consistent UX/error handling.
+- `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
