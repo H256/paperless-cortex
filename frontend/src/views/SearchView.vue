@@ -136,13 +136,15 @@
           </div>
           <div class="mt-2 text-sm text-slate-700 dark:text-slate-200">{{ result.snippet }}</div>
           <div class="mt-3 flex items-center gap-2 text-xs">
-            <RouterLink
+            <a
               v-if="result.doc_id"
               class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-              :to="resultLink(result)"
+              :href="resultLink(result)"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               Open details
-            </RouterLink>
+            </a>
             <a
               v-if="paperlessBaseUrl"
               class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200"
@@ -162,7 +164,6 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next'
 import type { SearchResult } from '../services/search'
-import { RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSearchStore } from '../stores/searchStore'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'

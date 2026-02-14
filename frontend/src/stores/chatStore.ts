@@ -45,12 +45,22 @@ export const useChatStore = defineStore('chat', {
     onlyVision: false,
     minQuality: 0,
     streaming: true,
+    useHistory: true,
+    historyTurns: 6,
     loading: false,
     error: '',
     messages: loadMessages(),
     activeAbort: null as AbortController | null,
   }),
   actions: {
+    clearConversation() {
+      this.messages = []
+      saveMessages(this.messages)
+    },
+    startFollowUp(seedQuestion: string) {
+      const seed = (seedQuestion || '').trim()
+      this.question = seed ? `Follow-up on: ${seed}\n` : 'Follow-up: '
+    },
     stop() {
       if (this.activeAbort) {
         this.activeAbort.abort()
@@ -66,10 +76,12 @@ export const useChatStore = defineStore('chat', {
       this.loading = true
       this.error = ''
       try {
-        const history = this.messages
-          .slice(0, 4)
-          .map((msg) => ({ question: msg.question, answer: msg.answer }))
-          .reverse()
+        const history = this.useHistory
+          ? this.messages
+              .slice(0, Math.max(1, Math.min(12, this.historyTurns || 6)))
+              .map((msg) => ({ question: msg.question, answer: msg.answer }))
+              .reverse()
+          : []
         const source = this.onlyVision ? 'vision_ocr' : this.source || undefined
         if (this.streaming) {
           const message: ChatMessage = {

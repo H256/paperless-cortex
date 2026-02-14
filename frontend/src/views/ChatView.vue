@@ -78,7 +78,7 @@
             class="h-10 w-40"
           />
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-3">
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
@@ -91,6 +91,37 @@
             <input type="checkbox" v-model="chatStore.streaming" class="h-4 w-4" />
             Streaming
           </label>
+          <label
+            class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+            title="Include recent turns to support follow-up questions."
+          >
+            <input type="checkbox" v-model="chatStore.useHistory" class="h-4 w-4" />
+            Follow-up context
+          </label>
+          <label
+            v-if="chatStore.useHistory"
+            class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+          >
+            Turns
+            <select
+              v-model.number="chatStore.historyTurns"
+              class="h-8 min-w-[64px] rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option :value="2">2</option>
+              <option :value="4">4</option>
+              <option :value="6">6</option>
+              <option :value="8">8</option>
+              <option :value="12">12</option>
+            </select>
+          </label>
+          <button
+            class="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="chatStore.loading || chatStore.messages.length === 0"
+            @click="chatStore.clearConversation()"
+          >
+            <Trash2 class="h-3.5 w-3.5" />
+            Clear
+          </button>
         </div>
       </div>
 
@@ -124,6 +155,16 @@
           }}</span>
         </div>
         <div class="mt-2 text-sm text-slate-900 dark:text-slate-100">{{ message.question }}</div>
+        <div class="mt-2">
+          <button
+            class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+            :disabled="chatStore.loading"
+            @click="chatStore.startFollowUp(message.question)"
+          >
+            <CornerDownRight class="h-3.5 w-3.5" />
+            Follow-up
+          </button>
+        </div>
 
         <div
           class="mt-4 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
@@ -161,8 +202,10 @@
               class="relative group"
             >
               <component
-                :is="citation.doc_id ? RouterLink : 'span'"
-                :to="citation.doc_id ? citationLink(citation) : undefined"
+                :is="citation.doc_id ? 'a' : 'span'"
+                :href="citation.doc_id ? citationLink(citation) : undefined"
+                :target="citation.doc_id ? '_blank' : undefined"
+                :rel="citation.doc_id ? 'noopener noreferrer' : undefined"
                 class="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm hover:text-indigo-600 dark:bg-slate-900 dark:text-slate-300"
                 :class="citationClass(citation)"
                 :aria-label="`Source ${citation.id}`"
@@ -221,9 +264,8 @@
 </template>
 
 <script setup lang="ts">
-import { BookOpen, MessageCircle } from 'lucide-vue-next'
+import { BookOpen, MessageCircle, CornerDownRight, Trash2 } from 'lucide-vue-next'
 import { onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChatStore } from '../stores/chatStore'
@@ -304,7 +346,7 @@ const renderMarkdown = (message: ChatMessage) => {
     const id = Number(rawId)
     const info = map.get(id)
     if (!info) return match
-    return `<sup class="chat-citation" title="${info.tooltip}"><a href="${info.href}" class="chat-citation-link">[${id}]</a></sup>`
+    return `<sup class="chat-citation" title="${info.tooltip}"><a href="${info.href}" class="chat-citation-link" target="_blank" rel="noopener noreferrer">[${id}]</a></sup>`
   })
   const html = marked.parse(withCitations) as string
   return DOMPurify.sanitize(html, {
