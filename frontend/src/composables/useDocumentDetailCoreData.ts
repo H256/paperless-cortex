@@ -14,6 +14,7 @@ import {
   getTags,
   getTextQuality,
   getOcrScores,
+  syncDocument,
 } from '../services/documents'
 import type { DocumentOcrScoreOut, TextQualityMetrics } from '@/api/generated/model'
 
@@ -85,7 +86,16 @@ export const useDocumentDetailCoreData = () => {
     try {
       const data = await loadDocumentMutation.mutateAsync(id)
       if (data?.status === 'missing') {
-        document.value = null
+        syncing.value = true
+        try {
+          await syncDocument(id, { embed: false, force_embed: false, priority: false })
+          const synced = await loadDocumentMutation.mutateAsync(id)
+          document.value = synced?.status === 'missing' ? null : synced
+        } catch {
+          document.value = null
+        } finally {
+          syncing.value = false
+        }
       } else {
         document.value = data
       }

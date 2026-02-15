@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from typing import Any
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -57,6 +58,7 @@ from app.routes.documents_common import parse_iso, should_skip_doc
 from app.routes.queue_guard import require_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+logger = logging.getLogger(__name__)
 
 ALLOWED_DOC_TASKS = {
     "sync",
@@ -71,6 +73,30 @@ ALLOWED_DOC_TASKS = {
     "suggestions_paperless",
     "suggestions_vision",
 }
+
+
+def _get_or_sync_local_document(
+    *,
+    db: Session,
+    settings: Settings,
+    doc_id: int,
+) -> Document:
+    doc = db.get(Document, int(doc_id))
+    if doc:
+        return doc
+    try:
+        raw = paperless.get_document(settings, int(doc_id))
+        data = DocumentIn.model_validate(raw)
+        cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+        _upsert_document(db, settings, data, cache)
+        db.commit()
+        doc = db.get(Document, int(doc_id))
+        if doc:
+            logger.info("Auto-synced missing local document doc_id=%s", doc_id)
+            return doc
+    except Exception:
+        logger.warning("Failed to auto-sync missing local document doc_id=%s", doc_id, exc_info=True)
+    raise HTTPException(status_code=404, detail="Document not found")
 
 
 class DocumentTaskRequest(BaseModel):
@@ -408,9 +434,7 @@ def get_document_pipeline_status(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    doc = db.get(Document, int(doc_id))
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
     cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
     options = PipelineOptions()
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
@@ -495,9 +519,7 @@ def get_document_pipeline_fanout(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    doc = db.get(Document, int(doc_id))
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
     if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     options = PipelineOptions(
@@ -550,9 +572,7 @@ def continue_document_pipeline(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    doc = db.get(Document, int(doc_id))
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
     if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     if not require_queue_enabled(settings):
