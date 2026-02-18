@@ -38,6 +38,16 @@
           <ExternalLink class="h-5 w-5" />
         </IconButton>
         <button
+          class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-sm hover:border-emerald-300 sm:text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
+          :disabled="reviewMarking || !canMarkReviewed"
+          :class="reviewMarking || !canMarkReviewed ? 'cursor-not-allowed opacity-70' : ''"
+          title="Marks this document as reviewed without applying suggestions."
+          @click="markReviewedAction"
+        >
+          <CheckCircle class="h-4 w-4" :class="reviewMarking ? 'animate-pulse' : ''" />
+          {{ reviewMarking ? 'Marking...' : 'Mark reviewed' }}
+        </button>
+        <button
           class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:border-indigo-300 sm:text-sm dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
           :disabled="writebackRunning || !canWriteback"
           :class="writebackRunning || !canWriteback ? 'cursor-not-allowed opacity-70' : ''"
@@ -598,7 +608,7 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
-import type { DocumentOperationTaskPayload } from '../services/documents'
+import { markDocumentReviewed, type DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
@@ -754,6 +764,7 @@ const operationActions: OperationAction[] = [
 ]
 const activeTab = ref<DetailTabKey>('meta')
 const reloadingAll = ref(false)
+const reviewMarking = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
@@ -949,6 +960,12 @@ const currentValues = computed(() => ({
   tags: currentTagNames.value || '',
   note: currentNotePreview.value || '',
 }))
+const canMarkReviewed = computed(
+  () =>
+    Boolean(document.value) &&
+    !Boolean(document.value?.local_overrides) &&
+    String(document.value?.review_status || '').toLowerCase() !== 'reviewed',
+)
 
 const toTitle = (value: string | null | undefined) => {
   if (!value) return 'Unknown'
@@ -1114,6 +1131,24 @@ const runWritebackNowForDocument = async (
     writebackErrorOpen.value = true
   } finally {
     writebackRunning.value = false
+  }
+}
+
+const markReviewedAction = async () => {
+  if (!canMarkReviewed.value || reviewMarking.value) return
+  reviewMarking.value = true
+  try {
+    const result = await markDocumentReviewed(id)
+    if (result.status === 'missing') {
+      toastStore.push('Document not found locally.', 'warning', 'Review', 2200)
+      return
+    }
+    await load()
+    toastStore.push('Document marked as reviewed.', 'success', 'Review', 1800)
+  } catch (err: unknown) {
+    toastStore.push(errorMessage(err, 'Failed to mark document reviewed'), 'danger', 'Review', 2800)
+  } finally {
+    reviewMarking.value = false
   }
 }
 
