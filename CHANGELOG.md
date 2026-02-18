@@ -7,6 +7,7 @@ All granular implementation slices and refactors are tracked here.
 
 ### Suggestions / writeback robustness
 - `8d88da7` feat(suggestions/writeback): unknown correspondent suggestions are now persisted locally as pending correspondent values (new table `document_pending_correspondents`) instead of being dropped. Document list/detail now surfaces pending correspondent names, local override/review-state detection includes pending correspondent changes, and writeback resolves/creates correspondents in Paperless (similar to pending tags) before PATCH so `Save` + writeback works end-to-end for new correspondents.
+- `bacfc8c` fix(writeback): when a pending correspondent is resolved/created during writeback, the resolved correspondent id is now written back to the local document as well (and pending row cleared), preventing the UI from showing an unset correspondent after successful writeback. Added regression test coverage for id normalization (`\"77\" -> 77`) and local persistence.
 
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
