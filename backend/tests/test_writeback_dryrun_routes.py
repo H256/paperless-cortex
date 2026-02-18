@@ -222,3 +222,61 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
     assert "created" not in payload
     assert payload.get("correspondent") == 18690
 
+
+def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkeypatch):
+    from app.services import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Correspondent(id=9001, name="Legacy Corr"))
+        db.add(Document(id=1869, title="Doc 1869", correspondent_id=9001))
+        db.add(Document(id=1870, title="Doc 1870", correspondent_id=9001))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": f"Doc {doc_id}",
+            "created": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+            "modified": "2026-02-18T20:00:00+00:00",
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_all_correspondents",
+        lambda *_args, **_kwargs: [{"id": 9010, "name": "Legacy Corr"}],
+    )
+    monkeypatch.setattr(
+        paperless,
+        "create_correspondent",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not create when same name exists")),
+    )
+    patch_payloads: list[dict] = []
+
+    def _update_document(_settings, _doc_id, payload):
+        patch_payloads.append(dict(payload))
+        return {"id": _doc_id}
+
+    monkeypatch.setattr(paperless, "update_document", _update_document)
+
+    response = api_client.post("/writeback/documents/1869/execute-direct", json={})
+    assert response.status_code == 200
+    assert patch_payloads
+    assert patch_payloads[0].get("correspondent") == 9010
+
+    with Session(engine) as db:
+        d1 = db.get(Document, 1869)
+        d2 = db.get(Document, 1870)
+        old_corr = db.get(Correspondent, 9001)
+        new_corr = db.get(Correspondent, 9010)
+        assert d1 is not None and d1.correspondent_id == 9010
+        assert d2 is not None and d2.correspondent_id == 9010
+        assert old_corr is not None
+        assert new_corr is not None
+        assert (new_corr.name or "").strip() == "Legacy Corr"
+
