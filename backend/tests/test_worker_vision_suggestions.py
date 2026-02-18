@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.config import load_settings
 from app.models import Document, DocumentPageText
 from app.worker import _process_suggestions_vision
@@ -65,8 +67,5 @@ def test_process_suggestions_vision_raises_when_no_pages_available(session_facto
         monkeypatch.setattr(worker_mod, "get_cached_correspondents", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(worker_mod, "_process_vision_ocr_only", lambda *_args, **_kwargs: None)
 
-        try:
+        with pytest.raises(RuntimeError, match="vision_suggestions_missing_pages"):
             _process_suggestions_vision(settings, db, 702)
-            assert False, "Expected RuntimeError for missing vision pages"
-        except RuntimeError as exc:
-            assert "vision_suggestions_missing_pages" in str(exc)
