@@ -426,6 +426,19 @@ def _resolve_paperless_correspondent_id(
     local_correspondent_id: int | None,
     pending_correspondent_name: str | None = None,
 ) -> int | None:
+    def _as_int(value: Any) -> int | None:
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            try:
+                return int(raw)
+            except Exception:
+                return None
+        return None
+
     if isinstance(local_correspondent_id, int) and local_correspondent_id > 0:
         return int(local_correspondent_id)
 
@@ -438,15 +451,15 @@ def _resolve_paperless_correspondent_id(
 
     remote_rows = paperless.list_all_correspondents(settings)
     remote_by_name = {
-        str(row.get("name") or "").strip().lower(): int(row.get("id"))
+        str(row.get("name") or "").strip().lower(): _as_int(row.get("id"))
         for row in remote_rows
-        if isinstance(row.get("id"), int) and str(row.get("name") or "").strip()
+        if _as_int(row.get("id")) is not None and str(row.get("name") or "").strip()
     }
     existing_id = remote_by_name.get(local_name.lower())
     if existing_id is None:
         created = paperless.create_correspondent(settings, local_name)
-        created_id = created.get("id")
-        if isinstance(created_id, int):
+        created_id = _as_int(created.get("id"))
+        if created_id is not None:
             existing_id = created_id
 
     if isinstance(existing_id, int):
@@ -465,17 +478,19 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
         payload = dict(call.payload or {})
         had_tags = False
         had_correspondent = False
+        resolved_correspondent_id: int | None = None
         raw_correspondent = payload.get("correspondent")
         pending_correspondent_name = payload.pop("pending_correspondent_name", None)
         if "correspondent" in payload:
             had_correspondent = True
             local_correspondent_id = int(raw_correspondent) if isinstance(raw_correspondent, int) else None
-            payload["correspondent"] = _resolve_paperless_correspondent_id(
+            resolved_correspondent_id = _resolve_paperless_correspondent_id(
                 settings,
                 db,
                 local_correspondent_id,
                 str(pending_correspondent_name or "").strip() or None,
             )
+            payload["correspondent"] = resolved_correspondent_id
         raw_tags = payload.get("tags")
         if isinstance(raw_tags, list):
             had_tags = True
@@ -499,6 +514,9 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
                 by_id = {tag.id: tag for tag in existing_tags}
                 local_doc.tags = [by_id[tag_id] for tag_id in resolved_ids_int if tag_id in by_id]
         if had_correspondent:
+            local_doc = db.query(Document).filter(Document.id == int(call.doc_id)).one_or_none()
+            if local_doc:
+                local_doc.correspondent_id = resolved_correspondent_id
             pending_corr_row = (
                 db.query(DocumentPendingCorrespondent)
                 .filter(DocumentPendingCorrespondent.doc_id == int(call.doc_id))

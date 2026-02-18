@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Document, SuggestionAudit
+from app.models import Correspondent, Document, DocumentPendingCorrespondent, SuggestionAudit
 
 
 def _insert_document(doc_id: int):
@@ -121,4 +121,58 @@ def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, mo
     payload = response.json()
     ids = [int(item["doc_id"]) for item in payload["items"]]
     assert 501 in ids
+
+
+def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, monkeypatch):
+    from app.services import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=777, title="Doc 777"))
+        db.add(
+            DocumentPendingCorrespondent(
+                doc_id=777,
+                name="New Corr",
+                updated_at="2026-02-18T20:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Doc 777",
+            "created": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+            "modified": "2026-02-18T20:00:00+00:00",
+        },
+    )
+    monkeypatch.setattr(paperless, "list_all_correspondents", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(paperless, "create_correspondent", lambda *_args, **_kwargs: {"id": "77", "name": "New Corr"})
+    patch_payloads: list[dict] = []
+
+    def _update_document(_settings, _doc_id, payload):
+        patch_payloads.append(dict(payload))
+        return {"id": _doc_id}
+
+    monkeypatch.setattr(paperless, "update_document", _update_document)
+
+    response = api_client.post("/writeback/execute-now", json={"doc_ids": [777]})
+    assert response.status_code == 200
+    assert patch_payloads
+    assert patch_payloads[0].get("correspondent") == 77
+
+    with Session(engine) as db:
+        refreshed = db.get(Document, 777)
+        pending = db.query(DocumentPendingCorrespondent).filter(DocumentPendingCorrespondent.doc_id == 777).one_or_none()
+        corr = db.get(Correspondent, 77)
+        assert refreshed is not None
+        assert refreshed.correspondent_id == 77
+        assert pending is None
+        assert corr is not None
+        assert (corr.name or "").strip() == "New Corr"
 
