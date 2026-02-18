@@ -441,16 +441,19 @@ def _resolve_paperless_correspondent_id(
         return None
 
     def _migrate_local_references(old_id: int | None, new_id: int, name: str) -> None:
+        local_corr = db.query(Correspondent).filter(Correspondent.id == int(new_id)).one_or_none()
+        if not local_corr:
+            db.add(Correspondent(id=int(new_id), name=name))
+            # Ensure FK target row exists before remapping document references.
+            db.flush()
+        elif (local_corr.name or "").strip() != name:
+            local_corr.name = name
+            db.flush()
         if old_id and old_id != new_id:
             db.query(Document).filter(Document.correspondent_id == int(old_id)).update(
                 {"correspondent_id": int(new_id)},
                 synchronize_session=False,
             )
-        local_corr = db.query(Correspondent).filter(Correspondent.id == int(new_id)).one_or_none()
-        if not local_corr:
-            db.add(Correspondent(id=int(new_id), name=name))
-        elif (local_corr.name or "").strip() != name:
-            local_corr.name = name
 
     local_name = str(pending_correspondent_name or "").strip()
     local_id = int(local_correspondent_id) if isinstance(local_correspondent_id, int) and local_correspondent_id > 0 else None
