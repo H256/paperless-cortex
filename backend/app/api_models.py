@@ -248,6 +248,12 @@ class DocumentLocalResponse(BaseModel):
     preferred_processing_source: Optional[str] = None
 
 
+class DocumentMarkReviewedResponse(BaseModel):
+    status: str
+    doc_id: int
+    reviewed_at: Optional[str] = None
+
+
 class DocumentsPageResponse(BaseModel):
     count: Optional[int] = None
     next: Optional[str] = None
