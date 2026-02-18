@@ -440,22 +440,40 @@ def _resolve_paperless_correspondent_id(
                 return None
         return None
 
-    if isinstance(local_correspondent_id, int) and local_correspondent_id > 0:
-        return int(local_correspondent_id)
+    def _migrate_local_references(old_id: int | None, new_id: int, name: str) -> None:
+        if old_id and old_id != new_id:
+            db.query(Document).filter(Document.correspondent_id == int(old_id)).update(
+                {"correspondent_id": int(new_id)},
+                synchronize_session=False,
+            )
+        local_corr = db.query(Correspondent).filter(Correspondent.id == int(new_id)).one_or_none()
+        if not local_corr:
+            db.add(Correspondent(id=int(new_id), name=name))
+        elif (local_corr.name or "").strip() != name:
+            local_corr.name = name
 
     local_name = str(pending_correspondent_name or "").strip()
-    if not local_name and isinstance(local_correspondent_id, int):
+    local_id = int(local_correspondent_id) if isinstance(local_correspondent_id, int) and local_correspondent_id > 0 else None
+    if not local_name and local_id:
         local_row = db.query(Correspondent).filter(Correspondent.id == int(local_correspondent_id)).one_or_none()
         local_name = str(local_row.name or "").strip() if local_row else ""
-    if not local_name:
-        return None
 
     remote_rows = paperless.list_all_correspondents(settings)
+    remote_by_id = {
+        int(row.get("id")): str(row.get("name") or "").strip()
+        for row in remote_rows
+        if _as_int(row.get("id")) is not None
+    }
+    if local_id and local_id in remote_by_id:
+        return local_id
+
     remote_by_name = {
         str(row.get("name") or "").strip().lower(): _as_int(row.get("id"))
         for row in remote_rows
         if _as_int(row.get("id")) is not None and str(row.get("name") or "").strip()
     }
+    if not local_name:
+        return None
     existing_id = remote_by_name.get(local_name.lower())
     if existing_id is None:
         created = paperless.create_correspondent(settings, local_name)
@@ -464,11 +482,7 @@ def _resolve_paperless_correspondent_id(
             existing_id = created_id
 
     if isinstance(existing_id, int):
-        local_corr = db.query(Correspondent).filter(Correspondent.id == existing_id).one_or_none()
-        if not local_corr:
-            db.add(Correspondent(id=existing_id, name=local_name))
-        elif (local_corr.name or "").strip() != local_name:
-            local_corr.name = local_name
+        _migrate_local_references(local_id, int(existing_id), local_name)
         return existing_id
     return None
 
