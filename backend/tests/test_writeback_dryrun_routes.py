@@ -176,3 +176,49 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
         assert corr is not None
         assert (corr.name or "").strip() == "New Corr"
 
+
+def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_client, monkeypatch):
+    from app.services import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=1869, title="Doc 1869", created=None, document_date=None))
+        db.add(
+            DocumentPendingCorrespondent(
+                doc_id=1869,
+                name="Corr 1869",
+                updated_at="2026-02-18T20:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Doc 1869",
+            "created": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+            "modified": "2026-02-18T20:00:00+00:00",
+        },
+    )
+    monkeypatch.setattr(paperless, "list_all_correspondents", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(paperless, "create_correspondent", lambda *_args, **_kwargs: {"id": 18690, "name": "Corr 1869"})
+    captured_payloads: list[dict] = []
+
+    def _update_document(_settings, _doc_id, payload):
+        captured_payloads.append(dict(payload))
+        return {"id": _doc_id}
+
+    monkeypatch.setattr(paperless, "update_document", _update_document)
+
+    response = api_client.post("/writeback/documents/1869/execute-direct", json={})
+    assert response.status_code == 200
+    assert captured_payloads
+    payload = captured_payloads[0]
+    assert "created" not in payload
+    assert payload.get("correspondent") == 18690
+
