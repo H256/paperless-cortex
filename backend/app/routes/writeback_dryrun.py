@@ -6,6 +6,7 @@ import json
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -512,7 +513,43 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
             payload.pop("title", None)
         if not payload:
             return
-        paperless.update_document(settings, int(call.doc_id), payload)
+        try:
+            paperless.update_document(settings, int(call.doc_id), payload)
+        except httpx.HTTPStatusError as exc:
+            response_text = ""
+            try:
+                response_text = str(exc.response.text or "").strip()
+            except Exception:
+                response_text = ""
+            status_code = int(exc.response.status_code) if exc.response is not None else 0
+            # Paperless often rejects null/invalid created fields; retry once without created.
+            if status_code == 400 and "created" in payload:
+                retry_payload = dict(payload)
+                retry_payload.pop("created", None)
+                if retry_payload:
+                    try:
+                        paperless.update_document(settings, int(call.doc_id), retry_payload)
+                        payload = retry_payload
+                    except httpx.HTTPStatusError as retry_exc:
+                        retry_text = ""
+                        try:
+                            retry_text = str(retry_exc.response.text or "").strip()
+                        except Exception:
+                            retry_text = ""
+                        raise RuntimeError(
+                            f"Paperless PATCH failed doc={int(call.doc_id)} status={int(retry_exc.response.status_code)} "
+                            f"payload={retry_payload} response={retry_text[:500]}"
+                        ) from retry_exc
+                else:
+                    raise RuntimeError(
+                        f"Paperless PATCH failed doc={int(call.doc_id)} status={status_code} "
+                        f"payload={payload} response={response_text[:500]}"
+                    ) from exc
+            else:
+                raise RuntimeError(
+                    f"Paperless PATCH failed doc={int(call.doc_id)} status={status_code} "
+                    f"payload={payload} response={response_text[:500]}"
+                ) from exc
         if had_tags:
             local_doc = (
                 db.query(Document)
@@ -857,50 +894,54 @@ def execute_writeback_direct_for_document(
             note_original_id = int(original["id"]) if isinstance(original.get("id"), int) else None
             note_new_text = str(item.note.proposed.get("text") or "").strip() or None
 
-    if patch_payload:
-        call = WritebackDryRunCall(
-            doc_id=doc_id,
-            method="PATCH",
-            path=f"/api/documents/{doc_id}/",
-            payload=patch_payload,
-        )
-        _execute_call(settings, db, call)
-        calls.append(call)
-        if "tags" in patch_payload:
-            pending_row = (
-                db.query(DocumentPendingTag)
-                .filter(DocumentPendingTag.doc_id == int(doc_id))
-                .one_or_none()
+    try:
+        if patch_payload:
+            call = WritebackDryRunCall(
+                doc_id=doc_id,
+                method="PATCH",
+                path=f"/api/documents/{doc_id}/",
+                payload=patch_payload,
             )
-            if pending_row:
-                db.delete(pending_row)
-        if "correspondent" in patch_payload:
-            pending_corr_row = (
-                db.query(DocumentPendingCorrespondent)
-                .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
-                .one_or_none()
-            )
-            if pending_corr_row:
-                db.delete(pending_corr_row)
+            _execute_call(settings, db, call)
+            calls.append(call)
+            if "tags" in patch_payload:
+                pending_row = (
+                    db.query(DocumentPendingTag)
+                    .filter(DocumentPendingTag.doc_id == int(doc_id))
+                    .one_or_none()
+                )
+                if pending_row:
+                    db.delete(pending_row)
+            if "correspondent" in patch_payload:
+                pending_corr_row = (
+                    db.query(DocumentPendingCorrespondent)
+                    .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
+                    .one_or_none()
+                )
+                if pending_corr_row:
+                    db.delete(pending_corr_row)
 
-    if apply_local_note and note_original_id:
-        del_call = WritebackDryRunCall(
-            doc_id=doc_id,
-            method="DELETE",
-            path=f"/api/documents/{doc_id}/notes/?id={note_original_id}",
-            payload={},
-        )
-        _execute_call(settings, db, del_call)
-        calls.append(del_call)
-    if apply_local_note and note_new_text:
-        add_call = WritebackDryRunCall(
-            doc_id=doc_id,
-            method="POST",
-            path=f"/api/documents/{doc_id}/notes/",
-            payload={"note": note_new_text},
-        )
-        _execute_call(settings, db, add_call)
-        calls.append(add_call)
+        if apply_local_note and note_original_id:
+            del_call = WritebackDryRunCall(
+                doc_id=doc_id,
+                method="DELETE",
+                path=f"/api/documents/{doc_id}/notes/?id={note_original_id}",
+                payload={},
+            )
+            _execute_call(settings, db, del_call)
+            calls.append(del_call)
+        if apply_local_note and note_new_text:
+            add_call = WritebackDryRunCall(
+                doc_id=doc_id,
+                method="POST",
+                path=f"/api/documents/{doc_id}/notes/",
+                payload={"note": note_new_text},
+            )
+            _execute_call(settings, db, add_call)
+            calls.append(add_call)
+    except RuntimeError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
 
     if calls or request.resolutions:
         reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
