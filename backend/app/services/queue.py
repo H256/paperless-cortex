@@ -261,6 +261,30 @@ def queue_stats(settings: Settings) -> dict[str, int] | None:
     in_progress = int(client.get(STATS_IN_PROGRESS) or 0)
     done = int(client.get(STATS_DONE) or 0)
     length = int(client.llen(QUEUE_KEY))
+    if in_progress > 0 and length == 0:
+        try:
+            has_lock = bool(client.get(WORKER_LOCK_KEY))
+            running_raw = client.get(RUNNING_TASK_KEY)
+            running_started_at = None
+            if running_raw:
+                running_payload = json.loads(str(running_raw))
+                if isinstance(running_payload, dict):
+                    started_at_raw = running_payload.get("started_at")
+                    if started_at_raw is not None:
+                        running_started_at = int(started_at_raw)
+            heartbeat_raw = client.get(WORKER_HEARTBEAT_KEY)
+            heartbeat_at = int(heartbeat_raw) if heartbeat_raw is not None else None
+            now = int(time.time())
+            heartbeat_stale = heartbeat_at is None or (now - heartbeat_at) > (WORKER_HEARTBEAT_TTL * 2)
+            running_old_enough = (
+                running_started_at is None
+                or (now - int(running_started_at)) > max(60, WORKER_HEARTBEAT_TTL * 2)
+            )
+            if (not has_lock) and heartbeat_stale and running_old_enough:
+                client.set(STATS_IN_PROGRESS, 0)
+                in_progress = 0
+        except Exception:
+            pass
     last_run_seconds_raw = client.get(LAST_RUN_SECONDS_KEY)
     last_run_at = client.get(LAST_RUN_AT_KEY)
     last_run_seconds = None
@@ -731,5 +755,4 @@ def worker_status(settings: Settings) -> tuple[bool, str]:
     if age > WORKER_HEARTBEAT_TTL:
         return False, f"Heartbeat stale ({age}s)"
     return True, f"Heartbeat {age}s ago"
-
 

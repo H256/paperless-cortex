@@ -1234,48 +1234,71 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
     correspondents = get_cached_correspondents(settings)
     raw = paperless.get_document(settings, doc_id)
     doc = get_document_or_none(db, doc_id)
+    if not doc:
+        return
     vision_pages = (
         db.query(DocumentPageText)
         .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
         .order_by(DocumentPageText.page.asc())
         .all()
     )
-    if vision_pages:
-        vision_text = ""
-        if doc and _is_large_doc(settings, doc):
-            vision_text = _build_distilled_context_from_hier_summary(
-                db,
-                doc_id=doc_id,
-                source="vision_ocr",
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if not vision_text:
-            vision_text = _build_distilled_context_from_page_notes(
-                db,
-                doc_id=doc_id,
-                source="vision_ocr",
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if not vision_text:
-            vision_text = _join_page_texts_limited(
-                vision_pages,
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if vision_text:
-            vision_suggestions = generate_normalized_suggestions(
-                settings,
-                raw,
-                vision_text,
-                tags=tags,
-                correspondents=correspondents,
-            )
-            persist_suggestions(
-                db,
-                doc_id,
-                "vision_ocr",
-                vision_suggestions,
-                model_name=settings.text_model,
-            )
+    expected_pages = int(doc.page_count or 0)
+    bounded_pages = {int(page.page) for page in vision_pages if int(page.page) > 0}
+    has_complete_vision = bool(vision_pages) if expected_pages <= 0 else len(bounded_pages) >= expected_pages
+    if settings.enable_vision_ocr and not has_complete_vision:
+        logger.info(
+            "Vision suggestions requested without complete vision OCR; backfilling doc=%s expected_pages=%s have=%s",
+            doc_id,
+            expected_pages if expected_pages > 0 else "unknown",
+            len(bounded_pages),
+        )
+        _process_vision_ocr_only(settings, db, doc_id, force=False)
+        vision_pages = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+            .order_by(DocumentPageText.page.asc())
+            .all()
+        )
+    if not vision_pages:
+        raise RuntimeError(f"vision_suggestions_missing_pages doc_id={doc_id}")
+
+    vision_text = ""
+    if _is_large_doc(settings, doc):
+        vision_text = _build_distilled_context_from_hier_summary(
+            db,
+            doc_id=doc_id,
+            source="vision_ocr",
+            max_chars=settings.worker_suggestions_max_chars,
+        )
+    if not vision_text:
+        vision_text = _build_distilled_context_from_page_notes(
+            db,
+            doc_id=doc_id,
+            source="vision_ocr",
+            max_chars=settings.worker_suggestions_max_chars,
+        )
+    if not vision_text:
+        vision_text = _join_page_texts_limited(
+            vision_pages,
+            max_chars=settings.worker_suggestions_max_chars,
+        )
+    if not vision_text:
+        raise RuntimeError(f"vision_suggestions_empty_text doc_id={doc_id}")
+
+    vision_suggestions = generate_normalized_suggestions(
+        settings,
+        raw,
+        vision_text,
+        tags=tags,
+        correspondents=correspondents,
+    )
+    persist_suggestions(
+        db,
+        doc_id,
+        "vision_ocr",
+        vision_suggestions,
+        model_name=settings.text_model,
+    )
 
 
 def _process_suggest_field(settings, db: Session, task: dict) -> None:
@@ -1613,5 +1636,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.config import Settings
@@ -42,6 +43,7 @@ from app.api_models import (
     DocumentsPageResponse,
     DocumentTextQualityResponse,
     DocumentOcrScoresResponse,
+    DocumentMarkReviewedResponse,
     PageTextsResponse,
     PaperlessDocument,
 )
@@ -49,6 +51,14 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 _DASHBOARD_CACHE: dict[str, object] = {"ts": 0.0, "data": None}
 _DASHBOARD_CACHE_TTL_SECONDS = 15
+REVIEW_ACTION_MANUAL = "mark_reviewed"
+
+
+def _reviewed_audit_filter():
+    return or_(
+        SuggestionAudit.action.like("apply_to_document:%"),
+        SuggestionAudit.action == REVIEW_ACTION_MANUAL,
+    )
 
 
 def _normalized_scalar(value: object) -> object:
@@ -244,7 +254,7 @@ def _apply_derived_fields_and_review_status(
     }
     reviewed_rows = (
         db.query(SuggestionAudit.doc_id, func.max(SuggestionAudit.created_at).label("reviewed_at"))
-        .filter(SuggestionAudit.doc_id.in_(doc_ids), SuggestionAudit.action.like("apply_to_document:%"))
+        .filter(SuggestionAudit.doc_id.in_(doc_ids), _reviewed_audit_filter())
         .group_by(SuggestionAudit.doc_id)
         .all()
     )
@@ -544,7 +554,7 @@ def get_local_document(
         db.query(func.max(SuggestionAudit.created_at))
         .filter(
             SuggestionAudit.doc_id == doc_id,
-            SuggestionAudit.action.like("apply_to_document:%"),
+            _reviewed_audit_filter(),
         )
         .scalar()
     )
@@ -595,6 +605,27 @@ def get_local_document(
         "is_large_document": is_large_doc,
         "preferred_processing_source": preferred_processing_source,
     }
+
+
+@router.post("/{doc_id}/review/mark", response_model=DocumentMarkReviewedResponse)
+def mark_document_reviewed(
+    doc_id: int,
+    db: Session = Depends(get_db),
+):
+    doc = get_document_or_none(db, doc_id)
+    if not doc:
+        return {"status": "missing", "doc_id": int(doc_id), "reviewed_at": None}
+    reviewed_at = datetime.now(timezone.utc).isoformat()
+    db.add(
+        SuggestionAudit(
+            doc_id=int(doc_id),
+            action=REVIEW_ACTION_MANUAL,
+            source="manual",
+            created_at=reviewed_at,
+        )
+    )
+    db.commit()
+    return {"status": "ok", "doc_id": int(doc_id), "reviewed_at": reviewed_at}
 
 
 @router.get("/{doc_id}/text-quality", response_model=DocumentTextQualityResponse)

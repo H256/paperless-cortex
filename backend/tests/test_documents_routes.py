@@ -157,6 +157,40 @@ def test_list_documents_review_status_unreviewed(api_client, monkeypatch):
     assert payload["results"][0]["review_status"] == "unreviewed"
 
 
+def test_mark_reviewed_moves_document_out_of_unreviewed(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=41, title="Doc 41", created="2026-02-10T10:00:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {"id": 41, "title": "Doc 41", "modified": "2026-02-10T10:00:00+00:00", "tags": []},
+            ],
+        },
+    )
+
+    before = api_client.get("/documents", params={"include_derived": True, "review_status": "unreviewed"})
+    assert before.status_code == 200
+    assert before.json()["count"] == 1
+
+    marked = api_client.post("/documents/41/review/mark")
+    assert marked.status_code == 200
+    marked_payload = marked.json()
+    assert marked_payload["status"] == "ok"
+    assert marked_payload["doc_id"] == 41
+    assert isinstance(marked_payload["reviewed_at"], str)
+    assert marked_payload["reviewed_at"]
+
+    after = api_client.get("/documents", params={"include_derived": True, "review_status": "unreviewed"})
+    assert after.status_code == 200
+    assert after.json()["count"] == 0
+
+
 def test_list_documents_review_status_needs_review(api_client, monkeypatch):
     from app.services import paperless
 
