@@ -189,6 +189,7 @@ class PaperlessDocument(BaseModel):
 
 class DocumentSummary(PaperlessDocument):
     correspondent_name: Optional[str] = None
+    pending_correspondent_name: Optional[str] = None
     local_cached: Optional[bool] = None
     local_overrides: Optional[bool] = None
     review_status: Optional[str] = None
@@ -226,6 +227,7 @@ class DocumentLocalResponse(BaseModel):
     reviewed_at: Optional[str] = None
     paperless_modified: Optional[str] = None
     pending_tag_names: list[str] = []
+    pending_correspondent_name: Optional[str] = None
     has_embeddings: Optional[bool] = None
     embedding_source: Optional[str] = None
     embedding_chunk_count: Optional[int] = None

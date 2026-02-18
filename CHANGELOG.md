@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
+
+### Suggestions / writeback robustness
+- `8d88da7` feat(suggestions/writeback): unknown correspondent suggestions are now persisted locally as pending correspondent values (new table `document_pending_correspondents`) instead of being dropped. Document list/detail now surfaces pending correspondent names, local override/review-state detection includes pending correspondent changes, and writeback resolves/creates correspondents in Paperless (similar to pending tags) before PATCH so `Save` + writeback works end-to-end for new correspondents.
+
 ## 2026-02-14 (performance branch: perf/ops-route-speedups)
 
 ### Backend performance
