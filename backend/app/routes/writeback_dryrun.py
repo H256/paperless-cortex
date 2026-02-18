@@ -490,7 +490,14 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
                 local_correspondent_id,
                 str(pending_correspondent_name or "").strip() or None,
             )
-            payload["correspondent"] = resolved_correspondent_id
+            if resolved_correspondent_id is None and str(pending_correspondent_name or "").strip():
+                raise RuntimeError(
+                    f"Unable to resolve/create correspondent: {str(pending_correspondent_name).strip()}"
+                )
+            if resolved_correspondent_id is None:
+                payload.pop("correspondent", None)
+            else:
+                payload["correspondent"] = resolved_correspondent_id
         raw_tags = payload.get("tags")
         if isinstance(raw_tags, list):
             had_tags = True
@@ -499,6 +506,12 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
             pending_names = [str(name).strip() for name in pending_names_raw if str(name).strip()] if isinstance(pending_names_raw, list) else []
             payload["tags"] = _resolve_paperless_tag_ids(settings, db, local_tag_ids, pending_names)
             db.flush()
+        if payload.get("created") in (None, ""):
+            payload.pop("created", None)
+        if payload.get("title") is None:
+            payload.pop("title", None)
+        if not payload:
+            return
         paperless.update_document(settings, int(call.doc_id), payload)
         if had_tags:
             local_doc = (
