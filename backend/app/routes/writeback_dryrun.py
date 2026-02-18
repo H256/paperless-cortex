@@ -37,7 +37,16 @@ from app.api_models import (
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Correspondent, Document, DocumentNote, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
+from app.models import (
+    Correspondent,
+    Document,
+    DocumentNote,
+    DocumentPendingCorrespondent,
+    DocumentPendingTag,
+    SuggestionAudit,
+    Tag,
+    WritebackJob,
+)
 from app.services import paperless
 from app.services.json_utils import parse_json_list
 from app.services.note_ids import next_local_note_id
@@ -87,6 +96,7 @@ def _build_item(
     correspondents_by_id: dict[int, str],
     tags_by_id: dict[int, str],
     pending_tag_names: list[str] | None = None,
+    pending_correspondent_name: str | None = None,
 ) -> WritebackDryRunItem:
     local_issue_date = local_doc.document_date or local_doc.created
     remote_notes = remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
@@ -106,6 +116,7 @@ def _build_item(
         remote_date=remote_doc.get("created"),
         local_correspondent_id=local_doc.correspondent_id,
         remote_correspondent_id=remote_doc.get("correspondent"),
+        local_pending_correspondent_name=pending_correspondent_name,
         local_tags=local_tags,
         remote_tags=remote_tags,
         local_pending_tag_names=pending_tag_names or [],
@@ -114,7 +125,11 @@ def _build_item(
     )
 
     remote_correspondent_id = remote_doc.get("correspondent")
-    local_corr_name = correspondents_by_id.get(local_doc.correspondent_id or 0) if local_doc.correspondent_id else None
+    local_corr_name = (
+        correspondents_by_id.get(local_doc.correspondent_id or 0)
+        if local_doc.correspondent_id
+        else (str(pending_correspondent_name or "").strip() or None)
+    )
     remote_corr_name = (
         correspondents_by_id.get(int(remote_correspondent_id))
         if isinstance(remote_correspondent_id, int)
@@ -156,7 +171,11 @@ def _build_item(
         correspondent=WritebackFieldDiff(
             field="correspondent",
             original={"id": remote_correspondent_id, "name": remote_corr_name},
-            proposed={"id": local_doc.correspondent_id, "name": local_corr_name},
+            proposed={
+                "id": local_doc.correspondent_id,
+                "name": local_corr_name,
+                "pending_name": str(pending_correspondent_name or "").strip() or None,
+            },
             changed="correspondent" in changed_fields,
         ),
         tags=WritebackFieldDiff(
@@ -192,9 +211,19 @@ def _preview_for_doc_ids(
         .filter(DocumentPendingTag.doc_id.in_(list(local_by_id.keys())))
         .all()
     )
+    pending_correspondent_rows = (
+        db.query(DocumentPendingCorrespondent.doc_id, DocumentPendingCorrespondent.name)
+        .filter(DocumentPendingCorrespondent.doc_id.in_(list(local_by_id.keys())))
+        .all()
+    )
     pending_by_doc: dict[int, list[str]] = {}
     for row in pending_rows:
         pending_by_doc[int(row.doc_id)] = parse_string_list_json(row.names_json)
+    pending_correspondent_by_doc: dict[int, str] = {
+        int(row.doc_id): str(row.name or "").strip()
+        for row in pending_correspondent_rows
+        if str(row.name or "").strip()
+    }
 
     remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
     items: list[WritebackDryRunItem] = []
@@ -212,6 +241,7 @@ def _preview_for_doc_ids(
                 correspondents_by_id=correspondents_by_id,
                 tags_by_id=tags_by_id,
                 pending_tag_names=pending_by_doc.get(int(doc_id), []),
+                pending_correspondent_name=pending_correspondent_by_doc.get(int(doc_id), ""),
             )
         )
     return items
@@ -244,6 +274,13 @@ def _local_writeback_candidate_doc_ids(db: Session) -> list[int]:
             continue
         ordered_ids.append(doc_id)
         seen.add(doc_id)
+    pending_correspondent_rows = db.query(DocumentPendingCorrespondent.doc_id).all()
+    for row in pending_correspondent_rows:
+        doc_id = int(row.doc_id)
+        if doc_id <= 0 or doc_id in seen:
+            continue
+        ordered_ids.append(doc_id)
+        seen.add(doc_id)
     return ordered_ids
 
 
@@ -259,6 +296,7 @@ def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall
         payload["created"] = item.document_date.proposed
     if item.correspondent.changed and isinstance(item.correspondent.proposed, dict):
         payload["correspondent"] = item.correspondent.proposed.get("id")
+        payload["pending_correspondent_name"] = item.correspondent.proposed.get("pending_name")
     if item.tags.changed and isinstance(item.tags.proposed, dict):
         payload["tags"] = item.tags.proposed.get("ids") or []
         payload["pending_tag_names"] = item.tags.proposed.get("pending_names") or []
@@ -382,11 +420,62 @@ def _resolve_paperless_tag_ids(
     return sorted(set(resolved_ids))
 
 
+def _resolve_paperless_correspondent_id(
+    settings: Settings,
+    db: Session,
+    local_correspondent_id: int | None,
+    pending_correspondent_name: str | None = None,
+) -> int | None:
+    if isinstance(local_correspondent_id, int) and local_correspondent_id > 0:
+        return int(local_correspondent_id)
+
+    local_name = str(pending_correspondent_name or "").strip()
+    if not local_name and isinstance(local_correspondent_id, int):
+        local_row = db.query(Correspondent).filter(Correspondent.id == int(local_correspondent_id)).one_or_none()
+        local_name = str(local_row.name or "").strip() if local_row else ""
+    if not local_name:
+        return None
+
+    remote_rows = paperless.list_all_correspondents(settings)
+    remote_by_name = {
+        str(row.get("name") or "").strip().lower(): int(row.get("id"))
+        for row in remote_rows
+        if isinstance(row.get("id"), int) and str(row.get("name") or "").strip()
+    }
+    existing_id = remote_by_name.get(local_name.lower())
+    if existing_id is None:
+        created = paperless.create_correspondent(settings, local_name)
+        created_id = created.get("id")
+        if isinstance(created_id, int):
+            existing_id = created_id
+
+    if isinstance(existing_id, int):
+        local_corr = db.query(Correspondent).filter(Correspondent.id == existing_id).one_or_none()
+        if not local_corr:
+            db.add(Correspondent(id=existing_id, name=local_name))
+        elif (local_corr.name or "").strip() != local_name:
+            local_corr.name = local_name
+        return existing_id
+    return None
+
+
 def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) -> None:
     method = call.method.upper()
     if method == "PATCH":
         payload = dict(call.payload or {})
         had_tags = False
+        had_correspondent = False
+        raw_correspondent = payload.get("correspondent")
+        pending_correspondent_name = payload.pop("pending_correspondent_name", None)
+        if "correspondent" in payload:
+            had_correspondent = True
+            local_correspondent_id = int(raw_correspondent) if isinstance(raw_correspondent, int) else None
+            payload["correspondent"] = _resolve_paperless_correspondent_id(
+                settings,
+                db,
+                local_correspondent_id,
+                str(pending_correspondent_name or "").strip() or None,
+            )
         raw_tags = payload.get("tags")
         if isinstance(raw_tags, list):
             had_tags = True
@@ -409,6 +498,14 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
                 existing_tags = db.query(Tag).filter(Tag.id.in_(resolved_ids_int)).all() if resolved_ids_int else []
                 by_id = {tag.id: tag for tag in existing_tags}
                 local_doc.tags = [by_id[tag_id] for tag_id in resolved_ids_int if tag_id in by_id]
+        if had_correspondent:
+            pending_corr_row = (
+                db.query(DocumentPendingCorrespondent)
+                .filter(DocumentPendingCorrespondent.doc_id == int(call.doc_id))
+                .one_or_none()
+            )
+            if pending_corr_row:
+                db.delete(pending_corr_row)
         return
     if method == "POST":
         payload = dict(call.payload or {})
@@ -488,6 +585,14 @@ def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_r
                     )
                     if pending_row:
                         db.delete(pending_row)
+                if call.method.upper() == "PATCH" and isinstance(call.payload, dict) and "correspondent" in call.payload:
+                    pending_corr_row = (
+                        db.query(DocumentPendingCorrespondent)
+                        .filter(DocumentPendingCorrespondent.doc_id == int(call.doc_id))
+                        .one_or_none()
+                    )
+                    if pending_corr_row:
+                        db.delete(pending_corr_row)
         if not dry_run and executed_doc_ids:
             for doc_id in sorted(executed_doc_ids):
                 reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
@@ -552,6 +657,13 @@ def _sync_local_field_from_paperless(
     if field == "correspondent":
         remote_corr = remote_doc.get("correspondent")
         local_doc.correspondent_id = int(remote_corr) if isinstance(remote_corr, int) else None
+        pending_corr_row = (
+            db.query(DocumentPendingCorrespondent)
+            .filter(DocumentPendingCorrespondent.doc_id == int(local_doc.id))
+            .one_or_none()
+        )
+        if pending_corr_row:
+            db.delete(pending_corr_row)
         return
     if field == "tags":
         remote_tags_raw = remote_doc.get("tags") or []
@@ -618,6 +730,12 @@ def execute_writeback_direct_for_document(
     pending_tag_names: list[str] = []
     if pending_row and pending_row.names_json:
         pending_tag_names = parse_string_list_json(pending_row.names_json)
+    pending_correspondent_row = (
+        db.query(DocumentPendingCorrespondent)
+        .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
+        .one_or_none()
+    )
+    pending_correspondent_name = str(pending_correspondent_row.name or "").strip() if pending_correspondent_row else ""
     remote_doc = paperless.get_document_cached(settings, doc_id)
     item = _build_item(
         local_doc=local_doc,
@@ -625,6 +743,7 @@ def execute_writeback_direct_for_document(
         correspondents_by_id=correspondents_by_id,
         tags_by_id=tags_by_id,
         pending_tag_names=pending_tag_names,
+        pending_correspondent_name=pending_correspondent_name,
     )
     if not item.changed:
         reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
@@ -697,6 +816,7 @@ def execute_writeback_direct_for_document(
             patch_payload["created"] = item.document_date.proposed
         elif normalized_field == "correspondent" and isinstance(item.correspondent.proposed, dict):
             patch_payload["correspondent"] = item.correspondent.proposed.get("id")
+            patch_payload["pending_correspondent_name"] = item.correspondent.proposed.get("pending_name")
         elif normalized_field == "tags" and isinstance(item.tags.proposed, dict):
             patch_payload["tags"] = item.tags.proposed.get("ids") or []
             patch_payload["pending_tag_names"] = item.tags.proposed.get("pending_names") or []
@@ -723,6 +843,14 @@ def execute_writeback_direct_for_document(
             )
             if pending_row:
                 db.delete(pending_row)
+        if "correspondent" in patch_payload:
+            pending_corr_row = (
+                db.query(DocumentPendingCorrespondent)
+                .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
+                .one_or_none()
+            )
+            if pending_corr_row:
+                db.delete(pending_corr_row)
 
     if apply_local_note and note_original_id:
         del_call = WritebackDryRunCall(

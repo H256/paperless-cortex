@@ -17,6 +17,7 @@ from app.models import (
     Document,
     DocumentNote,
     DocumentOcrScore,
+    DocumentPendingCorrespondent,
     DocumentPendingTag,
     DocumentPageText,
     DocumentSuggestion,
@@ -469,6 +470,11 @@ def apply_suggestion_to_document(
         updated = True
     elif field == "correspondent":
         old_value = doc.correspondent_id
+        pending_row = (
+            db.query(DocumentPendingCorrespondent)
+            .filter(DocumentPendingCorrespondent.doc_id == doc_id)
+            .one_or_none()
+        )
         name = str(value).strip() if value is not None else ""
         if name:
             like_term = f"%{name}%"
@@ -483,11 +489,29 @@ def apply_suggestion_to_document(
             )
             if match:
                 doc.correspondent_id = match.id
+                if pending_row is not None:
+                    db.delete(pending_row)
                 updated = True
             else:
+                doc.correspondent_id = None
+                if pending_row is None:
+                    db.add(
+                        DocumentPendingCorrespondent(
+                            doc_id=doc_id,
+                            name=name,
+                            updated_at=_utc_now_iso(),
+                        )
+                    )
+                    updated = True
+                elif (pending_row.name or "").strip() != name:
+                    pending_row.name = name
+                    pending_row.updated_at = _utc_now_iso()
+                    updated = True
                 details["unmatched"] = name
         else:
             doc.correspondent_id = None
+            if pending_row is not None:
+                db.delete(pending_row)
             updated = True
     elif field == "tags":
         old_value = [tag.name for tag in doc.tags]

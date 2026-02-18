@@ -258,6 +258,16 @@ class DocumentPendingTag(Base):
     document: Mapped[Document] = relationship()
 
 
+class DocumentPendingCorrespondent(Base):
+    __tablename__ = "document_pending_correspondents"
+
+    doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True, index=True)
+    name: Mapped[str | None] = mapped_column(String(256))
+    updated_at: Mapped[str | None] = mapped_column(String(64))
+
+    document: Mapped[Document] = relationship()
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

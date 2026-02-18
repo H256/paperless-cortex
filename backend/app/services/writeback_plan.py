@@ -65,6 +65,7 @@ def compare_document_fields(
     remote_date: str | None,
     local_correspondent_id: int | None,
     remote_correspondent_id: int | None,
+    local_pending_correspondent_name: str | None = None,
     local_tags: list[int],
     remote_tags: list[int],
     local_pending_tag_names: list[str] | None = None,
@@ -80,9 +81,11 @@ def compare_document_fields(
     if normalize_scalar(local_date) != normalize_scalar(remote_date):
         changed.append("issue_date")
         payload["created"] = normalize_scalar(local_date) or None
-    if (local_correspondent_id or None) != (remote_correspondent_id or None):
+    pending_correspondent_name = normalize_scalar(local_pending_correspondent_name)
+    if (local_correspondent_id or None) != (remote_correspondent_id or None) or bool(pending_correspondent_name):
         changed.append("correspondent")
         payload["correspondent"] = local_correspondent_id
+        payload["pending_correspondent_name"] = pending_correspondent_name or None
     pending_tag_names = [str(name).strip() for name in (local_pending_tag_names or []) if str(name).strip()]
     if normalize_tags(local_tags) != normalize_tags(remote_tags) or bool(pending_tag_names):
         changed.append("tags")

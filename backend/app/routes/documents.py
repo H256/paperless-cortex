@@ -15,6 +15,7 @@ from app.models import (
     Correspondent,
     Document,
     DocumentEmbedding,
+    DocumentPendingCorrespondent,
     DocumentPendingTag,
     DocumentPageNote,
     DocumentPageText,
@@ -79,19 +80,23 @@ def _has_local_overrides(
     remote_issue_date: str | None,
     local_correspondent_id: int | None,
     remote_correspondent_id: int | None,
+    pending_correspondent_name: str | None,
     local_tag_ids: list[int] | None,
     remote_tag_ids: list[int] | None,
     pending_tag_names: list[str] | None,
     local_ai_summary: str | None = None,
     remote_ai_summary: str | None = None,
 ) -> bool:
+    remote_issue_date_norm = _normalized_scalar(remote_issue_date)
     if set(local_tag_ids or []) != set(remote_tag_ids or []):
         return True
     if _values_differ(local_title, remote_title):
         return True
-    if _values_differ(local_issue_date, remote_issue_date):
+    if remote_issue_date_norm not in (None, "") and _values_differ(local_issue_date, remote_issue_date):
         return True
     if _values_differ(local_correspondent_id, remote_correspondent_id):
+        return True
+    if (pending_correspondent_name or "").strip():
         return True
     if pending_tag_names:
         return True
@@ -264,9 +269,19 @@ def _apply_derived_fields_and_review_status(
         .filter(DocumentPendingTag.doc_id.in_(doc_ids))
         .all()
     )
+    pending_correspondent_rows = (
+        db.query(DocumentPendingCorrespondent.doc_id, DocumentPendingCorrespondent.name)
+        .filter(DocumentPendingCorrespondent.doc_id.in_(doc_ids))
+        .all()
+    )
     pending_tags_by_doc: dict[int, list[str]] = {}
     for row in pending_tag_rows:
         pending_tags_by_doc[int(row.doc_id)] = parse_string_list_json(row.names_json)
+    pending_correspondent_by_doc: dict[int, str] = {
+        int(row.doc_id): str(row.name or "").strip()
+        for row in pending_correspondent_rows
+        if str(row.name or "").strip()
+    }
 
     filtered_results: list[dict] = []
     for doc in results:
@@ -275,6 +290,7 @@ def _apply_derived_fields_and_review_status(
             continue
         local_doc = local_by_id.get(doc_id)
         pending_tag_names = pending_tags_by_doc.get(int(doc_id), [])
+        pending_correspondent_name = pending_correspondent_by_doc.get(int(doc_id), "")
         doc["local_cached"] = local_doc is not None
         local_overrides = False
         if local_doc:
@@ -289,6 +305,7 @@ def _apply_derived_fields_and_review_status(
                 remote_issue_date=remote_issue_date,
                 local_correspondent_id=local_doc.correspondent_id,
                 remote_correspondent_id=doc.get("correspondent"),
+                pending_correspondent_name=pending_correspondent_name,
                 local_tag_ids=local_tags,
                 remote_tag_ids=paperless_tags,
                 pending_tag_names=pending_tag_names,
@@ -298,9 +315,14 @@ def _apply_derived_fields_and_review_status(
                 doc["document_date"] = local_doc.document_date
                 doc["created"] = local_issue_date
                 doc["correspondent"] = local_doc.correspondent_id
-                doc["correspondent_name"] = local_doc.correspondent.name if local_doc.correspondent else None
+                doc["correspondent_name"] = (
+                    local_doc.correspondent.name
+                    if local_doc.correspondent
+                    else (pending_correspondent_name or None)
+                )
                 doc["tags"] = local_tags
         doc["pending_tag_names"] = pending_tag_names
+        doc["pending_correspondent_name"] = pending_correspondent_name or None
         doc["local_overrides"] = local_overrides
         doc["has_embeddings"] = doc_id in embed_ids
         doc.update(analysis_by_doc.get(doc_id, {}))
@@ -519,7 +541,13 @@ def get_local_document(
         .filter(DocumentPendingTag.doc_id == doc_id)
         .one_or_none()
     )
+    pending_correspondent_row = (
+        db.query(DocumentPendingCorrespondent)
+        .filter(DocumentPendingCorrespondent.doc_id == doc_id)
+        .one_or_none()
+    )
     pending_tag_names = parse_string_list_json(pending_row.names_json if pending_row else None)
+    pending_correspondent_name = str(pending_correspondent_row.name or "").strip() if pending_correspondent_row else ""
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []
@@ -540,6 +568,7 @@ def get_local_document(
         remote_issue_date=remote_issue_date,
         local_correspondent_id=doc.correspondent_id,
         remote_correspondent_id=remote_doc.get("correspondent"),
+        pending_correspondent_name=pending_correspondent_name,
         local_tag_ids=local_tags,
         remote_tag_ids=remote_tags,
         pending_tag_names=pending_tag_names,
@@ -572,7 +601,11 @@ def get_local_document(
         "created": doc.created,
         "modified": doc.modified,
         "correspondent": doc.correspondent_id,
-        "correspondent_name": doc.correspondent.name if doc.correspondent else None,
+        "correspondent_name": (
+            doc.correspondent.name
+            if doc.correspondent
+            else (pending_correspondent_name or None)
+        ),
         "document_type": doc.document_type_id,
         "document_type_name": doc.document_type.name if doc.document_type else None,
         "tags": local_tags,
@@ -584,6 +617,7 @@ def get_local_document(
         "reviewed_at": reviewed_at_raw,
         "paperless_modified": remote_modified_raw,
         "pending_tag_names": pending_tag_names,
+        "pending_correspondent_name": pending_correspondent_name or None,
         "has_embeddings": has_embeddings,
         "embedding_source": embedding_source,
         "embedding_chunk_count": embedding_chunk_count,
