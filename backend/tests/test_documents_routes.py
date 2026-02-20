@@ -103,6 +103,27 @@ def test_process_missing_queue_disabled(api_client):
     assert payload["dry_run"] is True
 
 
+def test_process_missing_rejects_invalid_embeddings_mode(api_client, monkeypatch):
+    from app.routes import documents_actions
+
+    monkeypatch.setattr(documents_actions, "require_queue_enabled", lambda _settings: True)
+    response = api_client.post(
+        "/documents/process-missing",
+        params={"embeddings_mode": "invalid"},
+    )
+    assert response.status_code == 400
+    assert "Invalid embeddings_mode" in str(response.json().get("detail"))
+
+
+def test_process_missing_rejects_invalid_limit(api_client, monkeypatch):
+    from app.routes import documents_actions
+
+    monkeypatch.setattr(documents_actions, "require_queue_enabled", lambda _settings: True)
+    response = api_client.post("/documents/process-missing", params={"limit": 0})
+    assert response.status_code == 400
+    assert "limit must be >= 1" in str(response.json().get("detail"))
+
+
 def test_get_document_suggestions_empty(api_client, monkeypatch):
     from app.services import paperless
     from app.services import meta_cache
@@ -128,6 +149,37 @@ def test_cleanup_texts_queue_disabled(api_client):
     payload = response.json()
     assert payload["queued"] is False
     assert payload["enqueued"] == 0
+
+
+def test_cleanup_texts_rejects_invalid_source(api_client):
+    response = api_client.post(
+        "/documents/cleanup-texts",
+        json={"enqueue": False, "source": "invalid_source"},
+    )
+    assert response.status_code == 400
+    assert "Invalid source" in str(response.json().get("detail"))
+
+
+def test_enqueue_document_task_rejects_invalid_task(api_client):
+    response = api_client.post(
+        "/documents/1/operations/enqueue-task",
+        json={"task": "invalid_task"},
+    )
+    assert response.status_code == 400
+    assert "Invalid task" in str(response.json().get("detail"))
+
+
+def test_enqueue_document_task_queue_disabled(api_client):
+    response = api_client.post(
+        "/documents/1/operations/enqueue-task",
+        json={"task": "sync"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is False
+    assert payload["enqueued"] == 0
+    assert payload["task"] == "sync"
+    assert payload["doc_id"] == 1
 
 
 def test_list_documents_review_status_unreviewed(api_client, monkeypatch):
@@ -410,6 +462,38 @@ def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch)
     vision_item = next((item for item in payload["items"] if item["task"] == "vision_ocr"), None)
     assert vision_item is not None
     assert vision_item["status"] in {"running", "missing", "done", "failed", "retrying"}
+
+
+def test_document_pipeline_fanout_rejects_invalid_embeddings_mode(api_client):
+    _insert_local_document(doc_id=22, title="Fanout Invalid Mode", created="2026-02-10T10:00:00+00:00")
+    response = api_client.get(
+        "/documents/22/pipeline-fanout",
+        params={"embeddings_mode": "invalid"},
+    )
+    assert response.status_code == 400
+    assert "Invalid embeddings_mode" in str(response.json().get("detail"))
+
+
+def test_continue_document_pipeline_rejects_invalid_embeddings_mode(api_client):
+    _insert_local_document(doc_id=23, title="Continue Invalid Mode", created="2026-02-10T10:00:00+00:00")
+    response = api_client.post(
+        "/documents/23/pipeline/continue",
+        params={"embeddings_mode": "invalid"},
+    )
+    assert response.status_code == 400
+    assert "Invalid embeddings_mode" in str(response.json().get("detail"))
+
+
+def test_continue_document_pipeline_queue_disabled(api_client):
+    _insert_local_document(doc_id=24, title="Continue Queue Disabled", created="2026-02-10T10:00:00+00:00")
+    response = api_client.post("/documents/24/pipeline/continue", params={"dry_run": True})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is False
+    assert payload["doc_id"] == 24
+    assert payload["dry_run"] is True
+    assert payload["missing_tasks"] == 0
+    assert payload["enqueued"] == 0
 
 
 def _insert_local_note(doc_id: int, note: str, note_id: int = -1):

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
-from typing import Any
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import and_, delete, or_
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -21,10 +19,10 @@ from app.models import (
     DocumentPageText,
     DocumentSectionSummary,
     DocumentSuggestion,
-    TaskRun,
 )
 from app.services.queue import enqueue_task, enqueue_task_sequence
 from app.services.embeddings import delete_points_for_doc
+from app.services.pipeline_fanout import build_pipeline_fanout_items, latest_task_runs_by_signature
 from app.services.page_text_store import reclean_page_texts
 from app.services.queue_tasks import build_task_sequence
 from app.services.process_missing import ProcessMissingOptions, process_missing_documents
@@ -111,98 +109,6 @@ class CleanupTextsRequest(BaseModel):
     source: str | None = None
     clear_first: bool = False
     enqueue: bool = True
-
-
-def _latest_task_runs_by_signature(
-    db: Session,
-    *,
-    doc_id: int,
-    signatures: set[tuple[str, str]] | None = None,
-) -> dict[tuple[str, str], TaskRun]:
-    query = db.query(TaskRun).filter(TaskRun.doc_id == int(doc_id))
-    if signatures:
-        signature_filters = []
-        for task, source in signatures:
-            if not task:
-                continue
-            if source:
-                signature_filters.append(and_(TaskRun.task == task, TaskRun.source == source))
-            else:
-                signature_filters.append(
-                    and_(TaskRun.task == task, or_(TaskRun.source.is_(None), TaskRun.source == ""))
-                )
-        if signature_filters:
-            query = query.filter(or_(*signature_filters))
-    latest: dict[tuple[str, str], TaskRun] = {}
-    for row in query.order_by(TaskRun.id.desc()).yield_per(200):
-        key = (str(row.task or "").strip(), str(row.source or "").strip())
-        if key in latest:
-            continue
-        latest[key] = row
-        if signatures and len(latest) >= len(signatures):
-            break
-    return latest
-
-
-def _fanout_status_from_state(*, is_missing: bool, run: TaskRun | None) -> str:
-    if run and str(run.status or "") in {"running", "retrying"}:
-        return str(run.status)
-    if run and str(run.status or "") == "failed":
-        return "failed"
-    if is_missing:
-        return "missing"
-    return "done"
-
-
-def _build_pipeline_fanout_items(
-    *,
-    db: Session,
-    doc: Document,
-    settings: Settings,
-    options: PipelineOptions,
-    evaluation: dict[str, Any],
-    include_sync: bool,
-) -> list[dict[str, Any]]:
-    planned = post_sync_followup_tasks(int(doc.id), settings=settings, options=options)
-    if include_sync:
-        planned = [{"doc_id": int(doc.id), "task": "sync"}] + planned
-    planned = dedupe_tasks(planned)
-    missing_signatures = {task_signature(task) for task in evaluation.get("tasks", [])}
-    planned_signatures = {task_signature(task) for task in planned}
-    latest_runs = _latest_task_runs_by_signature(db, doc_id=int(doc.id), signatures=planned_signatures)
-
-    items: list[dict[str, Any]] = []
-    for index, task in enumerate(planned, start=1):
-        signature = task_signature(task)
-        run = latest_runs.get(signature)
-        checkpoint = None
-        if run and run.checkpoint_json:
-            raw = str(run.checkpoint_json).strip()
-            if raw.startswith(("{", "[")):
-                try:
-                    parsed = json.loads(raw)
-                except Exception:
-                    parsed = None
-                if isinstance(parsed, dict):
-                    checkpoint = parsed
-        status = _fanout_status_from_state(is_missing=signature in missing_signatures, run=run)
-        detail = f"{task['task']} ({task.get('source') or 'default'})"
-        items.append(
-            {
-                "order": index,
-                "task": str(task.get("task") or ""),
-                "source": task.get("source"),
-                "status": status,
-                "detail": detail,
-                "checkpoint": checkpoint,
-                "error_type": run.error_type if run else None,
-                "error_message": run.error_message if run else None,
-                "last_started_at": run.started_at if run else None,
-                "last_finished_at": run.finished_at if run else None,
-            }
-        )
-    return items
-
 
 def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentSuggestion))
@@ -401,13 +307,18 @@ def get_document_pipeline_fanout(
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     if include_sync and not _sync_ok(settings, doc):
         evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation.get("tasks", []))
-    items = _build_pipeline_fanout_items(
-        db=db,
-        doc=doc,
-        settings=settings,
-        options=options,
-        evaluation=evaluation,
-        include_sync=include_sync,
+    planned = post_sync_followup_tasks(int(doc.id), settings=settings, options=options)
+    if include_sync:
+        planned = [{"doc_id": int(doc.id), "task": "sync"}] + planned
+    planned = dedupe_tasks(planned)
+    missing_signatures = {task_signature(task) for task in evaluation.get("tasks", [])}
+    planned_signatures = {task_signature(task) for task in planned}
+    latest_runs = latest_task_runs_by_signature(db, doc_id=int(doc.id), signatures=planned_signatures)
+    items = build_pipeline_fanout_items(
+        planned_tasks=planned,
+        missing_signatures=missing_signatures,
+        latest_runs=latest_runs,
+        signature_for_task=task_signature,
     )
     return {
         "doc_id": int(doc_id),
