@@ -227,6 +227,15 @@ def test_mark_reviewed_updates_local_review_status(api_client, monkeypatch):
     assert after_payload["reviewed_at"]
 
 
+def test_mark_reviewed_returns_missing_when_document_not_local(api_client):
+    response = api_client.post("/documents/9999/review/mark")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "missing"
+    assert payload["doc_id"] == 9999
+    assert payload["reviewed_at"] is None
+
+
 def test_list_documents_review_status_needs_review(api_client, monkeypatch):
     from app.services import paperless
 

@@ -250,12 +250,15 @@ import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import {
+  detailTabs,
+  useDocumentDetailRouteState,
+} from '../composables/useDocumentDetailRouteState'
+import {
   fanoutStatusClass,
   processingBadgeClass,
   processingStateLabel,
   useDocumentProcessingState,
 } from '../composables/useDocumentProcessingState'
-import { consumeCitationJump } from '../services/citationJump'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
 import {
@@ -263,28 +266,23 @@ import {
   embeddingTelemetryLabel,
   errorMessage,
   formatDocDate,
-  parseBBox,
-  queryToRecord,
   toDateTime,
   toTitle,
-  type BBox,
 } from '../utils/documentDetail'
 
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
-const returnToDocumentsPath = computed(() => {
-  const raw = route.query.return_to
-  const encoded = Array.isArray(raw) ? raw[0] : raw
-  if (typeof encoded !== 'string' || !encoded.trim()) return '/documents'
-  try {
-    const decoded = decodeURIComponent(encoded)
-    if (decoded.startsWith('/documents')) return decoded
-  } catch {
-    // ignore malformed return path
-  }
-  return '/documents'
-})
+const {
+  activeTab,
+  pdfPage,
+  pdfHighlights,
+  returnToDocumentsPath,
+  syncPdfFromQuery,
+  syncTabFromQuery,
+  syncTabToQuery,
+  onPdfPageChange,
+} = useDocumentDetailRouteState(route, router)
 
 const toastStore = useToastStore()
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
@@ -351,16 +349,7 @@ const {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
-const pdfPage = ref(1)
-const pdfHighlights = ref<BBox[]>([])
-type DetailTabKey = 'meta' | 'text' | 'suggestions' | 'pages' | 'operations'
-const tabs: Array<{ key: DetailTabKey; label: string }> = [
-  { key: 'meta', label: 'Metadata' },
-  { key: 'text', label: 'Text & quality' },
-  { key: 'suggestions', label: 'Suggestions' },
-  { key: 'pages', label: 'Pages' },
-  { key: 'operations', label: 'Operations' },
-]
+const tabs = detailTabs
 type OperationAction = {
   task: Extract<
     DocumentOperationTaskPayload['task'],
@@ -411,7 +400,6 @@ const operationActions: OperationAction[] = [
     tooltip: 'Generates suggestion fields from vision OCR text.',
   },
 ]
-const activeTab = ref<DetailTabKey>('meta')
 const reloadingAll = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
@@ -582,53 +570,6 @@ const headerMetaLine = computed(() => {
   const reviewPart = reviewedAt ? `${reviewStatus} (${reviewedAt})` : reviewStatus
   return `Document ID: ${id}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
-
-const syncPdfFromQuery = () => {
-  const jump = consumeCitationJump(route.query.jump)
-  if (route.query.jump !== undefined) {
-    const nextQuery = queryToRecord(route.query, ['jump'])
-    void router.replace({ query: nextQuery })
-  }
-  const pageValue = Number(jump?.page ?? route.query.page)
-  if (Number.isFinite(pageValue) && pageValue > 0) {
-    pdfPage.value = pageValue
-  }
-  const bbox = parseBBox(jump?.bbox ?? route.query.bbox)
-  pdfHighlights.value = bbox ? [bbox] : []
-}
-
-const normalizeTabQuery = (value: unknown): DetailTabKey => {
-  const raw = Array.isArray(value) ? value[0] : value
-  if (raw === 'text' || raw === 'suggestions' || raw === 'pages' || raw === 'operations') {
-    return raw
-  }
-  return 'meta'
-}
-
-const syncTabFromQuery = () => {
-  activeTab.value = normalizeTabQuery(route.query.tab)
-}
-
-const syncTabToQuery = async () => {
-  const current = normalizeTabQuery(route.query.tab)
-  if (current === activeTab.value) return
-  const nextQuery = queryToRecord(route.query)
-  if (activeTab.value === 'meta') {
-    delete nextQuery.tab
-  } else {
-    nextQuery.tab = activeTab.value
-  }
-  await router.replace({ query: nextQuery })
-}
-
-const onPdfPageChange = (value: number) => {
-  pdfPage.value = value
-  const nextQuery = queryToRecord(route.query)
-  nextQuery.page = String(value)
-  delete nextQuery.bbox
-  router.replace({ query: nextQuery })
-  pdfHighlights.value = []
-}
 
 const navigateBackToDocuments = async () => {
   await router.push(returnToDocumentsPath.value)
