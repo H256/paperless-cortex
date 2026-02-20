@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import Any
 import logging
 
@@ -28,6 +27,7 @@ from app.services.queue import enqueue_task, enqueue_task_sequence
 from app.services.embeddings import delete_points_for_doc
 from app.services.page_text_store import reclean_page_texts
 from app.services.queue_tasks import build_task_sequence
+from app.services.process_missing import ProcessMissingOptions, process_missing_documents
 from app.services.pipeline_planner import (
     PipelineOptions,
     collect_pipeline_cache,
@@ -54,7 +54,7 @@ from app.api_models import (
     ProcessMissingResponse,
     ResetIntelligenceResponse,
 )
-from app.routes.documents_common import parse_iso, should_skip_doc
+from app.routes.documents_common import parse_iso
 from app.routes.queue_guard import require_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -252,26 +252,8 @@ def process_missing(
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     if limit is not None and limit < 1:
         raise HTTPException(status_code=400, detail="limit must be >= 1")
-    if include_sync:
-        run_sync_documents(
-            page_size=200,
-            incremental=True,
-            embed=False,
-            page=1,
-            page_only=False,
-            force_embed=False,
-            mark_missing=True,
-            insert_only=True,
-            settings=settings,
-            db=db,
-        )
-
-    docs_query = db.query(Document)
-    if include_vision_ocr:
-        docs_query = docs_query.order_by(Document.page_count.is_(None).asc(), Document.page_count.asc(), Document.id.asc())
-    else:
-        docs_query = docs_query.order_by(Document.id.asc())
-    options = PipelineOptions(
+    options = ProcessMissingOptions(
+        dry_run=dry_run,
         include_sync=include_sync,
         include_evidence_index=include_evidence_index,
         include_vision_ocr=include_vision_ocr,
@@ -283,135 +265,15 @@ def process_missing(
         include_suggestions_paperless=include_suggestions_paperless,
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
+        limit=limit,
     )
-
-    enqueued_docs = 0
-    enqueued_tasks = 0
-    missing_docs = 0
-    missing_vision = 0
-    missing_embeddings = 0
-    missing_embeddings_paperless = 0
-    missing_embeddings_vision = 0
-    missing_page_notes = 0
-    missing_summary_hier = 0
-    missing_evidence_index = 0
-    missing_sugg_p = 0
-    missing_sugg_v = 0
-    checked_docs = 0
-    selected_for_run = 0
-    missing_by_step = {"paperless": 0, "vision": 0, "large": 0}
-    preview_docs: list[dict[str, Any]] = []
-    preview_docs_limit = 20
-    batch_docs: list[Document] = []
-    batch_size = 250
-
-    def _process_batch(docs_batch: list[Document]) -> None:
-        nonlocal checked_docs
-        nonlocal missing_docs
-        nonlocal missing_vision
-        nonlocal missing_embeddings
-        nonlocal missing_embeddings_paperless
-        nonlocal missing_embeddings_vision
-        nonlocal missing_page_notes
-        nonlocal missing_summary_hier
-        nonlocal missing_evidence_index
-        nonlocal missing_sugg_p
-        nonlocal missing_sugg_v
-        nonlocal selected_for_run
-        nonlocal enqueued_docs
-        nonlocal enqueued_tasks
-        if not docs_batch:
-            return
-        cache = collect_pipeline_cache(db, doc_ids={int(doc.id) for doc in docs_batch})
-        for doc in docs_batch:
-            if should_skip_doc(doc):
-                continue
-            checked_docs += 1
-            evaluation = evaluate_doc_pipeline(
-                doc=doc,
-                settings=settings,
-                cache=cache,
-                options=options,
-            )
-            tasks = evaluation["tasks"]
-            if evaluation["needs_vision"]:
-                missing_vision += 1
-            if evaluation["needs_embeddings"]:
-                missing_embeddings += 1
-                if evaluation["needs_embeddings_vision"]:
-                    missing_embeddings_vision += 1
-                if evaluation["needs_embeddings_paperless"]:
-                    missing_embeddings_paperless += 1
-            if options.include_page_notes and evaluation["needs_page_notes"]:
-                missing_page_notes += 1
-            if evaluation["needs_summary_hierarchical"]:
-                missing_summary_hier += 1
-            if evaluation["needs_evidence_index"]:
-                missing_evidence_index += 1
-            if evaluation["needs_suggestions_paperless"]:
-                missing_sugg_p += 1
-            if evaluation["needs_suggestions_vision"]:
-                missing_sugg_v += 1
-            missing_steps: list[str] = []
-            if evaluation["needs_embeddings_paperless"] or evaluation["needs_suggestions_paperless"]:
-                missing_steps.append("paperless")
-                missing_by_step["paperless"] += 1
-            if (
-                evaluation["needs_vision"]
-                or evaluation["needs_embeddings_vision"]
-                or evaluation["needs_suggestions_vision"]
-            ):
-                missing_steps.append("vision")
-                missing_by_step["vision"] += 1
-            if evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]:
-                missing_steps.append("large")
-                missing_by_step["large"] += 1
-            if tasks:
-                missing_docs += 1
-                if len(preview_docs) < preview_docs_limit:
-                    preview_docs.append(
-                        {
-                            "doc_id": int(doc.id),
-                            "title": str(doc.title or f"Document {doc.id}"),
-                            "missing_steps": missing_steps,
-                            "missing_tasks": [str(task.get("task") or "") for task in tasks if isinstance(task, dict)],
-                        }
-                    )
-            if limit is not None and selected_for_run >= limit:
-                continue
-            if tasks:
-                selected_for_run += 1
-                if not dry_run:
-                    enqueued_docs += 1
-                    enqueued_tasks += enqueue_task_sequence(settings, tasks)
-
-    for doc in docs_query.yield_per(batch_size):
-        batch_docs.append(doc)
-        if len(batch_docs) >= batch_size:
-            _process_batch(batch_docs)
-            batch_docs = []
-    _process_batch(batch_docs)
-
-    return {
-        "enabled": True,
-        "docs": checked_docs,
-        "missing_docs": missing_docs,
-        "missing_vision_ocr": missing_vision,
-        "missing_embeddings": missing_embeddings,
-        "missing_embeddings_paperless": missing_embeddings_paperless,
-        "missing_embeddings_vision": missing_embeddings_vision,
-        "missing_page_notes": missing_page_notes,
-        "missing_summary_hierarchical": missing_summary_hier,
-        "missing_evidence_index": missing_evidence_index,
-        "missing_suggestions_paperless": missing_sugg_p,
-        "missing_suggestions_vision": missing_sugg_v,
-        "missing_by_step": missing_by_step,
-        "preview_docs": preview_docs,
-        "selected": selected_for_run,
-        "enqueued": enqueued_docs,
-        "tasks": enqueued_tasks,
-        "dry_run": dry_run,
-    }
+    return process_missing_documents(
+        settings=settings,
+        db=db,
+        options=options,
+        run_sync_documents=run_sync_documents,
+        enqueue_task_sequence=enqueue_task_sequence,
+    )
 
 
 def _sync_ok(settings: Settings, doc: Document) -> bool:

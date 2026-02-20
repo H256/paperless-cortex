@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 
 from sqlalchemy.exc import PendingRollbackError
@@ -10,13 +9,10 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import TaskRun
+from app.services.time_utils import utc_now_iso
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _is_missing_task_runs_table_error(exc: Exception) -> bool:
@@ -103,7 +99,7 @@ def create_task_run(
     worker_id: str | None,
     attempt: int = 1,
 ) -> TaskRun:
-    timestamp = _now_iso()
+    timestamp = utc_now_iso()
     row = TaskRun(
         doc_id=doc_id,
         task=task,
@@ -150,7 +146,7 @@ def finish_task_run(
         row = db.get(TaskRun, run_id)
         if not row:
             return
-        timestamp = _now_iso()
+        timestamp = utc_now_iso()
         row.status = status
         row.duration_ms = duration_ms
         row.error_type = error_type
@@ -181,7 +177,7 @@ def update_task_run_checkpoint(
         if not row:
             return
         row.checkpoint_json = payload
-        row.updated_at = _now_iso()
+        row.updated_at = utc_now_iso()
         db.commit()
 
     _run_task_runs_operation(

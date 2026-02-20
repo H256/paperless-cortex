@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -14,7 +13,6 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import (
     Correspondent,
-    Document,
     DocumentNote,
     DocumentOcrScore,
     DocumentPendingCorrespondent,
@@ -34,6 +32,7 @@ from app.services.note_ids import next_local_note_id
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
 from app.services.suggestions import generate_field_variants, generate_normalized_suggestions, merge_suggestions
 from app.services.text_pages import get_page_text_layers
+from app.services.time_utils import utc_now_iso
 from app.services.json_utils import parse_json_object
 from app.services.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
 from app.api_models import (
@@ -69,10 +68,6 @@ class ApplySuggestionToDocument(BaseModel):
     source: str | None = None
     field: str
     value: object
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 @router.get("/{doc_id}/suggestions", response_model=SuggestionsResponse)
@@ -456,20 +451,16 @@ def apply_suggestion_to_document(
     value = payload.value
     if field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
-    old_value = None
     updated = False
     details: dict[str, object] = {}
 
     if field == "title":
-        old_value = doc.title
         doc.title = str(value).strip() if value is not None else None
         updated = True
     elif field == "date":
-        old_value = doc.document_date
         doc.document_date = str(value).strip() if value is not None else None
         updated = True
     elif field == "correspondent":
-        old_value = doc.correspondent_id
         pending_row = (
             db.query(DocumentPendingCorrespondent)
             .filter(DocumentPendingCorrespondent.doc_id == doc_id)
@@ -499,13 +490,13 @@ def apply_suggestion_to_document(
                         DocumentPendingCorrespondent(
                             doc_id=doc_id,
                             name=name,
-                            updated_at=_utc_now_iso(),
+                            updated_at=utc_now_iso(),
                         )
                     )
                     updated = True
                 elif (pending_row.name or "").strip() != name:
                     pending_row.name = name
-                    pending_row.updated_at = _utc_now_iso()
+                    pending_row.updated_at = utc_now_iso()
                     updated = True
                 details["unmatched"] = name
         else:
@@ -514,7 +505,6 @@ def apply_suggestion_to_document(
                 db.delete(pending_row)
             updated = True
     elif field == "tags":
-        old_value = [tag.name for tag in doc.tags]
         pending_row = (
             db.query(DocumentPendingTag)
             .filter(DocumentPendingTag.doc_id == doc_id)
@@ -547,14 +537,14 @@ def apply_suggestion_to_document(
                     DocumentPendingTag(
                         doc_id=doc_id,
                         names_json=names_payload,
-                        updated_at=_utc_now_iso(),
+                        updated_at=utc_now_iso(),
                     )
                 )
                 updated = True
             else:
                 if (pending_row.names_json or "") != names_payload:
                     pending_row.names_json = names_payload
-                    pending_row.updated_at = _utc_now_iso()
+                    pending_row.updated_at = utc_now_iso()
                     updated = True
         elif pending_row is not None:
             db.delete(pending_row)
@@ -584,16 +574,15 @@ def apply_suggestion_to_document(
                 .first()
             )
             if existing_note:
-                old_value = existing_note.note
                 existing_note.note = marker_text
-                existing_note.created = datetime.now(timezone.utc).isoformat()
+                existing_note.created = utc_now_iso()
                 updated = True
             else:
                 note = DocumentNote(
                     id=next_local_note_id(db),
                     document_id=doc_id,
                     note=marker_text,
-                    created=datetime.now(timezone.utc).isoformat(),
+                    created=utc_now_iso(),
                 )
                 db.add(note)
                 updated = True
