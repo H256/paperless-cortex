@@ -241,11 +241,12 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
-import { markDocumentReviewed, type DocumentOperationTaskPayload } from '../services/documents'
+import { type DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useDocumentWriteback } from '../composables/useDocumentWriteback'
+import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
 import {
@@ -412,7 +413,6 @@ const operationActions: OperationAction[] = [
 ]
 const activeTab = ref<DetailTabKey>('meta')
 const reloadingAll = ref(false)
-const reviewMarking = ref(false)
 const docCleanupClearFirst = ref(false)
 const docOpsMessage = ref('')
 const resetConfirmOpen = ref(false)
@@ -537,6 +537,7 @@ const canMarkReviewed = computed(
     !document.value?.local_overrides &&
     String(document.value?.review_status || '').toLowerCase() !== 'reviewed',
 )
+const { reviewMarking, markReviewed } = useDocumentReview(computed(() => id))
 
 const rows = computed(() => {
   if (!document.value) return []
@@ -635,9 +636,8 @@ const navigateBackToDocuments = async () => {
 
 const markReviewedAction = async () => {
   if (!canMarkReviewed.value || reviewMarking.value) return
-  reviewMarking.value = true
   try {
-    const result = await markDocumentReviewed(id)
+    const result = await markReviewed()
     if (result.status === 'missing') {
       toastStore.push('Document not found locally.', 'warning', 'Review', 2200)
       return
@@ -646,8 +646,6 @@ const markReviewedAction = async () => {
     toastStore.push('Document marked as reviewed.', 'success', 'Review', 1800)
   } catch (err: unknown) {
     toastStore.push(errorMessage(err, 'Failed to mark document reviewed'), 'danger', 'Review', 2800)
-  } finally {
-    reviewMarking.value = false
   }
 }
 
