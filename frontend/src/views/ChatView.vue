@@ -314,8 +314,6 @@
 import { BookOpen, MessageCircle, CornerDownRight, MessageSquarePlus, Trash2 } from 'lucide-vue-next'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import type { ChatCitation } from '../api/generated/model'
 import { buildDocumentCitationLink } from '../services/citationJump'
 import { useToastStore } from '../stores/toastStore'
@@ -325,6 +323,17 @@ import { useClipboardCopy } from '../composables/useClipboardCopy'
 import { useRouteQuerySync } from '../composables/useRouteQuerySync'
 import { useShareLink } from '../composables/useShareLink'
 import { useInputCommandHotkeys } from '../composables/useInputCommandHotkeys'
+import {
+  citationClass,
+  citationKey,
+  evidenceConfidence,
+  evidenceError,
+  evidenceStatus,
+  formatRelativeAge,
+  formatScore,
+  renderChatMarkdown,
+  shortConversationId,
+} from '../utils/chatPresentation'
 
 const {
   question,
@@ -399,102 +408,8 @@ const citationLink = (citation: ChatCitation) => {
   })
 }
 
-const citationKey = (citation: ChatCitation, idx: number) =>
-  `${citation.id ?? 'x'}-${citation.doc_id ?? 'doc'}-${citation.page ?? 'p'}-${idx}`
-
-const evidenceStatus = (citation: ChatCitation): string => {
-  return typeof citation.evidence_status === 'string' ? citation.evidence_status : ''
-}
-
-const evidenceConfidence = (citation: ChatCitation): string | null => {
-  const value = citation.evidence_confidence
-  if (typeof value !== 'number' || Number.isNaN(value)) return null
-  return value.toFixed(2)
-}
-
-const evidenceError = (citation: ChatCitation): string => {
-  return typeof citation.evidence_error === 'string' ? citation.evidence_error : ''
-}
-
-const citationClass = (citation: ChatCitation): string => {
-  const status = evidenceStatus(citation)
-  if (status === 'ok') {
-    return 'border-emerald-200 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:border-emerald-700'
-  }
-  if (status === 'no_match') {
-    return 'border-amber-200 hover:border-amber-300 dark:border-amber-900/50 dark:hover:border-amber-700'
-  }
-  if (status === 'error') {
-    return 'border-rose-200 hover:border-rose-300 dark:border-rose-900/50 dark:hover:border-rose-700'
-  }
-  return 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-500'
-}
-
-const renderMarkdown = (message: ChatMessage) => {
-  const escapeAttr = (value: string) =>
-    value
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-
-  const map = new Map<number, { tooltip: string; href: string }>()
-  ;(message.citations || []).forEach((cite) => {
-    const tooltip = `Doc ${cite.doc_id ?? 'n/a'} - Page ${cite.page ?? 'n/a'} - ${cite.source || 'unknown'}`
-    const href = cite.doc_id ? citationLink(cite) : ''
-    map.set(cite.id, { tooltip, href })
-  })
-  const withCitations = message.answer.replace(/\\[(\\d+)\\]/g, (match, rawId) => {
-    const id = Number(rawId)
-    const info = map.get(id)
-    if (!info) return match
-    if (!info.href) {
-      return `<sup class="chat-citation" title="${escapeAttr(info.tooltip)}">[${id}]</sup>`
-    }
-    return `<sup class="chat-citation" title="${escapeAttr(info.tooltip)}"><a href="${escapeAttr(info.href)}" class="chat-citation-link" target="_blank" rel="noopener noreferrer">[${id}]</a></sup>`
-  })
-  const html = marked.parse(withCitations) as string
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'a',
-      'p',
-      'strong',
-      'em',
-      'ul',
-      'ol',
-      'li',
-      'code',
-      'pre',
-      'blockquote',
-      'br',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'sup',
-    ],
-    ALLOWED_ATTR: ['href', 'title', 'class', 'target', 'rel'],
-    FORBID_TAGS: ['style', 'script'],
-    FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick'],
-    ALLOWED_URI_REGEXP: /^(https?:|mailto:|tel:|\/)/i,
-  })
-}
-
-const formatAge = (timestamp: number) => {
-  void now.value
-  const diff = Math.max(0, Date.now() - timestamp)
-  const seconds = Math.floor(diff / 1000)
-  if (seconds < 10) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
+const renderMarkdown = (message: ChatMessage) => renderChatMarkdown(message, citationLink)
+const formatAge = (timestamp: number) => formatRelativeAge(now.value, timestamp)
 
 let timer: number | null = null
 onMounted(() => {
@@ -506,18 +421,6 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) window.clearInterval(timer)
 })
-
-const formatScore = (score?: number | null) => {
-  if (score === undefined || score === null) return 'n/a'
-  return score.toFixed ? score.toFixed(3) : String(score)
-}
-
-const shortConversationId = (value: string) => {
-  const id = (value || '').trim()
-  if (!id) return ''
-  if (id.length <= 14) return id
-  return `${id.slice(0, 8)}...${id.slice(-4)}`
-}
 
 const copyConversationId = async () => {
   const value = (conversationId.value || '').trim()

@@ -95,7 +95,7 @@ jobs:
         run: |
           uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8001 > backend-smoke.log 2>&1 &
           for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:8001/api/health >/dev/null; then
+            if curl -fsS http://127.0.0.1:8001/api/documents/stats >/dev/null; then
               exit 0
             fi
             sleep 1
