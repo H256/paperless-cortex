@@ -24,6 +24,7 @@ from app.services import paperless
 from app.services.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
+    embed_text,
     make_point_id,
     upsert_points,
 )
