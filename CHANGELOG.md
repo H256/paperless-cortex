@@ -43,6 +43,7 @@ All granular implementation slices and refactors are tracked here.
 - `2272c10` test(detail): added unit tests for `useDocumentSuggestionsApply` (variant/apply flow, conditional reload matrix, and error mapping) and extended `DocumentDetailView` integration coverage to validate tab-query roundtrip behavior (`tab=operations` write + restore).
 - `3bd0f46` test(detail): expanded `useDocumentSuggestionsApply` coverage for empty-state conditional reload guards (no extra reload calls when optional data is absent), and added `DocumentDetailView` integration coverage for route-driven PDF sync (`?page=3&bbox=...` propagates to `PdfViewer` page/highlight props).
 - `76e28a0` test(detail): added Document Detail integration coverage for `jump` query cleanup (`router.replace` removes `jump` while preserving other keys) and tightened Vitest branch coverage threshold from `67` to `68` (coverage remains passing at ~`68.95%` branches).
+- `67718b1` test(coverage): added jsdom jump-token success-path coverage in `useDocumentDetailRouteState` (sessionStorage consume + query cleanup), added `onPdfPageChange` integration coverage in `DocumentDetailView` (`update:page` writes `page` and removes `bbox`), expanded branch-heavy utility coverage in `queueView`/`writebackPreview`, included `useDocumentSuggestionsApply.ts` in coverage-gated files, and ratcheted branch threshold to `69` (coverage now ~`77.21%` branches).
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
