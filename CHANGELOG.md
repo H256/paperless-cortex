@@ -42,6 +42,7 @@ All granular implementation slices and refactors are tracked here.
 - `b152307` refactor(detail/test): extracted suggestions apply/reload orchestration into `frontend/src/composables/useDocumentSuggestionsApply.ts` (variant-only, variant+apply, and conditional post-apply reload flow), added unit coverage for `useDocumentDetailOperations` messaging/paths, and added `DocumentDetailView` integration coverage verifying `?tab=operations` renders the operations section.
 - `2272c10` test(detail): added unit tests for `useDocumentSuggestionsApply` (variant/apply flow, conditional reload matrix, and error mapping) and extended `DocumentDetailView` integration coverage to validate tab-query roundtrip behavior (`tab=operations` write + restore).
 - `3bd0f46` test(detail): expanded `useDocumentSuggestionsApply` coverage for empty-state conditional reload guards (no extra reload calls when optional data is absent), and added `DocumentDetailView` integration coverage for route-driven PDF sync (`?page=3&bbox=...` propagates to `PdfViewer` page/highlight props).
+- `76e28a0` test(detail): added Document Detail integration coverage for `jump` query cleanup (`router.replace` removes `jump` while preserving other keys) and tightened Vitest branch coverage threshold from `67` to `68` (coverage remains passing at ~`68.95%` branches).
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
