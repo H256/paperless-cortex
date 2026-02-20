@@ -4,7 +4,7 @@ import os
 import base64
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 import logging
 import math
 
@@ -14,6 +14,9 @@ from app.services.guard import ensure_vision_llm_ready
 from app.services.page_types import PageText
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    import fitz
 
 DEFAULT_VISION_PROMPT = "Extract all readable text from this page image. Return only the text."
 
@@ -52,7 +55,7 @@ class VisionPage:
 
 
 def _render_page_image(
-    doc: "fitz.Document",
+    doc: fitz.Document,
     page_index: int,
     *,
     max_dim: int,

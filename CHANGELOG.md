@@ -3,6 +3,34 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-20 (branch: codex-20260220-backend-routes-tests-refactor)
+
+### Backend robustness / SRP cleanup
+- `63edf43` refactor(documents-actions): extracted pipeline fanout run/status/item assembly from `app/routes/documents_actions.py` into new `app/services/pipeline_fanout.py` (`latest_task_runs_by_signature`, `fanout_status_from_run`, `build_pipeline_fanout_items`) to reduce route complexity and tighten SRP.
+
+### Tests
+- `63edf43` test(documents-routes): added edge-case coverage in `backend/tests/test_documents_routes.py` for invalid `embeddings_mode`/`limit`, invalid cleanup source, invalid enqueue task, enqueue queue-disabled response, pipeline fanout invalid mode, and continue-pipeline invalid mode + queue-disabled behavior.
+- `63edf43` test(writeback-jobs): added edge-case coverage in `backend/tests/test_writeback_jobs_routes.py` for invalid doc-id job/execute-now requests, no-change job creation rejection, missing job 404, running-job delete conflict, and missing `writeback_jobs` table 503 handling.
+- `63edf43` test(services): added `backend/tests/test_pipeline_fanout_service.py` covering fanout status mapping, checkpoint parsing behavior, and latest task-run selection by signature.
+- `d5b77a1` refactor(writeback): extracted execute-now/job execution orchestration from `backend/app/routes/writeback_dryrun.py` into `backend/app/services/writeback_execution.py` (`collect_changed_calls`, `execute_calls_with_audit`, `run_writeback_job_execution`) and kept route endpoints as thin coordinators.
+- `a445da7` refactor(writeback-preview): extracted writeback preview/candidate assembly from `backend/app/routes/writeback_dryrun.py` into `backend/app/services/writeback_preview.py` (`metadata_maps`, `build_writeback_item`, `preview_for_doc_ids`, `local_writeback_candidate_doc_ids`) to further reduce route-module coupling.
+- `a445da7` refactor(worker): extracted checkpoint/resume helpers into `backend/app/services/worker_checkpoint.py` and rewired `backend/app/worker.py` to consume the shared service helpers.
+- `d5b77a1` test(writeback-jobs): expanded negative-path coverage in `backend/tests/test_writeback_jobs_routes.py` for real-execution disabled paths (`/jobs/{id}/execute`, `/jobs/execute-pending`), missing-table 503s for execute/history, and history filtering/limit clamp behavior.
+- `d5b77a1` test(worker): added integration-style checkpoint/retry lineage coverage in `backend/tests/test_worker_retry_checkpoint_sequence.py` validating resume propagation and per-task/source checkpoint isolation across mixed task sequences.
+- `a445da7` test(writeback-preview): added `backend/tests/test_writeback_preview_service.py` to cover changed-item assembly with pending metadata, batch/fallback remote fetch behavior, and candidate-id deduplication across audit/pending sources.
+- `a445da7` test(worker-checkpoint): moved checkpoint/resume-focused tests to the extracted service API (`backend/tests/test_worker_checkpoint_recovery.py`, `backend/tests/test_worker_resume_checkpoint.py`) and aligned retry-sequence integration test imports.
+- `d5b77a1` chore(lint): resolved backend Ruff issues across alembic/routes/services/worker modules (unused imports, E402 in alembic env bootstrap, and `fitz` type-check annotation guard); `ruff check` now passes cleanly.
+- `a445da7` chore(types): added backend dev dependency `mypy` and scoped type-check config in `backend/pyproject.toml` (strict checks for newly extracted services), then fixed reported issues in new services; `mypy` now passes for configured files.
+- `96c0a69` refactor(writeback-selection): extracted writeback field selection + call building from `backend/app/routes/writeback_dryrun.py` into `backend/app/services/writeback_selection.py` (`LocalWritebackSelection`, `normalize_changed_field`, `collect_local_selection`, `build_calls_for_item`).
+- `96c0a69` refactor(writeback-direct): extracted direct-execute conflict/sync/dispatch helpers into `backend/app/services/writeback_direct.py` (`build_writeback_conflicts`, `sync_local_field_from_paperless`, `resolve_direct_selection`, `execute_direct_selection`) and rewired route orchestration to service callbacks.
+- `96c0a69` test(writeback-services): added `backend/tests/test_writeback_selection_service.py` and `backend/tests/test_writeback_direct_service.py` covering call-building and conflict-resolution matrices (`skip`/`use_local`/`use_paperless`) plus tag-pending cleanup behavior.
+- `96c0a69` test(writeback-lifecycle): added end-to-end route regression in `backend/tests/test_writeback_jobs_routes.py` for create-job -> execute-pending -> history visibility, including mixed completed+failed job outcomes in one run.
+- `96c0a69` chore(types): broadened mypy scope in `backend/pyproject.toml` to include `app/routes/writeback_dryrun.py` and `app/worker.py` (incremental overrides), then fixed surfaced high-signal issues (optional-int conversion, iterables from dynamic payloads, and explicit cache typing) so configured mypy checks pass.
+- `2de7627` refactor(writeback-apply): extracted writeback apply/resolution logic from `backend/app/routes/writeback_dryrun.py` into `backend/app/services/writeback_apply.py` (`resolve_paperless_tag_ids`, `resolve_paperless_correspondent_id`, `execute_writeback_call`) and rewired route execution to the service.
+- `2de7627` test(writeback-apply): added `backend/tests/test_writeback_apply_service.py` covering PATCH/POST/DELETE apply paths, local metadata sync side effects, and invalid note-id delete error handling.
+- `2de7627` test(execute-direct): added route regression in `backend/tests/test_writeback_dryrun_routes.py` for full `use_paperless` conflict resolution across title/date/correspondent/tags/note to verify local DB sync behavior with zero remote write calls.
+- `2de7627` chore(types): expanded scoped mypy coverage to include `app/services/writeback_apply.py` and tightened service checks (`disallow_incomplete_defs=true` with route/worker override) while keeping full backend gates green.
+
 ## 2026-02-20 (branch: codex-20260220-backend-principles-pass)
 
 ### Backend robustness / SRP-DRY-KISS cleanup
@@ -43,6 +71,9 @@ All granular implementation slices and refactors are tracked here.
 - `2272c10` test(detail): added unit tests for `useDocumentSuggestionsApply` (variant/apply flow, conditional reload matrix, and error mapping) and extended `DocumentDetailView` integration coverage to validate tab-query roundtrip behavior (`tab=operations` write + restore).
 - `3bd0f46` test(detail): expanded `useDocumentSuggestionsApply` coverage for empty-state conditional reload guards (no extra reload calls when optional data is absent), and added `DocumentDetailView` integration coverage for route-driven PDF sync (`?page=3&bbox=...` propagates to `PdfViewer` page/highlight props).
 - `76e28a0` test(detail): added Document Detail integration coverage for `jump` query cleanup (`router.replace` removes `jump` while preserving other keys) and tightened Vitest branch coverage threshold from `67` to `68` (coverage remains passing at ~`68.95%` branches).
+- `67718b1` test(coverage): added jsdom jump-token success-path coverage in `useDocumentDetailRouteState` (sessionStorage consume + query cleanup), added `onPdfPageChange` integration coverage in `DocumentDetailView` (`update:page` writes `page` and removes `bbox`), expanded branch-heavy utility coverage in `queueView`/`writebackPreview`, included `useDocumentSuggestionsApply.ts` in coverage-gated files, and ratcheted branch threshold to `69` (coverage now ~`77.21%` branches).
+- `470bd8f` test(coverage): added `useDocumentDetailOperations` reset-confirm success/error coverage (modal open/close and message paths), added non-`Error` fallback coverage in `useDocumentSuggestionsApply`, added `DocumentDetailView` integration coverage that switching back to `Metadata` removes `tab` from query, and ratcheted branch threshold to `70` (coverage remains passing).
+- `619cd45` test(coverage): extended `useDocumentDetailOperations` with continue-error state reset coverage (wait/expiry reset on failure), added direct `onPdfPageChange` unit coverage in `useDocumentDetailRouteState`, added `DocumentDetailView` integration coverage for unknown query-key preservation across tab/page transitions, and ratcheted branch threshold to `71` (coverage remains passing at ~`77.21%` branches).
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 

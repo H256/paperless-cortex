@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { reactive } from 'vue'
 import { useDocumentDetailRouteState } from './useDocumentDetailRouteState'
@@ -46,5 +47,36 @@ describe('useDocumentDetailRouteState', () => {
     expect(state.pdfPage.value).toBe(7)
     expect(state.pdfHighlights.value).toEqual([[1, 2, 3, 4]])
     expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('consumes jump token from session storage and removes jump query key', () => {
+    const token = 'jump-123'
+    window.sessionStorage.setItem(
+      `paperless_citation_jump:${token}`,
+      JSON.stringify({
+        docId: 12,
+        page: 5,
+        bbox: '10,20,30,40',
+        createdAt: Date.now(),
+      }),
+    )
+    const { state, replace } = createHarness({ jump: token, keep: '1' })
+    state.syncPdfFromQuery()
+    expect(state.pdfPage.value).toBe(5)
+    expect(state.pdfHighlights.value).toEqual([[10, 20, 30, 40]])
+    expect(replace).toHaveBeenCalledWith({ query: { keep: '1' } })
+    expect(window.sessionStorage.getItem(`paperless_citation_jump:${token}`)).toBeNull()
+  })
+
+  it('onPdfPageChange updates page, removes bbox, and clears highlights', () => {
+    const { state, replace } = createHarness({ page: '2', bbox: '1,2,3,4', keep: '1' })
+    state.syncPdfFromQuery()
+    expect(state.pdfHighlights.value).toEqual([[1, 2, 3, 4]])
+
+    state.onPdfPageChange(9)
+
+    expect(state.pdfPage.value).toBe(9)
+    expect(state.pdfHighlights.value).toEqual([])
+    expect(replace).toHaveBeenCalledWith({ query: { page: '9', keep: '1' } })
   })
 })

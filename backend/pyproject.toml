@@ -19,6 +19,35 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "alembic>=1.13.2",
+    "mypy>=1.15.0",
     "pytest>=8.3.0",
     "ruff>=0.6.0",
 ]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+follow_imports = "skip"
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+files = [
+    "app/services/writeback_apply.py",
+    "app/services/writeback_execution.py",
+    "app/services/writeback_selection.py",
+    "app/services/writeback_direct.py",
+    "app/services/writeback_preview.py",
+    "app/services/worker_checkpoint.py",
+    "app/routes/writeback_dryrun.py",
+    "app/worker.py",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "app.routes.writeback_dryrun",
+    "app.worker",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false

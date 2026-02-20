@@ -112,6 +112,13 @@ describe('useDocumentSuggestionsApply', () => {
     expect(suggestionsError.value).toBe('persist failed')
   })
 
+  it('applyToDocument uses fallback message for non-Error throws', async () => {
+    const { composable, applySuggestionToDocument, suggestionsError } = createHarness()
+    applySuggestionToDocument.mockRejectedValueOnce('raw failure')
+    await composable.applyToDocument('vision_ocr', 'title', 'x')
+    expect(suggestionsError.value).toBe('Failed to apply suggestion to document')
+  })
+
   it('applyToDocument avoids optional reloads when suggestion/text/quality are empty', async () => {
     const {
       composable,
