@@ -30,8 +30,10 @@ ignore_missing_imports = true
 follow_imports = "skip"
 warn_unused_ignores = true
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
 check_untyped_defs = true
 files = [
+    "app/services/writeback_apply.py",
     "app/services/writeback_execution.py",
     "app/services/writeback_selection.py",
     "app/services/writeback_direct.py",
@@ -47,4 +49,5 @@ module = [
     "app.worker",
 ]
 disallow_untyped_defs = false
+disallow_incomplete_defs = false
 check_untyped_defs = false

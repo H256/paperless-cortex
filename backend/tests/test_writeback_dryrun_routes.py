@@ -5,7 +5,15 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Correspondent, Document, DocumentPendingCorrespondent, SuggestionAudit
+from app.models import (
+    Correspondent,
+    Document,
+    DocumentNote,
+    DocumentPendingCorrespondent,
+    DocumentPendingTag,
+    SuggestionAudit,
+    Tag,
+)
 
 
 def _insert_document(doc_id: int):
@@ -279,4 +287,97 @@ def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkey
         assert old_corr is not None
         assert new_corr is not None
         assert (new_corr.name or "").strip() == "Legacy Corr"
+
+
+def test_execute_direct_use_paperless_resolutions_sync_local_fields(api_client, monkeypatch):
+    from app.services import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        tag_a = Tag(id=3001, name="Remote-A")
+        tag_b = Tag(id=3002, name="Remote-B")
+        corr = Correspondent(id=3003, name="Remote Corr")
+        db.add(tag_a)
+        db.add(tag_b)
+        db.add(corr)
+        db.add(
+            Document(
+                id=1999,
+                title="Local title",
+                document_date="2025-01-01",
+                correspondent_id=None,
+            )
+        )
+        db.add(
+            DocumentPendingTag(
+                doc_id=1999,
+                names_json='["Pending-X"]',
+                updated_at="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.add(
+            DocumentPendingCorrespondent(
+                doc_id=1999,
+                name="Pending Corr",
+                updated_at="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.add(
+            DocumentNote(
+                id=-1999,
+                document_id=1999,
+                note="Local summary\nKI-Zusammenfassung",
+                created="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+    monkeypatch.setattr(
+        paperless,
+        "get_document_cached",
+        lambda _settings, _doc_id: {
+            "id": 1999,
+            "title": "Remote title",
+            "created": "2026-02-02",
+            "modified": "2026-02-20T11:00:00+00:00",
+            "correspondent": 3003,
+            "tags": [3001, 3002],
+            "notes": [{"id": 4001, "note": "Remote summary\nKI-Zusammenfassung"}],
+        },
+    )
+
+    response = api_client.post(
+        "/writeback/documents/1999/execute-direct",
+        json={
+            "known_paperless_modified": "2026-02-19T10:00:00+00:00",
+            "resolutions": {
+                "title": "use_paperless",
+                "issue_date": "use_paperless",
+                "correspondent": "use_paperless",
+                "tags": "use_paperless",
+                "note": "use_paperless",
+            },
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["calls_count"] == 0
+    assert payload["doc_ids"] == []
+
+    with Session(engine) as db:
+        doc = db.get(Document, 1999)
+        assert doc is not None
+        assert doc.title == "Remote title"
+        assert doc.document_date == "2026-02-02"
+        assert doc.correspondent_id == 3003
+        assert sorted([tag.id for tag in doc.tags]) == [3001, 3002]
+        pending_tags = db.query(DocumentPendingTag).filter(DocumentPendingTag.doc_id == 1999).one_or_none()
+        pending_corr = db.query(DocumentPendingCorrespondent).filter(DocumentPendingCorrespondent.doc_id == 1999).one_or_none()
+        assert pending_tags is None
+        assert pending_corr is None
+        ai_notes = db.query(DocumentNote).filter(DocumentNote.document_id == 1999).all()
+        ai_texts = [str(note.note or "") for note in ai_notes]
+        assert any("Remote summary" in text for text in ai_texts)
 
