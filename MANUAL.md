@@ -1,7 +1,7 @@
 # Paperless-NGX Cortex Manual
 
 ## 1. What this app is
-Paperless-NGX Cortex is a local intelligence layer for Paperless-ngx.
+Paperless-NGX Cortex is a local intelligence layer for Paperless-ngx. This manual expands on `README.md` with more detailed setup and operations guidance.
 
 - Paperless remains source-of-truth.
 - Cortex syncs, analyzes, embeds, and suggests locally.
@@ -9,12 +9,29 @@ Paperless-NGX Cortex is a local intelligence layer for Paperless-ngx.
 
 ## 2. Start the app (local development)
 
+### Prerequisites
+- Python `>=3.13` for the backend.
+- Node.js `>=18` for the frontend.
+- Paperless-ngx instance reachable by URL and API token.
+- Postgres, Redis, and Qdrant (local installs or Docker).
+- An OpenAI-compatible LLM endpoint (local or remote).
+
 ### Backend
 ```bash
 cd backend
 uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8000
+```
+
+### Backend (pip alternative)
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
 ```
 
 ### Worker (queue mode)
@@ -33,6 +50,7 @@ npm run dev
 ### Default dev URLs
 - Backend API: `http://localhost:8000`
 - Frontend: `http://localhost:5173`
+In Docker, the API is still `:8000`, and the frontend is served by the backend container on the same port unless you run the frontend dev server separately.
 
 ## 3. Alembic quick usage
 
@@ -65,6 +83,7 @@ docker compose -f docker-compose.app.yml up --build
 ```bash
 docker compose -f docker-compose.full.yml up --build
 ```
+You must set `LLM_BASE_URL` in `.env` before starting the full stack.
 
 ### Worker-only container
 ```bash
@@ -81,7 +100,23 @@ docker compose -f docker-compose.worker.yml up --build
   - `QDRANT_URL`
   - `LLM_BASE_URL`
 
-## 6. Main processing flow
+## 6. Database setup
+1. Create the database specified by `DATABASE_URL`.
+2. Run Alembic migrations.
+
+Example Postgres setup:
+```bash
+createdb paperless_intelligence
+createuser paperless
+```
+
+Apply migrations:
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+## 7. Main processing flow
 1. Sync docs from Paperless.
 2. Build/refresh OCR layers (paperless baseline, optional vision).
 3. Build embeddings (paperless/vision strategy).
@@ -90,7 +125,7 @@ docker compose -f docker-compose.worker.yml up --build
 6. Review locally.
 7. Write back manually when wanted.
 
-## 7. Page-by-page guide
+## 8. Page-by-page guide
 
 ### Dashboard (`/dashboard`)
 Purpose: high-level status and processing overview.
@@ -186,7 +221,7 @@ Use it for:
 - selecting processing strategy
 - enqueueing only missing pipeline steps
 
-## 8. Recommended daily workflow
+## 9. Recommended daily workflow
 1. Open `Documents` and filter to your review queue.
 2. Run `Continue processing` for missing work.
 3. Inspect in `Document Detail` (suggestions + timeline).
@@ -194,13 +229,13 @@ Use it for:
 5. Execute manual `Writeback` only for reviewed docs.
 6. Use `Queue`/`Logs` for failures.
 
-## 9. Troubleshooting quick checks
+## 10. Troubleshooting quick checks
 - API unreachable: verify backend running on `:8000`.
 - No processing movement: verify worker is running and queue enabled.
 - Missing embeddings/suggestions: run continue-processing and inspect fan-out in detail page.
 - Writeback unavailable: verify local changes/review status in detail page.
 
-## 10. Related docs
+## 11. Related docs
 - `README.md` - project overview and quick start
 - `agents.md` - current phase and high-level working state
 - `CHANGELOG.md` - granular change history with commit hashes
