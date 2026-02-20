@@ -36,6 +36,7 @@ All granular implementation slices and refactors are tracked here.
 - `87d772d` chore(api): regenerated backend/frontend OpenAPI artifacts (`backend/openapi.json`, `frontend/src/api/generated/**`) to include latest routes including `POST /documents/{doc_id}/review/mark`.
 - `fa3fe77` refactor(frontend): replaced manual review-mark fetch path with generated OpenAPI client + TanStack mutation (`frontend/src/composables/useDocumentReview.ts`) and moved streaming chat HTTP/SSE request handling into shared `frontend/src/services/chatStream.ts` while keeping generated stream URL helpers.
 - `3dda106` test(frontend): added dedicated coverage for `useDocumentReview` mutation flow and `chatStream` SSE parsing/error handling, expanded coverage include set to those modules, and raised core frontend thresholds to `lines/statements/functions: 82`, `branches: 67`.
+- `36242db` refactor(chat/ci/test): extracted Chat view presentation helpers into `frontend/src/utils/chatPresentation.ts` (+ unit tests) to reduce `ChatView` script coupling, switched backend-smoke workflow readiness from `/api/health` to `/api/documents/stats` to avoid static-mount shadowing drift, and added backend route coverage ensuring `POST /documents/{doc_id}/review/mark` updates local review status in `/documents/{doc_id}/local`.
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
