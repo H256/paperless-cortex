@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from app.config import load_settings
-from app.models import Base
+from app.config import load_settings  # noqa: E402
+from app.models import Base  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:

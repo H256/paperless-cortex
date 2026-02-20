@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import and_, func, or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.config import Settings
@@ -20,7 +20,6 @@ from app.models import (
     DocumentPageNote,
     DocumentPageText,
     DocumentSuggestion,
-    DocumentType,
     SuggestionAudit,
     Tag,
 )

@@ -21,7 +21,6 @@ from app.services.embeddings import (
 )
 from app.services.embedding_init import ensure_embedding_collection
 from app.services.page_texts_merge import collect_page_texts
-from app.services import paperless
 from app.services.queue import enqueue_task, queue_stats
 from app.services.sync_state import ensure_started, get_or_create_state, mark_running
 from app.api_models import (

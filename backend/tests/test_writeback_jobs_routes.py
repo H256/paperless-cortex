@@ -475,3 +475,106 @@ def test_writeback_jobs_list_returns_503_when_table_missing(api_client):
     response = api_client.get("/writeback/jobs")
     assert response.status_code == 503
     assert "Writeback jobs table is missing" in str(response.json().get("detail"))
+
+
+def test_writeback_job_execute_rejects_real_execution_when_disabled(api_client, monkeypatch):
+    from app.services import paperless
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "0")
+    _insert_document(560, "Local title 560")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": "Remote title 560",
+            "document_date": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    create_resp = api_client.post("/writeback/jobs", json={"doc_ids": [560]})
+    assert create_resp.status_code == 200
+    job_id = int(create_resp.json()["id"])
+
+    exec_resp = api_client.post(f"/writeback/jobs/{job_id}/execute", json={"dry_run": False})
+    assert exec_resp.status_code == 400
+    assert "WRITEBACK_EXECUTE_ENABLED=1" in str(exec_resp.json().get("detail"))
+
+
+def test_writeback_execute_pending_rejects_real_execution_when_disabled(api_client, monkeypatch):
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "0")
+    result = api_client.post("/writeback/jobs/execute-pending", json={"dry_run": False, "limit": 1})
+    assert result.status_code == 400
+    assert "WRITEBACK_EXECUTE_ENABLED=1" in str(result.json().get("detail"))
+
+
+def test_writeback_job_execute_returns_503_when_table_missing(api_client):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE writeback_jobs"))
+
+    response = api_client.post("/writeback/jobs/1/execute", json={"dry_run": True})
+    assert response.status_code == 503
+    assert "Writeback jobs table is missing" in str(response.json().get("detail"))
+
+
+def test_writeback_history_limit_zero_clamps_and_filters_statuses(api_client):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            WritebackJob(
+                status="pending",
+                dry_run=True,
+                docs_selected=1,
+                docs_changed=1,
+                calls_count=1,
+                doc_ids_json="[1]",
+                calls_json="[]",
+                created_at="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.add(
+            WritebackJob(
+                status="completed",
+                dry_run=True,
+                docs_selected=1,
+                docs_changed=1,
+                calls_count=1,
+                doc_ids_json="[2]",
+                calls_json="[]",
+                created_at="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.add(
+            WritebackJob(
+                status="failed",
+                dry_run=True,
+                docs_selected=1,
+                docs_changed=1,
+                calls_count=1,
+                doc_ids_json="[3]",
+                calls_json="[]",
+                created_at="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    response = api_client.get("/writeback/history", params={"limit": 0})
+    assert response.status_code == 200
+    payload = response.json()
+    assert isinstance(payload.get("items"), list)
+    statuses = {str(item.get("status") or "") for item in payload["items"]}
+    assert "pending" not in statuses
+    assert statuses.issubset({"completed", "failed"})
+
+
+def test_writeback_history_returns_503_when_table_missing(api_client):
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE writeback_jobs"))
+
+    response = api_client.get("/writeback/history")
+    assert response.status_code == 503
+    assert "Writeback jobs table is missing" in str(response.json().get("detail"))

@@ -20,7 +20,6 @@ from app.models import (
     DocumentPageText,
     DocumentSectionSummary,
     DocumentSuggestion,
-    SyncState,
     TaskRun,
 )
 from app.services import paperless
@@ -54,7 +53,6 @@ from app.services.queue import (
     is_paused,
     set_running_task,
     clear_running_task,
-    enqueue_task,
     enqueue_task_delayed,
     move_due_delayed_tasks,
     add_dead_letter,

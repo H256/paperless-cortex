@@ -53,6 +53,7 @@ from app.services.json_utils import parse_json_list
 from app.services.note_ids import next_local_note_id
 from app.services.string_list_json import parse_string_list_json
 from app.services.time_utils import utc_now_iso
+from app.services.writeback_execution import collect_changed_calls, execute_calls_with_audit, run_writeback_job_execution
 from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 logger = logging.getLogger(__name__)
@@ -686,71 +687,6 @@ def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) ->
     return utc_now_iso()
 
 
-def _run_job_execution(settings: Settings, db: Session, job: WritebackJob, dry_run: bool) -> WritebackJob:
-    job.started_at = utc_now_iso()
-    job.status = "running"
-    job.dry_run = bool(dry_run)
-    try:
-        db.commit()
-    except (OperationalError, ProgrammingError) as exc:
-        db.rollback()
-        if _missing_writeback_jobs_table(exc):
-            _raise_missing_table_message()
-        raise
-
-    calls = _deserialize_calls(job)
-    execution_error: str | None = None
-    executed_doc_ids: set[int] = set()
-    try:
-        for call in calls:
-            executed_doc_ids.add(int(call.doc_id))
-            logger.info(
-                "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
-                "DRY-RUN" if dry_run else "EXECUTE",
-                call.doc_id,
-                call.method,
-                call.path,
-                call.payload,
-            )
-            if not dry_run:
-                _execute_call(settings, db, call)
-                if call.method.upper() == "PATCH" and isinstance(call.payload, dict):
-                    _cleanup_pending_rows_after_patch(db, int(call.doc_id), call.payload)
-        if not dry_run and executed_doc_ids:
-            for doc_id in sorted(executed_doc_ids):
-                reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
-                db.add(
-                    SuggestionAudit(
-                        doc_id=int(doc_id),
-                        action="apply_to_document:writeback",
-                        source="writeback",
-                        field=None,
-                        old_value=None,
-                        new_value=None,
-                        created_at=reviewed_at,
-                    )
-                )
-    except Exception as exc:
-        execution_error = str(exc)
-
-    job.finished_at = utc_now_iso()
-    if execution_error:
-        job.status = "failed"
-        job.error = execution_error
-    else:
-        job.status = "completed"
-        job.error = None
-    try:
-        db.commit()
-        db.refresh(job)
-    except (OperationalError, ProgrammingError) as exc:
-        db.rollback()
-        if _missing_writeback_jobs_table(exc):
-            _raise_missing_table_message()
-        raise
-    return job
-
-
 def _item_field_by_name(item: WritebackDryRunItem, field: str) -> WritebackFieldDiff | None:
     if field == "title":
         return item.title
@@ -1044,41 +980,20 @@ def execute_writeback_now(
         raise HTTPException(status_code=400, detail="No valid doc_ids provided")
 
     preview_items = _preview_for_doc_ids(settings, db, doc_ids)
-    calls: list[WritebackDryRunCall] = []
-    docs_changed = 0
-    executed_doc_ids: set[int] = set()
-    for item in preview_items:
-        if not item.changed:
-            continue
-        docs_changed += 1
-        item_calls = _build_calls_for_item(item)
-        calls.extend(item_calls)
-
-    for call in calls:
-        logger.info(
-            "WRITEBACK EXECUTE-NOW doc=%s method=%s path=%s payload=%s",
-            call.doc_id,
-            call.method,
-            call.path,
-            call.payload,
-        )
-        _execute_call(settings, db, call)
-        executed_doc_ids.add(int(call.doc_id))
-
-    if executed_doc_ids:
-        for doc_id in sorted(executed_doc_ids):
-            reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
-            db.add(
-                SuggestionAudit(
-                    doc_id=int(doc_id),
-                    action="apply_to_document:writeback",
-                    source="writeback",
-                    field=None,
-                    old_value=None,
-                    new_value=None,
-                    created_at=reviewed_at,
-                )
-            )
+    docs_changed, calls = collect_changed_calls(
+        preview_items=preview_items,
+        build_calls_for_item=_build_calls_for_item,
+    )
+    executed_doc_ids = execute_calls_with_audit(
+        settings=settings,
+        db=db,
+        calls=calls,
+        dry_run=False,
+        execute_call=_execute_call,
+        cleanup_pending_rows_after_patch=_cleanup_pending_rows_after_patch,
+        reviewed_timestamp_for_doc=_reviewed_timestamp_for_doc,
+        logger=logger,
+    )
     db.commit()
 
     return WritebackExecuteNowResponse(
@@ -1281,7 +1196,19 @@ def execute_writeback_job(
             detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
         )
 
-    job = _run_job_execution(settings, db, job, request.dry_run)
+    job = run_writeback_job_execution(
+        settings=settings,
+        db=db,
+        job=job,
+        dry_run=request.dry_run,
+        deserialize_calls=_deserialize_calls,
+        execute_call=_execute_call,
+        cleanup_pending_rows_after_patch=_cleanup_pending_rows_after_patch,
+        reviewed_timestamp_for_doc=_reviewed_timestamp_for_doc,
+        missing_writeback_jobs_table=_missing_writeback_jobs_table,
+        raise_missing_table_message=_raise_missing_table_message,
+        logger=logger,
+    )
     return _job_detail(job)
 
 
@@ -1328,7 +1255,19 @@ def execute_pending_writeback_jobs(
         if limit > 0 and index > limit:
             break
         processed_ids.append(int(job.id))
-        result = _run_job_execution(settings, db, job, request.dry_run)
+        result = run_writeback_job_execution(
+            settings=settings,
+            db=db,
+            job=job,
+            dry_run=request.dry_run,
+            deserialize_calls=_deserialize_calls,
+            execute_call=_execute_call,
+            cleanup_pending_rows_after_patch=_cleanup_pending_rows_after_patch,
+            reviewed_timestamp_for_doc=_reviewed_timestamp_for_doc,
+            missing_writeback_jobs_table=_missing_writeback_jobs_table,
+            raise_missing_table_message=_raise_missing_table_message,
+            logger=logger,
+        )
         result_doc_ids = _deserialize_doc_ids(result)
         for doc_id in result_doc_ids:
             processed_doc_ids.add(int(doc_id))
