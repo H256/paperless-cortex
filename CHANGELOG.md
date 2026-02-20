@@ -17,6 +17,14 @@ All granular implementation slices and refactors are tracked here.
 - `c6c0017` test(sync/meta/connections): added `backend/tests/test_sync_meta_connections_routes.py` with route coverage for `/sync/tags`, `/sync/correspondents`, `/sync/document-types`, `/tags`, `/correspondents`, `/document-types/{id}`, and `/connections/`.
 - `c6c0017` test(sync-embed-regression): added regression test ensuring `_embed_documents` exercises `embed_text` path in non-queue mode and persists embedding metadata.
 
+## 2026-02-20 (branch: codex-20260220-frontend-polish-pass)
+
+### Frontend robustness / high+medium polish
+- `8222068` fix(lint): resolved frontend lint blockers by removing unused vars/imports and replacing prop mutation in `ContinueProcessingPanel` with explicit update events (`update:includeSync`, `update:strategy`) handled by `ContinueProcessingView`.
+- `8222068` test(frontend): added Vitest baseline (`frontend/vitest.config.ts`, `test`/`test:run` scripts, `vitest` devDependency) with utility coverage for `queryState`, `number`, and `writebackPreview`.
+- `8222068` perf(frontend): reduced initial JS payload and removed large-chunk build warning by converting route view imports in `frontend/src/main.ts` to lazy-loaded dynamic imports.
+- `8222068` refactor(frontend): extracted continue-processing preview prioritization/strategy logic into `frontend/src/utils/continueProcessingPanel.ts` to reduce component coupling and improve DRY/SRP.
+
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
 ### Suggestions / writeback robustness
