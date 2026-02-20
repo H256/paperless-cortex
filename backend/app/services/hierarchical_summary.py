@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import delete
@@ -15,6 +13,7 @@ from app.models import DocumentPageNote, DocumentSectionSummary
 from app.services import llm_client
 from app.services.guard import ensure_text_llm_ready
 from app.services.text_cleaning import estimate_tokens
+from app.services.time_utils import utc_now_iso
 
 logger = logging.getLogger(__name__)
 _PAGE_NOTES_CONTENT_KEYS = ("facts", "entities", "references", "key_numbers")
@@ -65,10 +64,6 @@ _SUMMARY_META_STRONG_MARKERS = (
     "extract structured page notes from ocr text",
     "given ocr text",
 )
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _extract_json_dict(text: str) -> dict[str, Any]:
@@ -711,7 +706,7 @@ def upsert_page_note(
             notes_text_value = _page_note_payload_to_text(payload)
     if notes_text_value:
         notes_text_value = notes_text_value[:12000]
-    now = _now_iso()
+    now = utc_now_iso()
     db.add(
         DocumentPageNote(
             doc_id=doc_id,
@@ -742,7 +737,7 @@ def replace_section_summaries(
             DocumentSectionSummary.source == source,
         )
     )
-    now = _now_iso()
+    now = utc_now_iso()
     for section_key, payload in summaries:
         summary_text_value = _sanitize_model_output_text(
             str(payload.get("text") or payload.get("summary") or "")
@@ -859,7 +854,9 @@ def _best_effort_section_summary(
                 if text:
                     numbers.append(text)
 
-    uniq = lambda values: list(dict.fromkeys(v for v in values if v))
+    def uniq(values: list[str]) -> list[str]:
+        return list(dict.fromkeys(v for v in values if v))
+
     facts_u = uniq(facts)[:8]
     entities_u = uniq(entities)[:8]
     numbers_u = uniq(numbers)[:10]
@@ -917,7 +914,9 @@ def _best_effort_global_summary(
                 if text:
                     target.append(text)
 
-    uniq = lambda values: list(dict.fromkeys(v for v in values if v))
+    def uniq(values: list[str]) -> list[str]:
+        return list(dict.fromkeys(v for v in values if v))
+
     facts_u = uniq(facts)[:20]
     entities_u = uniq(entities)[:20]
     numbers_u = uniq(numbers)[:24]

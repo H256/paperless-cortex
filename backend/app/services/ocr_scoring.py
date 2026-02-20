@@ -4,7 +4,6 @@ import json
 import math
 import re
 import time
-from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any
 
@@ -13,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Document, DocumentOcrScore, DocumentPageText
+from app.services.time_utils import utc_now_iso
 
 _WEIRD_RE = re.compile(r"[^\x09\x0A\x0D\x20-\x7E\u00A0-\u024F\u1E00-\u1EFF]")
 _MULTI_SPACE_RE = re.compile(r"[ \t]{3,}")
@@ -23,10 +23,6 @@ _WORD_RE = re.compile(r"\b[^\W\d_]{2,}\b", re.UNICODE)
 
 def _safe_div(a: float, b: float) -> float:
     return a / b if b else 0.0
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _hash_text(text: str) -> str:
@@ -249,7 +245,7 @@ def ensure_document_ocr_score(
 
     model_name = settings.ocr_score_model or settings.text_model
     scored = score_ocr_text(settings, text, model=model_name)
-    processed_at = _now_iso()
+    processed_at = utc_now_iso()
 
     if not existing:
         existing = DocumentOcrScore(doc_id=doc.id, source=source, created_at=processed_at)
