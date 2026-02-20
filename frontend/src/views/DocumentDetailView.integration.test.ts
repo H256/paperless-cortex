@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
-import { reactive, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentDetailView: unknown
 
 const route = reactive({
   params: { id: '1' },
-  query: { tab: 'operations' },
+  query: { tab: 'operations' } as Record<string, string>,
 })
 const router = {
   push: vi.fn(async () => undefined),
@@ -201,5 +201,43 @@ describe('DocumentDetailView', () => {
 
     expect(wrapper.find('[data-test="ops-section"]').exists()).toBe(true)
     expect(wrapper.find('document-metadata-section-stub').exists()).toBe(false)
+  })
+
+  it('writes tab=operations to query and restores operations view from query', async () => {
+    route.query = {}
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: { template: '<div data-test="meta-section" />' },
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+          PdfViewer: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+    vi.clearAllMocks()
+
+    expect(wrapper.find('[data-test="meta-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="ops-section"]').exists()).toBe(false)
+
+    const operationsTab = wrapper.findAll('button').find((btn) => btn.text() === 'Operations')
+    expect(operationsTab).toBeTruthy()
+    await operationsTab!.trigger('click')
+    await nextTick()
+    await Promise.resolve()
+    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'operations' } })
+    expect(wrapper.find('[data-test="ops-section"]').exists()).toBe(true)
+
+    route.query = { tab: 'operations' }
+    await nextTick()
+    await Promise.resolve()
+    expect(wrapper.find('[data-test="ops-section"]').exists()).toBe(true)
   })
 })
