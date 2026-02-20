@@ -3,6 +3,20 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-20 (branch: codex-20260220-backend-principles-pass)
+
+### Backend robustness / SRP-DRY-KISS cleanup
+- `fa56888` fix(sync): fixed non-queue embedding sync path by importing and using `embed_text` in `app/routes/sync.py` (`_embed_documents` no longer raises `NameError` when `embed=true` and queue is disabled).
+- `fa56888` refactor(writeback): extracted shared writeback field-selection helpers in `app/routes/writeback_dryrun.py` (`_collect_local_selection`, `_normalize_changed_field`, `_cleanup_pending_rows_after_patch`) and reused them across dry-run and execute-direct flows to reduce duplicated payload/call assembly logic.
+- `fa56888` refactor(writeback): split execute-direct concerns with dedicated helpers (`_build_writeback_conflicts`, `_resolve_direct_selection`, `_execute_direct_selection`) to keep endpoint orchestration thin and improve SRP.
+- `9675ff4` refactor(documents-actions): extracted `/documents/process-missing` orchestration into `app/services/process_missing.py` (`ProcessMissingOptions`, `process_missing_documents`) and reduced route-layer complexity in `app/routes/documents_actions.py`.
+- `9675ff4` refactor(time-utils): added shared `utc_now_iso()` in `app/services/time_utils.py` and replaced repeated local timestamp helpers in `writeback_dryrun`, `documents_suggestions`, `hierarchical_summary`, `ocr_scoring`, and `task_runs`.
+- `c6c0017` fix(api-wiring): mounted `connections` router in `app/main.py` (`/api/connections`) so the existing endpoint is reachable.
+
+### Tests
+- `c6c0017` test(sync/meta/connections): added `backend/tests/test_sync_meta_connections_routes.py` with route coverage for `/sync/tags`, `/sync/correspondents`, `/sync/document-types`, `/tags`, `/correspondents`, `/document-types/{id}`, and `/connections/`.
+- `c6c0017` test(sync-embed-regression): added regression test ensuring `_embed_documents` exercises `embed_text` path in non-queue mode and persists embedding metadata.
+
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
 ### Suggestions / writeback robustness
