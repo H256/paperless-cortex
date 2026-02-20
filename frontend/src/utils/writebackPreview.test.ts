@@ -43,4 +43,13 @@ describe('writebackPreview utils', () => {
     expect(writebackDisplayValue('title', 'unchanged', false, 'proposed')).toBe('')
     expect(writebackDisplayValue('title', '', true, 'original')).toBe('-')
   })
+
+  it('covers additional correspondent/tag/note fallback branches', () => {
+    expect(writebackDisplayValue('correspondent', { id: 7 }, true, 'proposed')).toBe('#7')
+    expect(writebackDisplayValue('correspondent', { name: 'OnlyName' }, true, 'proposed')).toBe('OnlyName')
+    expect(writebackDisplayValue('tags', { ids: [1, '2'] }, true, 'proposed')).toBe('1, 2')
+    expect(writebackDisplayValue('tags', { ids: [] }, true, 'proposed')).toBe('-')
+    expect(writebackDisplayValue('note', { id: 1 }, true, 'proposed')).toBe('-')
+    expect(writebackDisplayValue('meta', { a: 1 }, true, 'proposed')).toBe('{"a":1}')
+  })
 })

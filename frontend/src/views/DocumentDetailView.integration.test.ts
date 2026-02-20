@@ -166,12 +166,13 @@ vi.mock('../composables/useAutoRefresh', () => ({
 vi.mock('../components/PdfViewer.vue', () => ({
   default: {
     name: 'PdfViewer',
+    emits: ['update:page'],
     props: {
       page: { type: Number, default: 1 },
       highlights: { type: Array, default: () => [] },
     },
     template:
-      '<div data-test="pdf-viewer" :data-page="String(page)" :data-highlight-count="String((highlights || []).length)" />',
+      '<div data-test="pdf-viewer" :data-page="String(page)" :data-highlight-count="String((highlights || []).length)"><button data-test="pdf-next" @click="$emit(\'update:page\', 8)">next</button></div>',
   },
 }))
 
@@ -290,5 +291,29 @@ describe('DocumentDetailView', () => {
     await Promise.resolve()
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'pages', keep: '1' } })
     expect(wrapper.find('[data-test="pdf-viewer"]').exists()).toBe(true)
+  })
+
+  it('updates page query and removes bbox when PdfViewer emits update:page', async () => {
+    route.query = { tab: 'pages', page: '3', bbox: '1,2,3,4', keep: '1' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+    vi.clearAllMocks()
+    await wrapper.get('[data-test="pdf-next"]').trigger('click')
+    await nextTick()
+    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'pages', page: '8', keep: '1' } })
   })
 })
