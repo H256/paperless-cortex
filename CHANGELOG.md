@@ -33,6 +33,8 @@ All granular implementation slices and refactors are tracked here.
 - `53c46e4` test(ci): added `frontend/src/views/MaintenanceView.integration.test.ts` to validate runtime-row copy wiring, switched frontend CI test step to coverage-gated execution (`npm run test:coverage`), and raised core frontend coverage thresholds (`lines/statements/functions: 75`, `branches: 60`).
 - `141d0ac` refactor(frontend): moved writeback conflict modal UI into `frontend/src/components/WritebackConflictModal.vue` and extracted writeback state/handlers into `frontend/src/composables/useDocumentWriteback.ts`, reducing `DocumentDetailView` coupling in the writeback path.
 - `a48bed7` test(ci): added `frontend/src/components/DocumentOperationsSection.integration.test.ts` for operations-tab event wiring and `frontend/src/utils/continueProcessingPanel.test.ts` for priority/strategy branch coverage, added backend-connected smoke CI job on `:8001` in `.github/workflows/frontend-ci.yml`, and raised core coverage thresholds to `lines/statements/functions: 80`, `branches: 65`.
+- `87d772d` chore(api): regenerated backend/frontend OpenAPI artifacts (`backend/openapi.json`, `frontend/src/api/generated/**`) to include latest routes including `POST /documents/{doc_id}/review/mark`.
+- `fa3fe77` refactor(frontend): replaced manual review-mark fetch path with generated OpenAPI client + TanStack mutation (`frontend/src/composables/useDocumentReview.ts`) and moved streaming chat HTTP/SSE request handling into shared `frontend/src/services/chatStream.ts` while keeping generated stream URL helpers.
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
