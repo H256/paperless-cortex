@@ -316,4 +316,33 @@ describe('DocumentDetailView', () => {
     await nextTick()
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'pages', page: '8', keep: '1' } })
   })
+
+  it('removes tab query key when switching back to meta', async () => {
+    route.query = { tab: 'operations', keep: '1' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: { template: '<div data-test="meta-section" />' },
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+          PdfViewer: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+    vi.clearAllMocks()
+
+    const metadataTab = wrapper.findAll('button').find((btn) => btn.text() === 'Metadata')
+    expect(metadataTab).toBeTruthy()
+    await metadataTab!.trigger('click')
+    await nextTick()
+    expect(router.replace).toHaveBeenCalledWith({ query: { keep: '1' } })
+    expect(wrapper.find('[data-test="meta-section"]').exists()).toBe(true)
+  })
 })

@@ -80,4 +80,29 @@ describe('useDocumentDetailOperations', () => {
     expect(toErrorMessage).toHaveBeenCalled()
     expect(ops.docOpsMessage.value).toBe('boom')
   })
+
+  it('opens confirm modal and closes it on successful confirm reset', async () => {
+    const { ops, resetAndReprocessNow, load } = createOps()
+    ops.openResetConfirm()
+    expect(ops.resetConfirmOpen.value).toBe(true)
+
+    await ops.confirmResetAndReprocessDoc()
+
+    expect(ops.resetConfirmOpen.value).toBe(false)
+    expect(resetAndReprocessNow).toHaveBeenCalledWith(true)
+    expect(load).toHaveBeenCalled()
+    expect(ops.docOpsMessage.value).toContain('Document reset/synced. Enqueued 4 tasks.')
+  })
+
+  it('closes confirm modal and maps reset errors', async () => {
+    const { ops, resetAndReprocessNow, toErrorMessage } = createOps()
+    ops.openResetConfirm()
+    resetAndReprocessNow.mockRejectedValueOnce(new Error('reset failed'))
+
+    await ops.confirmResetAndReprocessDoc()
+
+    expect(ops.resetConfirmOpen.value).toBe(false)
+    expect(toErrorMessage).toHaveBeenCalled()
+    expect(ops.docOpsMessage.value).toBe('reset failed')
+  })
 })
