@@ -241,7 +241,6 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PdfViewer from '../components/PdfViewer.vue'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
-import { type DocumentOperationTaskPayload } from '../services/documents'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
@@ -253,6 +252,11 @@ import {
   detailTabs,
   useDocumentDetailRouteState,
 } from '../composables/useDocumentDetailRouteState'
+import {
+  useDocumentDetailOperations,
+  type OperationAction,
+  type TimelineTaskRun,
+} from '../composables/useDocumentDetailOperations'
 import {
   fanoutStatusClass,
   processingBadgeClass,
@@ -350,89 +354,7 @@ const {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const tabs = detailTabs
-type OperationAction = {
-  task: Extract<
-    DocumentOperationTaskPayload['task'],
-    | 'vision_ocr'
-    | 'embeddings_vision'
-    | 'page_notes_vision'
-    | 'summary_hierarchical'
-    | 'suggestions_paperless'
-    | 'suggestions_vision'
-  >
-  label: string
-  tooltip: string
-  force?: boolean
-  source?: 'paperless_ocr' | 'vision_ocr'
-}
-
-const operationActions: OperationAction[] = [
-  {
-    task: 'vision_ocr',
-    label: 'Queue vision OCR',
-    tooltip: 'Triggers vision OCR again for pages of this document.',
-    force: true,
-  },
-  {
-    task: 'embeddings_vision',
-    label: 'Queue embeddings (vision)',
-    tooltip: 'Erstellt Embeddings aus Vision-OCR-Text und speichert sie in Qdrant.',
-  },
-  {
-    task: 'page_notes_vision',
-    label: 'Queue page notes (vision)',
-    tooltip: 'Generates structured page notes from vision OCR per page.',
-  },
-  {
-    task: 'summary_hierarchical',
-    label: 'Queue hierarchical summary',
-    tooltip: 'Aggregates page notes by section and builds a hierarchical summary.',
-    source: 'vision_ocr',
-  },
-  {
-    task: 'suggestions_paperless',
-    label: 'Queue suggestions (paperless)',
-    tooltip: 'Generates suggestion fields from Paperless OCR text.',
-  },
-  {
-    task: 'suggestions_vision',
-    label: 'Queue suggestions (vision)',
-    tooltip: 'Generates suggestion fields from vision OCR text.',
-  },
-]
 const reloadingAll = ref(false)
-const docCleanupClearFirst = ref(false)
-const docOpsMessage = ref('')
-const resetConfirmOpen = ref(false)
-const continueQueuedWaiting = ref(false)
-const continueQueuedExpireAt = ref(0)
-type TimelineTaskRun = {
-  task: string
-  source?: string | null
-  status: string
-}
-const {
-  processingStatusItems,
-  processingRequiredCount,
-  processingDoneCount,
-  pipelineFanoutItems,
-  activeRun,
-  hasActiveTaskRuns,
-  activeRunLabel,
-  shouldAutoRefreshTimeline,
-  pipelinePreferredSource,
-  isLargeDocumentMode,
-  largeDocumentHint,
-} = useDocumentProcessingState(
-  {
-    pipelineStatus,
-    pipelineFanout,
-    taskRuns,
-    continueQueuedWaiting,
-  },
-  checkpointLabel,
-)
-
 const paperlessUrl = computed(() =>
   paperlessBaseUrl.value && document.value
     ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${document.value.id}`
@@ -650,12 +572,52 @@ const reloadPipelineFanout = async () => {
   await loadPipelineFanout()
 }
 
-const withDocOperation = async (fn: () => Promise<void>) => {
-  docOpsMessage.value = ''
-  await fn()
-  await loadPipelineStatus()
-  await loadPipelineFanout()
-}
+const {
+  docOpsMessage,
+  docCleanupClearFirst,
+  resetConfirmOpen,
+  continueQueuedWaiting,
+  continueQueuedExpireAt,
+  operationActions,
+  enqueueDocTask,
+  retryTaskRun,
+  runDocCleanup,
+  runContinuePipeline,
+  openResetConfirm,
+  confirmResetAndReprocessDoc,
+} = useDocumentDetailOperations({
+  docId: id,
+  enqueueDocumentTaskNow,
+  cleanupDocumentTexts,
+  continuePipelineRequest,
+  resetAndReprocessNow,
+  load,
+  refreshTaskRuns,
+  loadPipelineStatus,
+  refreshPipelineFanout,
+  toErrorMessage: errorMessage,
+})
+const {
+  processingStatusItems,
+  processingRequiredCount,
+  processingDoneCount,
+  pipelineFanoutItems,
+  activeRun,
+  hasActiveTaskRuns,
+  activeRunLabel,
+  shouldAutoRefreshTimeline,
+  pipelinePreferredSource,
+  isLargeDocumentMode,
+  largeDocumentHint,
+} = useDocumentProcessingState(
+  {
+    pipelineStatus,
+    pipelineFanout,
+    taskRuns,
+    continueQueuedWaiting,
+  },
+  checkpointLabel,
+)
 
 const reloadAll = async () => {
   reloadingAll.value = true
@@ -701,111 +663,6 @@ const {
 
 const refreshSuggestionsAction = async (source: 'paperless_ocr' | 'vision_ocr') => {
   await refreshSuggestionsForSource(id, source)
-}
-
-const enqueueDocTask = async (action: OperationAction) => {
-  await withDocOperation(async () => {
-    try {
-      const result = await enqueueDocumentTaskNow({
-        task: action.task,
-        force: action.force ?? false,
-        source: action.source,
-      })
-      docOpsMessage.value = result.enqueued
-        ? `Queued task ${action.task} for document ${id}.`
-        : `Task ${action.task} was not enqueued (possibly duplicate/running).`
-    } catch (err) {
-      docOpsMessage.value = errorMessage(err, `Failed to queue ${action.task}`)
-    }
-  })
-}
-
-const retryTaskRun = async (run: TimelineTaskRun) => {
-  const task = String(run.task || '').trim() as DocumentOperationTaskPayload['task']
-  if (!task) return
-  await withDocOperation(async () => {
-    try {
-      const result = await enqueueDocumentTaskNow({
-        task,
-        source: run.source === 'paperless_ocr' || run.source === 'vision_ocr' ? run.source : undefined,
-      })
-      docOpsMessage.value = result.enqueued
-        ? `Queued retry for ${task}.`
-        : `Retry for ${task} was not enqueued (duplicate or already running).`
-      await refreshTaskRuns()
-    } catch (err) {
-      docOpsMessage.value = errorMessage(err, `Failed to retry ${task}`)
-    }
-  })
-}
-
-const runDocCleanup = async () => {
-  await withDocOperation(async () => {
-    try {
-      const result = await cleanupDocumentTexts(docCleanupClearFirst.value)
-      docOpsMessage.value = result.queued
-        ? `Queued cleanup for ${result.docs} document(s).`
-        : `Cleanup done: ${result.updated}/${result.processed} updated.`
-    } catch (err) {
-      docOpsMessage.value = errorMessage(err, 'Failed to queue cleanup')
-    }
-  })
-}
-
-const runContinuePipeline = async () => {
-  await withDocOperation(async () => {
-    try {
-      continueQueuedWaiting.value = false
-      continueQueuedExpireAt.value = 0
-      const result = await continuePipelineRequest({
-        include_vision_ocr: true,
-        include_embeddings: true,
-        include_embeddings_paperless: true,
-        include_embeddings_vision: true,
-        include_page_notes: true,
-        include_summary_hierarchical: true,
-        include_suggestions_paperless: true,
-        include_suggestions_vision: true,
-      })
-      if (!result.enabled) {
-        docOpsMessage.value = 'Queue is disabled.'
-        return
-      }
-      docOpsMessage.value = result.enqueued
-        ? `Enqueued ${result.enqueued}/${result.missing_tasks} missing tasks.`
-        : `No missing tasks.`
-      if ((result.enqueued || 0) > 0) {
-        continueQueuedWaiting.value = true
-        continueQueuedExpireAt.value = Date.now() + 120_000
-        await Promise.all([refreshTaskRuns(), loadPipelineStatus(), refreshPipelineFanout()])
-      }
-    } catch (err) {
-      docOpsMessage.value = errorMessage(err, 'Failed to continue document pipeline')
-      continueQueuedWaiting.value = false
-      continueQueuedExpireAt.value = 0
-    }
-  })
-}
-
-const runResetAndReprocessDoc = async () => {
-  await withDocOperation(async () => {
-    try {
-      const result = await resetAndReprocessNow(true)
-      docOpsMessage.value = `Document reset/synced. Enqueued ${result.enqueued} tasks.`
-      await load()
-    } catch (err) {
-      docOpsMessage.value = errorMessage(err, 'Failed to reset and reprocess document')
-    }
-  })
-}
-
-const openResetConfirm = () => {
-  resetConfirmOpen.value = true
-}
-
-const confirmResetAndReprocessDoc = async () => {
-  resetConfirmOpen.value = false
-  await runResetAndReprocessDoc()
 }
 
 useAutoRefresh({
