@@ -24,6 +24,9 @@ All granular implementation slices and refactors are tracked here.
 - `8222068` test(frontend): added Vitest baseline (`frontend/vitest.config.ts`, `test`/`test:run` scripts, `vitest` devDependency) with utility coverage for `queryState`, `number`, and `writebackPreview`.
 - `8222068` perf(frontend): reduced initial JS payload and removed large-chunk build warning by converting route view imports in `frontend/src/main.ts` to lazy-loaded dynamic imports.
 - `8222068` refactor(frontend): extracted continue-processing preview prioritization/strategy logic into `frontend/src/utils/continueProcessingPanel.ts` to reduce component coupling and improve DRY/SRP.
+- `199eb7d` refactor(frontend): reduced god-file pressure by extracting `QueueView` and `DocumentDetailView` formatting/state helpers into `frontend/src/utils/queueView.ts` and `frontend/src/utils/documentDetail.ts`, plus reusable maintenance action UI into `frontend/src/components/MaintenanceActionCard.vue`.
+- `2ce80fc` test(frontend): expanded frontend coverage with composable tests, `ContinueProcessingPanel` integration test, queue/detail utility tests, and Playwright smoke tests (`frontend/e2e/smoke.spec.ts` + `frontend/playwright.smoke.config.ts`).
+- `efead80` ci(frontend): added `.github/workflows/frontend-ci.yml` to gate frontend changes on lint, type-check, unit/integration tests, build, and optional smoke e2e execution via `RUN_E2E_SMOKE`.
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
