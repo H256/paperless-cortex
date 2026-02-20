@@ -27,6 +27,8 @@ All granular implementation slices and refactors are tracked here.
 - `199eb7d` refactor(frontend): reduced god-file pressure by extracting `QueueView` and `DocumentDetailView` formatting/state helpers into `frontend/src/utils/queueView.ts` and `frontend/src/utils/documentDetail.ts`, plus reusable maintenance action UI into `frontend/src/components/MaintenanceActionCard.vue`.
 - `2ce80fc` test(frontend): expanded frontend coverage with composable tests, `ContinueProcessingPanel` integration test, queue/detail utility tests, and Playwright smoke tests (`frontend/e2e/smoke.spec.ts` + `frontend/playwright.smoke.config.ts`).
 - `efead80` ci(frontend): added `.github/workflows/frontend-ci.yml` to gate frontend changes on lint, type-check, unit/integration tests, build, and optional smoke e2e execution via `RUN_E2E_SMOKE`.
+- `a1dc08f` refactor(frontend): continued medium SRP cleanup by extracting document operations/timeline derived state into `frontend/src/composables/useDocumentProcessingState.ts` and runtime config row rendering into `frontend/src/components/MaintenanceRuntimeRow.vue`, reducing `DocumentDetailView` + `MaintenanceView` inline complexity.
+- `8aefb53` test(ci): added `useDocumentProcessingState` test coverage and Vitest coverage guardrails (`frontend/vitest.config.ts`, `npm run test:coverage`) over core composables/utils; updated frontend CI smoke gating to run by default unless explicitly disabled (`RUN_E2E_SMOKE=0`) so smoke e2e is enforced even when repo variables are missing.
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
