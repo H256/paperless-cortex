@@ -588,7 +588,6 @@ import { RefreshCcw, Loader2 } from 'lucide-vue-next'
 import { useToastStore } from '../stores/toastStore'
 import {
   type QueueWorkerLockReset,
-  type QueueWorkerLockStatus,
 } from '../services/queue'
 import { useMaintenanceOps } from '../composables/useMaintenanceOps'
 import ConfirmDialog from '../components/ConfirmDialog.vue'

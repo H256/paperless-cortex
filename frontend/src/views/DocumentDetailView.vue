@@ -963,7 +963,7 @@ const currentValues = computed(() => ({
 const canMarkReviewed = computed(
   () =>
     Boolean(document.value) &&
-    !Boolean(document.value?.local_overrides) &&
+    !document.value?.local_overrides &&
     String(document.value?.review_status || '').toLowerCase() !== 'reviewed',
 )
 

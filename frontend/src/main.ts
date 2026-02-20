@@ -3,32 +3,22 @@ import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query'
 import App from './App.vue'
-import DocumentsView from './views/DocumentsView.vue'
-import DocumentDetailView from './views/DocumentDetailView.vue'
-import DashboardView from './views/DashboardView.vue'
-import QueueView from './views/QueueView.vue'
-import LogInspectorView from './views/LogInspectorView.vue'
-import ContinueProcessingView from './views/ContinueProcessingView.vue'
-import SearchView from './views/SearchView.vue'
-import ChatView from './views/ChatView.vue'
-import MaintenanceView from './views/MaintenanceView.vue'
-import WritebackDryRunView from './views/WritebackDryRunView.vue'
 import './index.css'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/documents' },
-    { path: '/documents', component: DocumentsView },
-    { path: '/documents/:id', component: DocumentDetailView, props: true },
-    { path: '/dashboard', component: DashboardView },
-    { path: '/search', component: SearchView },
-    { path: '/queue', component: QueueView },
-    { path: '/logs', component: LogInspectorView },
-    { path: '/processing/continue', component: ContinueProcessingView },
-    { path: '/chat', component: ChatView },
-    { path: '/operations', component: MaintenanceView },
-    { path: '/writeback', component: WritebackDryRunView },
+    { path: '/documents', component: () => import('./views/DocumentsView.vue') },
+    { path: '/documents/:id', component: () => import('./views/DocumentDetailView.vue'), props: true },
+    { path: '/dashboard', component: () => import('./views/DashboardView.vue') },
+    { path: '/search', component: () => import('./views/SearchView.vue') },
+    { path: '/queue', component: () => import('./views/QueueView.vue') },
+    { path: '/logs', component: () => import('./views/LogInspectorView.vue') },
+    { path: '/processing/continue', component: () => import('./views/ContinueProcessingView.vue') },
+    { path: '/chat', component: () => import('./views/ChatView.vue') },
+    { path: '/operations', component: () => import('./views/MaintenanceView.vue') },
+    { path: '/writeback', component: () => import('./views/WritebackDryRunView.vue') },
     { path: '/writeback-dry-run', redirect: '/writeback' },
   ],
 })
