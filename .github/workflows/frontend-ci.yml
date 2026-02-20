@@ -43,9 +43,9 @@ jobs:
         run: npm run build
 
       - name: Install Playwright Browsers
-        if: ${{ vars.RUN_E2E_SMOKE == '1' }}
+        if: ${{ vars.RUN_E2E_SMOKE != '0' }}
         run: npx playwright install --with-deps chromium
 
       - name: E2E Smoke
-        if: ${{ vars.RUN_E2E_SMOKE == '1' }}
+        if: ${{ vars.RUN_E2E_SMOKE != '0' }}
         run: npm run e2e:smoke
