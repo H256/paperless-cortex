@@ -29,6 +29,8 @@ All granular implementation slices and refactors are tracked here.
 - `efead80` ci(frontend): added `.github/workflows/frontend-ci.yml` to gate frontend changes on lint, type-check, unit/integration tests, build, and optional smoke e2e execution via `RUN_E2E_SMOKE`.
 - `a1dc08f` refactor(frontend): continued medium SRP cleanup by extracting document operations/timeline derived state into `frontend/src/composables/useDocumentProcessingState.ts` and runtime config row rendering into `frontend/src/components/MaintenanceRuntimeRow.vue`, reducing `DocumentDetailView` + `MaintenanceView` inline complexity.
 - `8aefb53` test(ci): added `useDocumentProcessingState` test coverage and Vitest coverage guardrails (`frontend/vitest.config.ts`, `npm run test:coverage`) over core composables/utils; updated frontend CI smoke gating to run by default unless explicitly disabled (`RUN_E2E_SMOKE=0`) so smoke e2e is enforced even when repo variables are missing.
+- `dd4b7a7` refactor(frontend): extracted the entire Document Details Operations tab into dedicated `frontend/src/components/DocumentOperationsSection.vue`, reducing `DocumentDetailView` template size/coupling and keeping route-level orchestration in the view.
+- `53c46e4` test(ci): added `frontend/src/views/MaintenanceView.integration.test.ts` to validate runtime-row copy wiring, switched frontend CI test step to coverage-gated execution (`npm run test:coverage`), and raised core frontend coverage thresholds (`lines/statements/functions: 75`, `branches: 60`).
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
