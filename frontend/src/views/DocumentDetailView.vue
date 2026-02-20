@@ -248,6 +248,7 @@ import { useDocumentWriteback } from '../composables/useDocumentWriteback'
 import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
+import { useDocumentSuggestionsApply } from '../composables/useDocumentSuggestionsApply'
 import {
   detailTabs,
   useDocumentDetailRouteState,
@@ -368,46 +369,6 @@ const aggregatedText = computed(() => {
 
 const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
   await suggestField(id, source, field)
-}
-
-const applyVariantOnly = async (
-  source: 'paperless_ocr' | 'vision_ocr',
-  field: string,
-  value: unknown,
-) => {
-  await applyVariant(id, source, field, value)
-}
-
-const applyVariantToDocument = async (
-  source: 'paperless_ocr' | 'vision_ocr',
-  field: string,
-  value: unknown,
-) => {
-  await applyVariant(id, source, field, value)
-  await applySuggestionToDocument(id, { source, field, value })
-  await load()
-  await loadSuggestionsForDoc()
-}
-
-const applyToDocument = async (source: string, field: string, value: unknown) => {
-  try {
-    const reloadSuggestions = Boolean(suggestions.value)
-    const reloadPages = pageTexts.value.length > 0
-    const reloadQuality = Boolean(contentQuality.value)
-    await applySuggestionToDocument(id, { source, field, value })
-    await load()
-    if (reloadSuggestions) {
-      await loadSuggestionsForDoc()
-    }
-    if (reloadPages) {
-      await loadPageTextsForDoc()
-    }
-    if (reloadQuality) {
-      await loadContentQualityForDoc()
-    }
-  } catch (err: unknown) {
-    suggestionsError.value = errorMessage(err, 'Failed to apply suggestion to document')
-  }
 }
 
 const currentNotePreview = computed(() =>
@@ -559,6 +520,25 @@ const loadContentQualityForDoc = async (priority = false) => {
 const loadSuggestionsForDoc = async () => {
   await loadSuggestions(id)
 }
+
+const {
+  applyVariantOnly,
+  applyVariantToDocument,
+  applyToDocument,
+} = useDocumentSuggestionsApply({
+  docId: id,
+  suggestions,
+  pageTexts,
+  contentQuality,
+  suggestionsError,
+  applyVariant,
+  applySuggestionToDocument,
+  loadDocument: load,
+  loadSuggestionsForDoc,
+  loadPageTextsForDoc,
+  loadContentQualityForDoc,
+  toErrorMessage: errorMessage,
+})
 
 const loadPipelineStatus = async () => {
   await refreshPipelineStatus()
