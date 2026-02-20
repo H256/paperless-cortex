@@ -67,4 +67,16 @@ describe('useDocumentDetailRouteState', () => {
     expect(replace).toHaveBeenCalledWith({ query: { keep: '1' } })
     expect(window.sessionStorage.getItem(`paperless_citation_jump:${token}`)).toBeNull()
   })
+
+  it('onPdfPageChange updates page, removes bbox, and clears highlights', () => {
+    const { state, replace } = createHarness({ page: '2', bbox: '1,2,3,4', keep: '1' })
+    state.syncPdfFromQuery()
+    expect(state.pdfHighlights.value).toEqual([[1, 2, 3, 4]])
+
+    state.onPdfPageChange(9)
+
+    expect(state.pdfPage.value).toBe(9)
+    expect(state.pdfHighlights.value).toEqual([])
+    expect(replace).toHaveBeenCalledWith({ query: { page: '9', keep: '1' } })
+  })
 })

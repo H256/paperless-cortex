@@ -105,4 +105,19 @@ describe('useDocumentDetailOperations', () => {
     expect(toErrorMessage).toHaveBeenCalled()
     expect(ops.docOpsMessage.value).toBe('reset failed')
   })
+
+  it('resets waiting/expiry when continue pipeline fails after prior enqueue', async () => {
+    const { ops, continuePipelineRequest, toErrorMessage } = createOps()
+    await ops.runContinuePipeline()
+    expect(ops.continueQueuedWaiting.value).toBe(true)
+    expect(ops.continueQueuedExpireAt.value).toBeGreaterThan(0)
+
+    continuePipelineRequest.mockRejectedValueOnce(new Error('continue failed'))
+    await ops.runContinuePipeline()
+
+    expect(toErrorMessage).toHaveBeenCalled()
+    expect(ops.docOpsMessage.value).toBe('continue failed')
+    expect(ops.continueQueuedWaiting.value).toBe(false)
+    expect(ops.continueQueuedExpireAt.value).toBe(0)
+  })
 })

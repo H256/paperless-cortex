@@ -198,7 +198,6 @@ describe('DocumentDetailView', () => {
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,
-          PdfViewer: true,
         },
       },
     })
@@ -222,7 +221,6 @@ describe('DocumentDetailView', () => {
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,
-          PdfViewer: true,
         },
       },
     })
@@ -330,7 +328,6 @@ describe('DocumentDetailView', () => {
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,
-          PdfViewer: true,
         },
       },
     })
@@ -344,5 +341,41 @@ describe('DocumentDetailView', () => {
     await nextTick()
     expect(router.replace).toHaveBeenCalledWith({ query: { keep: '1' } })
     expect(wrapper.find('[data-test="meta-section"]').exists()).toBe(true)
+  })
+
+  it('preserves unknown query keys across tab and page updates', async () => {
+    route.query = { tab: 'pages', page: '3', bbox: '1,2,3,4', keep: '1', foo: 'bar' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+    vi.clearAllMocks()
+
+    const operationsTab = wrapper.findAll('button').find((btn) => btn.text() === 'Operations')
+    expect(operationsTab).toBeTruthy()
+    await operationsTab!.trigger('click')
+    await nextTick()
+    expect(router.replace).toHaveBeenCalledWith({
+      query: { tab: 'operations', page: '3', bbox: '1,2,3,4', keep: '1', foo: 'bar' },
+    })
+
+    vi.clearAllMocks()
+    await wrapper.get('[data-test="pdf-next"]').trigger('click')
+    await nextTick()
+    expect(router.replace).toHaveBeenCalledWith({
+      query: { tab: 'pages', page: '8', keep: '1', foo: 'bar' },
+    })
   })
 })
