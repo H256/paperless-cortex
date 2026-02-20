@@ -19,6 +19,20 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "alembic>=1.13.2",
+    "mypy>=1.15.0",
     "pytest>=8.3.0",
     "ruff>=0.6.0",
+]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+follow_imports = "skip"
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+files = [
+    "app/services/writeback_execution.py",
+    "app/services/writeback_preview.py",
+    "app/services/worker_checkpoint.py",
 ]

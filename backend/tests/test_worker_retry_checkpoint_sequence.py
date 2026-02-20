@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from app.services.task_runs import create_task_run, find_latest_checkpoint, finish_task_run
-from app.worker import _get_task_run_checkpoint, _resume_stage_current, _set_task_checkpoint
+from app.services.worker_checkpoint import (
+    get_task_run_checkpoint,
+    resume_stage_current,
+    set_task_checkpoint,
+)
 
 
 def test_worker_retry_checkpoint_continuation_for_mixed_task_sequence(session_factory):
@@ -16,7 +20,7 @@ def test_worker_retry_checkpoint_continuation_for_mixed_task_sequence(session_fa
             worker_id="worker:test",
             attempt=1,
         )
-        _set_task_checkpoint(
+        set_task_checkpoint(
             db,
             run_id=int(first_run.id),
             stage="vision_ocr",
@@ -52,16 +56,16 @@ def test_worker_retry_checkpoint_continuation_for_mixed_task_sequence(session_fa
             worker_id="worker:test",
             attempt=2,
         )
-        _set_task_checkpoint(
+        set_task_checkpoint(
             db,
             run_id=int(retry_run.id),
             stage="resume",
             extra={"resume_from": previous_checkpoint},
         )
-        retry_checkpoint = _get_task_run_checkpoint(db, run_id=int(retry_run.id))
+        retry_checkpoint = get_task_run_checkpoint(db, run_id=int(retry_run.id))
         assert retry_checkpoint is not None
         assert retry_checkpoint.get("stage") == "resume"
-        assert _resume_stage_current(
+        assert resume_stage_current(
             retry_checkpoint,
             stage="vision_ocr",
             source="vision_ocr",
@@ -78,7 +82,7 @@ def test_worker_retry_checkpoint_continuation_for_mixed_task_sequence(session_fa
             worker_id="worker:test",
             attempt=1,
         )
-        _set_task_checkpoint(
+        set_task_checkpoint(
             db,
             run_id=int(other_run.id),
             stage="embedding_chunks",
