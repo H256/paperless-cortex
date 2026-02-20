@@ -290,8 +290,9 @@ def _build_distilled_context_from_hier_summary(
     key_dates = payload.get("key_dates") if isinstance(payload.get("key_dates"), list) else []
     has_signal = bool(summary or executive or key_facts or key_entities or key_numbers or key_dates)
     if not has_signal:
-        notes = payload.get("confidence_notes") if isinstance(payload.get("confidence_notes"), list) else []
-        note_text = " ".join(str(item).strip() for item in notes if str(item).strip()).lower()
+        notes_raw = payload.get("confidence_notes")
+        notes_list = notes_raw if isinstance(notes_raw, list) else []
+        note_text = " ".join(str(item).strip() for item in notes_list if str(item).strip()).lower()
         if "global_summary_error" in note_text or "fallback_due_to_json_parse_error" in note_text:
             return ""
 
@@ -486,7 +487,7 @@ def _process_sync_only(settings, db: Session, doc_id: int) -> None:
         return
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: dict[str, set[str]] = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
     doc = get_document_or_none(db, doc_id)
@@ -500,7 +501,7 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
         return
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: dict[str, set[str]] = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
 
@@ -1227,7 +1228,10 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
 
 
 def _process_suggest_field(settings, db: Session, task: dict) -> None:
-    doc_id = int(task.get("doc_id"))
+    raw_doc_id = task.get("doc_id")
+    if not isinstance(raw_doc_id, int):
+        return
+    doc_id = int(raw_doc_id)
     source = str(task.get("source") or "paperless_ocr")
     field = str(task.get("field") or "")
     count = int(task.get("count") or 3)
@@ -1398,7 +1402,11 @@ def main() -> None:
             except Exception:
                 task = None
             if isinstance(task, dict) and "doc_id" in task:
-                doc_id = int(task.get("doc_id"))
+                raw_task_doc_id = task.get("doc_id")
+                if not isinstance(raw_task_doc_id, int):
+                    logger.warning("Invalid task doc_id in queue payload: %s", task)
+                    continue
+                doc_id = int(raw_task_doc_id)
                 task_type = str(task.get("task") or "full")
             else:
                 try:

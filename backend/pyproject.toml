@@ -33,6 +33,18 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 files = [
     "app/services/writeback_execution.py",
+    "app/services/writeback_selection.py",
+    "app/services/writeback_direct.py",
     "app/services/writeback_preview.py",
     "app/services/worker_checkpoint.py",
+    "app/routes/writeback_dryrun.py",
+    "app/worker.py",
 ]
+
+[[tool.mypy.overrides]]
+module = [
+    "app.routes.writeback_dryrun",
+    "app.worker",
+]
+disallow_untyped_defs = false
+check_untyped_defs = false

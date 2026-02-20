@@ -578,3 +578,54 @@ def test_writeback_history_returns_503_when_table_missing(api_client):
     response = api_client.get("/writeback/history")
     assert response.status_code == 503
     assert "Writeback jobs table is missing" in str(response.json().get("detail"))
+
+
+def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_document(571, "Local title 571")
+    _insert_document(572, "Local title 572")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, doc_id: {
+            "id": doc_id,
+            "title": f"Remote title {doc_id}",
+            "created": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+    monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+
+    def _patch(settings, doc_id, payload):
+        if int(doc_id) == 572:
+            raise RuntimeError("forced patch failure for lifecycle test")
+        return {"id": doc_id, **payload}
+
+    monkeypatch.setattr(paperless, "update_document", _patch)
+
+    first = api_client.post("/writeback/jobs", json={"doc_ids": [571]})
+    second = api_client.post("/writeback/jobs", json={"doc_ids": [572]})
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    pending_exec = api_client.post("/writeback/jobs/execute-pending", json={"dry_run": False, "limit": 0})
+    assert pending_exec.status_code == 200
+    payload = pending_exec.json()
+    assert payload["processed"] >= 2
+    assert payload["completed"] >= 1
+    assert payload["failed"] >= 1
+    statuses = {str(row.get("status") or "") for row in payload.get("results", [])}
+    assert "completed" in statuses
+    assert "failed" in statuses
+
+    history = api_client.get("/writeback/history", params={"limit": 10})
+    assert history.status_code == 200
+    history_statuses = {str(item.get("status") or "") for item in history.json().get("items", [])}
+    assert "completed" in history_statuses
+    assert "failed" in history_statuses

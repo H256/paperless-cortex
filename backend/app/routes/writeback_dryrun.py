@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import json
-from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -20,7 +19,6 @@ from app.api_models import (
     WritebackExecuteNowResponse,
     WritebackDirectExecuteRequest,
     WritebackDirectExecuteResponse,
-    WritebackConflictField,
     WritebackJobCreateRequest,
     WritebackJobDetail,
     WritebackExecutePendingRequest,
@@ -30,9 +28,7 @@ from app.api_models import (
     WritebackJobListResponse,
     WritebackJobDeleteResponse,
     WritebackJobSummary,
-    WritebackDryRunItem,
     WritebackDryRunPreviewResponse,
-    WritebackFieldDiff,
 )
 from app.config import Settings
 from app.db import get_db
@@ -40,7 +36,6 @@ from app.deps import get_settings
 from app.models import (
     Correspondent,
     Document,
-    DocumentNote,
     DocumentPendingCorrespondent,
     DocumentPendingTag,
     SuggestionAudit,
@@ -49,11 +44,17 @@ from app.models import (
 )
 from app.services import paperless
 from app.services.json_utils import parse_json_list
-from app.services.note_ids import next_local_note_id
 from app.services.string_list_json import parse_string_list_json
 from app.services.time_utils import utc_now_iso
 from app.services.writeback_execution import collect_changed_calls, execute_calls_with_audit, run_writeback_job_execution
 from app.services.writeback_plan import extract_ai_summary_note
+from app.services.writeback_selection import build_calls_for_item as _build_calls_for_item
+from app.services.writeback_direct import (
+    build_writeback_conflicts as _build_writeback_conflicts,
+    execute_direct_selection as _execute_direct_selection,
+    resolve_direct_selection as _resolve_direct_selection,
+    sync_local_field_from_paperless as _sync_local_field_from_paperless,
+)
 from app.services.writeback_preview import (
     build_writeback_item as _build_item,
     local_writeback_candidate_doc_ids as _local_writeback_candidate_doc_ids,
@@ -78,93 +79,6 @@ def _raise_missing_table_message() -> None:
         status_code=503,
         detail="Writeback jobs table is missing. Run database migrations (alembic upgrade head).",
     )
-
-def _build_calls_for_item(item: WritebackDryRunItem) -> list[WritebackDryRunCall]:
-    calls: list[WritebackDryRunCall] = []
-    if not item.changed:
-        return calls
-
-    selection = _collect_local_selection(item=item, fields=item.changed_fields)
-    if selection.patch_payload:
-        calls.append(
-            WritebackDryRunCall(
-                doc_id=item.doc_id,
-                method="PATCH",
-                path=f"/api/documents/{item.doc_id}/",
-                payload=selection.patch_payload,
-            )
-        )
-
-    if selection.apply_local_note and selection.note_new_text:
-        if selection.note_action == "replace" and selection.note_original_id:
-            calls.append(
-                WritebackDryRunCall(
-                    doc_id=item.doc_id,
-                    method="DELETE",
-                    path=f"/api/documents/{item.doc_id}/notes/?id={int(selection.note_original_id)}",
-                    payload={},
-                )
-            )
-        calls.append(
-            WritebackDryRunCall(
-                doc_id=item.doc_id,
-                method="POST",
-                path=f"/api/documents/{item.doc_id}/notes/",
-                payload={"note": selection.note_new_text},
-            )
-        )
-    return calls
-
-
-@dataclass
-class _LocalWritebackSelection:
-    patch_payload: dict[str, Any]
-    apply_local_note: bool
-    note_original_id: int | None
-    note_new_text: str | None
-    note_action: str
-
-
-def _normalize_changed_field(field: str) -> str:
-    return "issue_date" if field in {"document_date", "issue_date"} else field
-
-
-def _collect_local_selection(*, item: WritebackDryRunItem, fields: list[str]) -> _LocalWritebackSelection:
-    patch_payload: dict[str, Any] = {}
-    apply_local_note = False
-    note_original_id: int | None = None
-    note_new_text: str | None = None
-    note_action = ""
-    for field in fields:
-        normalized_field = _normalize_changed_field(field)
-        if normalized_field == "title":
-            patch_payload["title"] = item.title.proposed
-            continue
-        if normalized_field == "issue_date":
-            patch_payload["created"] = item.document_date.proposed
-            continue
-        if normalized_field == "correspondent" and isinstance(item.correspondent.proposed, dict):
-            patch_payload["correspondent"] = item.correspondent.proposed.get("id")
-            patch_payload["pending_correspondent_name"] = item.correspondent.proposed.get("pending_name")
-            continue
-        if normalized_field == "tags" and isinstance(item.tags.proposed, dict):
-            patch_payload["tags"] = item.tags.proposed.get("ids") or []
-            patch_payload["pending_tag_names"] = item.tags.proposed.get("pending_names") or []
-            continue
-        if normalized_field == "note" and isinstance(item.note.proposed, dict):
-            apply_local_note = True
-            original = item.note.original if isinstance(item.note.original, dict) else {}
-            note_original_id = int(original["id"]) if isinstance(original.get("id"), int) else None
-            note_new_text = str(item.note.proposed.get("text") or "").strip() or None
-            note_action = str(item.note.proposed.get("action") or "")
-    return _LocalWritebackSelection(
-        patch_payload=patch_payload,
-        apply_local_note=apply_local_note,
-        note_original_id=note_original_id,
-        note_new_text=note_new_text,
-        note_action=note_action,
-    )
-
 
 def _cleanup_pending_rows_after_patch(db: Session, doc_id: int, patch_payload: dict[str, Any]) -> None:
     if "tags" in patch_payload:
@@ -307,7 +221,7 @@ def _resolve_paperless_correspondent_id(
     local_name = str(pending_correspondent_name or "").strip()
     local_id = int(local_correspondent_id) if isinstance(local_correspondent_id, int) and local_correspondent_id > 0 else None
     if not local_name and local_id:
-        local_row = db.query(Correspondent).filter(Correspondent.id == int(local_correspondent_id)).one_or_none()
+        local_row = db.query(Correspondent).filter(Correspondent.id == int(local_id)).one_or_none()
         local_name = str(local_row.name or "").strip() if local_row else ""
 
     remote_rows = paperless.list_all_correspondents(settings)
@@ -424,8 +338,9 @@ def _execute_call(settings: Settings, db: Session, call: WritebackDryRunCall) ->
                 .one_or_none()
             )
             if local_doc:
-                resolved_ids = payload.get("tags") if isinstance(payload.get("tags"), list) else []
-                resolved_ids_int = [int(tag_id) for tag_id in resolved_ids if isinstance(tag_id, int)]
+                resolved_ids_raw = payload.get("tags")
+                resolved_ids: list[object] = resolved_ids_raw if isinstance(resolved_ids_raw, list) else []
+                resolved_ids_int: list[int] = [tag_id for tag_id in resolved_ids if isinstance(tag_id, int)]
                 existing_tags = db.query(Tag).filter(Tag.id.in_(resolved_ids_int)).all() if resolved_ids_int else []
                 by_id = {tag.id: tag for tag in existing_tags}
                 local_doc.tags = [by_id[tag_id] for tag_id in resolved_ids_int if tag_id in by_id]
@@ -481,158 +396,6 @@ def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) ->
     except Exception:
         logger.warning("Failed to fetch paperless modified for reviewed_at doc=%s", doc_id)
     return utc_now_iso()
-
-
-def _item_field_by_name(item: WritebackDryRunItem, field: str) -> WritebackFieldDiff | None:
-    if field == "title":
-        return item.title
-    if field == "issue_date":
-        return item.document_date
-    if field == "correspondent":
-        return item.correspondent
-    if field == "tags":
-        return item.tags
-    if field == "note":
-        return item.note
-    return None
-
-
-def _sync_local_field_from_paperless(
-    db: Session,
-    local_doc: Document,
-    remote_doc: dict[str, Any],
-    field: str,
-) -> None:
-    if field == "title":
-        local_doc.title = str(remote_doc.get("title") or "").strip() or None
-        return
-    if field == "issue_date":
-        local_doc.document_date = str(remote_doc.get("created") or "").strip() or None
-        return
-    if field == "correspondent":
-        remote_corr = remote_doc.get("correspondent")
-        local_doc.correspondent_id = int(remote_corr) if isinstance(remote_corr, int) else None
-        pending_corr_row = (
-            db.query(DocumentPendingCorrespondent)
-            .filter(DocumentPendingCorrespondent.doc_id == int(local_doc.id))
-            .one_or_none()
-        )
-        if pending_corr_row:
-            db.delete(pending_corr_row)
-        return
-    if field == "tags":
-        remote_tags_raw = remote_doc.get("tags") or []
-        remote_tag_ids = [int(tag_id) for tag_id in remote_tags_raw if isinstance(tag_id, int)]
-        if not remote_tag_ids:
-            local_doc.tags = []
-            return
-        existing_tags = db.query(Tag).filter(Tag.id.in_(remote_tag_ids)).all()
-        by_id = {tag.id: tag for tag in existing_tags}
-        local_doc.tags = [by_id[tag_id] for tag_id in remote_tag_ids if tag_id in by_id]
-        pending_row = (
-            db.query(DocumentPendingTag)
-            .filter(DocumentPendingTag.doc_id == int(local_doc.id))
-            .one_or_none()
-        )
-        if pending_row:
-            db.delete(pending_row)
-        return
-    if field == "note":
-        remote_note_id, remote_note_text = extract_ai_summary_note(
-            remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
-        )
-        ai_local_notes = [note for note in (local_doc.notes or []) if str(note.note or "").strip().endswith("KI-Zusammenfassung")]
-        for note in ai_local_notes:
-            db.delete(note)
-        if remote_note_id and remote_note_text:
-            db.add(
-                DocumentNote(
-                    id=next_local_note_id(db),
-                    document_id=local_doc.id,
-                    note=remote_note_text,
-                    created=utc_now_iso(),
-                )
-            )
-        return
-
-
-def _build_writeback_conflicts(item: WritebackDryRunItem) -> list[WritebackConflictField]:
-    conflicts: list[WritebackConflictField] = []
-    for field in item.changed_fields:
-        diff = _item_field_by_name(item, field)
-        if diff is None:
-            continue
-        conflicts.append(
-            WritebackConflictField(
-                field=field,
-                paperless=diff.original,
-                local=diff.proposed,
-            )
-        )
-    return conflicts
-
-
-def _resolve_direct_selection(
-    *,
-    db: Session,
-    local_doc: Document,
-    remote_doc: dict[str, Any],
-    item: WritebackDryRunItem,
-    resolutions: dict[str, str],
-    needs_conflict_resolution: bool,
-) -> _LocalWritebackSelection:
-    local_fields: list[str] = []
-    for field in item.changed_fields:
-        normalized_field = _normalize_changed_field(field)
-        action = resolutions.get(normalized_field)
-        if action not in {"skip", "use_paperless", "use_local"}:
-            action = "use_local" if not needs_conflict_resolution else "skip"
-        if action == "skip":
-            continue
-        if action == "use_paperless":
-            _sync_local_field_from_paperless(db, local_doc, remote_doc, normalized_field)
-            continue
-        local_fields.append(normalized_field)
-    return _collect_local_selection(item=item, fields=local_fields)
-
-
-def _execute_direct_selection(
-    *,
-    settings: Settings,
-    db: Session,
-    doc_id: int,
-    selection: _LocalWritebackSelection,
-) -> list[WritebackDryRunCall]:
-    calls: list[WritebackDryRunCall] = []
-    if selection.patch_payload:
-        patch_call = WritebackDryRunCall(
-            doc_id=doc_id,
-            method="PATCH",
-            path=f"/api/documents/{doc_id}/",
-            payload=selection.patch_payload,
-        )
-        _execute_call(settings, db, patch_call)
-        calls.append(patch_call)
-        _cleanup_pending_rows_after_patch(db, doc_id, selection.patch_payload)
-    if selection.apply_local_note and selection.note_action == "replace" and selection.note_original_id:
-        del_call = WritebackDryRunCall(
-            doc_id=doc_id,
-            method="DELETE",
-            path=f"/api/documents/{doc_id}/notes/?id={selection.note_original_id}",
-            payload={},
-        )
-        _execute_call(settings, db, del_call)
-        calls.append(del_call)
-    if selection.apply_local_note and selection.note_new_text:
-        add_call = WritebackDryRunCall(
-            doc_id=doc_id,
-            method="POST",
-            path=f"/api/documents/{doc_id}/notes/",
-            payload={"note": selection.note_new_text},
-        )
-        _execute_call(settings, db, add_call)
-        calls.append(add_call)
-    return calls
 
 
 @router.post("/documents/{doc_id}/execute-direct", response_model=WritebackDirectExecuteResponse)
@@ -723,6 +486,13 @@ def execute_writeback_direct_for_document(
         item=item,
         resolutions=resolutions,
         needs_conflict_resolution=needs_conflict_resolution,
+        sync_local_field_from_paperless_fn=lambda inner_db, inner_local_doc, inner_remote_doc, field: _sync_local_field_from_paperless(
+            inner_db,
+            inner_local_doc,
+            inner_remote_doc,
+            field,
+            extract_ai_summary_note=extract_ai_summary_note,
+        ),
     )
 
     try:
@@ -731,6 +501,8 @@ def execute_writeback_direct_for_document(
             db=db,
             doc_id=doc_id,
             selection=selection,
+            execute_call_fn=_execute_call,
+            cleanup_pending_rows_after_patch_fn=_cleanup_pending_rows_after_patch,
         )
     except RuntimeError as exc:
         db.rollback()
