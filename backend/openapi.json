@@ -294,6 +294,48 @@
         }
       }
     },
+    "/documents/{doc_id}/review/mark": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Mark Document Reviewed",
+        "operationId": "mark_document_reviewed_documents__doc_id__review_mark_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkReviewedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{doc_id}/text-quality": {
       "get": {
         "tags": [
@@ -2537,6 +2579,31 @@
         }
       }
     },
+    "/connections/": {
+      "get": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Connections",
+        "operationId": "connections_connections__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectionStatus"
+                  },
+                  "type": "array",
+                  "title": "Response Connections Connections  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/queue/status": {
       "get": {
         "tags": [
@@ -4406,6 +4473,34 @@
         ],
         "title": "ClearIntelligenceResponse"
       },
+      "ConnectionStatus": {
+        "properties": {
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service",
+          "status",
+          "detail",
+          "latency_ms"
+        ],
+        "title": "ConnectionStatus"
+      },
       "CorrespondentResponse": {
         "properties": {
           "id": {
@@ -4880,6 +4975,17 @@
             "title": "Pending Tag Names",
             "default": []
           },
+          "pending_correspondent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Correspondent Name"
+          },
           "has_embeddings": {
             "anyOf": [
               {
@@ -5103,6 +5209,35 @@
         },
         "type": "object",
         "title": "DocumentLocalResponse"
+      },
+      "DocumentMarkReviewedResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "doc_id"
+        ],
+        "title": "DocumentMarkReviewedResponse"
       },
       "DocumentNoteOut": {
         "properties": {
@@ -5552,6 +5687,17 @@
               }
             ],
             "title": "Correspondent Name"
+          },
+          "pending_correspondent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Correspondent Name"
           },
           "local_cached": {
             "anyOf": [
