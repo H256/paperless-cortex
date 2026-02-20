@@ -660,12 +660,21 @@ import {
   formatCheckpointLabel as formatTaskCheckpointLabel,
   hasResumeMarker as taskRunHasResumeMarker,
 } from '../utils/taskRunCheckpoint'
+import {
+  delayedDocId,
+  delayedTaskLabel,
+  queueCompactMessage as compactMessage,
+  queueFormatDueIn as formatDueIn,
+  queueFormatRuntime as formatRuntime,
+  queueFormatStartedAt as formatStartedAt,
+  queueItemDescription as itemDescription,
+  queueItemTitle as itemTitle,
+} from '../utils/queueView'
 import { useToastStore } from '../stores/toastStore'
 
 const docIdFilter = ref('')
 const router = useRouter()
 const toastStore = useToastStore()
-type QueueListItem = { doc_id?: number | null; task?: string | null; raw?: string | null }
 const {
   status,
   running,
@@ -734,47 +743,6 @@ const shouldAutoRefreshQueue = computed(() => {
   return inProgress > 0 || queued > 0 || Boolean(running.value.started_at)
 })
 
-const TASK_MAP: Record<string, { label: string; description: string }> = {
-  sync: { label: 'Sync document', description: 'Fetch latest metadata from Paperless.' },
-  vision_ocr: { label: 'Vision OCR', description: 'Run OCR on the document pages.' },
-  embeddings_paperless: {
-    label: 'Baseline embeddings',
-    description: 'Embed text from Paperless OCR.',
-  },
-  embeddings_vision: {
-    label: 'Vision embeddings',
-    description: 'Embed text from Vision OCR pages.',
-  },
-  suggestions_paperless: {
-    label: 'AI suggestions (baseline)',
-    description: 'Generate metadata suggestions from OCR.',
-  },
-  suggestions_vision: {
-    label: 'AI suggestions (vision)',
-    description: 'Generate metadata suggestions from vision OCR.',
-  },
-  suggest_field: {
-    label: 'Field variants',
-    description: 'Suggest alternative values for a field.',
-  },
-  full: { label: 'Full pipeline', description: 'Sync, OCR, embeddings, and suggestions.' },
-}
-
-const itemTitle = (item: QueueListItem) => {
-  if (item.doc_id != null) {
-    const key = item.task || 'full'
-    const label = TASK_MAP[key]?.label || key
-    return `Doc ${item.doc_id} - ${label}`
-  }
-  return item.raw || 'Unknown item'
-}
-
-const itemDescription = (item: QueueListItem) => {
-  const key = item.task || 'full'
-  if (item.doc_id != null && TASK_MAP[key]) return TASK_MAP[key].description
-  return item.raw ? 'Custom queue payload' : 'Unknown queue item'
-}
-
 const clearQueue = async () => {
   await clearQueueRequest()
 }
@@ -832,28 +800,6 @@ const copyError = async (message: string) => {
   }
 }
 
-const formatStartedAt = (unixTs: number) => new Date(unixTs * 1000).toLocaleString()
-
-const formatRuntime = (unixTs: number) => {
-  const seconds = Math.max(0, Math.floor(Date.now() / 1000) - unixTs)
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  if (mins <= 0) return `${secs}s`
-  if (mins < 60) return `${mins}m ${secs}s`
-  const hours = Math.floor(mins / 60)
-  const remMins = mins % 60
-  return `${hours}h ${remMins}m`
-}
-
-const formatDueIn = (value?: number | null) => {
-  if (value == null) return '-'
-  const seconds = Math.max(0, Math.floor(value))
-  if (seconds < 60) return `${seconds}s`
-  const mins = Math.floor(seconds / 60)
-  const rem = seconds % 60
-  return `${mins}m ${rem}s`
-}
-
 const hasResumeMarker = (run: { checkpoint?: unknown }) => {
   const checkpoint = run.checkpoint as Record<string, unknown> | null | undefined
   return taskRunHasResumeMarker(checkpoint)
@@ -862,29 +808,6 @@ const hasResumeMarker = (run: { checkpoint?: unknown }) => {
 const checkpointLabel = (run: { checkpoint?: unknown }) => {
   const checkpoint = run.checkpoint as Record<string, unknown> | null | undefined
   return formatTaskCheckpointLabel(checkpoint, '-')
-}
-
-const compactMessage = (message?: string | null) => {
-  if (!message) return '-'
-  const normalized = message.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 80) return normalized
-  return `${normalized.slice(0, 77)}...`
-}
-
-const delayedTaskLabel = (item: { task?: unknown }) => {
-  const task = item.task
-  if (!task || typeof task !== 'object') return 'unknown'
-  const value = (task as Record<string, unknown>).task
-  return typeof value === 'string' && value.trim() ? value : 'unknown'
-}
-
-const delayedDocId = (item: { task?: unknown }) => {
-  const task = item.task
-  if (!task || typeof task !== 'object') return '-'
-  const value = (task as Record<string, unknown>).doc_id
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'string' && value.trim()) return value
-  return '-'
 }
 
 useAutoRefresh({
@@ -897,4 +820,3 @@ useAutoRefresh({
 
 refresh()
 </script>
-

@@ -80,81 +80,35 @@
     </section>
 
     <section class="mt-6 grid gap-4 lg:grid-cols-3">
-      <div
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Vision OCR</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Deletes all stored vision OCR pages. Documents will need OCR again.
-        </p>
-        <div class="mt-4 flex items-center gap-3">
-          <button
-            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-            :disabled="visionLoading"
-            @click="confirmVision"
-          >
-            <span v-if="visionLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Removing...
-            </span>
-            <span v-else>Remove vision OCR</span>
-          </button>
-          <div v-if="visionResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Removed {{ visionResult.deleted }} rows
-          </div>
-        </div>
-      </div>
+      <MaintenanceActionCard
+        title="Remove Vision OCR"
+        description="Deletes all stored vision OCR pages. Documents will need OCR again."
+        action-label="Remove vision OCR"
+        loading-label="Removing..."
+        :loading="visionLoading"
+        :result-text="visionResultText"
+        @action="confirmVision"
+      />
 
-      <div
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Suggestions</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Deletes all AI suggestions across documents.
-        </p>
-        <div class="mt-4 flex items-center gap-3">
-          <button
-            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-            :disabled="suggestionsLoading"
-            @click="confirmSuggestions"
-          >
-            <span v-if="suggestionsLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Removing...
-            </span>
-            <span v-else>Remove suggestions</span>
-          </button>
-          <div v-if="suggestionsResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Removed {{ suggestionsResult.deleted }} rows
-          </div>
-        </div>
-      </div>
+      <MaintenanceActionCard
+        title="Remove Suggestions"
+        description="Deletes all AI suggestions across documents."
+        action-label="Remove suggestions"
+        loading-label="Removing..."
+        :loading="suggestionsLoading"
+        :result-text="suggestionsResultText"
+        @action="confirmSuggestions"
+      />
 
-      <div
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Embeddings</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Deletes all embeddings (paperless + vision) and clears Qdrant points.
-        </p>
-        <div class="mt-4 flex items-center gap-3">
-          <button
-            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-            :disabled="embeddingsLoading"
-            @click="confirmEmbeddings"
-          >
-            <span v-if="embeddingsLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Removing...
-            </span>
-            <span v-else>Remove embeddings</span>
-          </button>
-          <div v-if="embeddingsResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Removed {{ embeddingsResult.deleted }} rows (Qdrant ok:
-            {{ embeddingsResult.qdrant_deleted }}, errors: {{ embeddingsResult.qdrant_errors }})
-          </div>
-        </div>
-      </div>
+      <MaintenanceActionCard
+        title="Remove Embeddings"
+        description="Deletes all embeddings (paperless + vision) and clears Qdrant points."
+        action-label="Remove embeddings"
+        loading-label="Removing..."
+        :loading="embeddingsLoading"
+        :result-text="embeddingsResultText"
+        @action="confirmEmbeddings"
+      />
 
       <div
         class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -591,6 +545,7 @@ import {
 } from '../services/queue'
 import { useMaintenanceOps } from '../composables/useMaintenanceOps'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import MaintenanceActionCard from '../components/MaintenanceActionCard.vue'
 
 const toastStore = useToastStore()
 const maintenanceOps = useMaintenanceOps()
@@ -664,6 +619,17 @@ const embeddingsResult = ref<{
   qdrant_deleted: number
   qdrant_errors: number
 } | null>(null)
+const visionResultText = computed(() =>
+  visionResult.value ? `Removed ${visionResult.value.deleted} rows` : '',
+)
+const suggestionsResultText = computed(() =>
+  suggestionsResult.value ? `Removed ${suggestionsResult.value.deleted} rows` : '',
+)
+const embeddingsResultText = computed(() =>
+  embeddingsResult.value
+    ? `Removed ${embeddingsResult.value.deleted} rows (Qdrant ok: ${embeddingsResult.value.qdrant_deleted}, errors: ${embeddingsResult.value.qdrant_errors})`
+    : '',
+)
 const clearAllResult = ref<{
   cleared_documents: number
   cleared_embeddings: number

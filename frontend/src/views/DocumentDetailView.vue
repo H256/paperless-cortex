@@ -619,6 +619,17 @@ import { consumeCitationJump } from '../services/citationJump'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
 import { formatDateTime, formatRelativeTime } from '../utils/dateTime'
 import { formatCheckpointLabel } from '../utils/taskRunCheckpoint'
+import {
+  compactErrorMessage,
+  embeddingTelemetryLabel,
+  errorMessage,
+  formatDocDate,
+  parseBBox,
+  queryToRecord,
+  toDateTime,
+  toTitle,
+  type BBox,
+} from '../utils/documentDetail'
 
 const route = useRoute()
 const router = useRouter()
@@ -702,7 +713,6 @@ const {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
 const pdfPage = ref(1)
-type BBox = [number, number, number, number]
 const pdfHighlights = ref<BBox[]>([])
 type DetailTabKey = 'meta' | 'text' | 'suggestions' | 'pages' | 'operations'
 const tabs: Array<{ key: DetailTabKey; label: string }> = [
@@ -859,26 +869,11 @@ const fanoutStatusClass = (status: string | null | undefined) => {
   return 'text-slate-600 dark:text-slate-300'
 }
 
-const parseBBox = (value: unknown): BBox | null => {
-  if (!value) return null
-  const raw = Array.isArray(value) ? value[0] : value
-  if (typeof raw !== 'string') return null
-  const parts = raw.split(',').map((part) => Number(part.trim()))
-  if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return null
-  return parts as BBox
-}
-
 const paperlessUrl = computed(() =>
   paperlessBaseUrl.value && document.value
     ? `${paperlessBaseUrl.value.replace(/\/$/, '')}/documents/${document.value.id}`
     : '',
 )
-
-const errorMessage = (err: unknown, fallback: string) => {
-  if (err instanceof Error) return err.message || fallback
-  if (typeof err === 'string') return err || fallback
-  return fallback
-}
 
 const aggregatedText = computed(() => {
   if (!pageTexts.value.length) return document.value?.content || ''
@@ -955,7 +950,7 @@ const currentCorrespondentName = computed(() => {
 
 const currentValues = computed(() => ({
   title: document.value?.title || '',
-  date: formatDate(document.value?.document_date || document.value?.created) || '',
+  date: formatDocDate(document.value?.document_date || document.value?.created) || '',
   correspondent: currentCorrespondentName.value || '',
   tags: currentTagNames.value || '',
   note: currentNotePreview.value || '',
@@ -966,15 +961,6 @@ const canMarkReviewed = computed(
     !document.value?.local_overrides &&
     String(document.value?.review_status || '').toLowerCase() !== 'reviewed',
 )
-
-const toTitle = (value: string | null | undefined) => {
-  if (!value) return 'Unknown'
-  return value
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
 
 const rows = computed(() => {
   if (!document.value) return []
@@ -995,7 +981,7 @@ const rows = computed(() => {
   const modifiedLabel = formatDateTime(document.value.modified) || '-'
   return [
     { label: 'Title', value: document.value.title },
-    { label: 'Issue date', value: formatDate(document.value.document_date || document.value.created) },
+    { label: 'Issue date', value: formatDocDate(document.value.document_date || document.value.created) },
     { label: 'Correspondent', value: correspondentName },
     { label: 'Document type', value: docTypeName },
     { label: 'Tags', value: tagNames, pendingValue: pendingTagNames || null },
@@ -1023,7 +1009,7 @@ const headerMetaLine = computed(() => {
 const syncPdfFromQuery = () => {
   const jump = consumeCitationJump(route.query.jump)
   if (route.query.jump !== undefined) {
-    const nextQuery = queryToRecord(['jump'])
+    const nextQuery = queryToRecord(route.query, ['jump'])
     void router.replace({ query: nextQuery })
   }
   const pageValue = Number(jump?.page ?? route.query.page)
@@ -1032,17 +1018,6 @@ const syncPdfFromQuery = () => {
   }
   const bbox = parseBBox(jump?.bbox ?? route.query.bbox)
   pdfHighlights.value = bbox ? [bbox] : []
-}
-
-const queryToRecord = (excludeKeys: string[] = []): Record<string, string> => {
-  const excluded = new Set(excludeKeys)
-  const nextQuery: Record<string, string> = {}
-  Object.entries(route.query).forEach(([key, val]) => {
-    if (excluded.has(key) || val === undefined || val === null) return
-    const entry = Array.isArray(val) ? val[0] : val
-    if (typeof entry === 'string') nextQuery[key] = entry
-  })
-  return nextQuery
 }
 
 const normalizeTabQuery = (value: unknown): DetailTabKey => {
@@ -1060,7 +1035,7 @@ const syncTabFromQuery = () => {
 const syncTabToQuery = async () => {
   const current = normalizeTabQuery(route.query.tab)
   if (current === activeTab.value) return
-  const nextQuery = queryToRecord()
+  const nextQuery = queryToRecord(route.query)
   if (activeTab.value === 'meta') {
     delete nextQuery.tab
   } else {
@@ -1071,7 +1046,7 @@ const syncTabToQuery = async () => {
 
 const onPdfPageChange = (value: number) => {
   pdfPage.value = value
-  const nextQuery = queryToRecord()
+  const nextQuery = queryToRecord(route.query)
   nextQuery.page = String(value)
   delete nextQuery.bbox
   router.replace({ query: nextQuery })
@@ -1175,42 +1150,12 @@ const applyWritebackConflictResolutions = async () => {
   writebackResolutions.value = {}
 }
 
-const formatDate = (value?: string | null) => {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat(navigator.language).format(parsed)
-}
-
-const toDateTime = (value?: string | null) => {
-  if (!value) return '-'
-  return formatDateTime(value) || value
-}
-
 const toRelativeTime = (value?: string | null) => {
   return formatRelativeTime(value)
 }
 
 const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
   return formatCheckpointLabel(checkpoint, '-')
-}
-
-const embeddingTelemetryLabel = (checkpoint?: Record<string, unknown> | null) => {
-  if (!checkpoint || typeof checkpoint !== 'object') return ''
-  const splitChunks = typeof checkpoint.split_chunks === 'number' ? checkpoint.split_chunks : null
-  const overflowCalls = typeof checkpoint.overflow_fallback_calls === 'number' ? checkpoint.overflow_fallback_calls : null
-  if ((splitChunks ?? 0) <= 0 && (overflowCalls ?? 0) <= 0) return ''
-  const parts: string[] = []
-  if ((splitChunks ?? 0) > 0) parts.push(`split chunks: ${splitChunks}`)
-  if ((overflowCalls ?? 0) > 0) parts.push(`fallback calls: ${overflowCalls}`)
-  return parts.join(' | ')
-}
-
-const compactErrorMessage = (message?: string | null) => {
-  if (!message) return ''
-  const normalized = message.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 90) return normalized
-  return `${normalized.slice(0, 87)}...`
 }
 
 const copyRunError = async (message?: string | null) => {
