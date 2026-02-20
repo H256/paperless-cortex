@@ -1,5 +1,4 @@
 import { unwrap } from '../api/orval'
-import { ApiError } from './http'
 import {
   cleanupTextsDocumentsCleanupTextsPost,
   enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPost,
@@ -36,6 +35,7 @@ import {
   getDocumentPipelineStatusDocumentsDocIdPipelineStatusGet,
   continueDocumentPipelineDocumentsDocIdPipelineContinuePost,
   resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPost,
+  markDocumentReviewedDocumentsDocIdReviewMarkPost,
 } from '../api/generated/client'
 import type {
   ApplyFieldSuggestionResponse,
@@ -91,15 +91,12 @@ import type {
   DocumentPipelineStatusResponse,
   DocumentPipelineContinueResponse,
   ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams,
+  DocumentMarkReviewedResponse,
 } from '@/api/generated/model'
 
 export type DocumentRow = DocumentSummary
 export type DocumentDetail = DocumentLocalResponse
-export type MarkReviewedResult = {
-  status: string
-  doc_id: number
-  reviewed_at?: string | null
-}
+export type MarkReviewedResult = DocumentMarkReviewedResponse
 export type Tag = TagResponse
 export type Correspondent = CorrespondentResponse
 export type DocumentType = DocumentTypeResponse
@@ -209,14 +206,7 @@ export const applySuggestionToDocument = (id: number, payload: ApplySuggestionTo
   )
 
 export const markDocumentReviewed = async (id: number): Promise<MarkReviewedResult> => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-  const response = await fetch(`${baseUrl}/documents/${id}/review/mark`, { method: 'POST' })
-  const payload = (await response.json().catch(() => ({}))) as { detail?: unknown } & MarkReviewedResult
-  if (!response.ok) {
-    const detail = typeof payload?.detail === 'string' ? payload.detail : undefined
-    throw new ApiError(detail || `Request failed (${response.status})`, response.status, detail)
-  }
-  return payload
+  return unwrap<MarkReviewedResult>(markDocumentReviewedDocumentsDocIdReviewMarkPost(id))
 }
 export const processMissing = (params?: ProcessMissingParams) =>
   unwrap<ProcessMissingResponse>(processMissingDocumentsProcessMissingPost(params))

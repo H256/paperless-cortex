@@ -191,6 +191,51 @@ def test_mark_reviewed_moves_document_out_of_unreviewed(api_client, monkeypatch)
     assert after.json()["count"] == 0
 
 
+def test_mark_reviewed_updates_local_review_status(api_client, monkeypatch):
+    from app.services import paperless
+
+    _insert_local_document(doc_id=45, title="Doc 45", created="2026-02-10T10:00:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "get_document_cached",
+        lambda *args, **kwargs: {
+            "id": 45,
+            "title": "Doc 45",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    before = api_client.get("/documents/45/local")
+    assert before.status_code == 200
+    before_payload = before.json()
+    assert before_payload["review_status"] == "unreviewed"
+    assert before_payload["reviewed_at"] is None
+
+    marked = api_client.post("/documents/45/review/mark")
+    assert marked.status_code == 200
+    assert marked.json()["status"] == "ok"
+
+    after = api_client.get("/documents/45/local")
+    assert after.status_code == 200
+    after_payload = after.json()
+    assert after_payload["review_status"] == "reviewed"
+    assert isinstance(after_payload["reviewed_at"], str)
+    assert after_payload["reviewed_at"]
+
+
+def test_mark_reviewed_returns_missing_when_document_not_local(api_client):
+    response = api_client.post("/documents/9999/review/mark")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "missing"
+    assert payload["doc_id"] == 9999
+    assert payload["reviewed_at"] is None
+
+
 def test_list_documents_review_status_needs_review(api_client, monkeypatch):
     from app.services import paperless
 

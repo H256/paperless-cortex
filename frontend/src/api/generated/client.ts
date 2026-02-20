@@ -13,6 +13,7 @@ import type {
   CleanupTextsRequest,
   CleanupTextsResponse,
   ClearIntelligenceResponse,
+  ConnectionStatus,
   ContinueDocumentPipelineDocumentsDocIdPipelineContinuePostParams,
   CorrespondentResponse,
   CorrespondentsPageResponse,
@@ -24,6 +25,7 @@ import type {
   DeleteVisionOcrResponse,
   DocumentDashboardResponse,
   DocumentLocalResponse,
+  DocumentMarkReviewedResponse,
   DocumentOcrScoresResponse,
   DocumentOperationEnqueueResponse,
   DocumentPipelineContinueResponse,
@@ -356,6 +358,55 @@ export const getLocalDocumentDocumentsDocIdLocalGet = async (docId: number, opti
   
   const data: getLocalDocumentDocumentsDocIdLocalGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getLocalDocumentDocumentsDocIdLocalGetResponse
+}
+
+
+
+/**
+ * @summary Mark Document Reviewed
+ */
+export type markDocumentReviewedDocumentsDocIdReviewMarkPostResponse200 = {
+  data: DocumentMarkReviewedResponse
+  status: 200
+}
+
+export type markDocumentReviewedDocumentsDocIdReviewMarkPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type markDocumentReviewedDocumentsDocIdReviewMarkPostResponseSuccess = (markDocumentReviewedDocumentsDocIdReviewMarkPostResponse200) & {
+  headers: Headers;
+};
+export type markDocumentReviewedDocumentsDocIdReviewMarkPostResponseError = (markDocumentReviewedDocumentsDocIdReviewMarkPostResponse422) & {
+  headers: Headers;
+};
+
+export type markDocumentReviewedDocumentsDocIdReviewMarkPostResponse = (markDocumentReviewedDocumentsDocIdReviewMarkPostResponseSuccess | markDocumentReviewedDocumentsDocIdReviewMarkPostResponseError)
+
+export const getMarkDocumentReviewedDocumentsDocIdReviewMarkPostUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/documents/${docId}/review/mark`
+}
+
+export const markDocumentReviewedDocumentsDocIdReviewMarkPost = async (docId: number, options?: RequestInit): Promise<markDocumentReviewedDocumentsDocIdReviewMarkPostResponse> => {
+  
+  const res = await fetch(getMarkDocumentReviewedDocumentsDocIdReviewMarkPostUrl(docId),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: markDocumentReviewedDocumentsDocIdReviewMarkPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as markDocumentReviewedDocumentsDocIdReviewMarkPostResponse
 }
 
 
@@ -2319,6 +2370,48 @@ export const cancelEmbeddingsEmbeddingsCancelPost = async ( options?: RequestIni
   
   const data: cancelEmbeddingsEmbeddingsCancelPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as cancelEmbeddingsEmbeddingsCancelPostResponse
+}
+
+
+
+/**
+ * @summary Connections
+ */
+export type connectionsConnectionsGetResponse200 = {
+  data: ConnectionStatus[]
+  status: 200
+}
+    
+export type connectionsConnectionsGetResponseSuccess = (connectionsConnectionsGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type connectionsConnectionsGetResponse = (connectionsConnectionsGetResponseSuccess)
+
+export const getConnectionsConnectionsGetUrl = () => {
+
+
+  
+
+  return `/api/connections/`
+}
+
+export const connectionsConnectionsGet = async ( options?: RequestInit): Promise<connectionsConnectionsGetResponse> => {
+  
+  const res = await fetch(getConnectionsConnectionsGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: connectionsConnectionsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as connectionsConnectionsGetResponse
 }
 
 

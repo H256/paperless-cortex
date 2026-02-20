@@ -34,6 +34,8 @@
       :queue-length="typeof queueStatus.length === 'number' ? queueStatus.length : null"
       :processing-active="isProcessing"
       @update:batch-index="batchIndex = $event"
+      @update:include-sync="processOptions.includeSync = $event"
+      @update:strategy="processOptions.strategy = $event"
       @close="goBack"
       @start="startFromPreview"
       @open-doc="openDoc"

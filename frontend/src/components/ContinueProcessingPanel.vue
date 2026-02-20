@@ -98,7 +98,7 @@
           >
             <input
               type="checkbox"
-              v-model="processOptions.includeSync"
+              v-model="includeSyncModel"
               class="h-4 w-4 rounded border-slate-300 text-indigo-600"
             />
             Sync from Paperless first (insert missing docs + mark deleted)
@@ -106,7 +106,7 @@
           <label class="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
             Processing strategy
             <select
-              v-model="processOptions.strategy"
+              v-model="strategyModel"
               class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="balanced">Balanced (Recommended)</option>
@@ -419,17 +419,18 @@
 import { computed, ref, watch } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 import type { ProcessMissingResponse, SyncStatusResponse } from '@/api/generated/model'
+import {
+  isHighPriorityPreviewDoc,
+  recommendStrategy,
+  sortPreviewDocsByPriority,
+  strategyWarningsFor,
+  type PreviewDocItem,
+  type ProcessStrategy,
+} from '../utils/continueProcessingPanel'
 
 type ProcessOptions = {
   includeSync: boolean
-  strategy: 'balanced' | 'paperless_only' | 'vision_first' | 'max_coverage'
-}
-
-type PreviewDocItem = {
-  doc_id: number
-  title: string
-  missing_steps: string[]
-  missing_tasks: string[]
+  strategy: ProcessStrategy
 }
 
 const props = defineProps<{
@@ -458,11 +459,23 @@ const emit = defineEmits<{
   'open-queue': []
   'open-logs': []
   'update:batchIndex': [value: number]
+  'update:includeSync': [value: boolean]
+  'update:strategy': [value: ProcessOptions['strategy']]
 }>()
 
 const batchIndexModel = computed({
   get: () => props.batchIndex,
   set: (value: number) => emit('update:batchIndex', value),
+})
+
+const includeSyncModel = computed({
+  get: () => props.processOptions.includeSync,
+  set: (value: boolean) => emit('update:includeSync', value),
+})
+
+const strategyModel = computed({
+  get: () => props.processOptions.strategy,
+  set: (value: ProcessOptions['strategy']) => emit('update:strategy', value),
 })
 
 const coverageItems = computed(() => {
@@ -565,37 +578,7 @@ const previewDocs = computed<PreviewDocItem[]>(() => {
     .filter((item): item is PreviewDocItem => item !== null)
 })
 
-const _priorityTaskMarkers = [
-  'page_notes',
-  'summary_hierarchical',
-  'suggestions_vision',
-  'vision_ocr',
-  'embeddings_vision',
-]
-
-const priorityScoreForPreviewDoc = (item: PreviewDocItem) => {
-  const tasks = Array.isArray(item.missing_tasks) ? item.missing_tasks : []
-  const steps = Array.isArray(item.missing_steps) ? item.missing_steps : []
-  let score = 0
-  for (const task of tasks) {
-    const normalized = String(task || '').toLowerCase()
-    if (_priorityTaskMarkers.some((marker) => normalized.includes(marker))) score += 2
-  }
-  if (steps.some((step) => String(step || '').toLowerCase().includes('large'))) score += 3
-  return score
-}
-
-const isHighPriorityPreviewDoc = (item: PreviewDocItem) => priorityScoreForPreviewDoc(item) >= 3
-
-const prioritizedPreviewDocs = computed(() => {
-  return [...previewDocs.value].sort((a, b) => {
-    const scoreDiff = priorityScoreForPreviewDoc(b) - priorityScoreForPreviewDoc(a)
-    if (scoreDiff !== 0) return scoreDiff
-    const taskDiff = (b.missing_tasks?.length || 0) - (a.missing_tasks?.length || 0)
-    if (taskDiff !== 0) return taskDiff
-    return a.doc_id - b.doc_id
-  })
-})
+const prioritizedPreviewDocs = computed(() => sortPreviewDocsByPriority(previewDocs.value))
 
 const highPriorityPreviewCount = computed(
   () => prioritizedPreviewDocs.value.filter((item) => isHighPriorityPreviewDoc(item)).length,
@@ -713,66 +696,15 @@ const strategyLabel = (value: ProcessOptions['strategy']) => {
   return 'Balanced'
 }
 
-const recommendedStrategyInfo = computed<null | { strategy: ProcessOptions['strategy']; reason: string }>(() => {
-  const preview = props.processPreview
-  if (!preview) return null
-  const visionGaps =
-    Number(preview.missing_vision_ocr ?? 0) +
-    Number(preview.missing_embeddings_vision ?? 0) +
-    Number(preview.missing_suggestions_vision ?? 0) +
-    Number(preview.missing_page_notes ?? 0) +
-    Number(preview.missing_summary_hierarchical ?? 0)
-  const paperlessGaps =
-    Number(preview.missing_embeddings_paperless ?? 0) +
-    Number(preview.missing_suggestions_paperless ?? 0)
-  const largeGaps =
-    Number(preview.missing_page_notes ?? 0) + Number(preview.missing_summary_hierarchical ?? 0)
-
-  if (largeGaps > 0 || (visionGaps > 0 && paperlessGaps > 0)) {
-    return { strategy: 'max_coverage', reason: 'large-doc or mixed source gaps detected' }
-  }
-  if (visionGaps > 0) {
-    return { strategy: 'vision_first', reason: 'vision pipeline gaps dominate' }
-  }
-  if (paperlessGaps > 0) {
-    return { strategy: 'balanced', reason: 'baseline tasks remain' }
-  }
-  return { strategy: 'balanced', reason: 'already mostly covered' }
-})
+const recommendedStrategyInfo = computed(() => recommendStrategy(props.processPreview))
 
 const applyRecommendedStrategy = () => {
   const next = recommendedStrategyInfo.value?.strategy
   if (!next) return
-  props.processOptions.strategy = next
+  emit('update:strategy', next)
 }
 
-const strategyWarnings = computed(() => {
-  const preview = props.processPreview
-  if (!preview) return []
-  const warnings: string[] = []
-  if (props.processOptions.strategy === 'paperless_only') {
-    const visionGaps =
-      Number(preview.missing_vision_ocr ?? 0) +
-      Number(preview.missing_embeddings_vision ?? 0) +
-      Number(preview.missing_suggestions_vision ?? 0) +
-      Number(preview.missing_page_notes ?? 0) +
-      Number(preview.missing_summary_hierarchical ?? 0)
-    if (visionGaps > 0) {
-      warnings.push(
-        `Selected strategy may leave ${visionGaps} vision-related gaps unresolved (switch to Balanced, Vision first, or Max coverage to include them).`,
-      )
-    }
-  }
-  if (props.processOptions.strategy === 'vision_first') {
-    const baselineGaps =
-      Number(preview.missing_embeddings_paperless ?? 0) +
-      Number(preview.missing_suggestions_paperless ?? 0)
-    if (baselineGaps > 0) {
-      warnings.push(
-        `Baseline paperless tasks still missing: ${baselineGaps}. Consider Balanced or Max coverage if baseline parity is required.`,
-      )
-    }
-  }
-  return warnings
-})
+const strategyWarnings = computed(() =>
+  strategyWarningsFor(props.processOptions.strategy, props.processPreview),
+)
 </script>

@@ -27,6 +27,7 @@ export interface DocumentLocalResponse {
   reviewed_at?: string | null;
   paperless_modified?: string | null;
   pending_tag_names?: string[];
+  pending_correspondent_name?: string | null;
   has_embeddings?: boolean | null;
   embedding_source?: string | null;
   embedding_chunk_count?: number | null;

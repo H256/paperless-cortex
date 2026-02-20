@@ -202,7 +202,6 @@ const emptyStateMode = computed<'filtered' | 'running_only' | 'empty'>(() => {
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const {
   isProcessing,
-  isSyncingNow,
   hasQueuedWork,
   showCancel,
   embedLabel,

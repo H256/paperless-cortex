@@ -1,0 +1,113 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Unit/Integration + Coverage Gate
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright Browsers
+        if: ${{ vars.RUN_E2E_SMOKE != '0' }}
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E Smoke
+        if: ${{ vars.RUN_E2E_SMOKE != '0' }}
+        run: npm run e2e:smoke
+
+  e2e-backend-smoke:
+    if: ${{ vars.RUN_E2E_BACKEND_SMOKE != '0' }}
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///./smoke_ci.db
+      PAPERLESS_BASE_URL: http://127.0.0.1:9
+      PAPERLESS_API_TOKEN: ci-smoke
+      QDRANT_URL: http://127.0.0.1:6333
+      LLM_BASE_URL: http://127.0.0.1:11434
+      VITE_API_PROXY_TARGET: http://127.0.0.1:8001
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install backend deps
+        run: uv sync --project backend
+
+      - name: Migrate DB
+        run: uv run --project backend alembic upgrade head
+
+      - name: Start backend on :8001
+        run: |
+          uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8001 > backend-smoke.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8001/api/documents/stats >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to start"
+          cat backend-smoke.log
+          exit 1
+
+      - name: Install Playwright Browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E Smoke (backend-connected)
+        working-directory: frontend
+        run: npm run e2e:smoke

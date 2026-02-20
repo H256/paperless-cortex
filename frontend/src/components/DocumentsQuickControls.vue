@@ -81,7 +81,7 @@ const buttonClass = (active: boolean) =>
     ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
     : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
 
-const props = defineProps<{
+defineProps<{
   viewMode: ViewMode
   runningOnly: boolean
 }>()

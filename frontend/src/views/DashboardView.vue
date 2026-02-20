@@ -410,7 +410,6 @@ import { RefreshCcw } from 'lucide-vue-next'
 import { useDashboardData } from '../composables/useDashboardData'
 
 type DashboardCount = { id?: number | null; name: string; count: number }
-type PageCountBucket = { label: string; count: number }
 
 const { loading, error, data, refresh } = useDashboardData()
 

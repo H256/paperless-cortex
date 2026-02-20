@@ -80,81 +80,35 @@
     </section>
 
     <section class="mt-6 grid gap-4 lg:grid-cols-3">
-      <div
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Vision OCR</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Deletes all stored vision OCR pages. Documents will need OCR again.
-        </p>
-        <div class="mt-4 flex items-center gap-3">
-          <button
-            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-            :disabled="visionLoading"
-            @click="confirmVision"
-          >
-            <span v-if="visionLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Removing...
-            </span>
-            <span v-else>Remove vision OCR</span>
-          </button>
-          <div v-if="visionResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Removed {{ visionResult.deleted }} rows
-          </div>
-        </div>
-      </div>
+      <MaintenanceActionCard
+        title="Remove Vision OCR"
+        description="Deletes all stored vision OCR pages. Documents will need OCR again."
+        action-label="Remove vision OCR"
+        loading-label="Removing..."
+        :loading="visionLoading"
+        :result-text="visionResultText"
+        @action="confirmVision"
+      />
 
-      <div
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Suggestions</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Deletes all AI suggestions across documents.
-        </p>
-        <div class="mt-4 flex items-center gap-3">
-          <button
-            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-            :disabled="suggestionsLoading"
-            @click="confirmSuggestions"
-          >
-            <span v-if="suggestionsLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Removing...
-            </span>
-            <span v-else>Remove suggestions</span>
-          </button>
-          <div v-if="suggestionsResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Removed {{ suggestionsResult.deleted }} rows
-          </div>
-        </div>
-      </div>
+      <MaintenanceActionCard
+        title="Remove Suggestions"
+        description="Deletes all AI suggestions across documents."
+        action-label="Remove suggestions"
+        loading-label="Removing..."
+        :loading="suggestionsLoading"
+        :result-text="suggestionsResultText"
+        @action="confirmSuggestions"
+      />
 
-      <div
-        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Embeddings</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Deletes all embeddings (paperless + vision) and clears Qdrant points.
-        </p>
-        <div class="mt-4 flex items-center gap-3">
-          <button
-            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-            :disabled="embeddingsLoading"
-            @click="confirmEmbeddings"
-          >
-            <span v-if="embeddingsLoading" class="inline-flex items-center gap-2">
-              <Loader2 class="h-4 w-4 animate-spin" />
-              Removing...
-            </span>
-            <span v-else>Remove embeddings</span>
-          </button>
-          <div v-if="embeddingsResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Removed {{ embeddingsResult.deleted }} rows (Qdrant ok:
-            {{ embeddingsResult.qdrant_deleted }}, errors: {{ embeddingsResult.qdrant_errors }})
-          </div>
-        </div>
-      </div>
+      <MaintenanceActionCard
+        title="Remove Embeddings"
+        description="Deletes all embeddings (paperless + vision) and clears Qdrant points."
+        action-label="Remove embeddings"
+        loading-label="Removing..."
+        :loading="embeddingsLoading"
+        :result-text="embeddingsResultText"
+        @action="confirmEmbeddings"
+      />
 
       <div
         class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -337,58 +291,34 @@
             URLs
           </div>
           <dl class="mt-3 space-y-2">
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Paperless</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.paperless_base_url || '—' }}</span>
-                <button
-                  v-if="runtime.paperless_base_url"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.paperless_base_url, 'paperless')"
-                >
-                  {{ copiedKey === 'paperless' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">LLM Base</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.llm_base_url || '—' }}</span>
-                <button
-                  v-if="runtime.llm_base_url"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.llm_base_url, 'llm_base')"
-                >
-                  {{ copiedKey === 'llm_base' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Qdrant</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.qdrant_url || '—' }}</span>
-                <button
-                  v-if="runtime.qdrant_url"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.qdrant_url, 'qdrant')"
-                >
-                  {{ copiedKey === 'qdrant' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Redis</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.redis_host || '—' }}</span>
-                <button
-                  v-if="runtime.redis_host"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.redis_host, 'redis')"
-                >
-                  {{ copiedKey === 'redis' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
+            <MaintenanceRuntimeRow
+              label="Paperless"
+              :value="runtime.paperless_base_url"
+              :copyable="Boolean(runtime.paperless_base_url)"
+              :copied="copiedKey === 'paperless'"
+              @copy="copyValue(runtime.paperless_base_url, 'paperless')"
+            />
+            <MaintenanceRuntimeRow
+              label="LLM Base"
+              :value="runtime.llm_base_url"
+              :copyable="Boolean(runtime.llm_base_url)"
+              :copied="copiedKey === 'llm_base'"
+              @copy="copyValue(runtime.llm_base_url, 'llm_base')"
+            />
+            <MaintenanceRuntimeRow
+              label="Qdrant"
+              :value="runtime.qdrant_url"
+              :copyable="Boolean(runtime.qdrant_url)"
+              :copied="copiedKey === 'qdrant'"
+              @copy="copyValue(runtime.qdrant_url, 'qdrant')"
+            />
+            <MaintenanceRuntimeRow
+              label="Redis"
+              :value="runtime.redis_host"
+              :copyable="Boolean(runtime.redis_host)"
+              :copied="copiedKey === 'redis'"
+              @copy="copyValue(runtime.redis_host, 'redis')"
+            />
           </dl>
         </div>
         <div
@@ -400,57 +330,35 @@
             Models
           </div>
           <dl class="mt-3 space-y-2">
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Text LLM</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.text_model || '—' }}</span>
-                <button
-                  v-if="runtime.text_model"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.text_model, 'text_model')"
-                >
-                  {{ copiedKey === 'text_model' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Embeddings</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.embedding_model || '—' }}</span>
-                <button
-                  v-if="runtime.embedding_model"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.embedding_model, 'embedding_model')"
-                >
-                  {{ copiedKey === 'embedding_model' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Vision OCR</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.vision_model || '—' }}</span>
-                <button
-                  v-if="runtime.vision_model"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.vision_model, 'vision_model')"
-                >
-                  {{ copiedKey === 'vision_model' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Evidence max pages</dt>
-              <dd class="text-right text-slate-900 dark:text-slate-100">
-                {{ runtime.evidence_max_pages || '—' }}
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Evidence min snippet chars</dt>
-              <dd class="text-right text-slate-900 dark:text-slate-100">
-                {{ runtime.evidence_min_snippet_chars || '—' }}
-              </dd>
-            </div>
+            <MaintenanceRuntimeRow
+              label="Text LLM"
+              :value="runtime.text_model"
+              :copyable="Boolean(runtime.text_model)"
+              :copied="copiedKey === 'text_model'"
+              @copy="copyValue(runtime.text_model, 'text_model')"
+            />
+            <MaintenanceRuntimeRow
+              label="Embeddings"
+              :value="runtime.embedding_model"
+              :copyable="Boolean(runtime.embedding_model)"
+              :copied="copiedKey === 'embedding_model'"
+              @copy="copyValue(runtime.embedding_model, 'embedding_model')"
+            />
+            <MaintenanceRuntimeRow
+              label="Vision OCR"
+              :value="runtime.vision_model"
+              :copyable="Boolean(runtime.vision_model)"
+              :copied="copiedKey === 'vision_model'"
+              @copy="copyValue(runtime.vision_model, 'vision_model')"
+            />
+            <MaintenanceRuntimeRow
+              label="Evidence max pages"
+              :value="runtime.evidence_max_pages"
+            />
+            <MaintenanceRuntimeRow
+              label="Evidence min snippet chars"
+              :value="runtime.evidence_min_snippet_chars"
+            />
           </dl>
         </div>
       </div>
@@ -588,10 +496,11 @@ import { RefreshCcw, Loader2 } from 'lucide-vue-next'
 import { useToastStore } from '../stores/toastStore'
 import {
   type QueueWorkerLockReset,
-  type QueueWorkerLockStatus,
 } from '../services/queue'
 import { useMaintenanceOps } from '../composables/useMaintenanceOps'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import MaintenanceActionCard from '../components/MaintenanceActionCard.vue'
+import MaintenanceRuntimeRow from '../components/MaintenanceRuntimeRow.vue'
 
 const toastStore = useToastStore()
 const maintenanceOps = useMaintenanceOps()
@@ -665,6 +574,17 @@ const embeddingsResult = ref<{
   qdrant_deleted: number
   qdrant_errors: number
 } | null>(null)
+const visionResultText = computed(() =>
+  visionResult.value ? `Removed ${visionResult.value.deleted} rows` : '',
+)
+const suggestionsResultText = computed(() =>
+  suggestionsResult.value ? `Removed ${suggestionsResult.value.deleted} rows` : '',
+)
+const embeddingsResultText = computed(() =>
+  embeddingsResult.value
+    ? `Removed ${embeddingsResult.value.deleted} rows (Qdrant ok: ${embeddingsResult.value.qdrant_deleted}, errors: ${embeddingsResult.value.qdrant_errors})`
+    : '',
+)
 const clearAllResult = ref<{
   cleared_documents: number
   cleared_embeddings: number
@@ -880,7 +800,8 @@ onMounted(async () => {
   await Promise.all([loadWorkerLockStatus(), maintenanceOps.refreshRuntime()])
 })
 
-const copyValue = async (value: string, key: string) => {
+const copyValue = async (value: string | null | undefined, key: string) => {
+  if (!value) return
   try {
     await navigator.clipboard.writeText(value)
     copiedKey.value = key
@@ -922,3 +843,4 @@ const confirmClearAll = async () => {
   }
 }
 </script>
+
