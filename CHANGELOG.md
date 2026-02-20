@@ -35,6 +35,7 @@ All granular implementation slices and refactors are tracked here.
 - `a48bed7` test(ci): added `frontend/src/components/DocumentOperationsSection.integration.test.ts` for operations-tab event wiring and `frontend/src/utils/continueProcessingPanel.test.ts` for priority/strategy branch coverage, added backend-connected smoke CI job on `:8001` in `.github/workflows/frontend-ci.yml`, and raised core coverage thresholds to `lines/statements/functions: 80`, `branches: 65`.
 - `87d772d` chore(api): regenerated backend/frontend OpenAPI artifacts (`backend/openapi.json`, `frontend/src/api/generated/**`) to include latest routes including `POST /documents/{doc_id}/review/mark`.
 - `fa3fe77` refactor(frontend): replaced manual review-mark fetch path with generated OpenAPI client + TanStack mutation (`frontend/src/composables/useDocumentReview.ts`) and moved streaming chat HTTP/SSE request handling into shared `frontend/src/services/chatStream.ts` while keeping generated stream URL helpers.
+- `3dda106` test(frontend): added dedicated coverage for `useDocumentReview` mutation flow and `chatStream` SSE parsing/error handling, expanded coverage include set to those modules, and raised core frontend thresholds to `lines/statements/functions: 82`, `branches: 67`.
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
