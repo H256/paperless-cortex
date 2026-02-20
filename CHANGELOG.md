@@ -31,6 +31,8 @@ All granular implementation slices and refactors are tracked here.
 - `8aefb53` test(ci): added `useDocumentProcessingState` test coverage and Vitest coverage guardrails (`frontend/vitest.config.ts`, `npm run test:coverage`) over core composables/utils; updated frontend CI smoke gating to run by default unless explicitly disabled (`RUN_E2E_SMOKE=0`) so smoke e2e is enforced even when repo variables are missing.
 - `dd4b7a7` refactor(frontend): extracted the entire Document Details Operations tab into dedicated `frontend/src/components/DocumentOperationsSection.vue`, reducing `DocumentDetailView` template size/coupling and keeping route-level orchestration in the view.
 - `53c46e4` test(ci): added `frontend/src/views/MaintenanceView.integration.test.ts` to validate runtime-row copy wiring, switched frontend CI test step to coverage-gated execution (`npm run test:coverage`), and raised core frontend coverage thresholds (`lines/statements/functions: 75`, `branches: 60`).
+- `141d0ac` refactor(frontend): moved writeback conflict modal UI into `frontend/src/components/WritebackConflictModal.vue` and extracted writeback state/handlers into `frontend/src/composables/useDocumentWriteback.ts`, reducing `DocumentDetailView` coupling in the writeback path.
+- `a48bed7` test(ci): added `frontend/src/components/DocumentOperationsSection.integration.test.ts` for operations-tab event wiring and `frontend/src/utils/continueProcessingPanel.test.ts` for priority/strategy branch coverage, added backend-connected smoke CI job on `:8001` in `.github/workflows/frontend-ci.yml`, and raised core coverage thresholds to `lines/statements/functions: 80`, `branches: 65`.
 
 ## 2026-02-18 (branch: fix/pending-correspondent-suggestions)
 
