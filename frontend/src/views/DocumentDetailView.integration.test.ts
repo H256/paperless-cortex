@@ -269,4 +269,26 @@ describe('DocumentDetailView', () => {
     expect(pdf.attributes('data-page')).toBe('3')
     expect(pdf.attributes('data-highlight-count')).toBe('1')
   })
+
+  it('removes jump query key after consumption', async () => {
+    route.query = { tab: 'pages', jump: 'token-1', keep: '1' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'pages', keep: '1' } })
+    expect(wrapper.find('[data-test="pdf-viewer"]').exists()).toBe(true)
+  })
 })
