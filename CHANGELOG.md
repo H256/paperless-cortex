@@ -6,12 +6,12 @@ All granular implementation slices and refactors are tracked here.
 ## 2026-02-20 (branch: codex-20260220-backend-routes-tests-refactor)
 
 ### Backend robustness / SRP cleanup
-- `pending` refactor(documents-actions): extracted pipeline fanout run/status/item assembly from `app/routes/documents_actions.py` into new `app/services/pipeline_fanout.py` (`latest_task_runs_by_signature`, `fanout_status_from_run`, `build_pipeline_fanout_items`) to reduce route complexity and tighten SRP.
+- `63edf43` refactor(documents-actions): extracted pipeline fanout run/status/item assembly from `app/routes/documents_actions.py` into new `app/services/pipeline_fanout.py` (`latest_task_runs_by_signature`, `fanout_status_from_run`, `build_pipeline_fanout_items`) to reduce route complexity and tighten SRP.
 
 ### Tests
-- `pending` test(documents-routes): added edge-case coverage in `backend/tests/test_documents_routes.py` for invalid `embeddings_mode`/`limit`, invalid cleanup source, invalid enqueue task, enqueue queue-disabled response, pipeline fanout invalid mode, and continue-pipeline invalid mode + queue-disabled behavior.
-- `pending` test(writeback-jobs): added edge-case coverage in `backend/tests/test_writeback_jobs_routes.py` for invalid doc-id job/execute-now requests, no-change job creation rejection, missing job 404, running-job delete conflict, and missing `writeback_jobs` table 503 handling.
-- `pending` test(services): added `backend/tests/test_pipeline_fanout_service.py` covering fanout status mapping, checkpoint parsing behavior, and latest task-run selection by signature.
+- `63edf43` test(documents-routes): added edge-case coverage in `backend/tests/test_documents_routes.py` for invalid `embeddings_mode`/`limit`, invalid cleanup source, invalid enqueue task, enqueue queue-disabled response, pipeline fanout invalid mode, and continue-pipeline invalid mode + queue-disabled behavior.
+- `63edf43` test(writeback-jobs): added edge-case coverage in `backend/tests/test_writeback_jobs_routes.py` for invalid doc-id job/execute-now requests, no-change job creation rejection, missing job 404, running-job delete conflict, and missing `writeback_jobs` table 503 handling.
+- `63edf43` test(services): added `backend/tests/test_pipeline_fanout_service.py` covering fanout status mapping, checkpoint parsing behavior, and latest task-run selection by signature.
 
 ## 2026-02-20 (branch: codex-20260220-backend-principles-pass)
 
