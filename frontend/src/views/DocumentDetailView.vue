@@ -614,6 +614,12 @@ import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
+import {
+  fanoutStatusClass,
+  processingBadgeClass,
+  processingStateLabel,
+  useDocumentProcessingState,
+} from '../composables/useDocumentProcessingState'
 import { executeWritebackDirectForDocument, type WritebackConflictField } from '../services/writeback'
 import { consumeCitationJump } from '../services/citationJump'
 import { conflictFieldLabel, conflictValue } from '../utils/writebackConflict'
@@ -802,72 +808,32 @@ const writebackButtonLabel = computed(() => {
   if (canWriteback.value) return 'Write back'
   return 'No changes to write back'
 })
-type ProcessingState = 'done' | 'missing' | 'na'
-type ProcessingStatusItem = { label: string; state: ProcessingState; detail: string }
 type TimelineTaskRun = {
   task: string
   source?: string | null
   status: string
 }
-
-const processingStatusItems = computed<ProcessingStatusItem[]>(() => {
-  if (!pipelineStatus.value?.steps?.length) return []
-  return pipelineStatus.value.steps.map((step) => ({
-    label: toTitle(step.key),
-    state: step.required ? (step.done ? 'done' : 'missing') : 'na',
-    detail: step.detail || '',
-  }))
-})
-const processingRequiredCount = computed(
-  () => processingStatusItems.value.filter((item) => item.state !== 'na').length,
+const {
+  processingStatusItems,
+  processingRequiredCount,
+  processingDoneCount,
+  pipelineFanoutItems,
+  activeRun,
+  hasActiveTaskRuns,
+  activeRunLabel,
+  shouldAutoRefreshTimeline,
+  pipelinePreferredSource,
+  isLargeDocumentMode,
+  largeDocumentHint,
+} = useDocumentProcessingState(
+  {
+    pipelineStatus,
+    pipelineFanout,
+    taskRuns,
+    continueQueuedWaiting,
+  },
+  checkpointLabel,
 )
-const processingDoneCount = computed(
-  () => processingStatusItems.value.filter((item) => item.state === 'done').length,
-)
-const pipelineFanoutItems = computed(() => pipelineFanout.value?.items || [])
-const activeRun = computed(() =>
-  taskRuns.value.find((run) => run.status === 'running' || run.status === 'retrying') ?? null,
-)
-const hasActiveTaskRuns = computed(() =>
-  taskRuns.value.some((run) => run.status === 'running' || run.status === 'retrying'),
-)
-const activeRunLabel = computed(() => {
-  const run = activeRun.value
-  if (!run) return ''
-  const stage = checkpointLabel(
-    run.checkpoint && typeof run.checkpoint === 'object'
-      ? (run.checkpoint as Record<string, unknown>)
-      : null,
-  )
-  return stage !== '-' ? `${run.task} (${stage})` : run.task
-})
-const shouldAutoRefreshTimeline = computed(() => hasActiveTaskRuns.value || continueQueuedWaiting.value)
-const pipelinePreferredSource = computed(() => pipelineStatus.value?.preferred_source || 'paperless_ocr')
-const isLargeDocumentMode = computed(() => Boolean(pipelineStatus.value?.is_large_document))
-const largeDocumentHint = computed(() => {
-  if (isLargeDocumentMode.value) {
-    return 'Large-document mode active: page notes and hierarchical summary are required for complete processing.'
-  }
-  return 'Standard mode: large-document extras are not required for this document.'
-})
-const processingStateLabel = (state: ProcessingState) => {
-  if (state === 'done') return 'Done'
-  if (state === 'missing') return 'Missing'
-  return 'N/A'
-}
-const processingBadgeClass = (state: ProcessingState) => {
-  if (state === 'done') return 'text-emerald-600 dark:text-emerald-300'
-  if (state === 'missing') return 'text-amber-600 dark:text-amber-300'
-  return 'text-slate-400 dark:text-slate-500'
-}
-const fanoutStatusClass = (status: string | null | undefined) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'done') return 'text-emerald-700 dark:text-emerald-300 font-semibold'
-  if (normalized === 'running' || normalized === 'retrying') return 'text-indigo-700 dark:text-indigo-300 font-semibold'
-  if (normalized === 'failed') return 'text-rose-700 dark:text-rose-300 font-semibold'
-  if (normalized === 'missing') return 'text-amber-700 dark:text-amber-300 font-semibold'
-  return 'text-slate-600 dark:text-slate-300'
-}
 
 const paperlessUrl = computed(() =>
   paperlessBaseUrl.value && document.value
@@ -1154,7 +1120,7 @@ const toRelativeTime = (value?: string | null) => {
   return formatRelativeTime(value)
 }
 
-const checkpointLabel = (checkpoint?: Record<string, unknown> | null) => {
+function checkpointLabel(checkpoint?: Record<string, unknown> | null) {
   return formatCheckpointLabel(checkpoint, '-')
 }
 

@@ -291,58 +291,34 @@
             URLs
           </div>
           <dl class="mt-3 space-y-2">
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Paperless</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.paperless_base_url || '—' }}</span>
-                <button
-                  v-if="runtime.paperless_base_url"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.paperless_base_url, 'paperless')"
-                >
-                  {{ copiedKey === 'paperless' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">LLM Base</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.llm_base_url || '—' }}</span>
-                <button
-                  v-if="runtime.llm_base_url"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.llm_base_url, 'llm_base')"
-                >
-                  {{ copiedKey === 'llm_base' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Qdrant</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.qdrant_url || '—' }}</span>
-                <button
-                  v-if="runtime.qdrant_url"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.qdrant_url, 'qdrant')"
-                >
-                  {{ copiedKey === 'qdrant' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Redis</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.redis_host || '—' }}</span>
-                <button
-                  v-if="runtime.redis_host"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.redis_host, 'redis')"
-                >
-                  {{ copiedKey === 'redis' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
+            <MaintenanceRuntimeRow
+              label="Paperless"
+              :value="runtime.paperless_base_url"
+              :copyable="Boolean(runtime.paperless_base_url)"
+              :copied="copiedKey === 'paperless'"
+              @copy="copyValue(runtime.paperless_base_url, 'paperless')"
+            />
+            <MaintenanceRuntimeRow
+              label="LLM Base"
+              :value="runtime.llm_base_url"
+              :copyable="Boolean(runtime.llm_base_url)"
+              :copied="copiedKey === 'llm_base'"
+              @copy="copyValue(runtime.llm_base_url, 'llm_base')"
+            />
+            <MaintenanceRuntimeRow
+              label="Qdrant"
+              :value="runtime.qdrant_url"
+              :copyable="Boolean(runtime.qdrant_url)"
+              :copied="copiedKey === 'qdrant'"
+              @copy="copyValue(runtime.qdrant_url, 'qdrant')"
+            />
+            <MaintenanceRuntimeRow
+              label="Redis"
+              :value="runtime.redis_host"
+              :copyable="Boolean(runtime.redis_host)"
+              :copied="copiedKey === 'redis'"
+              @copy="copyValue(runtime.redis_host, 'redis')"
+            />
           </dl>
         </div>
         <div
@@ -354,57 +330,35 @@
             Models
           </div>
           <dl class="mt-3 space-y-2">
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Text LLM</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.text_model || '—' }}</span>
-                <button
-                  v-if="runtime.text_model"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.text_model, 'text_model')"
-                >
-                  {{ copiedKey === 'text_model' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Embeddings</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.embedding_model || '—' }}</span>
-                <button
-                  v-if="runtime.embedding_model"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.embedding_model, 'embedding_model')"
-                >
-                  {{ copiedKey === 'embedding_model' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Vision OCR</dt>
-              <dd class="flex items-center gap-2 text-right text-slate-900 dark:text-slate-100">
-                <span class="max-w-[220px] truncate">{{ runtime.vision_model || '—' }}</span>
-                <button
-                  v-if="runtime.vision_model"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  @click="copyValue(runtime.vision_model, 'vision_model')"
-                >
-                  {{ copiedKey === 'vision_model' ? 'Copied' : 'Copy' }}
-                </button>
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Evidence max pages</dt>
-              <dd class="text-right text-slate-900 dark:text-slate-100">
-                {{ runtime.evidence_max_pages || '—' }}
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500 dark:text-slate-400">Evidence min snippet chars</dt>
-              <dd class="text-right text-slate-900 dark:text-slate-100">
-                {{ runtime.evidence_min_snippet_chars || '—' }}
-              </dd>
-            </div>
+            <MaintenanceRuntimeRow
+              label="Text LLM"
+              :value="runtime.text_model"
+              :copyable="Boolean(runtime.text_model)"
+              :copied="copiedKey === 'text_model'"
+              @copy="copyValue(runtime.text_model, 'text_model')"
+            />
+            <MaintenanceRuntimeRow
+              label="Embeddings"
+              :value="runtime.embedding_model"
+              :copyable="Boolean(runtime.embedding_model)"
+              :copied="copiedKey === 'embedding_model'"
+              @copy="copyValue(runtime.embedding_model, 'embedding_model')"
+            />
+            <MaintenanceRuntimeRow
+              label="Vision OCR"
+              :value="runtime.vision_model"
+              :copyable="Boolean(runtime.vision_model)"
+              :copied="copiedKey === 'vision_model'"
+              @copy="copyValue(runtime.vision_model, 'vision_model')"
+            />
+            <MaintenanceRuntimeRow
+              label="Evidence max pages"
+              :value="runtime.evidence_max_pages"
+            />
+            <MaintenanceRuntimeRow
+              label="Evidence min snippet chars"
+              :value="runtime.evidence_min_snippet_chars"
+            />
           </dl>
         </div>
       </div>
@@ -546,6 +500,7 @@ import {
 import { useMaintenanceOps } from '../composables/useMaintenanceOps'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import MaintenanceActionCard from '../components/MaintenanceActionCard.vue'
+import MaintenanceRuntimeRow from '../components/MaintenanceRuntimeRow.vue'
 
 const toastStore = useToastStore()
 const maintenanceOps = useMaintenanceOps()
@@ -845,7 +800,8 @@ onMounted(async () => {
   await Promise.all([loadWorkerLockStatus(), maintenanceOps.refreshRuntime()])
 })
 
-const copyValue = async (value: string, key: string) => {
+const copyValue = async (value: string | null | undefined, key: string) => {
+  if (!value) return
   try {
     await navigator.clipboard.writeText(value)
     copiedKey.value = key
@@ -887,3 +843,4 @@ const confirmClearAll = async () => {
   }
 }
 </script>
+
