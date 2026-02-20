@@ -166,7 +166,12 @@ vi.mock('../composables/useAutoRefresh', () => ({
 vi.mock('../components/PdfViewer.vue', () => ({
   default: {
     name: 'PdfViewer',
-    template: '<div data-test="pdf-viewer" />',
+    props: {
+      page: { type: Number, default: 1 },
+      highlights: { type: Array, default: () => [] },
+    },
+    template:
+      '<div data-test="pdf-viewer" :data-page="String(page)" :data-highlight-count="String((highlights || []).length)" />',
   },
 }))
 
@@ -239,5 +244,29 @@ describe('DocumentDetailView', () => {
     await nextTick()
     await Promise.resolve()
     expect(wrapper.find('[data-test="ops-section"]').exists()).toBe(true)
+  })
+
+  it('syncs pdf page/highlights from route query page+bbox', async () => {
+    route.query = { tab: 'pages', page: '3', bbox: '1,2,3,4' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+
+    const pdf = wrapper.get('[data-test="pdf-viewer"]')
+    expect(pdf.attributes('data-page')).toBe('3')
+    expect(pdf.attributes('data-highlight-count')).toBe('1')
   })
 })

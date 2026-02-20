@@ -111,4 +111,27 @@ describe('useDocumentSuggestionsApply', () => {
     expect(toErrorMessage).toHaveBeenCalled()
     expect(suggestionsError.value).toBe('persist failed')
   })
+
+  it('applyToDocument avoids optional reloads when suggestion/text/quality are empty', async () => {
+    const {
+      composable,
+      suggestions,
+      pageTexts,
+      contentQuality,
+      loadDocument,
+      loadSuggestionsForDoc,
+      loadPageTextsForDoc,
+      loadContentQualityForDoc,
+    } = createHarness()
+    suggestions.value = null
+    pageTexts.value = []
+    contentQuality.value = null
+
+    await composable.applyToDocument('paperless_ocr', 'title', 'Clean')
+
+    expect(loadDocument).toHaveBeenCalled()
+    expect(loadSuggestionsForDoc).not.toHaveBeenCalled()
+    expect(loadPageTextsForDoc).not.toHaveBeenCalled()
+    expect(loadContentQualityForDoc).not.toHaveBeenCalled()
+  })
 })
