@@ -619,6 +619,12 @@ class DeleteEmbeddingsResponse(BaseModel):
     qdrant_errors: int
 
 
+class DeleteSimilarityIndexResponse(BaseModel):
+    deleted: int
+    qdrant_deleted: int
+    qdrant_errors: int
+
+
 class DeleteSuggestionsResponse(BaseModel):
     deleted: int
 

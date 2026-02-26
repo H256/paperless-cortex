@@ -20,6 +20,8 @@ All granular implementation slices and refactors are tracked here.
 - docs(readme/manual): documented targeted per-step reruns (`similarity_index`) and clarified Similar tab behavior as display/refresh.
 - fix(pipeline/similarity-missing): similarity is now marked missing when embeddings are missing (not only when an embedding row already exists), preventing false `Similarity: Done` after doc reset.
 - fix(reset/reprocess): per-document reset now clears old `task_runs` history for that doc and re-enqueues full pipeline with forced front-priority, reducing stale timeline/fan-out confusion.
+- feat(maintenance): added `POST /documents/delete/similarity-index` to reset doc-level similarity vectors in Qdrant and clear `similarity_index` task-run history.
+- feat(frontend-operations): added a fourth maintenance card `Reset similarity index` in `MaintenanceView` to trigger full similarity-vector reset before clean rebuild.
 
 ## 2026-02-26 (branch: feat/doc-similarity-index-task)
 

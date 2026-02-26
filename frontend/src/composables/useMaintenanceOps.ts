@@ -4,6 +4,7 @@ import {
   cleanupTexts,
   clearIntelligence,
   deleteEmbeddings,
+  deleteSimilarityIndex,
   deleteSuggestions,
   deleteVisionOcr,
   getEmbedStatus,
@@ -127,6 +128,11 @@ export const useMaintenanceOps = () => {
     onSuccess: async () => invalidateProcessingQueries(queryClient),
   })
 
+  const removeSimilarityIndexMutation = useMutation({
+    mutationFn: () => deleteSimilarityIndex(),
+    onSuccess: async () => invalidateProcessingQueries(queryClient),
+  })
+
   const clearAllMutation = useMutation({
     mutationFn: () => clearIntelligence(),
     onSuccess: async () => invalidateProcessingQueries(queryClient),
@@ -172,6 +178,7 @@ export const useMaintenanceOps = () => {
     visionLoading: computed(() => removeVisionMutation.isPending.value),
     suggestionsLoading: computed(() => removeSuggestionsMutation.isPending.value),
     embeddingsLoading: computed(() => removeEmbeddingsMutation.isPending.value),
+    similarityIndexLoading: computed(() => removeSimilarityIndexMutation.isPending.value),
     clearAllLoading: computed(() => clearAllMutation.isPending.value),
     cleanupLoading: computed(() => cleanupMutation.isPending.value),
     correspondentsSyncLoading: computed(() => syncCorrespondentsMutation.isPending.value),
@@ -184,6 +191,7 @@ export const useMaintenanceOps = () => {
     removeVisionOcr: async () => removeVisionMutation.mutateAsync(),
     removeSuggestions: async () => removeSuggestionsMutation.mutateAsync(),
     removeEmbeddings: async () => removeEmbeddingsMutation.mutateAsync(),
+    removeSimilarityIndex: async () => removeSimilarityIndexMutation.mutateAsync(),
     clearAllIntelligence: async () => clearAllMutation.mutateAsync(),
     cleanupTexts: async (payload: CleanupTextsPayload) => cleanupMutation.mutateAsync(payload),
     syncCorrespondentsNow: async () => syncCorrespondentsMutation.mutateAsync(),

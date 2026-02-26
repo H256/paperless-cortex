@@ -688,6 +688,56 @@ def test_reset_and_reprocess_clears_doc_task_runs(api_client, monkeypatch):
         assert db.query(TaskRun).filter(TaskRun.doc_id == 67).count() == 0
 
 
+def test_delete_similarity_index_clears_similarity_task_runs(api_client, monkeypatch):
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=77, title="Similarity Reset", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            TaskRun(
+                doc_id=77,
+                task="similarity_index",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:44+00:00",
+                finished_at="2026-02-20T09:17:16+00:00",
+                created_at="2026-02-20T09:16:44+00:00",
+                updated_at="2026-02-20T09:17:16+00:00",
+            )
+        )
+        db.add(
+            TaskRun(
+                doc_id=77,
+                task="embeddings_vision",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:00+00:00",
+                finished_at="2026-02-20T09:16:30+00:00",
+                created_at="2026-02-20T09:16:00+00:00",
+                updated_at="2026-02-20T09:16:30+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(documents_actions, "delete_similarity_points", lambda *_args, **_kwargs: None)
+
+    response = api_client.post("/documents/delete/similarity-index")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["qdrant_deleted"] == 1
+    assert payload["qdrant_errors"] == 0
+    assert payload["deleted"] >= 1
+
+    with Session(engine) as db:
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "similarity_index").count() == 0
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
+
+
 def test_get_local_document_note_override_sets_needs_review(api_client, monkeypatch):
     from app.services import paperless
 

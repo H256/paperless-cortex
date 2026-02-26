@@ -22,7 +22,7 @@ from app.models import (
     TaskRun,
 )
 from app.services.queue import enqueue_task, enqueue_task_sequence, enqueue_task_sequence_front
-from app.services.embeddings import delete_points_for_doc
+from app.services.embeddings import delete_points_for_doc, delete_similarity_points
 from app.services.pipeline_fanout import build_pipeline_fanout_items, latest_task_runs_by_signature
 from app.services.page_text_store import reclean_page_texts
 from app.services.queue_tasks import build_task_sequence
@@ -46,6 +46,7 @@ from app.api_models import (
     DocumentPipelineFanoutResponse,
     DocumentPipelineStatusResponse,
     DeleteEmbeddingsResponse,
+    DeleteSimilarityIndexResponse,
     DocumentOperationEnqueueResponse,
     DocumentResetReprocessResponse,
     DeleteSuggestionsResponse,
@@ -469,6 +470,29 @@ def delete_embeddings(
     db.query(DocumentEmbedding).delete(synchronize_session=False)
     db.commit()
     return {"deleted": 1}
+
+
+@router.post("/delete/similarity-index", response_model=DeleteSimilarityIndexResponse)
+def delete_similarity_index(
+    doc_id: int | None = None,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    qdrant_deleted = 0
+    qdrant_errors = 0
+    try:
+        delete_similarity_points(settings, doc_id=doc_id)
+        qdrant_deleted = 1
+    except Exception as exc:
+        qdrant_errors = 1
+        logger.warning("Failed to delete similarity index points doc_id=%s: %s", doc_id, exc)
+
+    query = db.query(TaskRun).filter(TaskRun.task == "similarity_index")
+    if doc_id is not None:
+        query = query.filter(TaskRun.doc_id == int(doc_id))
+    deleted = int(query.delete(synchronize_session=False) or 0)
+    db.commit()
+    return {"deleted": deleted, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
 
 
 @router.post("/cleanup-texts", response_model=CleanupTextsResponse)
