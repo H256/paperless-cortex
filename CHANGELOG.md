@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: feat/similar-metadata)
+
+### Similarity-based metadata
+- `922ec53` feat(similar-metadata): added similarity-driven metadata suggestions (tags/correspondent/doc type) via `/documents/{id}/similar-metadata`, wired `include_similar` through suggestions, and surfaced similar-doc metadata hints in the Suggestions panel; regenerated OpenAPI/Orval client and updated manual/todo notes.
+
 ## 2026-02-26 (branch: feat/similar-documents)
 
 ### Similar documents
