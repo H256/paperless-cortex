@@ -84,7 +84,7 @@ type SimilarMatch = {
   document: DocumentRow
 }
 
-const props = defineProps<{
+defineProps<{
   similarMatches: SimilarMatch[]
   duplicateMatches: SimilarMatch[]
   loading: boolean

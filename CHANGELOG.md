@@ -3,6 +3,22 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: perf/ops-route-speedups)
+
+### Qdrant compatibility fix (uncommitted)
+- fix(similarity/qdrant): added Qdrant retrieve fallback in `backend/app/services/qdrant.py` so point lookup now retries with `POST /collections/{name}/points` when `POST /points/retrieve` returns 404 (API-version compatibility).
+- test(qdrant): added `backend/tests/test_qdrant_service.py` covering both paths: fallback on 404 and direct success when `/points/retrieve` is supported.
+- fix(worker/queue): cached Redis client instances in `backend/app/services/queue.py` (single pooled client per Redis URL) to avoid excessive short-lived socket creation under high queue throughput on Windows (`WinError 10048`).
+- fix(worker/queue): hardened `is_cancel_requested` and `is_paused` to return safe defaults on Redis read errors instead of crashing the worker loop.
+- test(queue): added `backend/tests/test_queue_resilience.py` for Redis-error handling in cancel/pause checks.
+- fix(pipeline/similarity-status): `collect_pipeline_cache` now treats `task_runs.status in ("completed","done")` as successful similarity indexing, fixing false `similarity: missing` UI state after successful worker runs.
+- test(pipeline): extended `backend/tests/test_pipeline_similarity_index.py` with coverage for `status=\"completed\"` similarity task runs.
+- fix(worker/similarity-index): `_process_similarity_index` now raises on failed doc-point rebuild so task-runs are marked failed/retrying instead of false `completed` when chunk vectors are missing/unreadable.
+- refactor(suggestions-route): extracted duplicated similar-doc metadata and suggestion-meta assembly into shared helpers in `backend/app/routes/documents_suggestions.py` to reduce route duplication (DRY/SRP).
+- feat(frontend-ops): added manual `Queue similarity index` action in document operations (`frontend/src/composables/useDocumentDetailOperations.ts`) and widened frontend task typing in `frontend/src/services/documents.ts`.
+- fix(frontend-timeline): added `completed` status filter option in `frontend/src/components/DocumentOperationsSection.vue` so current worker statuses are directly filterable.
+- docs(readme/manual): documented targeted per-step reruns (`similarity_index`) and clarified Similar tab behavior as display/refresh.
+
 ## 2026-02-26 (branch: feat/doc-similarity-index-task)
 
 ### Similarity indexing pipeline step

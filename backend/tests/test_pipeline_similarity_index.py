@@ -4,7 +4,13 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from app.config import load_settings
-from app.services.pipeline_planner import PipelineOptions, evaluate_doc_pipeline, post_sync_followup_tasks
+from app.models import TaskRun
+from app.services.pipeline_planner import (
+    PipelineOptions,
+    collect_pipeline_cache,
+    evaluate_doc_pipeline,
+    post_sync_followup_tasks,
+)
 
 
 def _base_cache(doc_id: int) -> dict:
@@ -141,3 +147,27 @@ def test_post_sync_followup_tasks_skip_similarity_when_embeddings_disabled():
         ),
     )
     assert all(str(task.get("task")) != "similarity_index" for task in tasks)
+
+
+def test_collect_pipeline_cache_reads_completed_similarity_runs(session_factory):
+    with session_factory() as db:
+        db.add(
+            TaskRun(
+                doc_id=1971,
+                task="similarity_index",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-26T20:05:00+00:00",
+                finished_at="2026-02-26T20:05:10+00:00",
+                created_at="2026-02-26T20:05:00+00:00",
+                updated_at="2026-02-26T20:05:10+00:00",
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        cache = collect_pipeline_cache(db, doc_ids={1971}, settings=load_settings())
+
+    assert 1971 in cache["similarity_indexed_at_by_doc"]

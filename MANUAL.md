@@ -154,11 +154,12 @@ Tabs:
 - `Suggestions`: paperless/vision suggestions, variants, apply actions, plus similar-doc metadata hints
 - `Pages`: per-page text and page-level inspection
 - `Chat`: document chat with follow-up questions and relationship mode (chrono)
-- `Similar`: top-10 similar documents + possible duplicates
+- `Similar`: top-10 similar documents + possible duplicates (display + refresh)
 - `Operations`: per-doc pipeline actions, fan-out, timeline, retries
 
 Key actions:
 - Continue missing processing (doc-specific)
+- Queue single steps manually (including `similarity_index`)
 - Retry failed runs from timeline
 - Write back local reviewed changes manually
 
