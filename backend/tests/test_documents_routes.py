@@ -569,6 +569,20 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
                 processed_at="2026-02-10T10:06:00+00:00",
             )
         )
+        db.add(
+            TaskRun(
+                doc_id=31,
+                task="similarity_index",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-10T10:06:30+00:00",
+                finished_at="2026-02-10T10:06:35+00:00",
+                created_at="2026-02-10T10:06:30+00:00",
+                updated_at="2026-02-10T10:06:35+00:00",
+            )
+        )
         db.commit()
 
     monkeypatch.setattr(
@@ -623,6 +637,55 @@ def test_pipeline_status_marks_evidence_optional_for_no_text_layer(api_client, m
     assert evidence_step["done"] is True
     assert payload["evidence_ok"] is True
     assert all(task.get("task") != "evidence_index" for task in payload["missing_tasks"])
+
+
+def test_reset_and_reprocess_clears_doc_task_runs(api_client, monkeypatch):
+    from app.services import paperless
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=67, title="Reset TaskRuns", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            TaskRun(
+                doc_id=67,
+                task="embeddings_vision",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:44+00:00",
+                finished_at="2026-02-20T09:17:16+00:00",
+                created_at="2026-02-20T09:16:44+00:00",
+                updated_at="2026-02-20T09:17:16+00:00",
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *_args, **_kwargs: {
+            "id": 67,
+            "title": "Reset TaskRuns",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "content": "example",
+            "tags": [],
+            "correspondent": None,
+            "document_type": None,
+            "document_date": "2026-02-10",
+        },
+    )
+    monkeypatch.setattr(documents_actions, "require_queue_enabled", lambda _settings: False)
+
+    response = api_client.post("/documents/67/operations/reset-and-reprocess")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["reset"] is True
+
+    with Session(engine) as db:
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 67).count() == 0
 
 
 def test_get_local_document_note_override_sets_needs_review(api_client, monkeypatch):
