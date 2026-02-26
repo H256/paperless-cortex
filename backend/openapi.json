@@ -1292,6 +1292,55 @@
         }
       }
     },
+    "/documents/delete/similarity-index": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete Similarity Index",
+        "operationId": "delete_similarity_index_documents_delete_similarity_index_post",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSimilarityIndexResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/cleanup-texts": {
       "post": {
         "tags": [
@@ -5016,6 +5065,29 @@
         ],
         "title": "DeleteEmbeddingsResponse"
       },
+      "DeleteSimilarityIndexResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          },
+          "qdrant_deleted": {
+            "type": "integer",
+            "title": "Qdrant Deleted"
+          },
+          "qdrant_errors": {
+            "type": "integer",
+            "title": "Qdrant Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted",
+          "qdrant_deleted",
+          "qdrant_errors"
+        ],
+        "title": "DeleteSimilarityIndexResponse"
+      },
       "DeleteSuggestionsResponse": {
         "properties": {
           "deleted": {
@@ -8332,6 +8404,39 @@
               }
             ],
             "title": "Evidence Min Snippet Chars"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "api_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Version"
+          },
+          "frontend_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frontend Version"
           },
           "latency_ms": {
             "anyOf": [

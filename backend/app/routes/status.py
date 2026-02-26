@@ -17,6 +17,7 @@ from app.services import paperless
 from app.services import llm_client
 from app.services.document_stats import compute_document_stats
 from app.api_models import StatusResponse
+from app.version import API_VERSION, APP_VERSION
 from app.db import SessionLocal
 from app.models import SyncState
 from app.services.time_utils import estimate_eta_seconds
@@ -91,6 +92,9 @@ def _status_payload(settings: Settings) -> dict[str, object]:
         "vision_model": settings.vision_model,
         "evidence_max_pages": settings.evidence_max_pages,
         "evidence_min_snippet_chars": settings.evidence_min_snippet_chars,
+        "app_version": APP_VERSION,
+        "api_version": API_VERSION,
+        "frontend_version": APP_VERSION,
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }
 

@@ -26,6 +26,9 @@ export const useStatusStore = defineStore('status', {
       text_model: '',
       embedding_model: '',
       vision_model: '',
+      app_version: '',
+      api_version: '',
+      frontend_version: '',
     },
   }),
   actions: {
@@ -53,6 +56,9 @@ export const useStatusStore = defineStore('status', {
         text_model: data.text_model || '',
         embedding_model: data.embedding_model || '',
         vision_model: data.vision_model || '',
+        app_version: data.app_version || '',
+        api_version: data.api_version || '',
+        frontend_version: data.frontend_version || '',
       }
     },
     async refresh() {

@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: feat/similarity-ops-button-srp-pass)
+
+### Unified app/api/frontend versioning (uncommitted)
+- feat(versioning): added root `VERSION` source-of-truth and backend version reader in `backend/app/version.py` (`APP_VERSION`, `API_VERSION`).
+- feat(status): extended `StatusResponse` + `/api/status` payload with `app_version`, `api_version`, `frontend_version`.
+- feat(api): set FastAPI `version` on both mounted apps in `backend/app/main.py` so OpenAPI reflects API version.
+- feat(frontend): added footer version display (`UI`/`API`/`App`) in `frontend/src/App.vue` and wired runtime version fields in `frontend/src/stores/statusStore.ts`.
+- chore(version-sync): added `scripts/sync_version.py` to synchronize root `VERSION` to `backend/pyproject.toml`, `frontend/package.json`, and `frontend/src/generated/version.ts`.
+- chore(api): regenerated OpenAPI + Orval client for the new status fields.
+- docs(readme/manual): documented the simple no-CI versioning workflow and runtime/footer version visibility.
 ## 2026-02-26 (branch: perf/ops-route-speedups)
 
 ### Qdrant compatibility fix (uncommitted)
