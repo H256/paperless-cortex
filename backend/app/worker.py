@@ -470,7 +470,14 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
             extra={"source": embedding_source, "batch_size": batch_size, **telemetry},
         )
 
-    if doc_vectors:
+    if start_index > 0:
+        rebuild_doc_point_from_chunks(
+            settings,
+            doc_id=int(doc.id),
+            chunk_count=len(chunks),
+            source_hint=embedding_source,
+        )
+    elif doc_vectors:
         doc_vector = average_vectors(doc_vectors)
         if doc_vector:
             upsert_points(

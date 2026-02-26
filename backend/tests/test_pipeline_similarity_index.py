@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from types import SimpleNamespace
 
 from app.config import load_settings
@@ -9,6 +10,8 @@ from app.services.pipeline_planner import PipelineOptions, evaluate_doc_pipeline
 def _base_cache(doc_id: int) -> dict:
     return {
         "embeddings": {doc_id: "paperless"},
+        "embedded_at_by_doc": {},
+        "similarity_indexed_at_by_doc": {},
         "suggestions": set(),
         "vision_latest": {},
         "vision_pages_by_doc": {},
@@ -69,6 +72,33 @@ def test_evaluate_doc_pipeline_skips_similarity_index_when_step_disabled():
     assert all(str(task.get("task")) != "similarity_index" for task in result["tasks"])
 
 
+def test_evaluate_doc_pipeline_skips_similarity_when_already_fresh():
+    settings = load_settings()
+    doc = SimpleNamespace(id=13, page_count=1, content="sample text")
+    cache = _base_cache(doc.id)
+    cache["embedded_at_by_doc"][doc.id] = datetime(2026, 2, 26, 10, 0, 0)
+    cache["similarity_indexed_at_by_doc"][doc.id] = datetime(2026, 2, 26, 10, 1, 0)
+    result = evaluate_doc_pipeline(
+        doc=doc,
+        settings=settings,
+        cache=cache,
+        options=PipelineOptions(
+            include_sync=False,
+            include_evidence_index=False,
+            include_vision_ocr=False,
+            include_embeddings=False,
+            include_suggestions_paperless=False,
+            include_suggestions_vision=False,
+            include_page_notes=False,
+            include_summary_hierarchical=False,
+            include_doc_similarity_index=True,
+        ),
+    )
+
+    assert result["needs_doc_similarity_index"] is False
+    assert all(str(task.get("task")) != "similarity_index" for task in result["tasks"])
+
+
 def test_post_sync_followup_tasks_include_similarity_index():
     settings = load_settings()
     tasks = post_sync_followup_tasks(
@@ -89,3 +119,25 @@ def test_post_sync_followup_tasks_include_similarity_index():
         ),
     )
     assert any(str(task.get("task")) == "similarity_index" for task in tasks)
+
+
+def test_post_sync_followup_tasks_skip_similarity_when_embeddings_disabled():
+    settings = load_settings()
+    tasks = post_sync_followup_tasks(
+        42,
+        settings=settings,
+        options=PipelineOptions(
+            include_sync=False,
+            include_evidence_index=False,
+            include_vision_ocr=False,
+            include_embeddings=False,
+            include_embeddings_paperless=True,
+            include_embeddings_vision=False,
+            include_page_notes=False,
+            include_summary_hierarchical=False,
+            include_suggestions_paperless=False,
+            include_suggestions_vision=False,
+            include_doc_similarity_index=True,
+        ),
+    )
+    assert all(str(task.get("task")) != "similarity_index" for task in tasks)

@@ -589,39 +589,6 @@ def _vector_from_point(point: dict[str, Any]) -> list[float] | None:
     return normalized if normalized else None
 
 
-def existing_doc_point_ids(settings: Settings, doc_ids: list[int]) -> set[int]:
-    normalized = sorted({int(doc_id) for doc_id in doc_ids if int(doc_id) > 0})
-    if not normalized:
-        return set()
-    point_ids = [make_doc_point_id(doc_id) for doc_id in normalized]
-    found: set[int] = set()
-    batch_size = 256
-    for start in range(0, len(point_ids), batch_size):
-        batch_ids = point_ids[start : start + batch_size]
-        try:
-            payload = qdrant.retrieve_points(
-                settings,
-                batch_ids,
-                with_vector=False,
-                with_payload=True,
-            )
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return set()
-            raise
-        rows = payload.get("result", []) if isinstance(payload, dict) else []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            point_id = int(row.get("id") or 0)
-            if point_id <= 0:
-                continue
-            doc_id = point_id // 1_000_000_000
-            if doc_id > 0:
-                found.add(doc_id)
-    return found
-
-
 def rebuild_doc_point_from_chunks(
     settings: Settings,
     *,
