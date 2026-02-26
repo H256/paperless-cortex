@@ -202,6 +202,18 @@ class DocumentSummary(PaperlessDocument):
     pending_tag_names: list[str] = []
 
 
+class SimilarDocumentMatch(BaseModel):
+    doc_id: int
+    score: Optional[float] = None
+    document: Optional[DocumentSummary] = None
+
+
+class SimilarDocumentsResponse(BaseModel):
+    doc_id: int
+    top_k: int
+    matches: list[SimilarDocumentMatch] = []
+
+
 class DocumentNoteOut(BaseModel):
     note: Optional[str] = None
 

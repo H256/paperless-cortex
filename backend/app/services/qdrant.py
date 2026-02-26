@@ -33,14 +33,45 @@ def search(
     *,
     limit: int = 5,
     with_payload: bool = True,
+    filter_payload: dict | None = None,
+    score_threshold: float | None = None,
 ) -> dict:
     base = base_url(settings)
     collection = collection_name(settings)
+    payload: dict[str, object] = {"vector": vector, "limit": limit, "with_payload": with_payload}
+    if filter_payload:
+        payload["filter"] = filter_payload
+    if score_threshold is not None:
+        payload["score_threshold"] = score_threshold
     with client(settings, timeout=30) as http:
         response = http.post(
             f"{base}/collections/{collection}/points/search",
             headers=headers(settings),
-            json={"vector": vector, "limit": limit, "with_payload": with_payload},
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+def retrieve_points(
+    settings: Settings,
+    ids: list[int],
+    *,
+    with_vector: bool = True,
+    with_payload: bool = True,
+) -> dict:
+    base = base_url(settings)
+    collection = collection_name(settings)
+    payload: dict[str, object] = {
+        "ids": ids,
+        "with_vector": with_vector,
+        "with_payload": with_payload,
+    }
+    with client(settings, timeout=30) as http:
+        response = http.post(
+            f"{base}/collections/{collection}/points/retrieve",
+            headers=headers(settings),
+            json=payload,
         )
         response.raise_for_status()
         return response.json()

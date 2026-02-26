@@ -3,101 +3,25 @@
     class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
     <div v-if="viewMode === 'cards'" class="space-y-3 p-3 sm:p-4">
-      <button
+      <DocumentCard
         v-for="doc in documents"
         :key="doc.id ?? `${doc.title}-${doc.created ?? ''}`"
-        class="block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
-        @click="onOpenDoc(doc.id)"
-      >
-        <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          {{ doc.title || `Document ${doc.id ?? '-'}` }}
-        </div>
-        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {{ formatDate(doc.document_date || doc.created) || '-' }}
-          <span v-if="correspondentLabel(doc.correspondent, doc.correspondent_name)">
-            | {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
-          </span>
-        </div>
-        <div
-          v-if="summaryPreview(doc)"
-          class="mt-2 line-clamp-3 text-xs text-slate-600 dark:text-slate-300"
-          :title="summaryPreview(doc)"
-        >
-          {{ summaryPreview(doc) }}
-        </div>
-        <div class="mt-2 flex flex-wrap items-center gap-2">
-          <div
-            class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
-            :title="doc.local_cached ? 'Paperless + local cache' : 'Paperless only'"
-          >
-            <Database
-              class="h-3.5 w-3.5"
-              :class="doc.local_cached ? 'text-indigo-600' : 'text-slate-400'"
-            />
-            <span class="text-slate-500 dark:text-slate-400">{{ doc.local_cached ? 'Cached' : 'Paperless' }}</span>
-          </div>
-          <a
-            v-if="paperlessBaseUrl"
-            class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-            :href="paperlessDocUrl(doc.id ?? 0)"
-            target="_blank"
-            rel="noopener"
-            @click.stop
-          >
-            <ExternalLink class="h-3 w-3" />
-            Paperless
-          </a>
-          <div
-            v-if="doc.local_overrides"
-            class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs dark:border-amber-900/50 dark:bg-amber-950/40"
-            title="Local values override Paperless"
-          >
-            <Pencil class="h-3.5 w-3.5 text-amber-600" />
-            <span class="text-amber-700 dark:text-amber-300">Overrides</span>
-          </div>
-        </div>
-        <div class="mt-2 space-y-1">
-          <DocumentProcessingBadges :doc="doc" />
-          <div
-            v-if="doc.id != null && runningByDocId[doc.id]"
-            class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-            :title="runningByDocId[doc.id]"
-          >
-            {{ runningByDocId[doc.id] }}
-          </div>
-        </div>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-            @click.stop="copyDocId(doc.id)"
-          >
-            {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-            @click.stop="onOpenDoc(doc.id)"
-          >
-            Open
-          </button>
-          <button
-            type="button"
-            class="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-            @click.stop="onOpenDocOperations(doc.id)"
-          >
-            Continue
-          </button>
-          <button
-            v-if="needsReview(doc)"
-            type="button"
-            class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
-            @click.stop="onOpenDocSuggestions(doc.id)"
-          >
-            Review
-          </button>
-        </div>
-      </button>
+        :doc="doc"
+        :paperless-base-url="paperlessBaseUrl"
+        :running-label="doc.id != null ? runningByDocId[doc.id] : undefined"
+        :copied="copiedDocId === doc.id"
+        :show-summary="true"
+        :show-processing-badges="true"
+        :show-actions="true"
+        :show-copy-id="true"
+        :show-open="true"
+        :show-continue="true"
+        :show-review="true"
+        @open="onOpenDoc"
+        @open-operations="onOpenDocOperations"
+        @open-suggestions="onOpenDocSuggestions"
+        @copy-id="copyDocId"
+      />
     </div>
 
     <template v-else>
@@ -368,8 +292,9 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ChevronDown, Database, ExternalLink, Pencil } from 'lucide-vue-next'
+import { ChevronDown, ExternalLink } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
+import DocumentCard from './DocumentCard.vue'
 import type { Correspondent, DocumentRow } from '../services/documents'
 
 const props = defineProps<{
@@ -445,11 +370,6 @@ const copyDocId = async (id: number | null | undefined) => {
   } catch {
     // no-op fallback; clipboard may be unavailable in some contexts
   }
-}
-
-const summaryPreview = (doc: DocumentRow): string => {
-  const value = (doc as unknown as Record<string, unknown>).ai_summary_preview
-  return typeof value === 'string' ? value : ''
 }
 
 const needsReview = (doc: DocumentRow) =>

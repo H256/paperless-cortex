@@ -3,13 +3,21 @@ import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { consumeCitationJump } from '../services/citationJump'
 import { parseBBox, queryToRecord, type BBox } from '../utils/documentDetail'
 
-export type DetailTabKey = 'meta' | 'text' | 'suggestions' | 'pages' | 'chat' | 'operations'
+export type DetailTabKey =
+  | 'meta'
+  | 'text'
+  | 'suggestions'
+  | 'pages'
+  | 'similar'
+  | 'chat'
+  | 'operations'
 
 export const detailTabs: Array<{ key: DetailTabKey; label: string }> = [
   { key: 'meta', label: 'Metadata' },
   { key: 'text', label: 'Text & quality' },
   { key: 'suggestions', label: 'Suggestions' },
   { key: 'pages', label: 'Pages' },
+  { key: 'similar', label: 'Similar' },
   { key: 'chat', label: 'Chat' },
   { key: 'operations', label: 'Operations' },
 ]
@@ -20,6 +28,7 @@ const normalizeTabQuery = (value: unknown): DetailTabKey => {
     raw === 'text' ||
     raw === 'suggestions' ||
     raw === 'pages' ||
+    raw === 'similar' ||
     raw === 'chat' ||
     raw === 'operations'
   ) {

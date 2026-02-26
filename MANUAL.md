@@ -154,6 +154,7 @@ Tabs:
 - `Suggestions`: paperless/vision suggestions, variants, apply actions
 - `Pages`: per-page text and page-level inspection
 - `Chat`: document chat with follow-up questions and relationship mode (chrono)
+- `Similar`: top-10 similar documents + possible duplicates
 - `Operations`: per-doc pipeline actions, fan-out, timeline, retries
 
 Key actions:

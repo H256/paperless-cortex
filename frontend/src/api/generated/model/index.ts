@@ -69,7 +69,9 @@ export * from './getDocumentPageTextsDocumentsDocIdPageTextsGetParams';
 export * from './getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams';
 export * from './getDocumentSuggestionsDocumentsDocIdSuggestionsGetParams';
 export * from './getDocumentTextQualityDocumentsDocIdTextQualityGetParams';
+export * from './getDuplicateDocumentsDocumentsDocIdDuplicatesGetParams';
 export * from './getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams';
+export * from './getSimilarDocumentsDocumentsDocIdSimilarGetParams';
 export * from './getTaskRunsQueueTaskRunsGetParams';
 export * from './hTTPValidationError';
 export * from './ingestDocumentsEmbeddingsIngestDocsPostParams';
@@ -122,6 +124,8 @@ export * from './resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReproc
 export * from './resetIntelligenceResponse';
 export * from './resetWorkerLockRouteQueueWorkerLockResetPostParams';
 export * from './searchEmbeddingsSearchGetParams';
+export * from './similarDocumentMatch';
+export * from './similarDocumentsResponse';
 export * from './statusEntry';
 export * from './statusResponse';
 export * from './suggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams';

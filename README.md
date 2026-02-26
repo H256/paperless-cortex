@@ -11,6 +11,7 @@ I built this because Paperless-ngx is excellent at storage and search, but I wan
 - Produces embeddings, semantic search, suggestions, and summaries you can review before applying.
 - Handles large documents with resumable, observable pipeline steps.
 - Adds per-document chat with follow-up question suggestions.
+- Surfaces similar documents and potential duplicates from embeddings.
 
 ## Processing diagram
 ```mermaid

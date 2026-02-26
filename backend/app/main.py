@@ -16,6 +16,7 @@ from app.routes import (
     documents,
     documents_actions,
     documents_suggestions,
+    documents_similarity,
     embeddings,
     meta,
     queue,
@@ -107,6 +108,7 @@ async def log_slow_requests(request, call_next):
 api.include_router(documents.router)
 api.include_router(documents_actions.router)
 api.include_router(documents_suggestions.router)
+api.include_router(documents_similarity.router)
 api.include_router(meta.router)
 api.include_router(sync.router)
 api.include_router(embeddings.router)

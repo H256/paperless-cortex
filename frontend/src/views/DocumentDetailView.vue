@@ -119,7 +119,17 @@
         @apply-to-document="applyToDocument"
       />
 
-
+      <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="id" />
+      <DocumentSimilarSection
+        v-if="activeTab === 'similar'"
+        :similar-matches="similarMatches"
+        :duplicate-matches="duplicateMatches"
+        :loading="similarLoading"
+        :error="similarError"
+        :paperless-base-url="paperlessBaseUrl"
+        @refresh="loadSimilarity()"
+        @open-doc="openSimilarDoc"
+      />
       <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="id" />
 
       <DocumentPagesSection
@@ -238,6 +248,7 @@ import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
 import DocumentChatSection from '../components/DocumentChatSection.vue'
+import DocumentSimilarSection from '../components/DocumentSimilarSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import DocumentOperationsSection from '../components/DocumentOperationsSection.vue'
 import WritebackConflictModal from '../components/WritebackConflictModal.vue'
@@ -247,6 +258,7 @@ import { useToastStore } from '../stores/toastStore'
 import { useDocumentPipeline } from '../composables/useDocumentPipeline'
 import { useDocumentOperations } from '../composables/useDocumentOperations'
 import { useDocumentDetailData } from '../composables/useDocumentDetailData'
+import { useDocumentSimilarity } from '../composables/useDocumentSimilarity'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useDocumentWriteback } from '../composables/useDocumentWriteback'
 import { useDocumentReview } from '../composables/useDocumentReview'
@@ -326,6 +338,14 @@ const {
   applyVariant,
   applyToDocument: applySuggestionToDocument,
 } = useDocumentDetailData()
+const {
+  similarMatches,
+  duplicateMatches,
+  loading: similarLoading,
+  error: similarError,
+  reset: resetSimilarity,
+  loadSimilarity,
+} = useDocumentSimilarity(() => id)
 const {
   pipelineStatus,
   pipelineStatusLoading,
@@ -460,6 +480,12 @@ const headerMetaLine = computed(() => {
 
 const navigateBackToDocuments = async () => {
   await router.push(returnToDocumentsPath.value)
+}
+
+const openSimilarDoc = async (docId: number) => {
+  if (!docId) return
+  const returnTo = encodeURIComponent(returnToDocumentsPath.value)
+  await router.push(`/documents/${docId}?return_to=${returnTo}`)
 }
 
 const markReviewedAction = async () => {
@@ -611,6 +637,7 @@ const reloadAll = async () => {
     await loadContentQualityForDoc()
     await loadPageTextsForDoc()
     await loadSuggestionsForDoc()
+    resetSimilarity()
     await loadPipelineStatus()
     await loadPipelineFanout()
   } finally {
@@ -691,6 +718,9 @@ watch(
   activeTab,
   async (tab) => {
     await syncTabToQuery()
+    if (tab === 'similar') {
+      await loadSimilarity()
+    }
   },
 )
 

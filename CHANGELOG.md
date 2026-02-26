@@ -8,6 +8,11 @@ All granular implementation slices and refactors are tracked here.
 ### Document chat
 - `03bbd14` feat(document-chat): added document-scoped chat in the Detail view (tab + scope toggle), follow-up question suggestions endpoint/UI, chronological relationship mode, and updated prompts; regenerated OpenAPI/Orval client and hardened chat evidence tests + writeback execute tests env guard.
 
+## 2026-02-26 (branch: feat/similar-documents)
+
+### Similar documents
+- `4ceb6be` feat(similar-documents): added doc-level embeddings stored alongside chunk vectors, new `/documents/{id}/similar` + `/documents/{id}/duplicates` endpoints, and a Similar tab with reusable document cards (including list card view reuse) plus duplicate detection; regenerated OpenAPI/Orval client and adjusted writeback test env guard.
+
 ## 2026-02-20 (branch: codex-20260220-backend-routes-tests-refactor)
 
 ### Backend robustness / SRP cleanup

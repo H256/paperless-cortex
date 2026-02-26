@@ -12,10 +12,12 @@ from app.deps import get_settings
 from app.db import get_db
 from app.models import Document, DocumentEmbedding, SyncState, Correspondent
 from app.services.embeddings import (
+    average_vectors,
     chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
     make_point_id,
+    make_doc_point_id,
     search_points,
     upsert_points,
 )
@@ -153,9 +155,11 @@ def ingest_embeddings(
         chunks = baseline_chunks + vision_chunks
         logger.info("Embedding doc=%s chunks=%s page_texts=%s", doc.id, len(chunks), len(page_texts))
         doc_points = []
+        vectors: list[list[float]] = []
         for idx, chunk in enumerate(chunks):
             chunk_text_value = str(chunk["text"])
             vector = embed_text(settings, chunk_text_value)
+            vectors.append(vector)
             doc_points.append(
                 {
                     "id": make_point_id(doc.id, idx, embedding_source),
@@ -173,6 +177,21 @@ def ingest_embeddings(
             )
             if idx % 5 == 0 or idx == len(chunks) - 1:
                 logger.info("Embedding doc=%s chunk=%s/%s", doc.id, idx + 1, len(chunks))
+        if vectors:
+            doc_vector = average_vectors(vectors)
+            if doc_vector:
+                doc_points.append(
+                    {
+                        "id": make_doc_point_id(doc.id),
+                        "vector": doc_vector,
+                        "payload": {
+                            "doc_id": doc.id,
+                            "chunk": -1,
+                            "type": "doc",
+                            "source": embedding_source,
+                        },
+                    }
+                )
         if doc_points:
             logger.info("Upserting doc=%s points=%s", doc.id, len(doc_points))
             upsert_points(settings, doc_points)
@@ -269,9 +288,11 @@ def ingest_documents(
         chunks = baseline_chunks + vision_chunks
         logger.info("Embedding doc=%s chunks=%s page_texts=%s", doc.id, len(chunks), len(page_texts))
         doc_points = []
+        vectors: list[list[float]] = []
         for idx, chunk in enumerate(chunks):
             chunk_text_value = str(chunk["text"])
             vector = embed_text(settings, chunk_text_value)
+            vectors.append(vector)
             doc_points.append(
                 {
                     "id": make_point_id(doc.id, idx, embedding_source),
@@ -289,6 +310,21 @@ def ingest_documents(
             )
             if idx % 5 == 0 or idx == len(chunks) - 1:
                 logger.info("Embedding doc=%s chunk=%s/%s", doc.id, idx + 1, len(chunks))
+        if vectors:
+            doc_vector = average_vectors(vectors)
+            if doc_vector:
+                doc_points.append(
+                    {
+                        "id": make_doc_point_id(doc.id),
+                        "vector": doc_vector,
+                        "payload": {
+                            "doc_id": doc.id,
+                            "chunk": -1,
+                            "type": "doc",
+                            "source": embedding_source,
+                        },
+                    }
+                )
         if doc_points:
             logger.info("Upserting doc=%s points=%s", doc.id, len(doc_points))
             upsert_points(settings, doc_points)
@@ -344,7 +380,12 @@ def search(
     )
     vector = embed_text(settings, q)
     oversample = max(top_k * 6, top_k)
-    raw = search_points(settings, vector, limit=oversample)
+    raw = search_points(
+        settings,
+        vector,
+        limit=oversample,
+        filter_payload={"must_not": [{"key": "type", "match": {"value": "doc"}}]},
+    )
     hits = raw.get("result", []) or []
     query_text = (q or "").strip().lower()
     query_tokens = [token for token in re.findall(r"[a-z0-9]+", query_text) if len(token) >= 2]
