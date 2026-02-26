@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from threading import Lock
 from typing import Iterable
 
 from app.config import Settings
@@ -44,6 +45,9 @@ PAUSE_TTL = 24 * 60 * 60
 DELAYED_QUEUE_KEY = "paperless_intelligence:doc_queue_delayed"
 DLQ_KEY = "paperless_intelligence:doc_queue_dlq"
 
+_CLIENT_LOCK = Lock()
+_CLIENT_BY_URL: dict[str, object] = {}
+
 
 def _redis_url(host: str) -> str:
     if host.startswith("redis://") or host.startswith("rediss://"):
@@ -58,7 +62,20 @@ def _get_client(settings: Settings):
         import redis
     except Exception as exc:  # pragma: no cover
         raise RuntimeError("redis package not installed") from exc
-    return redis.Redis.from_url(_redis_url(settings.redis_host), decode_responses=True)
+    url = _redis_url(settings.redis_host)
+    with _CLIENT_LOCK:
+        cached = _CLIENT_BY_URL.get(url)
+        if cached is not None:
+            return cached
+        client = redis.Redis.from_url(
+            url,
+            decode_responses=True,
+            health_check_interval=30,
+            socket_keepalive=True,
+            retry_on_timeout=True,
+        )
+        _CLIENT_BY_URL[url] = client
+        return client
 
 
 def enqueue_docs(settings: Settings, doc_ids: Iterable[int]) -> int:
@@ -395,7 +412,11 @@ def is_cancel_requested(settings: Settings) -> bool:
     client = _get_client(settings)
     if not client:
         return False
-    return bool(client.get(CANCEL_KEY))
+    try:
+        return bool(client.get(CANCEL_KEY))
+    except Exception:
+        logger.warning("Cancel check failed; treating as not-cancelled", exc_info=True)
+        return False
 
 
 def pause_queue(settings: Settings) -> None:
@@ -416,7 +437,11 @@ def is_paused(settings: Settings) -> bool:
     client = _get_client(settings)
     if not client:
         return False
-    return bool(client.get(PAUSE_KEY))
+    try:
+        return bool(client.get(PAUSE_KEY))
+    except Exception:
+        logger.warning("Pause check failed; treating as not-paused", exc_info=True)
+        return False
 
 
 def _parse_queue_entry(entry: str) -> dict | None:

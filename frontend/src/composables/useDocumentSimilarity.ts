@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { unwrap } from '../api/orval'
 import {
   getSimilarDocumentsDocumentsDocIdSimilarGet,
@@ -13,10 +13,18 @@ const errorMessage = (err: unknown, fallback: string) => {
   return fallback
 }
 
-const normalizeMatches = (data?: SimilarDocumentsResponse | null): SimilarDocumentMatch[] =>
-  (data?.matches || []).filter((match) => Boolean(match.document))
+type SimilarMatchWithDocument = SimilarDocumentMatch & {
+  document: NonNullable<SimilarDocumentMatch['document']>
+}
+
+const hasDocument = (match: SimilarDocumentMatch): match is SimilarMatchWithDocument =>
+  Boolean(match.document)
+
+const normalizeMatches = (data?: SimilarDocumentsResponse | null): SimilarMatchWithDocument[] =>
+  (data?.matches || []).filter(hasDocument)
 
 export const useDocumentSimilarity = (docId: () => number) => {
+  const queryClient = useQueryClient()
   const similarQuery = useQuery({
     queryKey: computed(() => ['documents', 'similar', docId()]),
     queryFn: () =>
@@ -48,8 +56,8 @@ export const useDocumentSimilarity = (docId: () => number) => {
   }
 
   const reset = () => {
-    similarQuery.remove()
-    duplicateQuery.remove()
+    queryClient.removeQueries({ queryKey: ['documents', 'similar', docId()] })
+    queryClient.removeQueries({ queryKey: ['documents', 'duplicates', docId()] })
   }
 
   return { similarMatches, duplicateMatches, loading, error, loadSimilarity, reset }

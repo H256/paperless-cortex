@@ -68,10 +68,18 @@ def retrieve_points(
         "with_payload": with_payload,
     }
     with client(settings, timeout=30) as http:
+        # Qdrant API versions differ here: some expose /points/retrieve,
+        # others use /points for batch retrieval by ids.
         response = http.post(
             f"{base}/collections/{collection}/points/retrieve",
             headers=headers(settings),
             json=payload,
         )
+        if response.status_code == 404:
+            response = http.post(
+                f"{base}/collections/{collection}/points",
+                headers=headers(settings),
+                json=payload,
+            )
         response.raise_for_status()
         return response.json()

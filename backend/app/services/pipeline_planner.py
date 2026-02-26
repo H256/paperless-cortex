@@ -166,7 +166,7 @@ def collect_pipeline_cache(
     try:
         similarity_query = db.query(TaskRun.doc_id, TaskRun.finished_at).filter(
             TaskRun.task == "similarity_index",
-            TaskRun.status == "done",
+            TaskRun.status.in_(["completed", "done"]),
         )
         if id_filter:
             similarity_query = similarity_query.filter(TaskRun.doc_id.in_(id_filter))

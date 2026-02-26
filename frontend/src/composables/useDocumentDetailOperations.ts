@@ -6,6 +6,7 @@ export type OperationAction = {
     DocumentOperationTaskPayload['task'],
     | 'vision_ocr'
     | 'embeddings_vision'
+    | 'similarity_index'
     | 'page_notes_vision'
     | 'summary_hierarchical'
     | 'suggestions_paperless'
@@ -56,6 +57,11 @@ export const operationActions: OperationAction[] = [
     task: 'embeddings_vision',
     label: 'Queue embeddings (vision)',
     tooltip: 'Erstellt Embeddings aus Vision-OCR-Text und speichert sie in Qdrant.',
+  },
+  {
+    task: 'similarity_index',
+    label: 'Queue similarity index',
+    tooltip: 'Erstellt/aktualisiert den Doc-Level Similarity-Vektor aus vorhandenen Chunk-Embeddings.',
   },
   {
     task: 'page_notes_vision',

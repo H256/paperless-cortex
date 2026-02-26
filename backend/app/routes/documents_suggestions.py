@@ -64,6 +64,60 @@ def _variant_source_key(source: str, field: str) -> str:
     return f"{prefix}:{field}"
 
 
+def _build_suggestions_meta(db: Session, doc_id: int) -> dict[str, dict[str, str | None]]:
+    meta_rows = (
+        db.query(DocumentSuggestion)
+        .filter(DocumentSuggestion.doc_id == doc_id)
+        .all()
+    )
+    ocr_model = (
+        db.query(DocumentPageText.model_name)
+        .filter(
+            DocumentPageText.doc_id == doc_id,
+            DocumentPageText.source == "vision_ocr",
+        )
+        .order_by(DocumentPageText.processed_at.desc().nullslast())
+        .first()
+    )
+    ocr_model_name = ocr_model[0] if ocr_model else None
+    return {
+        row.source: {
+            "model": row.model_name,
+            "processed_at": row.processed_at,
+            "ocr_model": ocr_model_name if row.source == "vision_ocr" else None,
+        }
+        for row in meta_rows
+    }
+
+
+def _append_similar_docs_metadata(
+    settings: Settings,
+    db: Session,
+    *,
+    doc_id: int,
+    suggestions_by_source: dict[str, object],
+    logger: logging.Logger,
+) -> None:
+    try:
+        from app.services.similarity import (
+            aggregate_similar_metadata,
+            fetch_doc_point_vector,
+            search_similar_doc_points,
+        )
+
+        vector = fetch_doc_point_vector(settings, doc_id)
+        if not vector:
+            return
+        matches = search_similar_doc_points(settings, vector, top_k=10, min_score=None)
+        filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+        doc_ids = [int(item["doc_id"]) for item in filtered]
+        score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
+        metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
+        suggestions_by_source["similar_docs"] = metadata
+    except Exception as exc:
+        logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
+
+
 class ApplySuggestionToDocument(BaseModel):
     source: str | None = None
     field: str
@@ -155,47 +209,15 @@ def get_document_suggestions(
         elif source == "paperless_ocr":
             enqueue_task_front(settings, {"doc_id": doc_id, "task": "suggestions_paperless"})
         suggestions_by_source = load_suggestions_map(db, doc_id, tags)
-        meta_rows = (
-            db.query(DocumentSuggestion)
-            .filter(DocumentSuggestion.doc_id == doc_id)
-            .all()
-        )
-        ocr_model = (
-            db.query(DocumentPageText.model_name)
-            .filter(
-                DocumentPageText.doc_id == doc_id,
-                DocumentPageText.source == "vision_ocr",
-            )
-            .order_by(DocumentPageText.processed_at.desc().nullslast())
-            .first()
-        )
-        ocr_model_name = ocr_model[0] if ocr_model else None
-        suggestions_meta = {
-            row.source: {
-                "model": row.model_name,
-                "processed_at": row.processed_at,
-                "ocr_model": ocr_model_name if row.source == "vision_ocr" else None,
-            }
-            for row in meta_rows
-        }
+        suggestions_meta = _build_suggestions_meta(db, doc_id)
         if include_similar:
-            try:
-                from app.services.similarity import (
-                    aggregate_similar_metadata,
-                    fetch_doc_point_vector,
-                    search_similar_doc_points,
-                )
-
-                vector = fetch_doc_point_vector(settings, doc_id)
-                if vector:
-                    matches = search_similar_doc_points(settings, vector, top_k=10, min_score=None)
-                    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
-                    doc_ids = [int(item["doc_id"]) for item in filtered]
-                    score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
-                    metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
-                    suggestions_by_source["similar_docs"] = metadata
-            except Exception as exc:
-                logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
+            _append_similar_docs_metadata(
+                settings,
+                db,
+                doc_id=doc_id,
+                suggestions_by_source=suggestions_by_source,
+                logger=logger,
+            )
         return {
             "doc_id": doc_id,
             "queued": True,
@@ -217,29 +239,7 @@ def get_document_suggestions(
     else:
         suggestions_by_source = load_suggestions_map(db, doc_id, tags)
 
-    meta_rows = (
-        db.query(DocumentSuggestion)
-        .filter(DocumentSuggestion.doc_id == doc_id)
-        .all()
-    )
-    ocr_model = (
-        db.query(DocumentPageText.model_name)
-        .filter(
-            DocumentPageText.doc_id == doc_id,
-            DocumentPageText.source == "vision_ocr",
-        )
-        .order_by(DocumentPageText.processed_at.desc().nullslast())
-        .first()
-    )
-    ocr_model_name = ocr_model[0] if ocr_model else None
-    suggestions_meta = {
-        row.source: {
-            "model": row.model_name,
-            "processed_at": row.processed_at,
-            "ocr_model": ocr_model_name if row.source == "vision_ocr" else None,
-        }
-        for row in meta_rows
-    }
+    suggestions_meta = _build_suggestions_meta(db, doc_id)
     score_rows = (
         db.query(DocumentOcrScore)
         .filter(DocumentOcrScore.doc_id == doc_id)
@@ -272,23 +272,13 @@ def get_document_suggestions(
     if best:
         suggestions_by_source["best_pick"] = best
     if include_similar:
-        try:
-            from app.services.similarity import (
-                aggregate_similar_metadata,
-                fetch_doc_point_vector,
-                search_similar_doc_points,
-            )
-
-            vector = fetch_doc_point_vector(settings, doc_id)
-            if vector:
-                matches = search_similar_doc_points(settings, vector, top_k=10, min_score=None)
-                filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
-                doc_ids = [int(item["doc_id"]) for item in filtered]
-                score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
-                metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
-                suggestions_by_source["similar_docs"] = metadata
-        except Exception as exc:
-            logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
+        _append_similar_docs_metadata(
+            settings,
+            db,
+            doc_id=doc_id,
+            suggestions_by_source=suggestions_by_source,
+            logger=logger,
+        )
     return {
         "doc_id": doc_id,
         "suggestions": suggestions_by_source,

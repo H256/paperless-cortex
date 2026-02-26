@@ -114,8 +114,8 @@
         :current-values="currentValues"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
-        @apply-variant="applyVariantOnly"
-        @apply-variant-to-document="applyVariantToDocument"
+        @apply-variant="applyVariantAction"
+        @apply-variant-to-document="applyVariantToDocumentAction"
         @apply-to-document="applyToDocument"
       />
 
@@ -390,7 +390,8 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr', field: string) => {
+const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs', field: string) => {
+  if (source === 'similar_docs') return
   await suggestField(id, source, field)
 }
 
@@ -569,6 +570,24 @@ const {
   toErrorMessage: errorMessage,
 })
 
+const applyVariantAction = async (
+  source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
+  field: string,
+  value: unknown,
+) => {
+  if (source === 'similar_docs') return
+  await applyVariantOnly(source, field, value)
+}
+
+const applyVariantToDocumentAction = async (
+  source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
+  field: string,
+  value: unknown,
+) => {
+  if (source === 'similar_docs') return
+  await applyVariantToDocument(source, field, value)
+}
+
 const loadPipelineStatus = async () => {
   await refreshPipelineStatus()
 }
@@ -671,7 +690,11 @@ const {
     toastStore.push(message, level, title, timeoutMs),
 })
 
-const refreshSuggestionsAction = async (source: 'paperless_ocr' | 'vision_ocr') => {
+const refreshSuggestionsAction = async (source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs') => {
+  if (source === 'similar_docs') {
+    await loadSuggestionsForDoc()
+    return
+  }
   await refreshSuggestionsForSource(id, source)
 }
 

@@ -56,6 +56,8 @@ flowchart TD
 5. For large docs: page notes + hierarchical summary.
 6. Review locally, then explicitly write back selected fields.
 
+Per-document operations also allow targeted manual re-runs for individual steps (for example `similarity_index`) without forcing a full reset/reprocess.
+
 ## Requirements and installation
 ### Prerequisites
 - Python `>=3.13` for the backend.

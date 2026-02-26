@@ -245,6 +245,7 @@ export type DocumentOperationTaskType =
   | 'cleanup_texts'
   | 'embeddings_paperless'
   | 'embeddings_vision'
+  | 'similarity_index'
   | 'page_notes_paperless'
   | 'page_notes_vision'
   | 'summary_hierarchical'

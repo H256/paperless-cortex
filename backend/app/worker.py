@@ -1147,12 +1147,17 @@ def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
     embedding = db.get(DocumentEmbedding, int(doc_id))
     if not embedding or int(embedding.chunk_count or 0) <= 0:
         return
-    rebuild_doc_point_from_chunks(
+    ok = rebuild_doc_point_from_chunks(
         settings,
         doc_id=int(doc_id),
         chunk_count=int(embedding.chunk_count or 0),
         source_hint=str(embedding.embedding_source or ""),
     )
+    if not ok:
+        raise RuntimeError(
+            f"similarity_index_rebuild_failed doc_id={int(doc_id)} "
+            f"chunk_count={int(embedding.chunk_count or 0)} source={str(embedding.embedding_source or '')}"
+        )
 
 
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
