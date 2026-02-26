@@ -18,6 +18,8 @@ All granular implementation slices and refactors are tracked here.
 - feat(frontend-ops): added manual `Queue similarity index` action in document operations (`frontend/src/composables/useDocumentDetailOperations.ts`) and widened frontend task typing in `frontend/src/services/documents.ts`.
 - fix(frontend-timeline): added `completed` status filter option in `frontend/src/components/DocumentOperationsSection.vue` so current worker statuses are directly filterable.
 - docs(readme/manual): documented targeted per-step reruns (`similarity_index`) and clarified Similar tab behavior as display/refresh.
+- fix(pipeline/similarity-missing): similarity is now marked missing when embeddings are missing (not only when an embedding row already exists), preventing false `Similarity: Done` after doc reset.
+- fix(reset/reprocess): per-document reset now clears old `task_runs` history for that doc and re-enqueues full pipeline with forced front-priority, reducing stale timeline/fan-out confusion.
 
 ## 2026-02-26 (branch: feat/doc-similarity-index-task)
 

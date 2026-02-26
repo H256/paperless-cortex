@@ -337,7 +337,7 @@ def evaluate_doc_pipeline(
     has_embedding = bool(embedding_source)
     similarity_stale = similarity_indexed_at is None or (embedded_at is not None and similarity_indexed_at < embedded_at)
     needs_doc_similarity_index = bool(
-        options.include_doc_similarity_index and has_embedding and (needs_embeddings or similarity_stale)
+        options.include_doc_similarity_index and (needs_embeddings or (has_embedding and similarity_stale))
     )
     if needs_doc_similarity_index:
         tasks.append({"doc_id": int(doc.id), "task": "similarity_index"})

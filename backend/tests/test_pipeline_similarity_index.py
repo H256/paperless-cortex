@@ -171,3 +171,45 @@ def test_collect_pipeline_cache_reads_completed_similarity_runs(session_factory)
         cache = collect_pipeline_cache(db, doc_ids={1971}, settings=load_settings())
 
     assert 1971 in cache["similarity_indexed_at_by_doc"]
+
+
+def test_evaluate_doc_pipeline_marks_similarity_missing_when_embeddings_missing():
+    settings = load_settings()
+    doc = SimpleNamespace(id=17, page_count=1, content="sample text")
+    cache = {
+        "embeddings": {},
+        "embedded_at_by_doc": {},
+        "similarity_indexed_at_by_doc": {},
+        "suggestions": set(),
+        "vision_latest": {},
+        "vision_pages_by_doc": {},
+        "page_notes_by_doc_source": {},
+        "anchors_by_doc": {},
+        "hier_summaries": {},
+    }
+
+    result = evaluate_doc_pipeline(
+        doc=doc,
+        settings=settings,
+        cache=cache,
+        options=PipelineOptions(
+            include_sync=False,
+            include_evidence_index=False,
+            include_vision_ocr=False,
+            include_embeddings=True,
+            include_embeddings_paperless=True,
+            include_embeddings_vision=False,
+            include_suggestions_paperless=False,
+            include_suggestions_vision=False,
+            include_page_notes=False,
+            include_summary_hierarchical=False,
+            include_doc_similarity_index=True,
+            embeddings_mode="paperless",
+        ),
+    )
+
+    assert result["needs_embeddings"] is True
+    assert result["needs_doc_similarity_index"] is True
+    task_names = [str(task.get("task")) for task in result["tasks"]]
+    assert "embeddings_paperless" in task_names
+    assert "similarity_index" in task_names

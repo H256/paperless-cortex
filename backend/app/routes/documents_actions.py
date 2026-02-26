@@ -19,8 +19,9 @@ from app.models import (
     DocumentPageText,
     DocumentSectionSummary,
     DocumentSuggestion,
+    TaskRun,
 )
-from app.services.queue import enqueue_task, enqueue_task_sequence
+from app.services.queue import enqueue_task, enqueue_task_sequence, enqueue_task_sequence_front
 from app.services.embeddings import delete_points_for_doc
 from app.services.pipeline_fanout import build_pipeline_fanout_items, latest_task_runs_by_signature
 from app.services.page_text_store import reclean_page_texts
@@ -132,6 +133,8 @@ def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
         synchronize_session=False
     )
     db.query(DocumentPageAnchor).filter(DocumentPageAnchor.doc_id == doc_id).delete(synchronize_session=False)
+    # Reset should not keep stale per-doc pipeline history; it confuses fan-out/status views.
+    db.query(TaskRun).filter(TaskRun.doc_id == doc_id).delete(synchronize_session=False)
     db.commit()
 
 
@@ -569,5 +572,5 @@ def reset_and_reprocess_document(
     enqueued = 0
     if enqueue and require_queue_enabled(settings):
         tasks = build_task_sequence(settings, doc_id, include_sync=False, force=True)
-        enqueued = enqueue_task_sequence(settings, tasks)
+        enqueued = enqueue_task_sequence_front(settings, tasks, force=True)
     return {"doc_id": doc_id, "synced": True, "reset": True, "enqueued": enqueued}
