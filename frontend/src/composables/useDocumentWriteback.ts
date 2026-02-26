@@ -13,7 +13,7 @@ type DocumentWritebackState = {
 }
 
 type UseDocumentWritebackParams = {
-  docId: number
+  docId: number | (() => number)
   document: Ref<DocumentWritebackState | null | undefined>
   reloadAll: () => Promise<void>
   toErrorMessage: (err: unknown, fallback: string) => string
@@ -27,6 +27,7 @@ export const useDocumentWriteback = ({
   toErrorMessage,
   pushToast,
 }: UseDocumentWritebackParams) => {
+  const resolveDocId = () => (typeof docId === 'function' ? docId() : docId)
   const writebackRunning = ref(false)
   const writebackConfirmOpen = ref(false)
   const writebackConflictOpen = ref(false)
@@ -72,7 +73,7 @@ export const useDocumentWriteback = ({
     writebackRunning.value = true
     writebackErrorMessage.value = ''
     try {
-      const result = await executeWritebackDirectForDocument(docId, {
+      const result = await executeWritebackDirectForDocument(resolveDocId(), {
         known_paperless_modified: document.value?.paperless_modified ?? null,
         resolutions: resolutions ?? {},
       })

@@ -25,7 +25,7 @@ export type TimelineTaskRun = {
 }
 
 type UseDocumentDetailOperationsArgs = {
-  docId: number
+  docId: number | (() => number)
   enqueueDocumentTaskNow: (payload: DocumentOperationTaskPayload) => Promise<{ enqueued?: boolean | number }>
   cleanupDocumentTexts: (clearFirst: boolean) => Promise<{ queued: boolean; docs?: number; updated?: number; processed?: number }>
   continuePipelineRequest: (payload: {
@@ -87,6 +87,7 @@ export const operationActions: OperationAction[] = [
 ]
 
 export const useDocumentDetailOperations = (args: UseDocumentDetailOperationsArgs) => {
+  const resolveDocId = () => (typeof args.docId === 'function' ? args.docId() : args.docId)
   const docOpsMessage = ref('')
   const docCleanupClearFirst = ref(false)
   const resetConfirmOpen = ref(false)
@@ -109,7 +110,7 @@ export const useDocumentDetailOperations = (args: UseDocumentDetailOperationsArg
           source: action.source,
         })
         docOpsMessage.value = Number(result.enqueued || 0) > 0
-          ? `Queued task ${action.task} for document ${args.docId}.`
+          ? `Queued task ${action.task} for document ${resolveDocId()}.`
           : `Task ${action.task} was not enqueued (possibly duplicate/running).`
       } catch (err) {
         docOpsMessage.value = args.toErrorMessage(err, `Failed to queue ${action.task}`)
