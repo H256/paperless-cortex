@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
+import httpx
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Document, Tag, Correspondent, DocumentType
@@ -10,10 +12,19 @@ from app.config import Settings
 from app.services import qdrant
 from app.services.embeddings import make_doc_point_id, search_points
 
+logger = logging.getLogger(__name__)
+
 
 def fetch_doc_point_vector(settings: Settings, doc_id: int) -> list[float] | None:
     point_id = make_doc_point_id(doc_id)
-    payload = qdrant.retrieve_points(settings, [point_id], with_vector=True, with_payload=False)
+    try:
+        payload = qdrant.retrieve_points(settings, [point_id], with_vector=True, with_payload=False)
+    except httpx.HTTPStatusError as exc:
+        # Treat missing collection/points as "no vector yet" so API returns 404 instead of 500.
+        if exc.response.status_code == 404:
+            logger.info("Doc-level vector not found in Qdrant for doc_id=%s", doc_id)
+            return None
+        raise
     results = payload.get("result", []) if isinstance(payload, dict) else []
     if not results:
         return None
