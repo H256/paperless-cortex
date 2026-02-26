@@ -92,6 +92,18 @@
             class="h-10 w-40"
           />
         </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
+            >Relationship</label
+          >
+          <select
+            v-model="relationshipMode"
+            class="h-10 min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="none">None</option>
+            <option value="chrono">Chrono</option>
+          </select>
+        </div>
         <div class="flex flex-wrap items-center gap-3">
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
@@ -232,6 +244,36 @@
           v-html="renderMarkdown(message)"
         ></div>
 
+        <div
+          class="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+        >
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Follow-up questions
+          </div>
+          <div v-if="message.followupsLoading" class="mt-2 inline-flex items-center gap-2 text-xs">
+            <span class="chat-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+            Generating...
+          </div>
+          <div v-else-if="message.followupsError" class="mt-2 text-rose-600 dark:text-rose-300">
+            {{ message.followupsError }}
+          </div>
+          <div v-else-if="message.followups && message.followups.length" class="mt-2 flex flex-wrap gap-2">
+            <button
+              v-for="(followup, index) in message.followups"
+              :key="`${message.id}-followup-${index}`"
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              @click="askFollowup(followup)"
+            >
+              {{ followup }}
+            </button>
+          </div>
+          <div v-else class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            No follow-ups available.
+          </div>
+        </div>
+
         <div class="mt-4 flex flex-wrap items-center gap-2">
           <span
             class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
@@ -344,6 +386,7 @@ const {
   streaming,
   useHistory,
   historyTurns,
+  relationshipMode,
   loading,
   error,
   messages,
@@ -373,6 +416,7 @@ const buildChatQuery = () => {
   if (!streaming.value) next.stream = '0'
   if (!useHistory.value) next.hist = '0'
   if (historyTurns.value !== 6) next.turns = String(historyTurns.value)
+  if (relationshipMode.value !== 'none') next.rm = relationshipMode.value
   return next
 }
 
@@ -385,6 +429,7 @@ const syncChatFromRoute = () => {
   streaming.value = queryBool(route.query.stream, true)
   useHistory.value = queryBool(route.query.hist, true)
   historyTurns.value = queryNumber(route.query.turns, 6)
+  relationshipMode.value = (queryString(route.query.rm, 'none') as 'none' | 'chrono') || 'none'
 }
 
 const resetControls = async () => {
@@ -444,6 +489,13 @@ const copyAnswer = async (message: ChatMessage) => {
   }
 }
 
+const askFollowup = async (text: string) => {
+  const value = (text || '').trim()
+  if (!value) return
+  question.value = value
+  await ask()
+}
+
 const openFirstCitation = () => {
   const latest = messages.value[0]
   if (!latest?.citations?.length) return
@@ -459,7 +511,7 @@ const querySync = useRouteQuerySync({
   router,
   readFromRoute: syncChatFromRoute,
   buildQuery: buildChatQuery,
-  sources: [question, topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns],
+  sources: [question, topK, source, onlyVision, minQuality, streaming, useHistory, historyTurns, relationshipMode],
   debounceMs: 120,
   preserveUnknownQueryKeys: true,
 })

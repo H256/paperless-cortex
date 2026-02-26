@@ -134,6 +134,8 @@ def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, mo
 def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, monkeypatch):
     from app.services import paperless
 
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Document(id=777, title="Doc 777"))
@@ -188,6 +190,8 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
 def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_client, monkeypatch):
     from app.services import paperless
 
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Document(id=1869, title="Doc 1869", created=None, document_date=None))
@@ -233,6 +237,8 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
 
 def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkeypatch):
     from app.services import paperless
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
@@ -380,4 +386,3 @@ def test_execute_direct_use_paperless_resolutions_sync_local_fields(api_client, 
         ai_notes = db.query(DocumentNote).filter(DocumentNote.document_id == 1999).all()
         ai_texts = [str(note.note or "") for note in ai_notes]
         assert any("Remote summary" in text for text in ai_texts)
-

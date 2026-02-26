@@ -3,11 +3,18 @@ import { useMutation } from '@tanstack/vue-query'
 import { unwrap } from '../api/orval'
 import {
   chatChatPost,
+  chatFollowupsChatFollowupsPost,
 } from '../api/generated/client'
-import type { ChatResponse } from '../api/generated/model'
+import type { ChatFollowupsResponse, ChatResponse } from '../api/generated/model'
 import { streamChat } from '../services/chatStream'
+import type { ChatFollowupsRequest } from '../api/generated/model'
 
-const storageKey = 'paperless_chat_state'
+type UseChatSessionOptions = {
+  storageKey?: string
+  defaultDocId?: number | null
+  defaultDocScope?: boolean
+  defaultRelationshipMode?: 'none' | 'chrono'
+}
 
 export interface ChatMessage {
   id: string
@@ -15,6 +22,9 @@ export interface ChatMessage {
   question: string
   answer: string
   citations: ChatResponse['citations']
+  followups?: string[]
+  followupsLoading?: boolean
+  followupsError?: string
   createdAt: number
 }
 
@@ -32,7 +42,12 @@ const errorMessage = (err: unknown, fallback: string) => {
 const isAbortError = (err: unknown) =>
   err instanceof DOMException ? err.name === 'AbortError' : err instanceof Error && err.name === 'AbortError'
 
-const loadState = (): PersistedChatState => {
+const normalizeFollowups = (values: unknown): string[] => {
+  if (!Array.isArray(values)) return []
+  return values.map((value) => String(value).trim()).filter(Boolean)
+}
+
+const loadState = (storageKey: string): PersistedChatState => {
   try {
     const raw = window.localStorage?.getItem(storageKey)
     if (!raw) return { messages: [], conversationId: '' }
@@ -52,7 +67,7 @@ const loadState = (): PersistedChatState => {
   }
 }
 
-const saveState = (state: PersistedChatState) => {
+const saveState = (storageKey: string, state: PersistedChatState) => {
   try {
     window.localStorage?.setItem(
       storageKey,
@@ -86,11 +101,15 @@ const createMessage = (question: string, conversationId?: string): ChatMessage =
   question,
   answer: '',
   citations: [],
+  followups: [],
+  followupsLoading: false,
+  followupsError: '',
   createdAt: Date.now(),
 })
 
-export const useChatSession = () => {
-  const initialState = loadState()
+export const useChatSession = (options: UseChatSessionOptions = {}) => {
+  const storageKey = options.storageKey || 'paperless_chat_state'
+  const initialState = loadState(storageKey)
 
   const question = ref('')
   const topK = ref(6)
@@ -100,16 +119,38 @@ export const useChatSession = () => {
   const streaming = ref(true)
   const useHistory = ref(true)
   const historyTurns = ref(6)
+  const docScope = ref(Boolean(options.defaultDocScope))
+  const docId = ref<number | null>(options.defaultDocId ?? null)
+  const relationshipMode = ref<'none' | 'chrono'>(options.defaultRelationshipMode ?? 'none')
   const error = ref('')
   const messages = ref<ChatMessage[]>(initialState.messages)
   const conversationId = ref(initialState.conversationId)
   const activeAbort = ref<AbortController | null>(null)
 
   const persist = () =>
-    saveState({
+    saveState(storageKey, {
       messages: messages.value,
       conversationId: conversationId.value,
     })
+
+  const followupsMutation = useMutation({
+    mutationFn: (payload: ChatFollowupsRequest) =>
+      unwrap<ChatFollowupsResponse>(chatFollowupsChatFollowupsPost(payload)),
+  })
+
+  const fetchFollowupsForMessage = async (message: ChatMessage, payload: ChatFollowupsRequest) => {
+    message.followupsLoading = true
+    message.followupsError = ''
+    try {
+      const data = await followupsMutation.mutateAsync(payload)
+      message.followups = normalizeFollowups(data.questions)
+    } catch (err: unknown) {
+      message.followupsError = errorMessage(err, 'Failed to load follow-ups')
+    } finally {
+      message.followupsLoading = false
+      persist()
+    }
+  }
 
   const stop = () => {
     if (activeAbort.value) {
@@ -124,6 +165,8 @@ export const useChatSession = () => {
       if (!trimmedQuestion) return
       error.value = ''
       const history = buildHistory(messages.value, useHistory.value, historyTurns.value)
+      const resolvedDocId = docScope.value && typeof docId.value === 'number' ? docId.value : undefined
+      const relationship_mode = relationshipMode.value !== 'none' ? relationshipMode.value : undefined
       const resolvedSource = onlyVision.value ? 'vision_ocr' : source.value || undefined
 
       if (streaming.value) {
@@ -141,6 +184,8 @@ export const useChatSession = () => {
             top_k: topK.value,
             source: resolvedSource,
             min_quality: minQuality.value || undefined,
+            doc_id: resolvedDocId,
+            relationship_mode,
             history,
             conversation_id: conversationId.value || undefined,
           },
@@ -153,6 +198,13 @@ export const useChatSession = () => {
             conversationId.value = done.conversation_id || conversationId.value
             message.conversationId = conversationId.value || undefined
             persist()
+            void fetchFollowupsForMessage(message, {
+              question: message.question,
+              answer: message.answer,
+              citations: message.citations || [],
+              doc_id: resolvedDocId,
+              relationship_mode,
+            })
           },
           (streamErr) => {
             error.value = streamErr
@@ -166,6 +218,8 @@ export const useChatSession = () => {
             top_k: topK.value,
             source: resolvedSource,
             min_quality: minQuality.value || undefined,
+            doc_id: resolvedDocId,
+            relationship_mode,
             history,
             conversation_id: conversationId.value || undefined,
           }),
@@ -176,6 +230,13 @@ export const useChatSession = () => {
         message.citations = data.citations ?? []
         messages.value.unshift(message)
         persist()
+        void fetchFollowupsForMessage(message, {
+          question: message.question,
+          answer: message.answer,
+          citations: message.citations || [],
+          doc_id: resolvedDocId,
+          relationship_mode,
+        })
         question.value = ''
       }
     },
@@ -215,6 +276,8 @@ export const useChatSession = () => {
     streaming.value = true
     useHistory.value = true
     historyTurns.value = 6
+    docScope.value = Boolean(options.defaultDocScope)
+    relationshipMode.value = options.defaultRelationshipMode ?? 'none'
     error.value = ''
   }
 
@@ -227,6 +290,9 @@ export const useChatSession = () => {
     streaming,
     useHistory,
     historyTurns,
+    docScope,
+    docId,
+    relationshipMode,
     loading: computed(() => askMutation.isPending.value),
     error,
     messages,

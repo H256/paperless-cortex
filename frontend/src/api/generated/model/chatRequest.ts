@@ -11,6 +11,8 @@ export interface ChatRequest {
   top_k?: number;
   source?: string | null;
   min_quality?: number | null;
+  doc_id?: number | null;
+  relationship_mode?: string | null;
   history?: ChatHistoryItem[] | null;
   conversation_id?: string | null;
 }

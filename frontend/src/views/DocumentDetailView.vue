@@ -119,6 +119,9 @@
         @apply-to-document="applyToDocument"
       />
 
+
+      <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="id" />
+
       <DocumentPagesSection
         v-if="activeTab === 'pages'"
         :page-texts="pageTexts"
@@ -234,6 +237,7 @@ import IconButton from '../components/IconButton.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
+import DocumentChatSection from '../components/DocumentChatSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
 import DocumentOperationsSection from '../components/DocumentOperationsSection.vue'
 import WritebackConflictModal from '../components/WritebackConflictModal.vue'
@@ -685,7 +689,7 @@ watch(
 
 watch(
   activeTab,
-  async () => {
+  async (tab) => {
     await syncTabToQuery()
   },
 )

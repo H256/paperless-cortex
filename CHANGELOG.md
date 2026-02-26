@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: feat/document-chat)
+
+### Document chat
+- `03bbd14` feat(document-chat): added document-scoped chat in the Detail view (tab + scope toggle), follow-up question suggestions endpoint/UI, chronological relationship mode, and updated prompts; regenerated OpenAPI/Orval client and hardened chat evidence tests + writeback execute tests env guard.
+
 ## 2026-02-20 (branch: codex-20260220-backend-routes-tests-refactor)
 
 ### Backend robustness / SRP cleanup

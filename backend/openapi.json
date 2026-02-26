@@ -3485,6 +3485,47 @@
         }
       }
     },
+    "/chat/followups": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Chat Followups",
+        "operationId": "chat_followups_chat_followups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatFollowupsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatFollowupsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chat/resolve-evidence": {
       "post": {
         "tags": [
@@ -4249,6 +4290,68 @@
         ],
         "title": "ChatCitation"
       },
+      "ChatFollowupsRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ChatCitation"
+            },
+            "type": "array",
+            "title": "Citations",
+            "default": []
+          },
+          "doc_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Id"
+          },
+          "relationship_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relationship Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answer"
+        ],
+        "title": "ChatFollowupsRequest"
+      },
+      "ChatFollowupsResponse": {
+        "properties": {
+          "questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Questions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "ChatFollowupsResponse"
+      },
       "ChatHistoryItem": {
         "properties": {
           "question": {
@@ -4299,6 +4402,28 @@
               }
             ],
             "title": "Min Quality"
+          },
+          "doc_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Id"
+          },
+          "relationship_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relationship Mode"
           },
           "history": {
             "anyOf": [

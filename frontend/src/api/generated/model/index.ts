@@ -10,6 +10,8 @@ export * from './applyFieldSuggestionResponseSuggestions';
 export * from './applySuggestionResponse';
 export * from './applySuggestionToDocument';
 export * from './chatCitation';
+export * from './chatFollowupsRequest';
+export * from './chatFollowupsResponse';
 export * from './chatHistoryItem';
 export * from './chatRequest';
 export * from './chatResponse';

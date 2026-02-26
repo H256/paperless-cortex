@@ -653,8 +653,22 @@ class ChatRequest(BaseModel):
     top_k: int = 6
     source: Optional[str] = None
     min_quality: Optional[int] = None
+    doc_id: Optional[int] = None
+    relationship_mode: Optional[str] = None
     history: Optional[list[ChatHistoryItem]] = None
     conversation_id: Optional[str] = None
+
+
+class ChatFollowupsRequest(BaseModel):
+    question: str
+    answer: str
+    citations: list[ChatCitation] = []
+    doc_id: Optional[int] = None
+    relationship_mode: Optional[str] = None
+
+
+class ChatFollowupsResponse(BaseModel):
+    questions: list[str] = []
 
 
 class EvidenceCitationRequest(BaseModel):

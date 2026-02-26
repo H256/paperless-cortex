@@ -153,6 +153,7 @@ Tabs:
 - `Text & quality`: text layers + OCR quality metrics
 - `Suggestions`: paperless/vision suggestions, variants, apply actions
 - `Pages`: per-page text and page-level inspection
+- `Chat`: document chat with follow-up questions and relationship mode (chrono)
 - `Operations`: per-doc pipeline actions, fan-out, timeline, retries
 
 Key actions:
