@@ -541,6 +541,7 @@ class ProcessMissingResponse(BaseModel):
     missing_embeddings: Optional[int] = None
     missing_embeddings_paperless: Optional[int] = None
     missing_embeddings_vision: Optional[int] = None
+    missing_doc_similarity_index: Optional[int] = None
     missing_page_notes: Optional[int] = None
     missing_summary_hierarchical: Optional[int] = None
     missing_evidence_index: Optional[int] = None

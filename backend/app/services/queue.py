@@ -18,6 +18,7 @@ TASK_TYPES = [
     "vision_ocr",
     "embeddings_paperless",
     "embeddings_vision",
+    "similarity_index",
     "cleanup_texts",
     "page_notes_paperless",
     "page_notes_vision",
@@ -755,4 +756,3 @@ def worker_status(settings: Settings) -> tuple[bool, str]:
     if age > WORKER_HEARTBEAT_TTL:
         return False, f"Heartbeat stale ({age}s)"
     return True, f"Heartbeat {age}s ago"
-

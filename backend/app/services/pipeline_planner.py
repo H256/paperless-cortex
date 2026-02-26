@@ -29,6 +29,7 @@ class PipelineOptions(BaseModel):
     include_summary_hierarchical: bool = True
     include_suggestions_paperless: bool = True
     include_suggestions_vision: bool = True
+    include_doc_similarity_index: bool = True
     embeddings_mode: str = "auto"
 
 
@@ -99,6 +100,8 @@ def post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: Pipeli
                 tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
             elif options.include_embeddings_paperless:
                 tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+    if options.include_doc_similarity_index and options.include_embeddings:
+        tasks.append({"doc_id": normalized, "task": "similarity_index"})
 
     if use_vision:
         if options.include_vision_ocr:
@@ -130,7 +133,12 @@ def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
     return len(bounded) == expected
 
 
-def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> dict[str, Any]:
+def collect_pipeline_cache(
+    db: Session,
+    *,
+    doc_ids: set[int] | None = None,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
     id_filter = None
     if doc_ids:
         normalized = {int(doc_id) for doc_id in doc_ids if int(doc_id) > 0}
@@ -288,6 +296,10 @@ def evaluate_doc_pipeline(
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless"})
     if needs_embeddings_vision:
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision"})
+    has_embedding = bool(embedding_source)
+    needs_doc_similarity_index = bool(options.include_doc_similarity_index and has_embedding)
+    if needs_doc_similarity_index:
+        tasks.append({"doc_id": int(doc.id), "task": "similarity_index"})
 
     needs_sugg_p = options.include_suggestions_paperless and (not sugg_p)
     needs_sugg_v = options.include_suggestions_vision and (not sugg_v)
@@ -330,6 +342,7 @@ def evaluate_doc_pipeline(
         "needs_embeddings_vision": needs_embeddings_vision,
         "needs_suggestions_paperless": needs_sugg_p,
         "needs_suggestions_vision": needs_sugg_v,
+        "needs_doc_similarity_index": needs_doc_similarity_index,
         "needs_page_notes": needs_page_notes,
         "needs_summary_hierarchical": needs_summary,
         "needs_evidence_index": needs_evidence_index,

@@ -23,6 +23,7 @@ class ProcessMissingOptions:
     include_embeddings: bool
     include_embeddings_paperless: bool
     include_embeddings_vision: bool
+    include_doc_similarity_index: bool
     include_page_notes: bool
     include_summary_hierarchical: bool
     include_suggestions_paperless: bool
@@ -69,6 +70,7 @@ def process_missing_documents(
         include_embeddings=options.include_embeddings,
         include_embeddings_paperless=options.include_embeddings_paperless,
         include_embeddings_vision=options.include_embeddings_vision,
+        include_doc_similarity_index=options.include_doc_similarity_index,
         include_page_notes=options.include_page_notes,
         include_summary_hierarchical=options.include_summary_hierarchical,
         include_suggestions_paperless=options.include_suggestions_paperless,
@@ -83,6 +85,7 @@ def process_missing_documents(
     missing_embeddings = 0
     missing_embeddings_paperless = 0
     missing_embeddings_vision = 0
+    missing_similarity_index = 0
     missing_page_notes = 0
     missing_summary_hier = 0
     missing_evidence_index = 0
@@ -90,7 +93,7 @@ def process_missing_documents(
     missing_sugg_v = 0
     checked_docs = 0
     selected_for_run = 0
-    missing_by_step = {"paperless": 0, "vision": 0, "large": 0}
+    missing_by_step = {"paperless": 0, "vision": 0, "large": 0, "similarity": 0}
     preview_docs: list[dict[str, Any]] = []
     preview_docs_limit = 20
     batch_docs: list[Document] = []
@@ -103,6 +106,7 @@ def process_missing_documents(
         nonlocal missing_embeddings
         nonlocal missing_embeddings_paperless
         nonlocal missing_embeddings_vision
+        nonlocal missing_similarity_index
         nonlocal missing_page_notes
         nonlocal missing_summary_hier
         nonlocal missing_evidence_index
@@ -113,7 +117,7 @@ def process_missing_documents(
         nonlocal enqueued_tasks
         if not docs_batch:
             return
-        cache = collect_pipeline_cache(db, doc_ids={int(doc.id) for doc in docs_batch})
+        cache = collect_pipeline_cache(db, doc_ids={int(doc.id) for doc in docs_batch}, settings=settings)
         for doc in docs_batch:
             if _should_skip_doc(doc):
                 continue
@@ -143,6 +147,8 @@ def process_missing_documents(
                 missing_sugg_p += 1
             if evaluation["needs_suggestions_vision"]:
                 missing_sugg_v += 1
+            if evaluation.get("needs_doc_similarity_index"):
+                missing_similarity_index += 1
             missing_steps: list[str] = []
             if evaluation["needs_embeddings_paperless"] or evaluation["needs_suggestions_paperless"]:
                 missing_steps.append("paperless")
@@ -157,6 +163,9 @@ def process_missing_documents(
             if evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]:
                 missing_steps.append("large")
                 missing_by_step["large"] += 1
+            if evaluation.get("needs_doc_similarity_index"):
+                missing_steps.append("similarity")
+                missing_by_step["similarity"] = int(missing_by_step.get("similarity", 0)) + 1
             if tasks:
                 missing_docs += 1
                 if len(preview_docs) < preview_docs_limit:
@@ -191,6 +200,7 @@ def process_missing_documents(
         "missing_embeddings": missing_embeddings,
         "missing_embeddings_paperless": missing_embeddings_paperless,
         "missing_embeddings_vision": missing_embeddings_vision,
+        "missing_doc_similarity_index": missing_similarity_index,
         "missing_page_notes": missing_page_notes,
         "missing_summary_hierarchical": missing_summary_hier,
         "missing_evidence_index": missing_evidence_index,

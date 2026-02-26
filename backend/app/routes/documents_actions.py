@@ -65,6 +65,7 @@ ALLOWED_DOC_TASKS = {
     "cleanup_texts",
     "embeddings_paperless",
     "embeddings_vision",
+    "similarity_index",
     "page_notes_paperless",
     "page_notes_vision",
     "summary_hierarchical",
@@ -143,6 +144,7 @@ def process_missing(
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
     include_embeddings_vision: bool = True,
+    include_doc_similarity_index: bool = True,
     include_page_notes: bool = True,
     include_summary_hierarchical: bool = True,
     include_suggestions_paperless: bool = True,
@@ -166,6 +168,7 @@ def process_missing(
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
         include_embeddings_vision=include_embeddings_vision,
+        include_doc_similarity_index=include_doc_similarity_index,
         include_page_notes=include_page_notes,
         include_summary_hierarchical=include_summary_hierarchical,
         include_suggestions_paperless=include_suggestions_paperless,
@@ -203,7 +206,7 @@ def get_document_pipeline_status(
     db: Session = Depends(get_db),
 ):
     doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
-    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
+    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)}, settings=settings)
     options = PipelineOptions()
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     sync_ok = _sync_ok(settings, doc)
@@ -221,6 +224,7 @@ def get_document_pipeline_status(
     large_ok = True if not is_large_doc else not (
         evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]
     )
+    similarity_ok = not bool(evaluation.get("needs_doc_similarity_index"))
     evidence_required = bool(evaluation.get("evidence_required", True))
     evidence_no_text_layer = bool(evaluation.get("evidence_no_text_layer", False))
     evidence_ok = (not evidence_required) or (not evaluation["needs_evidence_index"])
@@ -255,6 +259,12 @@ def get_document_pipeline_status(
             "done": large_ok if is_large_doc else True,
             "detail": "Large-doc page notes and hierarchical summary are ready.",
         },
+        {
+            "key": "similarity",
+            "required": True,
+            "done": similarity_ok,
+            "detail": "Doc-level similarity index is ready.",
+        },
     ]
     return {
         "doc_id": int(doc_id),
@@ -279,6 +289,7 @@ def get_document_pipeline_fanout(
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
     include_embeddings_vision: bool = True,
+    include_doc_similarity_index: bool = True,
     include_page_notes: bool = True,
     include_summary_hierarchical: bool = True,
     include_suggestions_paperless: bool = True,
@@ -297,13 +308,14 @@ def get_document_pipeline_fanout(
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
         include_embeddings_vision=include_embeddings_vision,
+        include_doc_similarity_index=include_doc_similarity_index,
         include_page_notes=include_page_notes,
         include_summary_hierarchical=include_summary_hierarchical,
         include_suggestions_paperless=include_suggestions_paperless,
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
     )
-    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
+    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)}, settings=settings)
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     if include_sync and not _sync_ok(settings, doc):
         evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation.get("tasks", []))
@@ -337,6 +349,7 @@ def continue_document_pipeline(
     include_embeddings: bool = True,
     include_embeddings_paperless: bool = True,
     include_embeddings_vision: bool = True,
+    include_doc_similarity_index: bool = True,
     include_page_notes: bool = True,
     include_summary_hierarchical: bool = True,
     include_suggestions_paperless: bool = True,
@@ -358,13 +371,14 @@ def continue_document_pipeline(
         include_embeddings=include_embeddings,
         include_embeddings_paperless=include_embeddings_paperless,
         include_embeddings_vision=include_embeddings_vision,
+        include_doc_similarity_index=include_doc_similarity_index,
         include_page_notes=include_page_notes,
         include_summary_hierarchical=include_summary_hierarchical,
         include_suggestions_paperless=include_suggestions_paperless,
         include_suggestions_vision=include_suggestions_vision,
         embeddings_mode=embeddings_mode,
     )
-    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)})
+    cache = collect_pipeline_cache(db, doc_ids={int(doc_id)}, settings=settings)
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     tasks = list(evaluation["tasks"])
     if include_sync and not _sync_ok(settings, doc):

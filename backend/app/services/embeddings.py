@@ -579,6 +579,117 @@ def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = 
         response.raise_for_status()
 
 
+def _vector_from_point(point: dict[str, Any]) -> list[float] | None:
+    vector = point.get("vector")
+    if isinstance(vector, dict):
+        vector = vector.get("default")
+    if not isinstance(vector, list):
+        return None
+    normalized = [float(value) for value in vector if isinstance(value, (int, float))]
+    return normalized if normalized else None
+
+
+def existing_doc_point_ids(settings: Settings, doc_ids: list[int]) -> set[int]:
+    normalized = sorted({int(doc_id) for doc_id in doc_ids if int(doc_id) > 0})
+    if not normalized:
+        return set()
+    point_ids = [make_doc_point_id(doc_id) for doc_id in normalized]
+    found: set[int] = set()
+    batch_size = 256
+    for start in range(0, len(point_ids), batch_size):
+        batch_ids = point_ids[start : start + batch_size]
+        try:
+            payload = qdrant.retrieve_points(
+                settings,
+                batch_ids,
+                with_vector=False,
+                with_payload=True,
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return set()
+            raise
+        rows = payload.get("result", []) if isinstance(payload, dict) else []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            point_id = int(row.get("id") or 0)
+            if point_id <= 0:
+                continue
+            doc_id = point_id // 1_000_000_000
+            if doc_id > 0:
+                found.add(doc_id)
+    return found
+
+
+def rebuild_doc_point_from_chunks(
+    settings: Settings,
+    *,
+    doc_id: int,
+    chunk_count: int,
+    source_hint: str | None = None,
+) -> bool:
+    normalized_doc_id = int(doc_id)
+    normalized_chunk_count = max(0, int(chunk_count))
+    if normalized_doc_id <= 0 or normalized_chunk_count <= 0:
+        return False
+    source = _normalize_embedding_source(source_hint)
+    sources: list[str] = []
+    if source == "both":
+        sources = ["vision", "paperless"]
+    elif source in {"paperless", "vision"}:
+        sources = [source]
+    else:
+        sources = ["vision", "paperless"]
+
+    vectors: list[list[float]] = []
+    batch_size = 128
+    for source_name in sources:
+        point_ids = [make_point_id(normalized_doc_id, chunk, source_name) for chunk in range(normalized_chunk_count)]
+        for start in range(0, len(point_ids), batch_size):
+            ids_batch = point_ids[start : start + batch_size]
+            try:
+                payload = qdrant.retrieve_points(
+                    settings,
+                    ids_batch,
+                    with_vector=True,
+                    with_payload=False,
+                )
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    return False
+                raise
+            rows = payload.get("result", []) if isinstance(payload, dict) else []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                vector = _vector_from_point(row)
+                if vector:
+                    vectors.append(vector)
+
+    if not vectors:
+        return False
+    doc_vector = average_vectors(vectors)
+    if not doc_vector:
+        return False
+    upsert_points(
+        settings,
+        [
+            {
+                "id": make_doc_point_id(normalized_doc_id),
+                "vector": doc_vector,
+                "payload": {
+                    "doc_id": normalized_doc_id,
+                    "chunk": -1,
+                    "type": "doc",
+                    "source": source or "mixed",
+                },
+            }
+        ],
+    )
+    return True
+
+
 def search_points(
     settings: Settings,
     vector: list[float],

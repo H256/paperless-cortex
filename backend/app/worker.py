@@ -24,12 +24,15 @@ from app.models import (
 from app.services import paperless
 from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.embeddings import (
+    average_vectors,
     chunk_document_with_pages,
     enforce_embedding_chunk_budget,
     summarize_chunk_split_telemetry,
     delete_points_for_doc,
     embed_texts,
+    make_doc_point_id,
     make_point_id,
+    rebuild_doc_point_from_chunks,
     upsert_points,
 )
 from app.services.embedding_init import ensure_embedding_collection
@@ -425,10 +428,12 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
             **telemetry,
         },
     )
+    doc_vectors: list[list[float]] = []
     for start in range(start_index, len(chunks), batch_size):
         chunk_batch = chunks[start : start + batch_size]
         texts = [str(chunk["text"]) for chunk in chunk_batch]
         vectors = embed_texts(settings, texts, telemetry=telemetry)
+        doc_vectors.extend(vectors)
         points = []
         for offset, (chunk, vector) in enumerate(zip(chunk_batch, vectors)):
             chunk_idx = start + offset
@@ -464,6 +469,25 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
             total=len(chunks),
             extra={"source": embedding_source, "batch_size": batch_size, **telemetry},
         )
+
+    if doc_vectors:
+        doc_vector = average_vectors(doc_vectors)
+        if doc_vector:
+            upsert_points(
+                settings,
+                [
+                    {
+                        "id": make_doc_point_id(doc.id),
+                        "vector": doc_vector,
+                        "payload": {
+                            "doc_id": doc.id,
+                            "chunk": -1,
+                            "type": "doc",
+                            "source": embedding_source,
+                        },
+                    }
+                ],
+            )
 
     existing = db.get(DocumentEmbedding, doc.id)
     if not existing:
@@ -1109,6 +1133,21 @@ def _process_embeddings_vision(settings, db: Session, doc_id: int, run_id: int |
     _embed_with_pages(settings, db, doc, baseline_pages, vision_pages, "vision", run_id=run_id)
 
 
+def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
+    if is_cancel_requested(settings):
+        logger.info("Worker cancel requested; abort similarity index doc=%s", doc_id)
+        return
+    embedding = db.get(DocumentEmbedding, int(doc_id))
+    if not embedding or int(embedding.chunk_count or 0) <= 0:
+        return
+    rebuild_doc_point_from_chunks(
+        settings,
+        doc_id=int(doc_id),
+        chunk_count=int(embedding.chunk_count or 0),
+        source_hint=str(embedding.embedding_source or ""),
+    )
+
+
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort suggestions doc=%s", doc_id)
@@ -1298,6 +1337,7 @@ def _dispatch_task(
         ),
         "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id, run_id=run_id),
         "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id, run_id=run_id),
+        "similarity_index": lambda: _process_similarity_index(settings, db, doc_id),
         "cleanup_texts": lambda: _process_cleanup_texts(
             settings,
             db,
@@ -1569,4 +1609,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

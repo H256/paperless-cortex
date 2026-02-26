@@ -627,6 +627,16 @@
             }
           },
           {
+            "name": "include_doc_similarity_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Doc Similarity Index"
+            }
+          },
+          {
             "name": "include_page_notes",
             "in": "query",
             "required": false,
@@ -837,6 +847,16 @@
             }
           },
           {
+            "name": "include_doc_similarity_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Doc Similarity Index"
+            }
+          },
+          {
             "name": "include_page_notes",
             "in": "query",
             "required": false,
@@ -996,6 +1016,16 @@
               "type": "boolean",
               "default": true,
               "title": "Include Embeddings Vision"
+            }
+          },
+          {
+            "name": "include_doc_similarity_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Doc Similarity Index"
             }
           },
           {
@@ -7284,6 +7314,17 @@
               }
             ],
             "title": "Missing Embeddings Vision"
+          },
+          "missing_doc_similarity_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Doc Similarity Index"
           },
           "missing_page_notes": {
             "anyOf": [
