@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -14,6 +15,7 @@ from app.models import (
     DocumentPageNote,
     DocumentPageText,
     DocumentSuggestion,
+    TaskRun,
 )
 from app.services.hierarchical_summary import is_large_document
 
@@ -29,6 +31,7 @@ class PipelineOptions(BaseModel):
     include_summary_hierarchical: bool = True
     include_suggestions_paperless: bool = True
     include_suggestions_vision: bool = True
+    include_doc_similarity_index: bool = True
     embeddings_mode: str = "auto"
 
 
@@ -99,6 +102,8 @@ def post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: Pipeli
                 tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
             elif options.include_embeddings_paperless:
                 tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+    if options.include_doc_similarity_index and options.include_embeddings:
+        tasks.append({"doc_id": normalized, "task": "similarity_index"})
 
     if use_vision:
         if options.include_vision_ocr:
@@ -130,19 +135,54 @@ def _is_vision_complete(doc: Document, pages: set[int]) -> bool:
     return len(bounded) == expected
 
 
-def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> dict[str, Any]:
+def collect_pipeline_cache(
+    db: Session,
+    *,
+    doc_ids: set[int] | None = None,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
     id_filter = None
     if doc_ids:
         normalized = {int(doc_id) for doc_id in doc_ids if int(doc_id) > 0}
         if normalized:
             id_filter = normalized
 
-    embedding_query = db.query(DocumentEmbedding.doc_id, DocumentEmbedding.embedding_source)
+    embedding_query = db.query(
+        DocumentEmbedding.doc_id,
+        DocumentEmbedding.embedding_source,
+        DocumentEmbedding.embedded_at,
+    )
     if id_filter:
         embedding_query = embedding_query.filter(DocumentEmbedding.doc_id.in_(id_filter))
     embeddings: dict[int, str] = {}
-    for doc_id, source in embedding_query.yield_per(500):
+    embedded_at_by_doc: dict[int, datetime] = {}
+    for doc_id, source, embedded_at in embedding_query.yield_per(500):
         embeddings[int(doc_id)] = str(source or "")
+        embedded_at_value = _parse_iso(str(embedded_at) if embedded_at else None)
+        if embedded_at_value:
+            embedded_at_by_doc[int(doc_id)] = embedded_at_value
+
+    similarity_indexed_at_by_doc: dict[int, datetime] = {}
+    try:
+        similarity_query = db.query(TaskRun.doc_id, TaskRun.finished_at).filter(
+            TaskRun.task == "similarity_index",
+            TaskRun.status == "done",
+        )
+        if id_filter:
+            similarity_query = similarity_query.filter(TaskRun.doc_id.in_(id_filter))
+        for doc_id, finished_at in similarity_query.yield_per(500):
+            if doc_id is None:
+                continue
+            finished_at_value = _parse_iso(str(finished_at) if finished_at else None)
+            if not finished_at_value:
+                continue
+            normalized_doc_id = int(doc_id)
+            current = similarity_indexed_at_by_doc.get(normalized_doc_id)
+            if current is None or finished_at_value > current:
+                similarity_indexed_at_by_doc[normalized_doc_id] = finished_at_value
+    except (OperationalError, ProgrammingError):
+        # Older databases may not have task_runs yet; keep similarity status unknown.
+        similarity_indexed_at_by_doc = {}
 
     suggestion_query = db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source, DocumentSuggestion.created_at)
     if id_filter:
@@ -214,6 +254,8 @@ def collect_pipeline_cache(db: Session, *, doc_ids: set[int] | None = None) -> d
 
     return {
         "embeddings": embeddings,
+        "embedded_at_by_doc": embedded_at_by_doc,
+        "similarity_indexed_at_by_doc": similarity_indexed_at_by_doc,
         "suggestions": suggestions,
         "vision_latest": vision_latest,
         "vision_pages_by_doc": vision_pages_by_doc,
@@ -246,6 +288,10 @@ def evaluate_doc_pipeline(
 
     embeddings: dict[int, str] = cache["embeddings"]
     embedding_source = embeddings.get(int(doc.id))
+    embedded_at_by_doc: dict[int, datetime] = cache["embedded_at_by_doc"]
+    embedded_at = embedded_at_by_doc.get(int(doc.id))
+    similarity_indexed_at_by_doc: dict[int, datetime] = cache["similarity_indexed_at_by_doc"]
+    similarity_indexed_at = similarity_indexed_at_by_doc.get(int(doc.id))
     suggestions: set[tuple[int, str]] = cache["suggestions"]
     sugg_p = (int(doc.id), "paperless_ocr") in suggestions
     sugg_v = (int(doc.id), "vision_ocr") in suggestions
@@ -288,6 +334,13 @@ def evaluate_doc_pipeline(
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless"})
     if needs_embeddings_vision:
         tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision"})
+    has_embedding = bool(embedding_source)
+    similarity_stale = similarity_indexed_at is None or (embedded_at is not None and similarity_indexed_at < embedded_at)
+    needs_doc_similarity_index = bool(
+        options.include_doc_similarity_index and has_embedding and (needs_embeddings or similarity_stale)
+    )
+    if needs_doc_similarity_index:
+        tasks.append({"doc_id": int(doc.id), "task": "similarity_index"})
 
     needs_sugg_p = options.include_suggestions_paperless and (not sugg_p)
     needs_sugg_v = options.include_suggestions_vision and (not sugg_v)
@@ -330,6 +383,7 @@ def evaluate_doc_pipeline(
         "needs_embeddings_vision": needs_embeddings_vision,
         "needs_suggestions_paperless": needs_sugg_p,
         "needs_suggestions_vision": needs_sugg_v,
+        "needs_doc_similarity_index": needs_doc_similarity_index,
         "needs_page_notes": needs_page_notes,
         "needs_summary_hierarchical": needs_summary,
         "needs_evidence_index": needs_evidence_index,

@@ -19,6 +19,7 @@ export interface ProcessMissingResponse {
   missing_embeddings?: number | null;
   missing_embeddings_paperless?: number | null;
   missing_embeddings_vision?: number | null;
+  missing_doc_similarity_index?: number | null;
   missing_page_notes?: number | null;
   missing_summary_hierarchical?: number | null;
   missing_evidence_index?: number | null;

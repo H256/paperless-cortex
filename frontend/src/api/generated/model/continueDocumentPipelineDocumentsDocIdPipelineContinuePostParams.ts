@@ -13,6 +13,7 @@ include_vision_ocr?: boolean;
 include_embeddings?: boolean;
 include_embeddings_paperless?: boolean;
 include_embeddings_vision?: boolean;
+include_doc_similarity_index?: boolean;
 include_page_notes?: boolean;
 include_summary_hierarchical?: boolean;
 include_suggestions_paperless?: boolean;
