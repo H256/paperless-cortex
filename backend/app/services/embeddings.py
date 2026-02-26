@@ -24,6 +24,7 @@ _SOURCE_ID_OFFSETS = {
     "paperless": 1,
     "vision": 2,
 }
+_DOC_POINT_CHUNK = 999_999
 
 
 def _normalize_embedding_source(source: str | None) -> str | None:
@@ -41,6 +42,10 @@ def make_point_id(doc_id: int, chunk: int, source: str | None = None) -> int:
     normalized_source = _normalize_embedding_source(source)
     source_offset = _SOURCE_ID_OFFSETS.get(normalized_source or "", 0)
     return doc_id * 1_000_000_000 + source_offset * 1_000_000 + chunk
+
+
+def make_doc_point_id(doc_id: int) -> int:
+    return doc_id * 1_000_000_000 + _DOC_POINT_CHUNK
 
 
 def _is_context_overflow_error(exc: Exception) -> bool:
@@ -66,6 +71,10 @@ def _average_vectors(vectors: list[list[float]]) -> list[float]:
             totals[index] += float(value)
     denom = float(len(vectors))
     return [value / denom for value in totals]
+
+
+def average_vectors(vectors: list[list[float]]) -> list[float]:
+    return _average_vectors(vectors)
 
 
 def split_text_for_embedding(
@@ -570,7 +579,19 @@ def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = 
         response.raise_for_status()
 
 
-def search_points(settings: Settings, vector: list[float], limit: int = 5) -> dict[str, Any]:
-    return qdrant.search(settings, vector, limit=limit, with_payload=True)
-
-
+def search_points(
+    settings: Settings,
+    vector: list[float],
+    limit: int = 5,
+    *,
+    filter_payload: dict | None = None,
+    score_threshold: float | None = None,
+) -> dict[str, Any]:
+    return qdrant.search(
+        settings,
+        vector,
+        limit=limit,
+        with_payload=True,
+        filter_payload=filter_payload,
+        score_threshold=score_threshold,
+    )

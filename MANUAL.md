@@ -153,6 +153,7 @@ Tabs:
 - `Text & quality`: text layers + OCR quality metrics
 - `Suggestions`: paperless/vision suggestions, variants, apply actions
 - `Pages`: per-page text and page-level inspection
+- `Similar`: top-10 similar documents + possible duplicates
 - `Operations`: per-doc pipeline actions, fan-out, timeline, retries
 
 Key actions:

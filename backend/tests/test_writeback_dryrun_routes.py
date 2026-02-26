@@ -132,6 +132,8 @@ def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, mo
 
 
 def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, monkeypatch):
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
     from app.services import paperless
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -186,6 +188,8 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
 
 
 def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_client, monkeypatch):
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
     from app.services import paperless
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -232,6 +236,8 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
 
 
 def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkeypatch):
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
     from app.services import paperless
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})

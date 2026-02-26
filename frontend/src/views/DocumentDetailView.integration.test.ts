@@ -159,6 +159,17 @@ vi.mock('../composables/useDocumentProcessingState', () => ({
   }),
 }))
 
+vi.mock('../composables/useDocumentSimilarity', () => ({
+  useDocumentSimilarity: () => ({
+    similarMatches: ref([]),
+    duplicateMatches: ref([]),
+    loading: ref(false),
+    error: ref(''),
+    loadSimilarity: vi.fn(async () => undefined),
+    reset: vi.fn(),
+  }),
+}))
+
 vi.mock('../composables/useAutoRefresh', () => ({
   useAutoRefresh: vi.fn(),
 }))
@@ -195,6 +206,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,
@@ -218,6 +230,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,
@@ -255,6 +268,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: true,
           WritebackConflictModal: true,
           ConfirmDialog: true,
@@ -279,6 +293,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: true,
           WritebackConflictModal: true,
           ConfirmDialog: true,
@@ -301,6 +316,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: true,
           WritebackConflictModal: true,
           ConfirmDialog: true,
@@ -325,6 +341,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,
@@ -353,6 +370,7 @@ describe('DocumentDetailView', () => {
           DocumentTextQualitySection: true,
           DocumentSuggestionsSection: true,
           DocumentPagesSection: true,
+          DocumentSimilarSection: true,
           DocumentOperationsSection: { template: '<div data-test="ops-section" />' },
           WritebackConflictModal: true,
           ConfirmDialog: true,

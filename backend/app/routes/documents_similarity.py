@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
+
+from app.api_models import SimilarDocumentsResponse
+from app.config import Settings
+from app.db import get_db
+from app.deps import get_settings
+from app.models import Document, Tag, Correspondent
+from app.routes.documents import _apply_derived_fields_and_review_status
+from app.services.similarity import fetch_doc_point_vector, search_similar_doc_points
+
+router = APIRouter(prefix="/documents", tags=["documents"])
+logger = logging.getLogger(__name__)
+
+
+def _build_document_summary_payload(db: Session, doc_ids: list[int]) -> dict[int, dict]:
+    if not doc_ids:
+        return {}
+    docs = (
+        db.query(Document)
+        .options(
+            joinedload(Document.tags).load_only(Tag.id),
+            joinedload(Document.correspondent).load_only(Correspondent.name),
+        )
+        .filter(Document.id.in_(doc_ids))
+        .all()
+    )
+    base_results = []
+    for doc in docs:
+        base_results.append(
+            {
+                "id": doc.id,
+                "title": doc.title,
+                "document_date": doc.document_date,
+                "created": doc.created,
+                "modified": doc.modified,
+                "correspondent": doc.correspondent_id,
+                "correspondent_name": doc.correspondent.name if doc.correspondent else None,
+                "document_type": doc.document_type_id,
+                "tags": [tag.id for tag in doc.tags],
+            }
+        )
+    payload = {
+        "count": len(base_results),
+        "next": None,
+        "previous": None,
+        "results": base_results,
+    }
+    enriched = _apply_derived_fields_and_review_status(
+        payload,
+        db,
+        include_derived=True,
+        include_summary_preview=True,
+        review_status="all",
+        page=1,
+        page_size=max(1, len(base_results)),
+    )
+    results = enriched.get("results", []) or []
+    return {int(row.get("id")): row for row in results if row.get("id") is not None}
+
+
+@router.get("/{doc_id}/similar", response_model=SimilarDocumentsResponse)
+def get_similar_documents(
+    doc_id: int,
+    top_k: int = Query(default=10, ge=1, le=50),
+    min_score: float | None = Query(default=None, ge=0.0),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    vector = fetch_doc_point_vector(settings, doc_id)
+    if not vector:
+        raise HTTPException(status_code=404, detail="Doc embedding not found")
+    matches = search_similar_doc_points(settings, vector, top_k=top_k + 1, min_score=min_score)
+    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+    filtered = filtered[:top_k]
+    doc_ids = [int(item["doc_id"]) for item in filtered]
+    summaries = _build_document_summary_payload(db, doc_ids)
+    results = [
+        {
+            "doc_id": int(item["doc_id"]),
+            "score": float(item.get("score") or 0.0),
+            "document": summaries.get(int(item["doc_id"])),
+        }
+        for item in filtered
+    ]
+    return {"doc_id": doc_id, "top_k": top_k, "matches": results}
+
+
+@router.get("/{doc_id}/duplicates", response_model=SimilarDocumentsResponse)
+def get_duplicate_documents(
+    doc_id: int,
+    threshold: float = Query(default=0.92, ge=0.0, le=1.0),
+    top_k: int = Query(default=10, ge=1, le=50),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    vector = fetch_doc_point_vector(settings, doc_id)
+    if not vector:
+        raise HTTPException(status_code=404, detail="Doc embedding not found")
+    matches = search_similar_doc_points(settings, vector, top_k=top_k + 1, min_score=threshold)
+    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+    filtered = filtered[:top_k]
+    doc_ids = [int(item["doc_id"]) for item in filtered]
+    summaries = _build_document_summary_payload(db, doc_ids)
+    results = [
+        {
+            "doc_id": int(item["doc_id"]),
+            "score": float(item.get("score") or 0.0),
+            "document": summaries.get(int(item["doc_id"])),
+        }
+        for item in filtered
+    ]
+    return {"doc_id": doc_id, "top_k": top_k, "matches": results}
+

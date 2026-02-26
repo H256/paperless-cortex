@@ -51,7 +51,9 @@ import type {
   GetDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGetParams,
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
+  GetDuplicateDocumentsDocumentsDocIdDuplicatesGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
+  GetSimilarDocumentsDocumentsDocIdSimilarGetParams,
   GetTaskRunsQueueTaskRunsGetParams,
   HTTPValidationError,
   IngestDocumentsEmbeddingsIngestDocsPostParams,
@@ -88,6 +90,7 @@ import type {
   ResetIntelligenceResponse,
   ResetWorkerLockRouteQueueWorkerLockResetPostParams,
   SearchEmbeddingsSearchGetParams,
+  SimilarDocumentsResponse,
   StatusResponse,
   SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,
   SuggestFieldVariantsResponse,
@@ -1540,6 +1543,122 @@ export const applySuggestionToDocumentDocumentsDocIdApplySuggestionPost = async 
   
   const data: applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as applySuggestionToDocumentDocumentsDocIdApplySuggestionPostResponse
+}
+
+
+
+/**
+ * @summary Get Similar Documents
+ */
+export type getSimilarDocumentsDocumentsDocIdSimilarGetResponse200 = {
+  data: SimilarDocumentsResponse
+  status: 200
+}
+
+export type getSimilarDocumentsDocumentsDocIdSimilarGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getSimilarDocumentsDocumentsDocIdSimilarGetResponseSuccess = (getSimilarDocumentsDocumentsDocIdSimilarGetResponse200) & {
+  headers: Headers;
+};
+export type getSimilarDocumentsDocumentsDocIdSimilarGetResponseError = (getSimilarDocumentsDocumentsDocIdSimilarGetResponse422) & {
+  headers: Headers;
+};
+
+export type getSimilarDocumentsDocumentsDocIdSimilarGetResponse = (getSimilarDocumentsDocumentsDocIdSimilarGetResponseSuccess | getSimilarDocumentsDocumentsDocIdSimilarGetResponseError)
+
+export const getGetSimilarDocumentsDocumentsDocIdSimilarGetUrl = (docId: number,
+    params?: GetSimilarDocumentsDocumentsDocIdSimilarGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/similar?${stringifiedParams}` : `/api/documents/${docId}/similar`
+}
+
+export const getSimilarDocumentsDocumentsDocIdSimilarGet = async (docId: number,
+    params?: GetSimilarDocumentsDocumentsDocIdSimilarGetParams, options?: RequestInit): Promise<getSimilarDocumentsDocumentsDocIdSimilarGetResponse> => {
+  
+  const res = await fetch(getGetSimilarDocumentsDocumentsDocIdSimilarGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getSimilarDocumentsDocumentsDocIdSimilarGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getSimilarDocumentsDocumentsDocIdSimilarGetResponse
+}
+
+
+
+/**
+ * @summary Get Duplicate Documents
+ */
+export type getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse200 = {
+  data: SimilarDocumentsResponse
+  status: 200
+}
+
+export type getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponseSuccess = (getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse200) & {
+  headers: Headers;
+};
+export type getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponseError = (getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse = (getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponseSuccess | getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponseError)
+
+export const getGetDuplicateDocumentsDocumentsDocIdDuplicatesGetUrl = (docId: number,
+    params?: GetDuplicateDocumentsDocumentsDocIdDuplicatesGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/duplicates?${stringifiedParams}` : `/api/documents/${docId}/duplicates`
+}
+
+export const getDuplicateDocumentsDocumentsDocIdDuplicatesGet = async (docId: number,
+    params?: GetDuplicateDocumentsDocumentsDocIdDuplicatesGetParams, options?: RequestInit): Promise<getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse> => {
+  
+  const res = await fetch(getGetDuplicateDocumentsDocumentsDocIdDuplicatesGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse
 }
 
 
