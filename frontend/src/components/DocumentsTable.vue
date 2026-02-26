@@ -48,6 +48,26 @@
               >
                 {{ correspondentLabel(doc.correspondent, doc.correspondent_name) }}
               </div>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span
+                  class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                  :title="doc.local_cached ? 'Paperless + local cache' : 'Paperless only'"
+                >
+                  <Database
+                    class="h-3.5 w-3.5"
+                    :class="doc.local_cached ? 'text-indigo-600' : 'text-slate-400'"
+                  />
+                  {{ doc.local_cached ? 'Cached' : 'Paperless' }}
+                </span>
+                <span
+                  v-if="doc.local_overrides"
+                  class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                  title="Local values override Paperless"
+                >
+                  <Pencil class="h-3.5 w-3.5 text-amber-600" />
+                  Overrides
+                </span>
+              </div>
             </div>
             <div class="shrink-0">
               <button
@@ -292,7 +312,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ChevronDown, ExternalLink } from 'lucide-vue-next'
+import { ChevronDown, Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
 import DocumentCard from './DocumentCard.vue'
 import type { Correspondent, DocumentRow } from '../services/documents'
