@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: feat/doc-similarity-index-task)
+
+### Similarity indexing pipeline step
+- `ba564b2` feat(pipeline): added explicit `similarity_index` worker task and integrated it into process-missing / pipeline-continue / pipeline-fanout planning so doc-level similarity indexing can be triggered like other missing pipeline steps.
+- `ba564b2` fix(embeddings-worker): worker embeddings now upsert doc-level vectors (`type=doc`) after chunk embeddings, and added chunk-vector rebuild helper for similarity reindex tasks.
+- `ba564b2` test(pipeline): added `backend/tests/test_pipeline_similarity_index.py` for missing/done planning coverage of the new similarity index step.
+
 ## 2026-02-26 (branch: feat/document-chat)
 
 ### Document chat
