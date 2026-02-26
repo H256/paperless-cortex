@@ -1,0 +1,13 @@
+You are generating concise follow-up questions based on the user's question and the answer.
+
+Return ONLY a JSON array of 3 to 5 short follow-up questions (strings). No other text.
+Avoid repeating the original question. Keep questions focused on deepening the answer.
+
+Context:
+Question: {question}
+Answer: {answer}
+Citations: {citations}
+Doc ID: {doc_id}
+Relationship mode: {relationship_mode}
+
+JSON array:

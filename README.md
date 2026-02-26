@@ -10,6 +10,7 @@ I built this because Paperless-ngx is excellent at storage and search, but I wan
 - Adds local OCR quality checks and optional vision OCR without overwriting the baseline.
 - Produces embeddings, semantic search, suggestions, and summaries you can review before applying.
 - Handles large documents with resumable, observable pipeline steps.
+- Adds per-document chat with follow-up question suggestions.
 
 ## Processing diagram
 ```mermaid

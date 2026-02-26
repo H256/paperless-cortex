@@ -12,7 +12,7 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
     monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
         "app.services.chat.search_points",
-        lambda _settings, _vector, limit=18: {
+        lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
                     "score": 0.9,
@@ -62,7 +62,7 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
     monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
         "app.services.chat.search_points",
-        lambda _settings, _vector, limit=18: {
+        lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
                     "score": 0.9,
@@ -105,7 +105,7 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
     monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
         "app.services.chat.search_points",
-        lambda _settings, _vector, limit=18: {
+        lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
                     "score": 0.9,
@@ -178,7 +178,7 @@ def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
     monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
         "app.services.chat.search_points",
-        lambda _settings, _vector, limit=18: {
+        lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
                     "score": 0.95,

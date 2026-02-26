@@ -8,10 +8,13 @@ from app.config import Settings
 from app.deps import get_settings
 from app.db import get_db
 from app.services.chat import answer_question
+from app.services.chat import generate_followups
 from app.services.evidence import resolve_evidence_matches
 from app.api_models import (
     ChatRequest,
     ChatResponse,
+    ChatFollowupsRequest,
+    ChatFollowupsResponse,
     EvidenceResolveRequest,
     EvidenceResolveResponse,
 )
@@ -39,6 +42,8 @@ def chat(
         top_k=max(1, min(payload.top_k, 20)),
         source=payload.source,
         min_quality=payload.min_quality,
+        doc_id=payload.doc_id,
+        relationship_mode=payload.relationship_mode,
         history=payload.history or [],
         conversation_id=payload.conversation_id,
         db=db,
@@ -64,11 +69,30 @@ def chat_stream(
         top_k=max(1, min(payload.top_k, 20)),
         source=payload.source,
         min_quality=payload.min_quality,
+        doc_id=payload.doc_id,
+        relationship_mode=payload.relationship_mode,
         history=payload.history or [],
         conversation_id=payload.conversation_id,
         stream=True,
         db=db,
     )
+
+
+@router.post("/followups", response_model=ChatFollowupsResponse)
+def chat_followups(
+    payload: ChatFollowupsRequest,
+    settings: Settings = Depends(get_settings),
+):
+    logger.info("Chat followups question_len=%s", len(payload.question))
+    questions = generate_followups(
+        settings,
+        question=payload.question,
+        answer=payload.answer,
+        citations=[item.model_dump() for item in (payload.citations or [])],
+        doc_id=payload.doc_id,
+        relationship_mode=payload.relationship_mode,
+    )
+    return {"questions": questions}
 
 
 @router.post("/resolve-evidence", response_model=EvidenceResolveResponse)

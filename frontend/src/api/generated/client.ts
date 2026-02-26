@@ -8,6 +8,8 @@ import type {
   ApplyFieldSuggestionResponse,
   ApplySuggestionResponse,
   ApplySuggestionToDocument,
+  ChatFollowupsRequest,
+  ChatFollowupsResponse,
   ChatRequest,
   ChatResponse,
   CleanupTextsRequest,
@@ -3596,6 +3598,56 @@ export const chatStreamChatStreamPost = async (chatRequest: ChatRequest, options
   
   const data: chatStreamChatStreamPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as chatStreamChatStreamPostResponse
+}
+
+
+
+/**
+ * @summary Chat Followups
+ */
+export type chatFollowupsChatFollowupsPostResponse200 = {
+  data: ChatFollowupsResponse
+  status: 200
+}
+
+export type chatFollowupsChatFollowupsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type chatFollowupsChatFollowupsPostResponseSuccess = (chatFollowupsChatFollowupsPostResponse200) & {
+  headers: Headers;
+};
+export type chatFollowupsChatFollowupsPostResponseError = (chatFollowupsChatFollowupsPostResponse422) & {
+  headers: Headers;
+};
+
+export type chatFollowupsChatFollowupsPostResponse = (chatFollowupsChatFollowupsPostResponseSuccess | chatFollowupsChatFollowupsPostResponseError)
+
+export const getChatFollowupsChatFollowupsPostUrl = () => {
+
+
+  
+
+  return `/api/chat/followups`
+}
+
+export const chatFollowupsChatFollowupsPost = async (chatFollowupsRequest: ChatFollowupsRequest, options?: RequestInit): Promise<chatFollowupsChatFollowupsPostResponse> => {
+  
+  const res = await fetch(getChatFollowupsChatFollowupsPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      chatFollowupsRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: chatFollowupsChatFollowupsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as chatFollowupsChatFollowupsPostResponse
 }
 
 
