@@ -2,8 +2,9 @@
   <section
     class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
-    <div class="flex flex-wrap items-end gap-4">
-      <div class="flex-1 min-w-[260px]">
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[260px]">
         <label class="text-xs font-medium text-slate-600 dark:text-slate-300">Question</label>
         <div class="mt-1 flex items-center gap-2">
           <input
@@ -31,85 +32,99 @@
           </button>
         </div>
       </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-          >Top K</label
-        >
-        <select
-          v-model.number="topK"
-          class="h-10 min-w-[84px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          <option :value="3">3</option>
-          <option :value="6">6</option>
-          <option :value="10">10</option>
-        </select>
       </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-          >Source</label
-        >
-        <select
-          v-model="source"
-          :disabled="onlyVision"
-          class="h-10 min-w-[160px] rounded-lg border border-slate-200 bg-white px-2 text-sm disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
-        >
-          <option value="">All</option>
-          <option value="vision_ocr">Vision OCR</option>
-          <option value="paperless_ocr">Paperless OCR</option>
-          <option value="pdf_text">PDF text</option>
-        </select>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-          >Min quality: {{ minQuality }}</label
-        >
-        <input type="range" min="0" max="100" v-model.number="minQuality" class="h-10 w-40" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-          >Relationship</label
-        >
-        <select
-          v-model="relationshipMode"
-          class="h-10 min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          <option value="none">None</option>
-          <option value="chrono">Chrono</option>
-        </select>
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-          <input type="checkbox" v-model="docScope" class="h-4 w-4" />
-          Only this document
-        </label>
-        <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-          <input type="checkbox" v-model="onlyVision" class="h-4 w-4" />
-          Only vision OCR
-        </label>
-        <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-          <input type="checkbox" v-model="streaming" class="h-4 w-4" />
-          Streaming
-        </label>
-        <label
-          class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
-          title="Include recent turns to support follow-up questions."
-        >
-          <input type="checkbox" v-model="useHistory" class="h-4 w-4" />
-          Follow-up context
-        </label>
-        <label v-if="useHistory" class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-          Turns
-          <select
-            v-model.number="historyTurns"
-            class="h-8 min-w-[64px] rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      <details class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+        <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">
+          Advanced options
+        </summary>
+        <div class="mt-3 grid gap-3 md:grid-cols-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
+              >Top K</label
+            >
+            <select
+              v-model.number="topK"
+              class="h-9 min-w-[84px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option :value="3">3</option>
+              <option :value="6">6</option>
+              <option :value="10">10</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
+              >Source</label
+            >
+            <select
+              v-model="source"
+              :disabled="onlyVision"
+              class="h-9 min-w-[160px] rounded-lg border border-slate-200 bg-white px-2 text-sm disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
+            >
+              <option value="">All</option>
+              <option value="vision_ocr">Vision OCR</option>
+              <option value="paperless_ocr">Paperless OCR</option>
+              <option value="pdf_text">PDF text</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
+              >Min quality: {{ minQuality }}</label
+            >
+            <input type="range" min="0" max="100" v-model.number="minQuality" class="h-9 w-full" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
+              >Relationship</label
+            >
+            <select
+              v-model="relationshipMode"
+              class="h-9 min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="none">None</option>
+              <option value="chrono">Chrono</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="docScope" class="h-4 w-4" />
+            Only this document
+          </label>
+          <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="onlyVision" class="h-4 w-4" />
+            Only vision OCR
+          </label>
+          <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="streaming" class="h-4 w-4" />
+            Streaming
+          </label>
+          <label
+            class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+            title="Include recent turns to support follow-up questions."
           >
-            <option :value="2">2</option>
-            <option :value="4">4</option>
-            <option :value="6">6</option>
-            <option :value="8">8</option>
-            <option :value="12">12</option>
-          </select>
-        </label>
+            <input type="checkbox" v-model="useHistory" class="h-4 w-4" />
+            Follow-up context
+          </label>
+          <label
+            v-if="useHistory"
+            class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+          >
+            Turns
+            <select
+              v-model.number="historyTurns"
+              class="h-8 min-w-[64px] rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option :value="2">2</option>
+              <option :value="4">4</option>
+              <option :value="6">6</option>
+              <option :value="8">8</option>
+              <option :value="12">12</option>
+            </select>
+          </label>
+        </div>
+      </details>
+      <div class="text-[11px] text-slate-500 dark:text-slate-400">
+        Tip: If a response does not complete, disable `Streaming` and retry once.
       </div>
     </div>
 
