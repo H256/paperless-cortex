@@ -4,13 +4,17 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
-from app.api_models import SimilarDocumentsResponse
+from app.api_models import SimilarDocumentsResponse, SimilarMetadata, SimilarMetadataResponse
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
 from app.models import Document, Tag, Correspondent
 from app.routes.documents import _apply_derived_fields_and_review_status
-from app.services.similarity import fetch_doc_point_vector, search_similar_doc_points
+from app.services.similarity import (
+    aggregate_similar_metadata,
+    fetch_doc_point_vector,
+    search_similar_doc_points,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
@@ -115,3 +119,25 @@ def get_duplicate_documents(
     ]
     return {"doc_id": doc_id, "top_k": top_k, "matches": results}
 
+
+@router.get("/{doc_id}/similar-metadata", response_model=SimilarMetadataResponse)
+def get_similar_metadata(
+    doc_id: int,
+    top_k: int = Query(default=10, ge=1, le=50),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+):
+    vector = fetch_doc_point_vector(settings, doc_id)
+    if not vector:
+        raise HTTPException(status_code=404, detail="Doc embedding not found")
+    matches = search_similar_doc_points(settings, vector, top_k=top_k + 1, min_score=None)
+    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+    filtered = filtered[:top_k]
+    doc_ids = [int(item["doc_id"]) for item in filtered]
+    score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
+    if not doc_ids:
+        return {"doc_id": doc_id, "top_k": top_k, "metadata": SimilarMetadata()}
+
+    metadata_payload = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
+    metadata = SimilarMetadata(**metadata_payload)
+    return {"doc_id": doc_id, "top_k": top_k, "metadata": metadata}

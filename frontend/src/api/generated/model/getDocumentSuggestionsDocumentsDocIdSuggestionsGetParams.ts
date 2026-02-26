@@ -9,4 +9,5 @@ export type GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams = {
 source?: string | null;
 refresh?: boolean;
 priority?: boolean;
+include_similar?: boolean;
 };

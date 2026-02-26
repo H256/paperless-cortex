@@ -1459,6 +1459,16 @@
               "default": false,
               "title": "Priority"
             }
+          },
+          {
+            "name": "include_similar",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Similar"
+            }
           }
         ],
         "responses": {
@@ -1831,6 +1841,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SimilarDocumentsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/similar-metadata": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Similar Metadata",
+        "operationId": "get_similar_metadata_documents__doc_id__similar_metadata_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Top K"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimilarMetadataResponse"
                 }
               }
             }
@@ -7879,6 +7943,86 @@
           "top_k"
         ],
         "title": "SimilarDocumentsResponse"
+      },
+      "SimilarMetadata": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "correspondent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correspondent"
+          },
+          "documentType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documenttype"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "title": "SimilarMetadata"
+      },
+      "SimilarMetadataResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "top_k": {
+            "type": "integer",
+            "title": "Top K"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SimilarMetadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "top_k",
+          "metadata"
+        ],
+        "title": "SimilarMetadataResponse"
       },
       "StatusEntry": {
         "properties": {

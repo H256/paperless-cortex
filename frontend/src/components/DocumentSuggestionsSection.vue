@@ -88,7 +88,7 @@
             </div>
 
             <div
-              v-for="field in suggestionFields"
+              v-for="field in fieldsForPanel(bestPickPanel)"
               :key="`${bestPickPanel.key}-${field.key}`"
               class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
             >
@@ -146,7 +146,7 @@
         >
           <div class="flex items-center justify-between">
             <strong class="text-sm text-slate-900 dark:text-slate-100">{{ panel.label }}</strong>
-            <div class="flex items-center gap-2">
+            <div v-if="panel.allowActions" class="flex items-center gap-2">
               <button
                 class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                 :disabled="suggestionsLoading || isVariantBusy(panel.source)"
@@ -189,7 +189,7 @@
             </div>
 
             <div v-if="panel.suggestion.data" class="space-y-2">
-              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <div v-if="panel.showSummary" class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <div class="flex items-start gap-2">
                   <span>Summary</span>
                   <span
@@ -201,6 +201,7 @@
                   </span>
                 </div>
                 <button
+                  v-if="panel.allowActions"
                   class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                   :disabled="suggestionsLoading || isVariantLoading(panel.source, 'note')"
                   @click="emit('suggestField', panel.source, 'note')"
@@ -223,14 +224,16 @@
                   Save note
                 </button>
               </div>
-              <div class="text-sm text-slate-900 dark:text-slate-100">
+              <div v-if="panel.showSummary" class="text-sm text-slate-900 dark:text-slate-100">
                 {{ panel.suggestion.data.summary }}
               </div>
               <div
                 v-if="
-                  variantError(panel.source, 'note') ||
-                  isVariantLoading(panel.source, 'note') ||
-                  (variantsFor(panel.source, 'note') || []).length
+                  panel.allowActions &&
+                  panel.showSummary &&
+                  (variantError(panel.source, 'note') ||
+                    isVariantLoading(panel.source, 'note') ||
+                    (variantsFor(panel.source, 'note') || []).length)
                 "
                 class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
               >
@@ -263,7 +266,7 @@
                   </button>
                 </div>
               </div>
-              <div class="grid gap-2">
+              <div v-if="panel.showMeta" class="grid gap-2">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                   <span>Document type</span>
                   <span class="text-slate-900 dark:text-slate-100">{{
@@ -280,7 +283,7 @@
               </div>
 
               <div
-                v-for="field in suggestionFields"
+                v-for="field in fieldsForPanel(panel)"
                 :key="`${panel.key}-${field.key}`"
                 class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
               >
@@ -316,9 +319,10 @@
                   </div>
                   <div
                     v-if="
-                      variantError(panel.source, field.key) ||
-                      isVariantLoading(panel.source, field.key) ||
-                      (variantsFor(panel.source, field.key) || []).length
+                      panel.allowActions &&
+                      (variantError(panel.source, field.key) ||
+                        isVariantLoading(panel.source, field.key) ||
+                        (variantsFor(panel.source, field.key) || []).length)
                     "
                     class="mt-2 rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
                   >
@@ -356,6 +360,7 @@
                 </div>
                 <div class="flex items-start gap-2">
                   <button
+                    v-if="panel.allowActions"
                     class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     :disabled="suggestionsLoading || isVariantLoading(panel.source, field.key)"
                     @click="emit('suggestField', panel.source, field.key)"
@@ -425,10 +430,11 @@ import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 type SuggestionPayload = Record<string, unknown>
-type SuggestionSource = 'paperless_ocr' | 'vision_ocr'
+type SuggestionSource = 'paperless_ocr' | 'vision_ocr' | 'similar_docs'
 type SuggestionState = {
   paperless_ocr?: SuggestionPayload
   vision_ocr?: SuggestionPayload
+  similar_docs?: SuggestionPayload
   best_pick?: SuggestionPayload
   suggestions_meta?: Record<string, unknown>
 }
@@ -478,7 +484,7 @@ const suggestionsMeta = computed(
   () => (props.suggestions as { suggestions_meta?: Record<string, unknown> } | null)?.suggestions_meta || {},
 )
 
-const panelFor = (key: 'best_pick' | 'paperless_ocr' | 'vision_ocr') =>
+const panelFor = (key: 'best_pick' | 'paperless_ocr' | 'vision_ocr' | 'similar_docs') =>
   normalizeSuggestion(props.suggestions?.[key])
 
 const panels = computed(() => [
@@ -515,6 +521,17 @@ const panels = computed(() => [
     showMeta: true,
     suggestion: panelFor('vision_ocr'),
   },
+  {
+    key: 'similar_docs',
+    label: 'Similar docs',
+    source: 'similar_docs' as const,
+    sourceKey: 'similar_docs',
+    allowActions: false,
+    allowNoteSave: false,
+    showSummary: false,
+    showMeta: true,
+    suggestion: panelFor('similar_docs'),
+  },
 ])
 
 const bestPickPanel = computed(() => panels.value[0])
@@ -524,6 +541,15 @@ const sidePanels = computed(() =>
       panel.source !== null,
   ),
 )
+
+const fieldsForPanel = (panel: { key: string }) => {
+  if (panel.key === 'similar_docs') {
+    return suggestionFields.filter(
+      (field) => field.key === 'title' || field.key === 'correspondent' || field.key === 'tags',
+    )
+  }
+  return suggestionFields
+}
 
 const suggestionMetaLine = (source: string) => {
   const meta = suggestionsMeta.value?.[source]
@@ -667,4 +693,3 @@ const formatDateTime = (value?: string | null) => {
   }).format(parsed)
 }
 </script>
-

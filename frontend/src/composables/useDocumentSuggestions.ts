@@ -13,6 +13,7 @@ type SuggestionsState = {
   paperless_ocr?: SuggestionPayload
   vision_ocr?: SuggestionPayload
   best_pick?: SuggestionPayload
+  similar_docs?: SuggestionPayload
   suggestions_meta?: Record<string, unknown>
 }
 
@@ -52,8 +53,8 @@ export const useDocumentSuggestions = () => {
   const loadSuggestionsMutation = useMutation({
     mutationFn: ({ id, source }: { id: number; source?: 'paperless_ocr' | 'vision_ocr' }) =>
       source
-        ? getSuggestions(id, { source, refresh: true, priority: true })
-        : getSuggestions(id),
+        ? getSuggestions(id, { source, refresh: true, priority: true, include_similar: true })
+        : getSuggestions(id, { include_similar: true }),
   })
   const suggestFieldMutation = useMutation({
     mutationFn: ({
