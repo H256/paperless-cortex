@@ -42,6 +42,8 @@ export const streamChat = async (
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let doneReceived = false
+  const tokenBuffer: string[] = []
   const flushEvents = (chunk: string) => {
     const events: Array<{ event: string; data: string }> = []
     const parts = chunk.split('\n\n')
@@ -65,6 +67,7 @@ export const streamChat = async (
     const events = flushEvents(buffer)
     for (const evt of events) {
       if (evt.event === 'done') {
+        doneReceived = true
         try {
           const data = JSON.parse(evt.data) as Partial<ChatStreamDone>
           onDone({
@@ -78,11 +81,22 @@ export const streamChat = async (
       } else if (evt.data) {
         try {
           const data = JSON.parse(evt.data) as { token?: string }
-          if (data.token) onToken(data.token)
+          if (data.token) {
+            tokenBuffer.push(data.token)
+            onToken(data.token)
+          }
         } catch {
           // ignore non-json chunks
         }
       }
     }
+  }
+  if (!doneReceived) {
+    const fallbackAnswer = tokenBuffer.join('').trim()
+    if (fallbackAnswer) {
+      onDone({ answer: fallbackAnswer, citations: [] })
+      return
+    }
+    onError('Chat stream ended unexpectedly. Try disabling streaming.')
   }
 }

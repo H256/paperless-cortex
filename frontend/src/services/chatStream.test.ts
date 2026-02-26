@@ -172,4 +172,54 @@ describe('streamChat', () => {
     expect(doneEvents).toEqual([{ answer: 'ok', conversation_id: undefined, citations: [] }])
     expect(errors).toEqual([])
   })
+
+  it('falls back to collected tokens when done event is missing', async () => {
+    vi.resetModules()
+    vi.doMock('../api/generated/client', () => ({
+      getChatStreamChatStreamPostUrl: () => '/api/chat/stream',
+    }))
+    const streamChat = await loadStreamChat()
+
+    const fetchMock = vi.fn(async () => {
+      const body = toStream([
+        'data: {"token":"Hello"}\n\n',
+        'data: {"token":" world"}\n\n',
+      ])
+      return new Response(body, { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const doneEvents: unknown[] = []
+    const errors: string[] = []
+    await streamChat(
+      { question: 'q5' },
+      () => undefined,
+      (done) => doneEvents.push(done),
+      (err) => errors.push(err),
+    )
+
+    expect(doneEvents).toEqual([{ answer: 'Hello world', citations: [] }])
+    expect(errors).toEqual([])
+  })
+
+  it('reports an error when stream ends without tokens and without done event', async () => {
+    vi.resetModules()
+    vi.doMock('../api/generated/client', () => ({
+      getChatStreamChatStreamPostUrl: () => '/api/chat/stream',
+    }))
+    const streamChat = await loadStreamChat()
+
+    const fetchMock = vi.fn(async () => new Response(toStream([]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const errors: string[] = []
+    await streamChat(
+      { question: 'q6' },
+      () => undefined,
+      () => undefined,
+      (err) => errors.push(err),
+    )
+
+    expect(errors).toEqual(['Chat stream ended unexpectedly. Try disabling streaming.'])
+  })
 })

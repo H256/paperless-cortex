@@ -130,7 +130,6 @@
         @refresh="loadSimilarity()"
         @open-doc="openSimilarDoc"
       />
-      <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="id" />
 
       <DocumentPagesSection
         v-if="activeTab === 'pages'"
