@@ -29,6 +29,7 @@ from app.services.meta_cache import refresh_cache
 from app.services.meta_sync import sync_correspondents_all, sync_tags_all
 from app.db import SessionLocal
 from app.services.logging_setup import configure_logging
+from app.version import API_VERSION
 
 SETTINGS = load_settings()
 
@@ -67,7 +68,7 @@ async def _app_lifespan(_app: FastAPI):
 
 
 configure_logging(SETTINGS, service="api")
-app = FastAPI(title="Paperless-NGX Cortex API", lifespan=_app_lifespan)
+app = FastAPI(title="Paperless-NGX Cortex API", version=API_VERSION, lifespan=_app_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,7 +78,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api = FastAPI(title="Paperless-NGX Cortex API")
+api = FastAPI(title="Paperless-NGX Cortex API", version=API_VERSION)
 slow_request_logger = logging.getLogger("app.slow_requests")
 
 

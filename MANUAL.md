@@ -244,3 +244,17 @@ Use it for:
 - `agents.md` - current phase and high-level working state
 - `CHANGELOG.md` - granular change history with commit hashes
 - `docs/execution-blueprint-large-doc-worker.md` - large-document processing details
+
+## 12. Versioning (simple start, no CI)
+A single root `VERSION` file is used for backend + frontend versioning.
+
+```bash
+python scripts/sync_version.py
+```
+
+The script updates:
+- `backend/pyproject.toml`
+- `frontend/package.json`
+- `frontend/src/generated/version.ts`
+
+The runtime versions are available via `GET /api/status` (`app_version`, `api_version`, `frontend_version`) and shown in the footer.

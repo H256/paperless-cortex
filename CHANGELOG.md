@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: feat/similarity-ops-button-srp-pass)
+
+### Unified app/api/frontend versioning
+- `d40c15e` feat(versioning): added root `VERSION` source-of-truth and backend version reader in `backend/app/version.py` (`APP_VERSION`, `API_VERSION`).
+- `d40c15e` feat(status): extended `StatusResponse` + `/api/status` payload with `app_version`, `api_version`, `frontend_version`.
+- `d40c15e` feat(api): set FastAPI `version` on both mounted apps in `backend/app/main.py` so OpenAPI reflects API version.
+- `d40c15e` feat(frontend): added footer version display (`UI`/`API`/`App`) in `frontend/src/App.vue` and wired runtime version fields in `frontend/src/stores/statusStore.ts`.
+- `d40c15e` chore(version-sync): added `scripts/sync_version.py` to synchronize root `VERSION` to `backend/pyproject.toml`, `frontend/package.json`, and `frontend/src/generated/version.ts`.
+- `d40c15e` chore(api): regenerated OpenAPI + Orval client for the new status fields.
+- `d40c15e` docs(readme/manual): documented the simple no-CI versioning workflow and runtime/footer version visibility.
 ## 2026-02-26 (branch: perf/ops-route-speedups)
 
 ### Qdrant compatibility fix (uncommitted)
@@ -17,7 +27,7 @@ All granular implementation slices and refactors are tracked here.
 - refactor(suggestions-route): extracted duplicated similar-doc metadata and suggestion-meta assembly into shared helpers in `backend/app/routes/documents_suggestions.py` to reduce route duplication (DRY/SRP).
 - feat(frontend-ops): added manual `Queue similarity index` action in document operations (`frontend/src/composables/useDocumentDetailOperations.ts`) and widened frontend task typing in `frontend/src/services/documents.ts`.
 - fix(frontend-timeline): added `completed` status filter option in `frontend/src/components/DocumentOperationsSection.vue` so current worker statuses are directly filterable.
-- docs(readme/manual): documented targeted per-step reruns (`similarity_index`) and clarified Similar tab behavior as display/refresh.
+- `d40c15e` docs(readme/manual): documented targeted per-step reruns (`similarity_index`) and clarified Similar tab behavior as display/refresh.
 - fix(pipeline/similarity-missing): similarity is now marked missing when embeddings are missing (not only when an embedding row already exists), preventing false `Similarity: Done` after doc reset.
 - fix(reset/reprocess): per-document reset now clears old `task_runs` history for that doc and re-enqueues full pipeline with forced front-priority, reducing stale timeline/fan-out confusion.
 - feat(maintenance): added `POST /documents/delete/similarity-index` to reset doc-level similarity vectors in Qdrant and clear `similarity_index` task-run history.

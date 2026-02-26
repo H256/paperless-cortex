@@ -21,6 +21,8 @@ import type {
   CorrespondentsPageResponse,
   DeleteEmbeddingsDocumentsDeleteEmbeddingsPostParams,
   DeleteEmbeddingsResponse,
+  DeleteSimilarityIndexDocumentsDeleteSimilarityIndexPostParams,
+  DeleteSimilarityIndexResponse,
   DeleteSuggestionsDocumentsDeleteSuggestionsPostParams,
   DeleteSuggestionsResponse,
   DeleteVisionOcrDocumentsDeleteVisionOcrPostParams,
@@ -1110,6 +1112,62 @@ export const deleteEmbeddingsDocumentsDeleteEmbeddingsPost = async (params?: Del
   
   const data: deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as deleteEmbeddingsDocumentsDeleteEmbeddingsPostResponse
+}
+
+
+
+/**
+ * @summary Delete Similarity Index
+ */
+export type deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse200 = {
+  data: DeleteSimilarityIndexResponse
+  status: 200
+}
+
+export type deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponseSuccess = (deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse200) & {
+  headers: Headers;
+};
+export type deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponseError = (deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse422) & {
+  headers: Headers;
+};
+
+export type deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse = (deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponseSuccess | deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponseError)
+
+export const getDeleteSimilarityIndexDocumentsDeleteSimilarityIndexPostUrl = (params?: DeleteSimilarityIndexDocumentsDeleteSimilarityIndexPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/delete/similarity-index?${stringifiedParams}` : `/api/documents/delete/similarity-index`
+}
+
+export const deleteSimilarityIndexDocumentsDeleteSimilarityIndexPost = async (params?: DeleteSimilarityIndexDocumentsDeleteSimilarityIndexPostParams, options?: RequestInit): Promise<deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse> => {
+  
+  const res = await fetch(getDeleteSimilarityIndexDocumentsDeleteSimilarityIndexPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostResponse
 }
 
 

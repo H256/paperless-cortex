@@ -25,6 +25,8 @@ export * from './correspondentsPageResponse';
 export * from './dashboardCount';
 export * from './deleteEmbeddingsDocumentsDeleteEmbeddingsPostParams';
 export * from './deleteEmbeddingsResponse';
+export * from './deleteSimilarityIndexDocumentsDeleteSimilarityIndexPostParams';
+export * from './deleteSimilarityIndexResponse';
 export * from './deleteSuggestionsDocumentsDeleteSuggestionsPostParams';
 export * from './deleteSuggestionsResponse';
 export * from './deleteVisionOcrDocumentsDeleteVisionOcrPostParams';

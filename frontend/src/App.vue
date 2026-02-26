@@ -116,6 +116,11 @@
           <div v-if="queueStatus.enabled">Total: {{ queueStatus.total ?? 0 }}</div>
           <div v-else>Queue: disabled</div>
         </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div>UI: {{ runtimeVersion.frontend }}</div>
+          <div>API: {{ runtimeVersion.api }}</div>
+          <div>App: {{ runtimeVersion.app }}</div>
+        </div>
         <img
           src="/cortex_image_transparent.png"
           alt="Paperless-NGX Cortex"
@@ -158,6 +163,7 @@ import StatusLight from './components/StatusLight.vue'
 import ToastHost from './components/ToastHost.vue'
 import { useStatusStore } from './stores/statusStore'
 import { useErrorStore } from './stores/errorStore'
+import { FRONTEND_VERSION } from './generated/version'
 import { fetchQueueStatus } from './services/queue'
 import { getEmbedStatus, getSyncStatus } from './services/documents'
 import { useStatusStream } from './composables/useStatusStream'
@@ -173,6 +179,14 @@ const queueStatusQuery = useQuery({
   staleTime: 5_000,
 })
 const queueStatus = computed(() => queueStatusQuery.data.value ?? { enabled: false, length: null })
+const runtimeVersion = computed(() => {
+  const runtime = statusStore.runtime
+  return {
+    frontend: runtime.frontend_version || FRONTEND_VERSION,
+    api: runtime.api_version || 'n/a',
+    app: runtime.app_version || 'n/a',
+  }
+})
 const syncStatusQuery = useQuery({
   queryKey: ['sync-status'],
   queryFn: () => getSyncStatus(),

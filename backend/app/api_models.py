@@ -25,6 +25,9 @@ class StatusResponse(BaseModel):
     vision_model: Optional[str] = None
     evidence_max_pages: Optional[int] = None
     evidence_min_snippet_chars: Optional[int] = None
+    app_version: Optional[str] = None
+    api_version: Optional[str] = None
+    frontend_version: Optional[str] = None
     latency_ms: Optional[int] = None
 
 

@@ -242,6 +242,19 @@ cd frontend
 ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate
 ```
 
+## Versioning (simple start, no CI)
+The root `VERSION` file is the source of truth.
+
+```bash
+python scripts/sync_version.py
+```
+
+This synchronizes:
+- `backend/pyproject.toml`
+- `frontend/package.json`
+- `frontend/src/generated/version.ts`
+
+`GET /api/status` exposes `app_version`, `api_version`, and `frontend_version`; the frontend footer renders them.
 ## License
 MIT License. See `LICENSE`.
 Provided “as is”, without warranty of any kind.

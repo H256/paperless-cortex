@@ -22,5 +22,8 @@ export interface StatusResponse {
   vision_model?: string | null;
   evidence_max_pages?: number | null;
   evidence_min_snippet_chars?: number | null;
+  app_version?: string | null;
+  api_version?: string | null;
+  frontend_version?: string | null;
   latency_ms?: number | null;
 }
