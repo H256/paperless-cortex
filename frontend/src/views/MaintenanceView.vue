@@ -79,7 +79,7 @@
       </div>
     </section>
 
-    <section class="mt-6 grid gap-4 lg:grid-cols-3">
+    <section class="mt-6 grid gap-4 lg:grid-cols-4">
       <MaintenanceActionCard
         title="Remove Vision OCR"
         description="Deletes all stored vision OCR pages. Documents will need OCR again."
@@ -108,6 +108,16 @@
         :loading="embeddingsLoading"
         :result-text="embeddingsResultText"
         @action="confirmEmbeddings"
+      />
+
+      <MaintenanceActionCard
+        title="Reset Similarity Index"
+        description="Deletes all doc-level similarity vectors and similarity task history so indices can be rebuilt cleanly."
+        action-label="Reset similarity index"
+        loading-label="Resetting..."
+        :loading="similarityIndexLoading"
+        :result-text="similarityIndexResultText"
+        @action="confirmSimilarityIndex"
       />
 
       <div
@@ -515,6 +525,7 @@ const {
   visionLoading,
   suggestionsLoading,
   embeddingsLoading,
+  similarityIndexLoading,
   clearAllLoading,
   cleanupLoading,
   correspondentsSyncLoading,
@@ -525,6 +536,7 @@ const {
   removeVisionOcr,
   removeSuggestions,
   removeEmbeddings,
+  removeSimilarityIndex,
   clearAllIntelligence,
   cleanupTexts: runCleanupTexts,
   syncCorrespondentsNow: syncCorrespondentsAction,
@@ -574,6 +586,11 @@ const embeddingsResult = ref<{
   qdrant_deleted: number
   qdrant_errors: number
 } | null>(null)
+const similarityIndexResult = ref<{
+  deleted: number
+  qdrant_deleted: number
+  qdrant_errors: number
+} | null>(null)
 const visionResultText = computed(() =>
   visionResult.value ? `Removed ${visionResult.value.deleted} rows` : '',
 )
@@ -583,6 +600,11 @@ const suggestionsResultText = computed(() =>
 const embeddingsResultText = computed(() =>
   embeddingsResult.value
     ? `Removed ${embeddingsResult.value.deleted} rows (Qdrant ok: ${embeddingsResult.value.qdrant_deleted}, errors: ${embeddingsResult.value.qdrant_errors})`
+    : '',
+)
+const similarityIndexResultText = computed(() =>
+  similarityIndexResult.value
+    ? `Reset ${similarityIndexResult.value.deleted} task-runs (Qdrant ok: ${similarityIndexResult.value.qdrant_deleted}, errors: ${similarityIndexResult.value.qdrant_errors})`
     : '',
 )
 const clearAllResult = ref<{
@@ -707,6 +729,28 @@ const confirmEmbeddings = async () => {
         toastStore.push('Embeddings removed', 'success', 'Completed')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to remove embeddings'
+        toastStore.push(message, 'danger', 'Error')
+      }
+    },
+  )
+}
+
+const confirmSimilarityIndex = async () => {
+  openConfirmDialog(
+    'Reset similarity index',
+    'Delete all doc-level similarity vectors and similarity task history? You can rebuild via Continue missing processing.',
+    async () => {
+      similarityIndexResult.value = null
+      try {
+        const result = await removeSimilarityIndex()
+        similarityIndexResult.value = {
+          deleted: result.deleted ?? 0,
+          qdrant_deleted: result.qdrant_deleted ?? 0,
+          qdrant_errors: result.qdrant_errors ?? 0,
+        }
+        toastStore.push('Similarity index reset', 'success', 'Completed')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to reset similarity index'
         toastStore.push(message, 'danger', 'Error')
       }
     },
@@ -843,4 +887,3 @@ const confirmClearAll = async () => {
   }
 }
 </script>
-

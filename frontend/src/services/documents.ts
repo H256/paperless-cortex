@@ -256,6 +256,11 @@ export type DocumentOperationTaskPayload = Omit<DocumentTaskRequest, 'task'> & {
 }
 export type DocumentOperationTaskResult = DocumentOperationEnqueueResponse
 export type DocumentResetReprocessResult = DocumentResetReprocessResponse
+export type DeleteSimilarityIndexResult = {
+  deleted: number
+  qdrant_deleted: number
+  qdrant_errors: number
+}
 
 export type DocumentPipelineStepStatus = {
   key: string
@@ -295,3 +300,21 @@ export const getDocumentPipelineFanout = (id: number, params?: PipelineFanoutPar
 
 export const continueDocumentPipeline = (id: number, payload: ContinuePipelinePayload = {}) =>
   unwrap<ContinuePipelineResult>(continueDocumentPipelineDocumentsDocIdPipelineContinuePost(id, payload))
+
+export const deleteSimilarityIndex = async (docId?: number): Promise<DeleteSimilarityIndexResult> => {
+  const params = typeof docId === 'number' ? `?doc_id=${encodeURIComponent(String(docId))}` : ''
+  const response = await fetch(`/api/documents/delete/similarity-index${params}`, {
+    method: 'POST',
+  })
+  const body = await response.text()
+  const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : {}
+  if (!response.ok) {
+    const detail = typeof parsed.detail === 'string' ? parsed.detail : `HTTP ${response.status}`
+    throw new Error(detail)
+  }
+  return {
+    deleted: Number(parsed.deleted ?? 0),
+    qdrant_deleted: Number(parsed.qdrant_deleted ?? 0),
+    qdrant_errors: Number(parsed.qdrant_errors ?? 0),
+  }
+}

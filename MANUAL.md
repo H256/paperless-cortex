@@ -213,6 +213,7 @@ Use it for:
 Purpose: maintenance/admin actions.
 Use it for:
 - destructive maintenance actions (with caution)
+- targeted similarity-index reset (`Reset similarity index`) to drop doc-level similarity vectors + similarity task history before rebuilding
 - runtime config checks
 - sync/embed status checks
 - worker lock/queue maintenance

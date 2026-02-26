@@ -579,6 +579,23 @@ def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = 
         response.raise_for_status()
 
 
+def delete_similarity_points(settings: Settings, *, doc_id: int | None = None) -> None:
+    base = qdrant.base_url(settings)
+    collection = qdrant.collection_name(settings)
+    headers = qdrant.headers(settings)
+    must_filters: list[dict[str, object]] = [{"key": "type", "match": {"value": "doc"}}]
+    if doc_id is not None:
+        must_filters.append({"key": "doc_id", "match": {"value": int(doc_id)}})
+    payload = {"filter": {"must": must_filters}}
+    with qdrant.client(settings, timeout=30) as client:
+        response = client.post(
+            f"{base}/collections/{collection}/points/delete",
+            headers=headers,
+            json=payload,
+        )
+        response.raise_for_status()
+
+
 def _vector_from_point(point: dict[str, Any]) -> list[float] | None:
     vector = point.get("vector")
     if isinstance(vector, dict):
