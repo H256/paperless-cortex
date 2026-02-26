@@ -126,9 +126,13 @@
         :duplicate-matches="duplicateMatches"
         :loading="similarLoading"
         :error="similarError"
+        :similar-min-score="similarMinScore"
+        :duplicate-threshold="duplicateThreshold"
         :paperless-base-url="paperlessBaseUrl"
-        @refresh="loadSimilarity()"
+        @refresh="loadSimilarity({ similarMinScore, duplicateThreshold })"
         @open-doc="openSimilarDoc"
+        @update:similar-min-score="similarMinScore = $event"
+        @update:duplicate-threshold="duplicateThreshold = $event"
       />
 
       <DocumentPagesSection
@@ -239,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, CheckCircle, ClipboardCheck, ExternalLink, RefreshCw } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import IconButton from '../components/IconButton.vue'
@@ -345,6 +349,8 @@ const {
   reset: resetSimilarity,
   loadSimilarity,
 } = useDocumentSimilarity(() => id)
+const similarMinScore = ref(0.5)
+const duplicateThreshold = ref(0.92)
 const {
   pipelineStatus,
   pipelineStatusLoading,
@@ -741,9 +747,32 @@ watch(
   async (tab) => {
     await syncTabToQuery()
     if (tab === 'similar') {
-      await loadSimilarity()
+      await loadSimilarity({
+        similarMinScore: similarMinScore.value,
+        duplicateThreshold: duplicateThreshold.value,
+      })
     }
   },
 )
+
+let similarityReloadTimer: ReturnType<typeof setTimeout> | null = null
+watch([similarMinScore, duplicateThreshold, activeTab], ([minScore, dupThreshold, tab]) => {
+  if (tab !== 'similar') return
+  if (similarityReloadTimer) {
+    clearTimeout(similarityReloadTimer)
+  }
+  similarityReloadTimer = setTimeout(() => {
+    loadSimilarity({
+      similarMinScore: minScore,
+      duplicateThreshold: dupThreshold,
+    })
+  }, 250)
+})
+onBeforeUnmount(() => {
+  if (similarityReloadTimer) {
+    clearTimeout(similarityReloadTimer)
+    similarityReloadTimer = null
+  }
+})
 
 </script>

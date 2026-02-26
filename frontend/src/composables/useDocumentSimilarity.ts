@@ -51,8 +51,51 @@ export const useDocumentSimilarity = (docId: () => number) => {
     return ''
   })
 
-  const loadSimilarity = async () => {
-    await Promise.all([similarQuery.refetch(), duplicateQuery.refetch()])
+  const loadSimilarity = async (params?: { similarMinScore?: number; duplicateThreshold?: number }) => {
+    const minScoreRaw = Number(params?.similarMinScore ?? 0.5)
+    const duplicateRaw = Number(params?.duplicateThreshold ?? 0.92)
+    const minScore = Number.isFinite(minScoreRaw) ? Math.min(1, Math.max(0.5, minScoreRaw)) : 0.5
+    const duplicate = Number.isFinite(duplicateRaw) ? Math.min(1, Math.max(0.8, duplicateRaw)) : 0.92
+    await Promise.all([
+      queryClient.fetchQuery({
+        queryKey: ['documents', 'similar', docId(), minScore],
+        queryFn: () =>
+          unwrap<SimilarDocumentsResponse>(
+            getSimilarDocumentsDocumentsDocIdSimilarGet(docId(), {
+              top_k: 10,
+              min_score: minScore,
+            }),
+          ),
+      }),
+      queryClient.fetchQuery({
+        queryKey: ['documents', 'duplicates', docId(), duplicate],
+        queryFn: () =>
+          unwrap<SimilarDocumentsResponse>(
+            getDuplicateDocumentsDocumentsDocIdDuplicatesGet(docId(), {
+              threshold: duplicate,
+              top_k: 10,
+            }),
+          ),
+      }),
+    ])
+    const similarData = queryClient.getQueryData<SimilarDocumentsResponse>([
+      'documents',
+      'similar',
+      docId(),
+      minScore,
+    ])
+    const duplicateData = queryClient.getQueryData<SimilarDocumentsResponse>([
+      'documents',
+      'duplicates',
+      docId(),
+      duplicate,
+    ])
+    if (similarData) {
+      queryClient.setQueryData(['documents', 'similar', docId()], similarData)
+    }
+    if (duplicateData) {
+      queryClient.setQueryData(['documents', 'duplicates', docId()], duplicateData)
+    }
   }
 
   const reset = () => {

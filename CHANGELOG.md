@@ -22,6 +22,7 @@ All granular implementation slices and refactors are tracked here.
 - fix(reset/reprocess): per-document reset now clears old `task_runs` history for that doc and re-enqueues full pipeline with forced front-priority, reducing stale timeline/fan-out confusion.
 - feat(maintenance): added `POST /documents/delete/similarity-index` to reset doc-level similarity vectors in Qdrant and clear `similarity_index` task-run history.
 - feat(frontend-operations): added a fourth maintenance card `Reset similarity index` in `MaintenanceView` to trigger full similarity-vector reset before clean rebuild.
+- feat(similar-ui): added configurable thresholds in the document Similar tab with slider + numeric input (`similar min score` range `0.50-1.00`, `duplicate threshold` range `0.80-1.00`) and wired API queries to those values.
 
 ## 2026-02-26 (branch: feat/doc-similarity-index-task)
 
