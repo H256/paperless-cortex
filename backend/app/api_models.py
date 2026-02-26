@@ -214,6 +214,20 @@ class SimilarDocumentsResponse(BaseModel):
     matches: list[SimilarDocumentMatch] = []
 
 
+class SimilarMetadata(BaseModel):
+    title: Optional[str] = None
+    tags: list[str] = []
+    correspondent: Optional[str] = None
+    documentType: Optional[str] = None
+    language: Optional[str] = None
+
+
+class SimilarMetadataResponse(BaseModel):
+    doc_id: int
+    top_k: int
+    metadata: SimilarMetadata
+
+
 class DocumentNoteOut(BaseModel):
     note: Optional[str] = None
 

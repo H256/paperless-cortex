@@ -151,7 +151,7 @@ Purpose: full per-document inspection and control center.
 Tabs:
 - `Metadata`: current local/Paperless values
 - `Text & quality`: text layers + OCR quality metrics
-- `Suggestions`: paperless/vision suggestions, variants, apply actions
+- `Suggestions`: paperless/vision suggestions, variants, apply actions, plus similar-doc metadata hints
 - `Pages`: per-page text and page-level inspection
 - `Chat`: document chat with follow-up questions and relationship mode (chrono)
 - `Similar`: top-10 similar documents + possible duplicates

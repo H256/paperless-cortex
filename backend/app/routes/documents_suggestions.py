@@ -76,6 +76,7 @@ def get_document_suggestions(
     source: str | None = None,
     refresh: bool = False,
     priority: bool = False,
+    include_similar: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
@@ -177,6 +178,24 @@ def get_document_suggestions(
             }
             for row in meta_rows
         }
+        if include_similar:
+            try:
+                from app.services.similarity import (
+                    aggregate_similar_metadata,
+                    fetch_doc_point_vector,
+                    search_similar_doc_points,
+                )
+
+                vector = fetch_doc_point_vector(settings, doc_id)
+                if vector:
+                    matches = search_similar_doc_points(settings, vector, top_k=10, min_score=None)
+                    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+                    doc_ids = [int(item["doc_id"]) for item in filtered]
+                    score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
+                    metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
+                    suggestions_by_source["similar_docs"] = metadata
+            except Exception as exc:
+                logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
         return {
             "doc_id": doc_id,
             "queued": True,
@@ -252,6 +271,24 @@ def get_document_suggestions(
                 best["summary"] = summary_value
     if best:
         suggestions_by_source["best_pick"] = best
+    if include_similar:
+        try:
+            from app.services.similarity import (
+                aggregate_similar_metadata,
+                fetch_doc_point_vector,
+                search_similar_doc_points,
+            )
+
+            vector = fetch_doc_point_vector(settings, doc_id)
+            if vector:
+                matches = search_similar_doc_points(settings, vector, top_k=10, min_score=None)
+                filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+                doc_ids = [int(item["doc_id"]) for item in filtered]
+                score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
+                metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
+                suggestions_by_source["similar_docs"] = metadata
+        except Exception as exc:
+            logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
     return {
         "doc_id": doc_id,
         "suggestions": suggestions_by_source,
@@ -593,5 +630,3 @@ def apply_suggestion_to_document(
         logger.info("Applied suggestion to document doc=%s field=%s", doc_id, field)
         return {"status": "ok", "updated": True, **details}
     return {"status": "skipped", "updated": False, **details}
-
-

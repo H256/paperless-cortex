@@ -8,6 +8,11 @@ All granular implementation slices and refactors are tracked here.
 ### Document chat
 - `03bbd14` feat(document-chat): added document-scoped chat in the Detail view (tab + scope toggle), follow-up question suggestions endpoint/UI, chronological relationship mode, and updated prompts; regenerated OpenAPI/Orval client and hardened chat evidence tests + writeback execute tests env guard.
 
+## 2026-02-26 (branch: feat/similar-metadata)
+
+### Similarity-based metadata
+- `922ec53` feat(similar-metadata): added similarity-driven metadata suggestions (tags/correspondent/doc type) via `/documents/{id}/similar-metadata`, wired `include_similar` through suggestions, and surfaced similar-doc metadata hints in the Suggestions panel; regenerated OpenAPI/Orval client and updated manual/todo notes.
+
 ## 2026-02-26 (branch: feat/similar-documents)
 
 ### Similar documents

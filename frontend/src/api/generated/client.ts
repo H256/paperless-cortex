@@ -56,6 +56,7 @@ import type {
   GetDuplicateDocumentsDocumentsDocIdDuplicatesGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
   GetSimilarDocumentsDocumentsDocIdSimilarGetParams,
+  GetSimilarMetadataDocumentsDocIdSimilarMetadataGetParams,
   GetTaskRunsQueueTaskRunsGetParams,
   HTTPValidationError,
   IngestDocumentsEmbeddingsIngestDocsPostParams,
@@ -93,6 +94,7 @@ import type {
   ResetWorkerLockRouteQueueWorkerLockResetPostParams,
   SearchEmbeddingsSearchGetParams,
   SimilarDocumentsResponse,
+  SimilarMetadataResponse,
   StatusResponse,
   SuggestFieldVariantsDocumentsDocIdSuggestionsFieldPostParams,
   SuggestFieldVariantsResponse,
@@ -1661,6 +1663,64 @@ export const getDuplicateDocumentsDocumentsDocIdDuplicatesGet = async (docId: nu
   
   const data: getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDuplicateDocumentsDocumentsDocIdDuplicatesGetResponse
+}
+
+
+
+/**
+ * @summary Get Similar Metadata
+ */
+export type getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse200 = {
+  data: SimilarMetadataResponse
+  status: 200
+}
+
+export type getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponseSuccess = (getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse200) & {
+  headers: Headers;
+};
+export type getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponseError = (getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse422) & {
+  headers: Headers;
+};
+
+export type getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse = (getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponseSuccess | getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponseError)
+
+export const getGetSimilarMetadataDocumentsDocIdSimilarMetadataGetUrl = (docId: number,
+    params?: GetSimilarMetadataDocumentsDocIdSimilarMetadataGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/documents/${docId}/similar-metadata?${stringifiedParams}` : `/api/documents/${docId}/similar-metadata`
+}
+
+export const getSimilarMetadataDocumentsDocIdSimilarMetadataGet = async (docId: number,
+    params?: GetSimilarMetadataDocumentsDocIdSimilarMetadataGetParams, options?: RequestInit): Promise<getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse> => {
+  
+  const res = await fetch(getGetSimilarMetadataDocumentsDocIdSimilarMetadataGetUrl(docId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse
 }
 
 
