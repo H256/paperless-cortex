@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 
 type UseDocumentSuggestionsApplyArgs = {
-  docId: number
+  docId: number | (() => number)
   suggestions: Ref<unknown>
   pageTexts: Ref<Array<unknown>>
   contentQuality: Ref<unknown>
@@ -24,12 +24,14 @@ type UseDocumentSuggestionsApplyArgs = {
 }
 
 export const useDocumentSuggestionsApply = (args: UseDocumentSuggestionsApplyArgs) => {
+  const resolveDocId = () => (typeof args.docId === 'function' ? args.docId() : args.docId)
+
   const applyVariantOnly = async (
     source: 'paperless_ocr' | 'vision_ocr',
     field: string,
     value: unknown,
   ) => {
-    await args.applyVariant(args.docId, source, field, value)
+    await args.applyVariant(resolveDocId(), source, field, value)
   }
 
   const applyVariantToDocument = async (
@@ -37,8 +39,9 @@ export const useDocumentSuggestionsApply = (args: UseDocumentSuggestionsApplyArg
     field: string,
     value: unknown,
   ) => {
-    await args.applyVariant(args.docId, source, field, value)
-    await args.applySuggestionToDocument(args.docId, { source, field, value })
+    const docId = resolveDocId()
+    await args.applyVariant(docId, source, field, value)
+    await args.applySuggestionToDocument(docId, { source, field, value })
     await args.loadDocument()
     await args.loadSuggestionsForDoc()
   }
@@ -48,7 +51,7 @@ export const useDocumentSuggestionsApply = (args: UseDocumentSuggestionsApplyArg
       const reloadSuggestions = Boolean(args.suggestions.value)
       const reloadPages = args.pageTexts.value.length > 0
       const reloadQuality = Boolean(args.contentQuality.value)
-      await args.applySuggestionToDocument(args.docId, { source, field, value })
+      await args.applySuggestionToDocument(resolveDocId(), { source, field, value })
       await args.loadDocument()
       if (reloadSuggestions) {
         await args.loadSuggestionsForDoc()

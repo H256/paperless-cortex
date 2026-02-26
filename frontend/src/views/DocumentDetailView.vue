@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-          {{ document?.title || `Document ${id}` }}
+          {{ document?.title || `Document ${docId}` }}
         </h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">{{ headerMetaLine }}</p>
         <p
@@ -119,7 +119,7 @@
         @apply-to-document="applyToDocument"
       />
 
-      <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="id" />
+      <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="docId" />
       <DocumentSimilarSection
         v-if="activeTab === 'similar'"
         :similar-matches="similarMatches"
@@ -296,7 +296,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const id = Number(route.params.id)
+const docId = computed(() => Number(route.params.id))
 const {
   activeTab,
   pdfPage,
@@ -348,7 +348,7 @@ const {
   error: similarError,
   reset: resetSimilarity,
   loadSimilarity,
-} = useDocumentSimilarity(() => id)
+} = useDocumentSimilarity(() => docId.value)
 const similarMinScore = ref(0.5)
 const duplicateThreshold = ref(0.92)
 const {
@@ -362,13 +362,13 @@ const {
   refreshPipelineFanout,
   continuePipeline: continuePipelineRequest,
   continuePipelineLoading,
-} = useDocumentPipeline(computed(() => id))
+} = useDocumentPipeline(docId)
 const {
   loading: docOpsLoading,
   enqueueTask: enqueueDocumentTaskNow,
   cleanup: cleanupDocumentTexts,
   resetAndReprocess: resetAndReprocessNow,
-} = useDocumentOperations(computed(() => id))
+} = useDocumentOperations(docId)
 const timelineStatusFilter = ref('')
 const timelineQueryFilter = ref('')
 const {
@@ -376,13 +376,13 @@ const {
   taskRunsLoading,
   taskRunsError,
   refreshTaskRuns,
-} = useDocumentTaskRuns(() => id, {
+} = useDocumentTaskRuns(() => docId.value, {
   status: timelineStatusFilter,
   query: timelineQueryFilter,
 })
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-const pdfUrl = computed(() => `${apiBaseUrl}/documents/${id}/pdf`)
+const pdfUrl = computed(() => `${apiBaseUrl}/documents/${docId.value}/pdf`)
 const tabs = detailTabs
 const reloadingAll = ref(false)
 const paperlessUrl = computed(() =>
@@ -398,7 +398,7 @@ const aggregatedText = computed(() => {
 
 const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs', field: string) => {
   if (source === 'similar_docs') return
-  await suggestField(id, source, field)
+  await suggestField(docId.value, source, field)
 }
 
 const currentNotePreview = computed(() =>
@@ -438,7 +438,7 @@ const canMarkReviewed = computed(
     !document.value?.local_overrides &&
     String(document.value?.review_status || '').toLowerCase() !== 'reviewed',
 )
-const { reviewMarking, markReviewed } = useDocumentReview(computed(() => id))
+const { reviewMarking, markReviewed } = useDocumentReview(docId)
 
 const rows = computed(() => {
   if (!document.value) return []
@@ -481,7 +481,7 @@ const headerMetaLine = computed(() => {
   const reviewStatus = toTitle(document.value?.review_status || '')
   const reviewedAt = formatDateTime(document.value?.reviewed_at)
   const reviewPart = reviewedAt ? `${reviewStatus} (${reviewedAt})` : reviewStatus
-  return `Document ID: ${id}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
+  return `Document ID: ${docId.value}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
 
 const navigateBackToDocuments = async () => {
@@ -537,7 +537,7 @@ const copyRunError = async (message?: string | null) => {
 }
 
 const load = async () => {
-  await loadDocument(id)
+  await loadDocument(docId.value)
 }
 
 const loadMetaForDoc = async () => {
@@ -545,16 +545,16 @@ const loadMetaForDoc = async () => {
 }
 
 const loadPageTextsForDoc = async (priority = false) => {
-  await loadPageTexts(id, priority)
+  await loadPageTexts(docId.value, priority)
 }
 
 const loadContentQualityForDoc = async (priority = false) => {
-  await loadContentQuality(id, priority)
-  await loadOcrScores(id, priority)
+  await loadContentQuality(docId.value, priority)
+  await loadOcrScores(docId.value, priority)
 }
 
 const loadSuggestionsForDoc = async () => {
-  await loadSuggestions(id)
+  await loadSuggestions(docId.value)
 }
 
 const {
@@ -562,7 +562,7 @@ const {
   applyVariantToDocument,
   applyToDocument,
 } = useDocumentSuggestionsApply({
-  docId: id,
+  docId: () => docId.value,
   suggestions,
   pageTexts,
   contentQuality,
@@ -620,7 +620,7 @@ const {
   openResetConfirm,
   confirmResetAndReprocessDoc,
 } = useDocumentDetailOperations({
-  docId: id,
+  docId: () => docId.value,
   enqueueDocumentTaskNow,
   cleanupDocumentTexts,
   continuePipelineRequest,
@@ -688,7 +688,7 @@ const {
   setConflictResolution,
   closeWritebackError,
 } = useDocumentWriteback({
-  docId: id,
+  docId: () => docId.value,
   document,
   reloadAll: async () => reloadAll(),
   toErrorMessage: errorMessage,
@@ -701,7 +701,7 @@ const refreshSuggestionsAction = async (source: 'paperless_ocr' | 'vision_ocr' |
     await loadSuggestionsForDoc()
     return
   }
-  await refreshSuggestionsForSource(id, source)
+  await refreshSuggestionsForSource(docId.value, source)
 }
 
 useAutoRefresh({
@@ -739,6 +739,15 @@ watch(
   () => {
     syncTabFromQuery()
     syncPdfFromQuery()
+  },
+)
+
+watch(
+  () => route.params.id,
+  async (next, prev) => {
+    if (String(next) === String(prev)) return
+    resetSimilarity()
+    await reloadAll()
   },
 )
 
