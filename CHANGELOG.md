@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-02-26 (branch: feat/similar-documents)
+
+### Similar documents
+- `4ceb6be` feat(similar-documents): added doc-level embeddings stored alongside chunk vectors, new `/documents/{id}/similar` + `/documents/{id}/duplicates` endpoints, and a Similar tab with reusable document cards (including list card view reuse) plus duplicate detection; regenerated OpenAPI/Orval client and adjusted writeback test env guard.
+
 ## 2026-02-20 (branch: codex-20260220-backend-routes-tests-refactor)
 
 ### Backend robustness / SRP cleanup
