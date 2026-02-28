@@ -6,11 +6,6 @@ export const useDocumentDetailData = () => {
   const core = useDocumentDetailCoreData()
   const suggestions = useDocumentSuggestions()
 
-  const loadDocument = async (id: number) => {
-    await core.loadDocument(id)
-    suggestions.resetSuggestionsState()
-  }
-
   watch(
     () => core.document.value?.id,
     () => {
@@ -20,7 +15,6 @@ export const useDocumentDetailData = () => {
 
   return {
     ...core,
-    loadDocument,
     ...suggestions,
   }
 }
