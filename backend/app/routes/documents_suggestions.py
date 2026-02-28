@@ -14,7 +14,6 @@ from app.deps import get_settings
 from app.models import (
     Correspondent,
     DocumentNote,
-    DocumentOcrScore,
     DocumentPendingCorrespondent,
     DocumentPendingTag,
     DocumentPageText,
@@ -30,7 +29,7 @@ from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
 from app.services.note_ids import next_local_note_id
 from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
-from app.services.suggestions import generate_field_variants, generate_normalized_suggestions, merge_suggestions
+from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.text_pages import get_page_text_layers
 from app.services.time_utils import utc_now_iso
 from app.services.json_utils import parse_json_object
@@ -240,37 +239,6 @@ def get_document_suggestions(
         suggestions_by_source = load_suggestions_map(db, doc_id, tags)
 
     suggestions_meta = _build_suggestions_meta(db, doc_id)
-    score_rows = (
-        db.query(DocumentOcrScore)
-        .filter(DocumentOcrScore.doc_id == doc_id)
-        .all()
-    )
-    score_by_source = {
-        row.source: row.quality_score
-        for row in score_rows
-        if row.quality_score is not None
-    }
-    summary_source = None
-    if "paperless_ocr" in score_by_source and "vision_ocr" in score_by_source:
-        summary_source = (
-            "paperless_ocr"
-            if score_by_source["paperless_ocr"] <= score_by_source["vision_ocr"]
-            else "vision_ocr"
-        )
-    elif score_by_source:
-        summary_source = next(iter(score_by_source.keys()))
-    best = merge_suggestions(
-        suggestions_by_source.get("paperless_ocr"),
-        suggestions_by_source.get("vision_ocr"),
-    )
-    if best and summary_source:
-        summary_payload = suggestions_by_source.get(summary_source)
-        if isinstance(summary_payload, dict) and "error" not in summary_payload:
-            summary_value = summary_payload.get("summary")
-            if isinstance(summary_value, str) and summary_value.strip():
-                best["summary"] = summary_value
-    if best:
-        suggestions_by_source["best_pick"] = best
     if include_similar:
         _append_similar_docs_metadata(
             settings,
