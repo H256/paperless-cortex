@@ -15,7 +15,9 @@ from app.services.ai.text_budget import truncate_chars
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "suggestions.txt"
+PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
+LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
+DEFAULT_PROMPT_PATH = PROMPTS_DIR / "suggestions.txt"
 _prompt_cache: dict[str, str] = {}
 
 FIELD_PROMPTS = {
@@ -105,6 +107,8 @@ def _load_prompt(settings: Settings) -> str:
             prompt_path = repo_relative if repo_relative.is_file() else configured
     else:
         prompt_path = DEFAULT_PROMPT_PATH
+        if not prompt_path.is_file():
+            prompt_path = LEGACY_PROMPTS_DIR / "suggestions.txt"
     key = str(prompt_path)
     if key in _prompt_cache:
         return _prompt_cache[key]
@@ -122,7 +126,10 @@ def _load_field_prompt(field: str) -> str:
     filename = FIELD_PROMPTS.get(field)
     if not filename:
         raise RuntimeError(f"Unsupported suggestion field: {field}")
-    prompt_path = Path(__file__).resolve().parents[1] / "prompts" / filename
+    prompt_path = PROMPTS_DIR / filename
+    if not prompt_path.is_file():
+        # Backward-compatible fallback for older layouts.
+        prompt_path = LEGACY_PROMPTS_DIR / filename
     key = str(prompt_path)
     if key in _prompt_cache:
         return _prompt_cache[key]
