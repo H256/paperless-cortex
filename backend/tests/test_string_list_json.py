@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.string_list_json import (
+from app.services.runtime.string_list_json import (
     dumps_normalized_string_list,
     normalize_string_list,
     parse_string_list_json,

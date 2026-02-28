@@ -21,13 +21,13 @@ from app.models import (
     DocumentSuggestion,
     TaskRun,
 )
-from app.services.queue import enqueue_task, enqueue_task_sequence, enqueue_task_sequence_front
-from app.services.embeddings import delete_points_for_doc, delete_similarity_points
-from app.services.pipeline_fanout import build_pipeline_fanout_items, latest_task_runs_by_signature
-from app.services.page_text_store import reclean_page_texts
-from app.services.queue_tasks import build_task_sequence
-from app.services.process_missing import ProcessMissingOptions, process_missing_documents
-from app.services.pipeline_planner import (
+from app.services.pipeline.queue import enqueue_task, enqueue_task_sequence, enqueue_task_sequence_front
+from app.services.search.embeddings import delete_points_for_doc, delete_similarity_points
+from app.services.pipeline.pipeline_fanout import build_pipeline_fanout_items, latest_task_runs_by_signature
+from app.services.documents.page_text_store import reclean_page_texts
+from app.services.pipeline.queue_tasks import build_task_sequence
+from app.services.pipeline.process_missing import ProcessMissingOptions, process_missing_documents
+from app.services.pipeline.pipeline_planner import (
     PipelineOptions,
     collect_pipeline_cache,
     dedupe_tasks,
@@ -35,7 +35,7 @@ from app.services.pipeline_planner import (
     post_sync_followup_tasks,
     task_signature,
 )
-from app.services import paperless
+from app.services.integrations import paperless
 from app.schemas import DocumentIn
 from app.routes.sync import _upsert_document
 from app.routes.sync import sync_documents as run_sync_documents

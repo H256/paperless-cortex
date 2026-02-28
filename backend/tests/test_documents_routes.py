@@ -125,8 +125,8 @@ def test_process_missing_rejects_invalid_limit(api_client, monkeypatch):
 
 
 def test_get_document_suggestions_empty(api_client, monkeypatch):
-    from app.services import paperless
-    from app.services import meta_cache
+    from app.services.integrations import paperless
+    from app.services.integrations import meta_cache
 
     monkeypatch.setattr(paperless, "get_document", lambda *args, **kwargs: {"content": ""})
     monkeypatch.setattr(meta_cache, "get_cached_tags", lambda *args, **kwargs: [])
@@ -183,7 +183,7 @@ def test_enqueue_document_task_queue_disabled(api_client):
 
 
 def test_list_documents_review_status_unreviewed(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setattr(
         paperless,
@@ -210,7 +210,7 @@ def test_list_documents_review_status_unreviewed(api_client, monkeypatch):
 
 
 def test_mark_reviewed_moves_document_out_of_unreviewed(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=41, title="Doc 41", created="2026-02-10T10:00:00+00:00")
     monkeypatch.setattr(
@@ -244,7 +244,7 @@ def test_mark_reviewed_moves_document_out_of_unreviewed(api_client, monkeypatch)
 
 
 def test_mark_reviewed_updates_local_review_status(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=45, title="Doc 45", created="2026-02-10T10:00:00+00:00")
     monkeypatch.setattr(
@@ -289,7 +289,7 @@ def test_mark_reviewed_returns_missing_when_document_not_local(api_client):
 
 
 def test_list_documents_review_status_needs_review(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setattr(
         paperless,
@@ -315,7 +315,7 @@ def test_list_documents_review_status_needs_review(api_client, monkeypatch):
 
 
 def test_list_documents_local_overrides_force_needs_review(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=4, title="Local override title", created="2026-02-10")
     _insert_suggestion_audit(doc_id=4, created_at="2026-02-10T10:20:00+00:00")
@@ -348,7 +348,7 @@ def test_list_documents_local_overrides_force_needs_review(api_client, monkeypat
 
 
 def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=5, title="Doc 5", created="2026-02-10")
     _insert_pending_tags(doc_id=5, names=["BrandNewTag"])
@@ -382,7 +382,7 @@ def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
 
 
 def test_list_documents_filter_without_correspondent(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setattr(
         paperless,
@@ -421,7 +421,7 @@ def test_list_documents_filter_without_correspondent(api_client, monkeypatch):
 
 
 def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=21, title="Fanout Doc", created="2026-02-10T10:00:00+00:00")
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -511,7 +511,7 @@ def _insert_local_note(doc_id: int, note: str, note_id: int = -1):
 
 
 def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=31, title="Stable Doc", created="2026-02-10T10:00:00+00:00")
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -600,7 +600,7 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
 
 
 def test_pipeline_status_marks_evidence_optional_for_no_text_layer(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=32, title="Image Only", created="2026-02-10T10:00:00+00:00")
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -640,7 +640,7 @@ def test_pipeline_status_marks_evidence_optional_for_no_text_layer(api_client, m
 
 
 def test_reset_and_reprocess_clears_doc_task_runs(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
     from app.routes import documents_actions
 
     _insert_local_document(doc_id=67, title="Reset TaskRuns", created="2026-02-10T10:00:00+00:00")
@@ -739,7 +739,7 @@ def test_delete_similarity_index_clears_similarity_task_runs(api_client, monkeyp
 
 
 def test_get_local_document_note_override_sets_needs_review(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=41, title="Doc 41", created="2026-02-10T10:00:00+00:00")
     _insert_local_note(
@@ -769,7 +769,7 @@ def test_get_local_document_note_override_sets_needs_review(api_client, monkeypa
 
 
 def test_list_documents_detects_correspondent_clear_as_override(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(
         doc_id=42,
@@ -807,7 +807,7 @@ def test_list_documents_detects_correspondent_clear_as_override(api_client, monk
 
 
 def test_get_local_document_detects_empty_title_as_override(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=43, title="", created="2026-02-10T10:00:00+00:00")
     monkeypatch.setattr(
@@ -832,7 +832,7 @@ def test_get_local_document_detects_empty_title_as_override(api_client, monkeypa
 
 
 def test_list_documents_summary_preview_only_when_requested(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_suggestion(
         doc_id=44,

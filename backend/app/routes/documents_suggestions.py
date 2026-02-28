@@ -20,20 +20,20 @@ from app.models import (
     DocumentSuggestion,
     Tag,
 )
-from app.services import paperless
-from app.services.meta_cache import get_cached_correspondents, get_cached_tags
-from app.services.page_text_store import upsert_page_texts
-from app.services.ocr_scoring import ensure_document_ocr_score
-from app.services.documents import fetch_pdf_bytes, get_document_or_none
-from app.services.page_texts_merge import collect_page_texts
-from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
-from app.services.note_ids import next_local_note_id
-from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
-from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
-from app.services.text_pages import get_page_text_layers
-from app.services.time_utils import utc_now_iso
-from app.services.json_utils import parse_json_object
-from app.services.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
+from app.services.integrations import paperless
+from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services.documents.page_text_store import upsert_page_texts
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.pipeline.queue import enqueue_task_front, enqueue_task_sequence_front
+from app.services.documents.note_ids import next_local_note_id
+from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
+from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.documents.text_pages import get_page_text_layers
+from app.services.runtime.time_utils import utc_now_iso
+from app.services.runtime.json_utils import parse_json_object
+from app.services.runtime.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
@@ -98,7 +98,7 @@ def _append_similar_docs_metadata(
     logger: logging.Logger,
 ) -> None:
     try:
-        from app.services.similarity import (
+        from app.services.search.similarity import (
             aggregate_similar_metadata,
             fetch_doc_point_vector,
             search_similar_doc_points,

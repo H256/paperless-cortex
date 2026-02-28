@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from app.config import load_settings
-from app.services.chat import MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, answer_question
+from app.services.ai.chat import MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, answer_question
 
 
 def test_answer_question_enriches_citations_with_evidence(monkeypatch):
     settings = load_settings()
 
-    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.ai.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
-        "app.services.chat.search_points",
+        "app.services.ai.chat.search_points",
         lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
@@ -28,8 +28,8 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
-    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
     def _resolver(citations, max_pages=3, settings=None, db=None):
         return [
             {
@@ -43,7 +43,7 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
             }
         ]
 
-    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", _resolver)
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", _resolver)
 
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
@@ -57,11 +57,11 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
 def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
     settings = load_settings()
 
-    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.ai.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
-        "app.services.chat.search_points",
+        "app.services.ai.chat.search_points",
         lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
@@ -78,8 +78,8 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
-    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
 
     called = {"value": False}
 
@@ -87,7 +87,7 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
         called["value"] = True
         return []
 
-    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", _resolver)
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", _resolver)
 
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
@@ -100,11 +100,11 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
     monkeypatch.setenv("EVIDENCE_MAX_PAGES", "2")
     settings = load_settings()
 
-    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.ai.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
-        "app.services.chat.search_points",
+        "app.services.ai.chat.search_points",
         lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
@@ -143,8 +143,8 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
-    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
 
     called = {"max_pages": None}
 
@@ -163,7 +163,7 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
             for c in citations
         ]
 
-    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", _resolver)
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", _resolver)
 
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
@@ -173,11 +173,11 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
 def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
     settings = load_settings()
 
-    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.ai.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
     monkeypatch.setattr(
-        "app.services.chat.search_points",
+        "app.services.ai.chat.search_points",
         lambda _settings, _vector, limit=18, **_kwargs: {
             "result": [
                 {
@@ -213,9 +213,9 @@ def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
-    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
-    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
 
     result = answer_question(settings, question="What changed?", top_k=3, min_quality=80)
     assert isinstance(result, dict)
@@ -225,13 +225,13 @@ def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
 
 def test_answer_question_generates_and_echoes_conversation_id(monkeypatch):
     settings = load_settings()
-    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
-    monkeypatch.setattr("app.services.chat.search_points", lambda *_args, **_kwargs: {"result": []})
-    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
-    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
-    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
+    monkeypatch.setattr("app.services.ai.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.ai.chat.search_points", lambda *_args, **_kwargs: {"result": []})
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
+    monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
 
     generated = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(generated, dict)
@@ -251,12 +251,12 @@ def test_answer_question_generates_and_echoes_conversation_id(monkeypatch):
 
 def test_answer_question_limits_history_in_prompt(monkeypatch):
     settings = load_settings()
-    monkeypatch.setattr("app.services.chat.ensure_text_llm_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.ensure_qdrant_ready", lambda _settings: None)
-    monkeypatch.setattr("app.services.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
-    monkeypatch.setattr("app.services.chat.search_points", lambda *_args, **_kwargs: {"result": []})
-    monkeypatch.setattr("app.services.chat._load_prompt", lambda _settings: "{question}\n{history}\n{sources}")
-    monkeypatch.setattr("app.services.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
+    monkeypatch.setattr("app.services.ai.chat.ensure_text_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _settings, _text: [0.1, 0.2])
+    monkeypatch.setattr("app.services.ai.chat.search_points", lambda *_args, **_kwargs: {"result": []})
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{history}\n{sources}")
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", lambda *args, **kwargs: [])
 
     captured = {"prompt": ""}
 
@@ -264,7 +264,7 @@ def test_answer_question_limits_history_in_prompt(monkeypatch):
         captured["prompt"] = str(messages[0].get("content") or "")
         return "ok"
 
-    monkeypatch.setattr("app.services.chat.llm_client.chat_completion", _chat_completion)
+    monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", _chat_completion)
 
     history = []
     for i in range(MAX_HISTORY_TURNS + 5):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models import TaskRun
-from app.services.pipeline_fanout import (
+from app.services.pipeline.pipeline_fanout import (
     build_pipeline_fanout_items,
     fanout_status_from_run,
     latest_task_runs_by_signature,

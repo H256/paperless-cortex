@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.services.queue import (
+from app.services.pipeline.queue import (
     enqueue_docs,
     queue_stats,
     peek_queue,
@@ -30,8 +30,8 @@ from app.services.queue import (
     clear_dead_letters,
     requeue_dead_letter_item,
 )
-from app.services.task_runs import list_task_runs
-from app.services.error_types import get_error_type_details, list_error_type_details
+from app.services.pipeline.task_runs import list_task_runs
+from app.services.pipeline.error_types import get_error_type_details, list_error_type_details
 from app.routes.queue_helpers import queue_disabled_response
 from app.api_models import (
     QueueStatusResponse,

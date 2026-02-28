@@ -9,7 +9,7 @@ from app.models import (
     SuggestionAudit,
     Tag,
 )
-from app.services.writeback_preview import (
+from app.services.writeback.writeback_preview import (
     local_writeback_candidate_doc_ids,
     preview_for_doc_ids,
 )
@@ -17,7 +17,7 @@ from app.services.writeback_preview import (
 
 def test_preview_for_doc_ids_builds_changed_item_with_pending_values(session_factory, monkeypatch):
     from app.config import load_settings
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     with session_factory() as db:
         local_tag = Tag(id=9901, name="LocalTag")
@@ -70,7 +70,7 @@ def test_preview_for_doc_ids_builds_changed_item_with_pending_values(session_fac
 
 def test_preview_for_doc_ids_uses_fallback_document_fetch(session_factory, monkeypatch):
     from app.config import load_settings
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     with session_factory() as db:
         db.add(Document(id=902, title="Doc 902"))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.worker_checkpoint import resume_stage_current
+from app.services.pipeline.worker_checkpoint import resume_stage_current
 
 
 def test_resume_stage_current_uses_resume_from_payload():

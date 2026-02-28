@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from app.config import load_settings
 from app.models import TaskRun
-from app.services.pipeline_planner import (
+from app.services.pipeline.pipeline_planner import (
     PipelineOptions,
     collect_pipeline_cache,
     evaluate_doc_pipeline,

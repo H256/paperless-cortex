@@ -18,12 +18,11 @@ from app.models import (
     DocumentEmbedding,
     DocumentPageNote,
     DocumentPageText,
-    DocumentSectionSummary,
     DocumentSuggestion,
 )
-from app.services import paperless
-from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
-from app.services.embeddings import (
+from app.services.integrations import paperless
+from app.services.documents.documents import fetch_pdf_bytes_for_doc, get_document_or_none
+from app.services.search.embeddings import (
     average_vectors,
     chunk_document_with_pages,
     enforce_embedding_chunk_budget,
@@ -35,8 +34,8 @@ from app.services.embeddings import (
     rebuild_doc_point_from_chunks,
     upsert_points,
 )
-from app.services.embedding_init import ensure_embedding_collection
-from app.services.queue import (
+from app.services.search.embedding_init import ensure_embedding_collection
+from app.services.pipeline.queue import (
     QUEUE_KEY,
     _get_client,
     mark_in_progress,
@@ -59,39 +58,36 @@ from app.services.queue import (
     move_due_delayed_tasks,
     add_dead_letter,
 )
-from app.services.text_pages import get_baseline_page_texts
-from app.services.page_texts_merge import collect_page_texts
-from app.services.page_text_store import upsert_page_texts
-from app.services.page_text_store import reclean_page_texts
-from app.services.page_types import PageText
-from app.services.ocr_scoring import ensure_document_ocr_score
-from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
-from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
-from app.services.meta_cache import get_cached_correspondents, get_cached_tags
-from app.services import vision_ocr
-from app.services.text_cleaning import clean_ocr_text
-from app.services.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
-from app.services.error_types import classify_worker_error
-from app.services.error_types import is_retryable_error_type
-from app.services.error_types import task_source_from_payload
-from app.services.logging_setup import configure_logging, log_event
-from app.services.hierarchical_summary import (
-    generate_global_summary,
+from app.services.documents.text_pages import get_baseline_page_texts
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.documents.page_text_store import upsert_page_texts
+from app.services.documents.page_text_store import reclean_page_texts
+from app.services.documents.page_types import PageText
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
+from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services.ai import vision_ocr
+from app.services.documents.text_cleaning import clean_ocr_text
+from app.services.search.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
+from app.services.pipeline.error_types import classify_worker_error
+from app.services.pipeline.error_types import is_retryable_error_type
+from app.services.pipeline.error_types import task_source_from_payload
+from app.services.runtime.logging_setup import configure_logging, log_event
+from app.services.ai.hierarchical_summary import (
     generate_page_notes,
-    generate_section_summary,
-    group_notes_into_sections,
     is_large_document,
-    replace_section_summaries,
     upsert_page_note,
 )
+from app.services.ai.hierarchical_summary_pipeline import HierarchicalSummaryPipeline
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
-from app.services.task_runs import (
+from app.services.pipeline.task_runs import (
     create_task_run,
     find_latest_checkpoint,
     finish_task_run,
 )
-from app.services.worker_checkpoint import (
+from app.services.pipeline.worker_checkpoint import (
     get_task_run_checkpoint as _get_task_run_checkpoint,
     resume_stage_current as _resume_stage_current,
     set_task_checkpoint as _set_task_checkpoint,
@@ -908,176 +904,8 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id:
 
 
 def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: str, run_id: int | None = None) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort hierarchical summary doc=%s", doc_id)
-        return
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    if not _is_large_doc(settings, doc):
-        logger.info("Hierarchical summary skipped (small doc) doc=%s", doc_id)
-        return
-    note_rows = (
-        db.query(DocumentPageNote)
-        .filter(
-            DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.source == source,
-            DocumentPageNote.status == "ok",
-        )
-        .order_by(DocumentPageNote.page.asc())
-        .all()
-    )
-    if not note_rows and source != "paperless_ocr":
-        note_rows = (
-            db.query(DocumentPageNote)
-            .filter(
-                DocumentPageNote.doc_id == doc_id,
-                DocumentPageNote.source == "paperless_ocr",
-                DocumentPageNote.status == "ok",
-            )
-            .order_by(DocumentPageNote.page.asc())
-            .all()
-        )
-        source = "paperless_ocr"
-    if not note_rows:
-        logger.info("Hierarchical summary skipped (no page notes) doc=%s", doc_id)
-        return
-
-    page_to_note: dict[int, dict] = {}
-    for row in note_rows:
-        raw = (row.notes_text or "").strip()
-        if not raw:
-            continue
-        page_to_note[int(row.page)] = {"page": int(row.page), "text": raw}
-    sections = group_notes_into_sections(
-        sorted(page_to_note.items(), key=lambda item: item[0]),
-        max_pages=settings.summary_section_pages,
-        max_input_tokens=settings.section_summary_max_input_tokens,
-    )
-    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
-    resume_current = _resume_stage_current(
-        checkpoint,
-        stage="summary_sections",
-        source=source,
-        total=len(sections),
-    )
-    start_index = max(0, min(resume_current, len(sections)))
-    persisted_by_key: dict[str, dict] = {}
-    if start_index > 0:
-        persisted_rows = (
-            db.query(DocumentSectionSummary)
-            .filter(
-                DocumentSectionSummary.doc_id == doc_id,
-                DocumentSectionSummary.source == source,
-                DocumentSectionSummary.status == "ok",
-            )
-            .all()
-        )
-        for row in persisted_rows:
-            raw_summary = (row.summary_text or "").strip()
-            if not raw_summary:
-                continue
-            persisted_by_key[str(row.section_key)] = {
-                "section": str(row.section_key),
-                "text": raw_summary,
-                "summary": raw_summary,
-                "key_facts": [],
-                "key_dates": [],
-                "key_entities": [],
-                "key_numbers": [],
-                "open_questions": [],
-                "confidence_notes": [],
-            }
-        required_keys = [str(sections[i][0]) for i in range(start_index)]
-        if not all(key in persisted_by_key for key in required_keys):
-            logger.info(
-                "Summary resume reset doc=%s source=%s reason=missing_persisted_sections",
-                doc_id,
-                source,
-            )
-            start_index = 0
-            persisted_by_key = {}
-        else:
-            logger.info(
-                "Summary resume doc=%s source=%s start=%s total=%s",
-                doc_id,
-                source,
-                start_index,
-                len(sections),
-            )
-    _set_task_checkpoint(
-        db,
-        run_id=run_id,
-        stage="summary_sections",
-        current=start_index,
-        total=len(sections),
-        extra={"source": source, "resumed": start_index > 0},
-    )
-    section_payloads: list[tuple[str, dict]] = []
-    if start_index > 0:
-        for section_key, _ in sections[:start_index]:
-            cached = persisted_by_key.get(str(section_key))
-            if cached is not None:
-                section_payloads.append((section_key, cached))
-    for section_index, (section_key, page_notes) in enumerate(sections[start_index:], start=start_index + 1):
-        if is_cancel_requested(settings):
-            logger.info("Worker cancel requested; stop section summaries doc=%s", doc_id)
-            return
-        if not page_notes:
-            continue
-        try:
-            section_summary = generate_section_summary(
-                settings,
-                section_key=section_key,
-                page_notes=page_notes,
-            )
-            section_payloads.append((section_key, section_summary))
-        except Exception as exc:
-            logger.warning("Section summary failed doc=%s section=%s error=%s", doc_id, section_key, exc)
-        finally:
-            _set_task_checkpoint(
-                db,
-                run_id=run_id,
-                stage="summary_sections",
-                current=section_index,
-                total=len(sections),
-                extra={"source": source},
-            )
-    if not section_payloads:
-        return
-    replace_section_summaries(
-        db,
-        doc_id=doc_id,
-        source=source,
-        summaries=section_payloads,
-        model_name=settings.text_model,
-    )
-    global_payload: dict
-    try:
-        global_payload = generate_global_summary(
-            settings,
-            section_summaries=[payload for _, payload in section_payloads],
-        )
-    except Exception as exc:
-        global_payload = {
-            "summary": "",
-            "executive_summary": "",
-            "key_facts": [],
-            "key_dates": [],
-            "key_entities": [],
-            "key_numbers": [],
-            "open_questions": [],
-            "confidence_notes": [f"global_summary_error:{str(exc)[:200]}"],
-        }
-    global_payload["source"] = source
-    persist_suggestions(
-        db,
-        doc_id,
-        "hier_summary",
-        global_payload,
-        model_name=settings.text_model,
-        action="hierarchical_summary_generate",
-    )
+    pipeline = HierarchicalSummaryPipeline(settings, db)
+    pipeline.run(doc_id=doc_id, source=source, run_id=run_id)
 
 def _process_embeddings_paperless(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):

@@ -37,7 +37,7 @@ def _insert_pending_tags(doc_id: int, names: list[str]):
 
 
 def test_writeback_job_create_and_execute_dry_run(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(501, "Local title")
 
@@ -72,7 +72,7 @@ def test_writeback_job_create_and_execute_dry_run(api_client, monkeypatch):
 
 
 def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(502, "Local title 502")
 
@@ -113,7 +113,7 @@ def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
 
 
 def test_writeback_job_create_deduplicates_pending(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(503, "Local title 503")
     monkeypatch.setattr(
@@ -137,7 +137,7 @@ def test_writeback_job_create_deduplicates_pending(api_client, monkeypatch):
 
 
 def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(504, "Local title 504")
     _insert_document(505, "Local title 505")
@@ -166,7 +166,7 @@ def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
 
 
 def test_writeback_job_delete_removes_pending_job(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(530, "Local title 530")
     monkeypatch.setattr(
@@ -195,7 +195,7 @@ def test_writeback_job_delete_removes_pending_job(api_client, monkeypatch):
 
 
 def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(506, "Local title 506")
     monkeypatch.setattr(
@@ -238,7 +238,7 @@ def test_writeback_execute_now_rejects_without_valid_doc_ids(api_client, monkeyp
 
 
 def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(510, "Local title 510")
     remote_modified = "2026-02-12T18:00:00+00:00"
@@ -285,7 +285,7 @@ def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_c
 
 
 def test_writeback_direct_requires_resolution_when_modified_changed(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(507, "Local title 507")
     monkeypatch.setattr(
@@ -314,7 +314,7 @@ def test_writeback_direct_requires_resolution_when_modified_changed(api_client, 
 
 
 def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
     from app.models import Document
@@ -361,7 +361,7 @@ def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkey
 
 
 def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
     from app.models import Document
@@ -416,7 +416,7 @@ def test_writeback_job_create_rejects_without_valid_doc_ids(api_client):
 
 
 def test_writeback_job_create_rejects_when_no_changes_detected(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(540, "Same title")
     monkeypatch.setattr(
@@ -478,7 +478,7 @@ def test_writeback_jobs_list_returns_503_when_table_missing(api_client):
 
 
 def test_writeback_job_execute_rejects_real_execution_when_disabled(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "0")
     _insert_document(560, "Local title 560")
@@ -581,7 +581,7 @@ def test_writeback_history_returns_503_when_table_missing(api_client):
 
 
 def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(571, "Local title 571")
     _insert_document(572, "Local title 572")

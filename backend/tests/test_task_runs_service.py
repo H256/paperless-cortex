@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 
 from app.models import TaskRun
-from app.services.task_runs import create_task_run, find_latest_checkpoint, finish_task_run, list_task_runs
+from app.services.pipeline.task_runs import create_task_run, find_latest_checkpoint, finish_task_run, list_task_runs
 
 
 def test_find_latest_checkpoint_returns_newest_dict(session_factory):

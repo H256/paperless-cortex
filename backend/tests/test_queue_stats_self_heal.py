@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from app.services import queue as queue_mod
+from app.services.pipeline import queue as queue_mod
 
 
 class _FakeRedis:

@@ -25,10 +25,10 @@ from app.routes import (
     writeback_dryrun,
 )
 from app.config import load_settings
-from app.services.meta_cache import refresh_cache
-from app.services.meta_sync import sync_correspondents_all, sync_tags_all
+from app.services.integrations.meta_cache import refresh_cache
+from app.services.integrations.meta_sync import sync_correspondents_all, sync_tags_all
 from app.db import SessionLocal
-from app.services.logging_setup import configure_logging
+from app.services.runtime.logging_setup import configure_logging
 from app.version import API_VERSION
 
 SETTINGS = load_settings()

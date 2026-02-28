@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.json_utils import parse_json_list, parse_json_object
+from app.services.runtime.json_utils import parse_json_list, parse_json_object
 
 
 def test_parse_json_object_returns_empty_for_invalid_inputs() -> None:

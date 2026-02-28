@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.task_runs import create_task_run, find_latest_checkpoint, finish_task_run
-from app.services.worker_checkpoint import (
+from app.services.pipeline.task_runs import create_task_run, find_latest_checkpoint, finish_task_run
+from app.services.pipeline.worker_checkpoint import (
     get_task_run_checkpoint,
     resume_stage_current,
     set_task_checkpoint,

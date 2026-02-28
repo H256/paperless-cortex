@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 
 from app.config import load_settings
-from app.services import qdrant
+from app.services.search import qdrant
 
 
 class _FakeClient:

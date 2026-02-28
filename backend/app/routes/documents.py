@@ -23,18 +23,18 @@ from app.models import (
     SuggestionAudit,
     Tag,
 )
-from app.services import paperless
-from app.services.hierarchical_summary import is_large_document
-from app.services.queue import enqueue_docs_front
-from app.services.text_pages import get_baseline_page_texts, score_text_quality
-from app.services.ocr_scoring import ensure_document_ocr_score
-from app.services.writeback_plan import canonical_ai_summary, extract_ai_summary_note
-from app.services.documents import fetch_pdf_bytes, get_document_or_none
-from app.services.document_stats import compute_document_stats
-from app.services.document_review import derive_review_status, derive_sync_status
-from app.services.dashboard import build_dashboard_payload
-from app.services.json_utils import parse_json_object
-from app.services.string_list_json import parse_string_list_json
+from app.services.integrations import paperless
+from app.services.ai.hierarchical_summary import is_large_document
+from app.services.pipeline.queue import enqueue_docs_front
+from app.services.documents.text_pages import get_baseline_page_texts, score_text_quality
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.writeback.writeback_plan import canonical_ai_summary, extract_ai_summary_note
+from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.documents.document_stats import compute_document_stats
+from app.services.documents.document_review import derive_review_status, derive_sync_status
+from app.services.documents.dashboard import build_dashboard_payload
+from app.services.runtime.json_utils import parse_json_object
+from app.services.runtime.string_list_json import parse_string_list_json
 from app.routes.queue_guard import require_queue_enabled
 from app.api_models import (
     DocumentLocalResponse,

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.config import load_settings
-from app.services.evidence import resolve_evidence_matches
+from app.services.search.evidence import resolve_evidence_matches
 
 
 def test_resolve_evidence_uses_provided_bbox_when_valid():
@@ -32,7 +32,7 @@ def test_resolve_evidence_uses_pdf_word_matching_when_settings_available(monkeyp
     settings = load_settings()
 
     monkeypatch.setattr(
-        "app.services.evidence._load_page_words",
+        "app.services.search.evidence._load_page_words",
         lambda _settings, _doc_id, _page, _pdf_cache, _words_cache, db=None: [
             {"text": "Invoice", "bbox": [10, 10, 40, 20]},
             {"text": "Number", "bbox": [42, 10, 80, 20]},
@@ -56,7 +56,7 @@ def test_resolve_evidence_parses_real_pdf_fixture(monkeypatch):
     settings = load_settings()
     fixture = Path(__file__).resolve().parent / "fixtures" / "pdfs" / "doc-1960-paperless.pdf"
     pdf_bytes = fixture.read_bytes()
-    monkeypatch.setattr("app.services.evidence.fetch_pdf_bytes", lambda _settings, _doc_id: pdf_bytes)
+    monkeypatch.setattr("app.services.search.evidence.fetch_pdf_bytes", lambda _settings, _doc_id: pdf_bytes)
 
     matches = resolve_evidence_matches(
         [
