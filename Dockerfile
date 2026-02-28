@@ -3,9 +3,8 @@
 FROM node:22-bookworm-slim AS frontend-build
 WORKDIR /app/frontend
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV NPM_CONFIG_OPTIONAL=false
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --include=dev --omit=optional --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 COPY backend/openapi.json /app/backend/openapi.json
 RUN ORVAL_API_URL=../backend/openapi.json npx orval --config orval.config.ts
