@@ -107,38 +107,6 @@ def normalize_suggestions_payload(payload: dict[str, Any], known_tags: list[str]
     return data
 
 
-def _is_error_payload(payload: dict[str, Any] | None) -> bool:
-    return bool(payload) and "error" in payload
-
-
-def merge_suggestions(
-    paperless: dict[str, Any] | None, vision: dict[str, Any] | None
-) -> dict[str, Any] | None:
-    if not paperless and not vision:
-        return None
-    base = (paperless or {}) if not _is_error_payload(paperless) else {}
-    alt = (vision or {}) if not _is_error_payload(vision) else {}
-    def pick(field: str) -> object:
-        val = alt.get(field)
-        if isinstance(val, str) and val.strip():
-            return val
-        if isinstance(val, list) and val:
-            return val
-        val2 = base.get(field)
-        return val2 if val2 is not None else ""
-
-    merged = {"title": pick("title"), "correspondent": pick("correspondent"), "documentType": pick("documentType"),
-              "date": pick("date"), "language": pick("language") or base.get("language") or "",
-              "summary": pick("summary"), "tags": pick("tags") or [], "entities": pick("entities") or [],
-              "risks": pick("risks") or [], "suggested_tags_existing": list(
-            {*(base.get("suggested_tags_existing") or []), *(alt.get("suggested_tags_existing") or [])}
-        ), "suggested_tags_new": list(
-            {*(base.get("suggested_tags_new") or []), *(alt.get("suggested_tags_new") or [])}
-        )}
-    # combine tag hints if present
-    return merged
-
-
 def _load_prompt(settings: Settings) -> str:
     path = settings.suggestions_prompt_path
     if path:

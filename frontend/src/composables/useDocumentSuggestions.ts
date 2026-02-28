@@ -12,7 +12,6 @@ type SuggestionPayload = Record<string, unknown>
 type SuggestionsState = {
   paperless_ocr?: SuggestionPayload
   vision_ocr?: SuggestionPayload
-  best_pick?: SuggestionPayload
   similar_docs?: SuggestionPayload
   suggestions_meta?: Record<string, unknown>
 }

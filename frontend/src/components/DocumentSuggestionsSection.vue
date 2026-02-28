@@ -1,11 +1,11 @@
-<template>
+﻿<template>
   <section
     class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
   >
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">AI suggestions</h3>
       <span class="text-xs text-slate-500 dark:text-slate-400"
-        >Paperless OCR · Vision OCR · Best pick</span
+        >Paperless OCR · Vision OCR</span
       >
     </div>
 
@@ -19,128 +19,32 @@
       No suggestions loaded.
     </div>
     <div v-else class="mt-4 space-y-4">
-      <div
-        v-if="bestPickPanel"
-        class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-      >
-        <div class="flex items-center justify-between">
-          <strong class="text-sm text-slate-900 dark:text-slate-100">{{ bestPickPanel.label }}</strong>
-        </div>
-
-        <div v-if="!bestPickPanel.suggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          <em>No data.</em>
-        </div>
-        <div v-else class="mt-3 space-y-3">
-          <div v-if="bestPickPanel.suggestion.raw">
-            <div class="text-xs font-semibold text-slate-500">Raw output</div>
-            <pre
-              class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              >{{ bestPickPanel.suggestion.raw }}</pre
-            >
-          </div>
-
-          <div v-if="bestPickPanel.suggestion.data" class="space-y-2">
-            <div
-              v-if="bestPickPanel.showSummary"
-              class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-            >
-              <div class="flex items-center gap-2">
-                <span>Summary</span>
-                <span
-                  v-if="currentValues.note"
-                  class="inline-flex items-center text-slate-400"
-                  :title="currentValues.note"
-                >
-                  <Info class="h-3.5 w-3.5" />
-                </span>
-              </div>
-              <button
-                v-if="bestPickPanel.allowNoteSave"
-                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                :disabled="suggestionsLoading"
-                @click="openApplyDialog(bestPickPanel.sourceKey, 'note', bestPickPanel.suggestion.data)"
-              >
-                Save note
-              </button>
-            </div>
-            <div v-if="bestPickPanel.showSummary" class="text-sm text-slate-900 dark:text-slate-100">
-              {{ bestPickPanel.suggestion.data.summary }}
-            </div>
-
-            <div v-if="bestPickPanel.showMeta" class="grid gap-2">
-              <div
-                class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-              >
-                  <span>Document type</span>
-                  <span class="text-slate-900 dark:text-slate-100">{{
-                  bestPickPanel.suggestion.data.documentType ||
-                  bestPickPanel.suggestion.data.suggested_document_type
-                }}</span>
-              </div>
-              <div
-                class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400"
-              >
-                <span>Language</span>
-                <span class="text-slate-900 dark:text-slate-100">{{
-                  bestPickPanel.suggestion.data.language
-                }}</span>
-              </div>
-            </div>
-
-            <div
-              v-for="field in fieldsForPanel(bestPickPanel)"
-              :key="`${bestPickPanel.key}-${field.key}`"
-              class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
-            >
-              <span class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
-              <div class="min-w-0 text-sm text-slate-900 dark:text-slate-100">
-                <template v-if="field.key === 'tags'">
-                  <div
-                    v-if="normalizedTags(bestPickPanel.suggestion.data).length"
-                    class="flex flex-wrap gap-1.5"
-                  >
-                    <span
-                      v-for="tag in normalizedTags(bestPickPanel.suggestion.data)"
-                      :key="`tag-${bestPickPanel.key}-${tag}`"
-                      class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    >
-                      {{ tag }}
-                    </span>
-                  </div>
-                  <span v-else class="text-xs text-slate-400 dark:text-slate-500"
-                    >No tags suggested</span
-                  >
-                </template>
-                  <template v-else>
-                    <span class="break-words">{{ fieldValue(bestPickPanel.suggestion.data, field.key) }}</span>
-                  </template>
-                <div class="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">
-                  Current:
-                  {{
-                    field.key === 'tags'
-                      ? currentValues.tags || 'No tags'
-                      : currentValueFor(field.key) || '—'
-                  }}
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                  :disabled="suggestionsLoading"
-                  @click="openApplyDialog(bestPickPanel.sourceKey, field.key, bestPickPanel.suggestion.data)"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
+      <div class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
+        <button
+          type="button"
+          class="rounded-md px-2.5 py-1 text-xs font-semibold"
+          :class="selectedPrimarySource === 'paperless_ocr'
+            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'"
+          @click="selectedPrimarySource = 'paperless_ocr'"
+        >
+          Paperless OCR
+        </button>
+        <button
+          type="button"
+          class="rounded-md px-2.5 py-1 text-xs font-semibold"
+          :class="selectedPrimarySource === 'vision_ocr'
+            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'"
+          @click="selectedPrimarySource = 'vision_ocr'"
+        >
+          Vision OCR
+        </button>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-2">
         <div
-          v-for="panel in sidePanels"
+          v-for="panel in visiblePanels"
           :key="panel.key"
           class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
         >
@@ -314,7 +218,7 @@
                     {{
                       field.key === 'tags'
                         ? currentValues.tags || 'No tags'
-                        : currentValueFor(field.key) || '—'
+                        : currentValueFor(field.key) || 'â€”'
                     }}
                   </div>
                   <div
@@ -435,7 +339,6 @@ type SuggestionState = {
   paperless_ocr?: SuggestionPayload
   vision_ocr?: SuggestionPayload
   similar_docs?: SuggestionPayload
-  best_pick?: SuggestionPayload
   suggestions_meta?: Record<string, unknown>
 }
 
@@ -484,21 +387,12 @@ const suggestionsMeta = computed(
   () => (props.suggestions as { suggestions_meta?: Record<string, unknown> } | null)?.suggestions_meta || {},
 )
 
-const panelFor = (key: 'best_pick' | 'paperless_ocr' | 'vision_ocr' | 'similar_docs') =>
+const panelFor = (key: 'paperless_ocr' | 'vision_ocr' | 'similar_docs') =>
   normalizeSuggestion(props.suggestions?.[key])
 
+type PrimarySuggestionSource = 'paperless_ocr' | 'vision_ocr'
+
 const panels = computed(() => [
-  {
-    key: 'best_pick',
-    label: 'Best pick',
-    source: null,
-    sourceKey: 'best_pick',
-    allowActions: false,
-    allowNoteSave: true,
-    showSummary: true,
-    showMeta: true,
-    suggestion: panelFor('best_pick'),
-  },
   {
     key: 'paperless_ocr',
     label: 'Paperless OCR',
@@ -534,13 +428,15 @@ const panels = computed(() => [
   },
 ])
 
-const bestPickPanel = computed(() => panels.value[0])
-const sidePanels = computed(() =>
-  panels.value.filter(
-    (panel): panel is (typeof panels.value)[number] & { source: SuggestionSource } =>
-      panel.source !== null,
-  ),
-)
+const selectedPrimarySource = ref<PrimarySuggestionSource>('paperless_ocr')
+const visiblePanels = computed(() => {
+  const active = panels.value.find((panel) => panel.source === selectedPrimarySource.value)
+  const similar = panels.value.find((panel) => panel.source === 'similar_docs')
+  const result = [] as (typeof panels.value)[number][]
+  if (active) result.push(active)
+  if (similar) result.push(similar)
+  return result
+})
 
 const fieldsForPanel = (panel: { key: string }) => {
   if (panel.key === 'similar_docs') {
@@ -560,7 +456,7 @@ const suggestionMetaLine = (source: string) => {
   const processed = (meta as { processed_at?: string }).processed_at
     ? formatDateTime((meta as { processed_at?: string }).processed_at)
     : 'unknown'
-  return `Model: ${modelLabel} · Updated: ${processed}`
+  return `Model: ${modelLabel} Â· Updated: ${processed}`
 }
 
 const fieldValue = (data: SuggestionPayload, field: string) => {
