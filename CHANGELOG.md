@@ -5,11 +5,13 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-02-28 (branch: refactor/hier-summary-srp-extract)
 
-### Service modularization (AI + Writeback)
+### Service modularization (AI + Writeback + Domain split)
 - `4211b56` refactor(summary): split hierarchical summary into focused modules (`hierarchical_helpers`, `hierarchical_generation`, `hierarchical_storage`, `hierarchical_summary_pipeline`) and keep `hierarchical_summary` as a compatibility facade.
 - `4211b56` refactor(shared-utils): extracted reusable JSON extraction and text-budget helpers (`json_extraction`, `text_budget`) and reused them in summary + suggestions flows.
 - `27c529a` refactor(services): introduced subpackages `app.services.ai` and `app.services.writeback`, moved AI- and writeback-related services into them, and rewired backend routes/services/worker/tests imports to the new module paths.
 - `27c529a` test(refactor): validated module migration with Ruff and targeted backend suites (hierarchical summary, documents suggestions/routes, writeback services).
+- `2c9535e` refactor(services): completed modularization by moving remaining services into `documents`, `search`, `pipeline`, `integrations`, and `runtime` subpackages and rewiring routes/worker/tests imports.
+- `2c9535e` test(refactor): validated the full module split with Ruff and targeted backend suites (115 tests passing).
 ## 2026-02-26 (branch: feat/similarity-ops-button-srp-pass)
 
 ### Unified app/api/frontend versioning
