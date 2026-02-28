@@ -19,34 +19,12 @@
       No suggestions loaded.
     </div>
     <div v-else class="mt-4 space-y-4">
-      <div class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
-        <button
-          type="button"
-          class="rounded-md px-2.5 py-1 text-xs font-semibold"
-          :class="selectedPrimarySource === 'paperless_ocr'
-            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'"
-          @click="selectedPrimarySource = 'paperless_ocr'"
-        >
-          Paperless OCR
-        </button>
-        <button
-          type="button"
-          class="rounded-md px-2.5 py-1 text-xs font-semibold"
-          :class="selectedPrimarySource === 'vision_ocr'
-            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'"
-          @click="selectedPrimarySource = 'vision_ocr'"
-        >
-          Vision OCR
-        </button>
-      </div>
-
       <div class="grid gap-4 lg:grid-cols-2">
         <div
-          v-for="panel in visiblePanels"
+          v-for="panel in orderedPanels"
           :key="panel.key"
           class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
+          :class="panel.key === 'similar_docs' ? 'lg:col-span-2' : ''"
         >
           <div class="flex items-center justify-between">
             <strong class="text-sm text-slate-900 dark:text-slate-100">{{ panel.label }}</strong>
@@ -390,20 +368,7 @@ const suggestionsMeta = computed(
 const panelFor = (key: 'paperless_ocr' | 'vision_ocr' | 'similar_docs') =>
   normalizeSuggestion(props.suggestions?.[key])
 
-type PrimarySuggestionSource = 'paperless_ocr' | 'vision_ocr'
-
 const panels = computed(() => [
-  {
-    key: 'paperless_ocr',
-    label: 'Paperless OCR',
-    source: 'paperless_ocr' as const,
-    sourceKey: 'paperless_ocr',
-    allowActions: true,
-    allowNoteSave: true,
-    showSummary: true,
-    showMeta: true,
-    suggestion: panelFor('paperless_ocr'),
-  },
   {
     key: 'vision_ocr',
     label: 'Vision OCR',
@@ -414,6 +379,17 @@ const panels = computed(() => [
     showSummary: true,
     showMeta: true,
     suggestion: panelFor('vision_ocr'),
+  },
+  {
+    key: 'paperless_ocr',
+    label: 'Paperless OCR',
+    source: 'paperless_ocr' as const,
+    sourceKey: 'paperless_ocr',
+    allowActions: true,
+    allowNoteSave: true,
+    showSummary: true,
+    showMeta: true,
+    suggestion: panelFor('paperless_ocr'),
   },
   {
     key: 'similar_docs',
@@ -428,21 +404,11 @@ const panels = computed(() => [
   },
 ])
 
-const selectedPrimarySource = ref<PrimarySuggestionSource>('paperless_ocr')
-const visiblePanels = computed(() => {
-  const active = panels.value.find((panel) => panel.source === selectedPrimarySource.value)
-  const similar = panels.value.find((panel) => panel.source === 'similar_docs')
-  const result = [] as (typeof panels.value)[number][]
-  if (active) result.push(active)
-  if (similar) result.push(similar)
-  return result
-})
+const orderedPanels = computed(() => panels.value)
 
 const fieldsForPanel = (panel: { key: string }) => {
   if (panel.key === 'similar_docs') {
-    return suggestionFields.filter(
-      (field) => field.key === 'title' || field.key === 'correspondent' || field.key === 'tags',
-    )
+    return suggestionFields.filter((field) => field.key === 'correspondent' || field.key === 'tags')
   }
   return suggestionFields
 }
