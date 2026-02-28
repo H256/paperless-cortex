@@ -24,7 +24,7 @@ def _insert_document(doc_id: int):
 
 
 def test_dry_run_preview_with_doc_id_uses_direct_document(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(123)
 
@@ -58,7 +58,7 @@ def test_dry_run_preview_with_doc_id_uses_direct_document(api_client, monkeypatc
 
 def test_reviewed_timestamp_uses_fresh_remote_document(session_factory, monkeypatch):
     from app.routes.writeback_dryrun import _reviewed_timestamp_for_doc
-    from app.services import paperless
+    from app.services.integrations import paperless
     from app.deps import get_settings
 
     with session_factory() as db:
@@ -86,7 +86,7 @@ def test_reviewed_timestamp_uses_fresh_remote_document(session_factory, monkeypa
 
 
 def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     _insert_document(501)
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -134,7 +134,7 @@ def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, mo
 def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, monkeypatch):
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
@@ -192,7 +192,7 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
 def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_client, monkeypatch):
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
@@ -242,7 +242,7 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
 def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkeypatch):
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
@@ -302,7 +302,7 @@ def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkey
 
 
 def test_execute_direct_use_paperless_resolutions_sync_local_fields(api_client, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:

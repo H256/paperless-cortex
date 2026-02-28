@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from app.api_models import WritebackConflictField, WritebackDryRunCall, WritebackDryRunItem, WritebackFieldDiff
 from app.config import Settings
 from app.models import Document, DocumentNote, DocumentPendingCorrespondent, DocumentPendingTag
-from app.services.note_ids import next_local_note_id
-from app.services.time_utils import utc_now_iso
+from app.services.documents.note_ids import next_local_note_id
+from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_selection import LocalWritebackSelection, collect_local_selection, normalize_changed_field
 
 

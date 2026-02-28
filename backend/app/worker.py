@@ -20,9 +20,9 @@ from app.models import (
     DocumentPageText,
     DocumentSuggestion,
 )
-from app.services import paperless
-from app.services.documents import fetch_pdf_bytes_for_doc, get_document_or_none
-from app.services.embeddings import (
+from app.services.integrations import paperless
+from app.services.documents.documents import fetch_pdf_bytes_for_doc, get_document_or_none
+from app.services.search.embeddings import (
     average_vectors,
     chunk_document_with_pages,
     enforce_embedding_chunk_budget,
@@ -34,8 +34,8 @@ from app.services.embeddings import (
     rebuild_doc_point_from_chunks,
     upsert_points,
 )
-from app.services.embedding_init import ensure_embedding_collection
-from app.services.queue import (
+from app.services.search.embedding_init import ensure_embedding_collection
+from app.services.pipeline.queue import (
     QUEUE_KEY,
     _get_client,
     mark_in_progress,
@@ -58,22 +58,22 @@ from app.services.queue import (
     move_due_delayed_tasks,
     add_dead_letter,
 )
-from app.services.text_pages import get_baseline_page_texts
-from app.services.page_texts_merge import collect_page_texts
-from app.services.page_text_store import upsert_page_texts
-from app.services.page_text_store import reclean_page_texts
-from app.services.page_types import PageText
+from app.services.documents.text_pages import get_baseline_page_texts
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.documents.page_text_store import upsert_page_texts
+from app.services.documents.page_text_store import reclean_page_texts
+from app.services.documents.page_types import PageText
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
-from app.services.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.ai import vision_ocr
-from app.services.text_cleaning import clean_ocr_text
-from app.services.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
-from app.services.error_types import classify_worker_error
-from app.services.error_types import is_retryable_error_type
-from app.services.error_types import task_source_from_payload
-from app.services.logging_setup import configure_logging, log_event
+from app.services.documents.text_cleaning import clean_ocr_text
+from app.services.search.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
+from app.services.pipeline.error_types import classify_worker_error
+from app.services.pipeline.error_types import is_retryable_error_type
+from app.services.pipeline.error_types import task_source_from_payload
+from app.services.runtime.logging_setup import configure_logging, log_event
 from app.services.ai.hierarchical_summary import (
     generate_page_notes,
     is_large_document,
@@ -82,12 +82,12 @@ from app.services.ai.hierarchical_summary import (
 from app.services.ai.hierarchical_summary_pipeline import HierarchicalSummaryPipeline
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
-from app.services.task_runs import (
+from app.services.pipeline.task_runs import (
     create_task_run,
     find_latest_checkpoint,
     finish_task_run,
 )
-from app.services.worker_checkpoint import (
+from app.services.pipeline.worker_checkpoint import (
     get_task_run_checkpoint as _get_task_run_checkpoint,
     resume_stage_current as _resume_stage_current,
     set_task_checkpoint as _set_task_checkpoint,

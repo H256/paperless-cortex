@@ -3,13 +3,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.services.embeddings import (
+from app.services.search.embeddings import (
     embed_text,
     enforce_embedding_chunk_budget,
     split_text_for_embedding,
     summarize_chunk_split_telemetry,
 )
-from app.services.text_cleaning import estimate_tokens
+from app.services.documents.text_cleaning import estimate_tokens
 
 
 def test_split_text_for_embedding_respects_token_budget():
@@ -66,8 +66,8 @@ def test_embed_text_tracks_overflow_fallback_telemetry():
             )
         return [0.1, 0.2, 0.3]
 
-    with patch("app.services.embeddings.ensure_embedding_llm_ready", lambda _settings: None):
-        with patch("app.services.embeddings.llm_client.embedding", side_effect=fake_embed):
+    with patch("app.services.search.embeddings.ensure_embedding_llm_ready", lambda _settings: None):
+        with patch("app.services.search.embeddings.llm_client.embedding", side_effect=fake_embed):
             vector = embed_text(settings, text, telemetry=telemetry)
 
     assert len(vector) == 3

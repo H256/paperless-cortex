@@ -253,7 +253,7 @@ def _page_note_payload_to_text(payload: dict[str, Any]) -> str:
 
 
 def _section_notes_to_text(page_notes: list[dict[str, Any]], *, max_input_tokens: int) -> str:
-    from app.services.text_cleaning import estimate_tokens
+    from app.services.documents.text_cleaning import estimate_tokens
 
     budget = max(1000, int(max_input_tokens))
     blocks: list[str] = []
@@ -312,7 +312,7 @@ def _compact_page_notes_for_section(
     *,
     max_input_tokens: int,
 ) -> str:
-    from app.services.text_cleaning import estimate_tokens
+    from app.services.documents.text_cleaning import estimate_tokens
 
     budget = max(1000, int(max_input_tokens))
     compact_notes: list[dict[str, Any]] = []

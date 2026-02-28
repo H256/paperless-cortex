@@ -12,15 +12,15 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.deps import get_settings
-from app.services.queue import is_paused, queue_stats, worker_status
-from app.services import paperless
+from app.services.pipeline.queue import is_paused, queue_stats, worker_status
+from app.services.integrations import paperless
 from app.services.ai import llm_client
-from app.services.document_stats import compute_document_stats
+from app.services.documents.document_stats import compute_document_stats
 from app.api_models import StatusResponse
 from app.version import API_VERSION, APP_VERSION
 from app.db import SessionLocal
 from app.models import SyncState
-from app.services.time_utils import estimate_eta_seconds
+from app.services.runtime.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/status", tags=["status"])
 _model_cache: dict[str, object] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}

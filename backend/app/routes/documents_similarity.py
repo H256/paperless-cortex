@@ -10,7 +10,7 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import Document, Tag, Correspondent
 from app.routes.documents import _apply_derived_fields_and_review_status
-from app.services.similarity import (
+from app.services.search.similarity import (
     aggregate_similar_metadata,
     fetch_doc_point_vector,
     search_similar_doc_points,

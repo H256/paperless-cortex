@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.config import Settings
-from app.services.embeddings import embed_text, ensure_qdrant_collection
+from app.services.search.embeddings import embed_text, ensure_qdrant_collection
 
 
 def ensure_embedding_collection(settings: Settings) -> None:

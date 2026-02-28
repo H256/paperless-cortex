@@ -5,10 +5,10 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.services import paperless
-from app.services.pagination import load_all_pages
-from app.services.meta_upsert import prune_missing_tags, upsert_correspondents, upsert_tags
-from app.services.meta_upsert import upsert_document_types
+from app.services.integrations import paperless
+from app.services.documents.pagination import load_all_pages
+from app.services.integrations.meta_upsert import prune_missing_tags, upsert_correspondents, upsert_tags
+from app.services.integrations.meta_upsert import upsert_document_types
 
 logger = logging.getLogger(__name__)
 

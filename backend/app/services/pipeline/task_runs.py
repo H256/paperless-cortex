@@ -9,7 +9,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import TaskRun
-from app.services.time_utils import utc_now_iso
+from app.services.runtime.time_utils import utc_now_iso
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")

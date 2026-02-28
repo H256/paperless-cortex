@@ -5,8 +5,8 @@ from typing import Any
 
 from app.config import Settings
 from app.services.ai import llm_client
-from app.services import paperless
-from app.services import qdrant
+from app.services.integrations import paperless
+from app.services.search import qdrant
 
 
 def check_paperless(settings: Settings) -> tuple[bool, str]:

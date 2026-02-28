@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.config import Settings
-from app.services import qdrant
+from app.services.search import qdrant
 
 
 def ensure_llm_base_ready(settings: Settings) -> None:

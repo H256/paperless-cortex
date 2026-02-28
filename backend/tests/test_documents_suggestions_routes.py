@@ -23,7 +23,7 @@ def test_suggest_field_note_uses_current_summary(api_client, monkeypatch):
         db.commit()
 
     from app.routes import documents_suggestions as route_mod
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     captured: dict[str, object] = {}
 

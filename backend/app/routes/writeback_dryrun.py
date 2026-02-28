@@ -38,10 +38,10 @@ from app.models import (
     SuggestionAudit,
     WritebackJob,
 )
-from app.services import paperless
-from app.services.json_utils import parse_json_list
-from app.services.string_list_json import parse_string_list_json
-from app.services.time_utils import utc_now_iso
+from app.services.integrations import paperless
+from app.services.runtime.json_utils import parse_json_list
+from app.services.runtime.string_list_json import parse_string_list_json
+from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_execution import collect_changed_calls, execute_calls_with_audit, run_writeback_job_execution
 from app.services.writeback.writeback_plan import extract_ai_summary_note
 from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item

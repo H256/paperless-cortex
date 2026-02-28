@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.ai import hierarchical_generation as _gen
-from app.services.guard import ensure_text_llm_ready
+from app.services.runtime.guard import ensure_text_llm_ready
 from app.services.ai.hierarchical_helpers import (
     _best_effort_global_summary,
     _best_effort_page_notes_from_text,

@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.deps import get_settings
 from app.db import get_db
-from app.services.chat import answer_question
-from app.services.chat import generate_followups
-from app.services.evidence import resolve_evidence_matches
+from app.services.ai.chat import answer_question
+from app.services.ai.chat import generate_followups
+from app.services.search.evidence import resolve_evidence_matches
 from app.api_models import (
     ChatRequest,
     ChatResponse,

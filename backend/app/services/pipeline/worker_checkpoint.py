@@ -6,7 +6,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.models import TaskRun
-from app.services.task_runs import update_task_run_checkpoint
+from app.services.pipeline.task_runs import update_task_run_checkpoint
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import DocumentPageAnchor
-from app.services.documents import fetch_pdf_bytes
+from app.services.documents.documents import fetch_pdf_bytes
 
 
 def _norm_token(value: str) -> str:

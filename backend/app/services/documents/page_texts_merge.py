@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Document, DocumentPageText
-from app.services.page_text_store import upsert_page_texts
-from app.services.text_pages import get_baseline_page_texts, get_page_text_layers
-from app.services.documents import fetch_pdf_bytes_for_doc
+from app.services.documents.page_text_store import upsert_page_texts
+from app.services.documents.text_pages import get_baseline_page_texts, get_page_text_layers
+from app.services.documents.documents import fetch_pdf_bytes_for_doc
 
 
 def collect_page_texts(

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import Base
 from app.models import Document
 from app.models import DocumentNote
-from app.services.note_ids import next_local_note_id
+from app.services.documents.note_ids import next_local_note_id
 
 
 def test_next_local_note_id_defaults_to_minus_one_when_no_notes() -> None:

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from app.models import Document, DocumentSuggestion, SuggestionAudit
-from app.services.json_utils import parse_json_object
+from app.services.runtime.json_utils import parse_json_object
 
 logger = logging.getLogger(__name__)
 

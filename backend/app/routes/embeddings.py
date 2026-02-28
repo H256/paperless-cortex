@@ -11,7 +11,7 @@ from app.config import Settings
 from app.deps import get_settings
 from app.db import get_db
 from app.models import Document, DocumentEmbedding, SyncState, Correspondent
-from app.services.embeddings import (
+from app.services.search.embeddings import (
     average_vectors,
     chunk_document_with_pages,
     delete_points_for_doc,
@@ -21,17 +21,17 @@ from app.services.embeddings import (
     search_points,
     upsert_points,
 )
-from app.services.embedding_init import ensure_embedding_collection
-from app.services.page_texts_merge import collect_page_texts
-from app.services.queue import enqueue_task, queue_stats
-from app.services.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.search.embedding_init import ensure_embedding_collection
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.pipeline.queue import enqueue_task, queue_stats
+from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
 from app.api_models import (
     EmbeddingIngestResponse,
     EmbeddingSearchResponse,
     EmbeddingStatusResponse,
     SyncCancelResponse,
 )
-from app.services.time_utils import estimate_eta_seconds
+from app.services.runtime.time_utils import estimate_eta_seconds
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 logger = logging.getLogger(__name__)

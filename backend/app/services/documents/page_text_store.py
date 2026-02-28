@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 import logging
 
 from app.models import DocumentPageText
-from app.services.page_types import PageText
-from app.services.text_pages import score_text_quality
+from app.services.documents.page_types import PageText
+from app.services.documents.text_pages import score_text_quality
 from app.config import Settings
-from app.services.text_cleaning import clean_ocr_text, estimate_tokens
+from app.services.documents.text_cleaning import clean_ocr_text, estimate_tokens
 
 logger = logging.getLogger(__name__)
 

@@ -13,11 +13,11 @@ from fastapi.responses import StreamingResponse
 from app.config import Settings
 from app.models import Document
 from app.services.ai import llm_client
-from app.services.guard import ensure_text_llm_ready, ensure_qdrant_ready
-from app.services.embeddings import embed_text, search_points
-from app.services.evidence import resolve_evidence_matches
-from app.services.json_utils import parse_json_object
-from app.services.string_list_json import parse_string_list_json
+from app.services.runtime.guard import ensure_text_llm_ready, ensure_qdrant_ready
+from app.services.search.embeddings import embed_text, search_points
+from app.services.search.evidence import resolve_evidence_matches
+from app.services.runtime.json_utils import parse_json_object
+from app.services.runtime.string_list_json import parse_string_list_json
 
 logger = logging.getLogger(__name__)
 

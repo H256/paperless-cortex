@@ -6,8 +6,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.models import Base, Document, Tag
-from app.services import paperless
-from app.services.meta_sync import sync_tags_all
+from app.services.integrations import paperless
+from app.services.integrations.meta_sync import sync_tags_all
 
 
 def test_sync_tags_all_prunes_removed_tags(api_client, monkeypatch):

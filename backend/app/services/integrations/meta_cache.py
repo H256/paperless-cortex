@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 
 from app.config import Settings
-from app.services import paperless
-from app.services.pagination import load_all_pages
+from app.services.integrations import paperless
+from app.services.documents.pagination import load_all_pages
 
 logger = logging.getLogger(__name__)
 

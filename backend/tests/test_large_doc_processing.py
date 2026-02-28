@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.services.ai.hierarchical_summary import group_notes_into_sections
-from app.services.text_cleaning import clean_ocr_text, estimate_tokens
+from app.services.documents.text_cleaning import clean_ocr_text, estimate_tokens
 
 
 def test_clean_ocr_text_dehyphenates_and_joins_lines():

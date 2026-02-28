@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.api_models import WritebackDryRunCall
 from app.config import Settings
 from app.models import Correspondent, Document, DocumentPendingCorrespondent, Tag
-from app.services import paperless
+from app.services.integrations import paperless
 
 
 def resolve_paperless_tag_ids(

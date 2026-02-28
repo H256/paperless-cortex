@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.models import DocumentPageNote, DocumentSectionSummary
 from app.services.ai.hierarchical_helpers import _json_dumps, _page_note_payload_to_text, _sanitize_model_output_text
-from app.services.text_cleaning import estimate_tokens
-from app.services.time_utils import utc_now_iso
+from app.services.documents.text_cleaning import estimate_tokens
+from app.services.runtime.time_utils import utc_now_iso
 
 
 def upsert_page_note(

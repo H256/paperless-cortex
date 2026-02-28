@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import Document, Tag, Correspondent, DocumentType
 
 from app.config import Settings
-from app.services import qdrant
-from app.services.embeddings import make_doc_point_id, search_points
+from app.services.search import qdrant
+from app.services.search.embeddings import make_doc_point_id, search_points
 
 logger = logging.getLogger(__name__)
 

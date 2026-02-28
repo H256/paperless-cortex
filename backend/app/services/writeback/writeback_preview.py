@@ -15,8 +15,8 @@ from app.models import (
     SuggestionAudit,
     Tag,
 )
-from app.services import paperless
-from app.services.string_list_json import parse_string_list_json
+from app.services.integrations import paperless
+from app.services.runtime.string_list_json import parse_string_list_json
 from app.services.writeback.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 

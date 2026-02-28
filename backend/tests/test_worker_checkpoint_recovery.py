@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.services.worker_checkpoint import get_task_run_checkpoint
+from app.services.pipeline.worker_checkpoint import get_task_run_checkpoint
 
 
 def test_get_task_run_checkpoint_returns_none_when_task_runs_table_missing():

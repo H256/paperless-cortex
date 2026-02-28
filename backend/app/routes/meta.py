@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.config import Settings
 from app.deps import get_settings
-from app.services import paperless
+from app.services.integrations import paperless
 from app.api_models import TagsPageResponse, CorrespondentsPageResponse, DocumentTypeResponse, CorrespondentResponse
 
 router = APIRouter(tags=["meta"])

@@ -7,7 +7,7 @@ from app.services.writeback.writeback_apply import execute_writeback_call
 
 
 def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(session_factory, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     settings = load_settings()
     with session_factory() as db:
@@ -63,7 +63,7 @@ def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(sessio
 
 
 def test_execute_writeback_call_post_and_delete_paths(session_factory, monkeypatch):
-    from app.services import paperless
+    from app.services.integrations import paperless
 
     settings = load_settings()
     with session_factory() as db:

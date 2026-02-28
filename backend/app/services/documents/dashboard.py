@@ -13,7 +13,7 @@ from app.models import (
     Tag,
     document_tags,
 )
-from app.services.document_stats import compute_document_stats
+from app.services.documents.document_stats import compute_document_stats
 
 
 def build_dashboard_payload(db: Session) -> dict[str, object]:

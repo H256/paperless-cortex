@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.error_types import classify_worker_error, is_retryable_error_type
+from app.services.pipeline.error_types import classify_worker_error, is_retryable_error_type
 
 
 def test_classify_context_overflow_error():

@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models import Document, DocumentSuggestion
-from app.services.json_utils import parse_json_object
+from app.services.runtime.json_utils import parse_json_object
 from app.services.ai.suggestions import normalize_suggestions_payload
 
 

@@ -7,7 +7,7 @@ from threading import Lock
 from typing import Iterable
 
 from app.config import Settings
-from app.services.queue_tasks import build_task_sequence
+from app.services.pipeline.queue_tasks import build_task_sequence
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api_models import WritebackDryRunCall, WritebackDryRunItem
 from app.config import Settings
 from app.models import SuggestionAudit, WritebackJob
-from app.services.time_utils import utc_now_iso
+from app.services.runtime.time_utils import utc_now_iso
 
 
 def collect_changed_calls(

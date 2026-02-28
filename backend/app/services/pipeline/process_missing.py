@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Document
-from app.services.pipeline_planner import (
+from app.services.pipeline.pipeline_planner import (
     PipelineOptions,
     collect_pipeline_cache,
     evaluate_doc_pipeline,

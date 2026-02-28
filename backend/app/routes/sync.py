@@ -20,22 +20,22 @@ from app.models import (
     Tag,
 )
 from app.schemas import CorrespondentIn, DocumentIn, DocumentTypeIn, TagIn
-from app.services import paperless
-from app.services.embeddings import (
+from app.services.integrations import paperless
+from app.services.search.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
     make_point_id,
     upsert_points,
 )
-from app.services.page_texts_merge import collect_page_texts
-from app.services.queue import enqueue_task_sequence, enqueue_task_sequence_front
-from app.services.meta_sync import (
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.pipeline.queue import enqueue_task_sequence, enqueue_task_sequence_front
+from app.services.integrations.meta_sync import (
     sync_correspondents_page,
     sync_document_types_page,
     sync_tags_page,
 )
-from app.services.note_ids import next_local_note_id
+from app.services.documents.note_ids import next_local_note_id
 from app.api_models import (
     SyncDocumentsResponse,
     SyncStatusResponse,
@@ -43,10 +43,10 @@ from app.api_models import (
     SyncDocumentResponse,
     SyncSimpleResponse,
 )
-from app.services.time_utils import estimate_eta_seconds
-from app.services.sync_state import ensure_started, get_or_create_state, mark_running
-from app.services.queue_tasks import build_task_sequence
-from app.services.embedding_init import ensure_embedding_collection
+from app.services.runtime.time_utils import estimate_eta_seconds
+from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.pipeline.queue_tasks import build_task_sequence
+from app.services.search.embedding_init import ensure_embedding_collection
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 logger = logging.getLogger(__name__)

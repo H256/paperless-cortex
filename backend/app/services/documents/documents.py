@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Document
-from app.services import paperless
+from app.services.integrations import paperless
 
 
 def fetch_pdf_bytes(settings: Settings, doc_id: int) -> bytes:

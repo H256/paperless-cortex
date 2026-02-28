@@ -11,11 +11,11 @@ import httpx
 
 from app.config import Settings
 from app.services.ai import llm_client
-from app.services import qdrant
-from app.services.guard import ensure_embedding_llm_ready
-from app.services.page_types import PageText, WordBox
-from app.services.text_cleaning import estimate_tokens
-from app.services.text_pages import score_text_quality
+from app.services.search import qdrant
+from app.services.runtime.guard import ensure_embedding_llm_ready
+from app.services.documents.page_types import PageText, WordBox
+from app.services.documents.text_cleaning import estimate_tokens
+from app.services.documents.text_pages import score_text_quality
 
 logger = logging.getLogger(__name__)
 
