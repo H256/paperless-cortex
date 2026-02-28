@@ -10,6 +10,8 @@ from datetime import datetime
 from app.config import Settings
 from app.services import llm_client
 from app.services.guard import ensure_text_llm_ready
+from app.services.json_extraction import extract_json_object
+from app.services.text_budget import truncate_chars
 
 logger = logging.getLogger(__name__)
 
@@ -23,23 +25,6 @@ FIELD_PROMPTS = {
     "tags": "suggestions_tags.txt",
     "note": "suggestions_summary.txt",
 }
-
-
-def _truncate(text: str, max_chars: int) -> str:
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars] + "\n[TRUNCATED]"
-
-
-def _extract_json(text: str) -> dict[str, Any]:
-    text = text.strip()
-    if text.startswith("{") and text.endswith("}"):
-        return json.loads(text)
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        return json.loads(text[start : end + 1])
-    raise ValueError("No JSON object found in response")
 
 
 def _is_iso_date(value: str) -> bool:
@@ -168,7 +153,7 @@ def generate_suggestions(
         "document_type": document.get("document_type"),
         "tags": document.get("tags"),
     }
-    trimmed = _truncate(text, settings.suggestions_max_input_chars)
+    trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
     prompt_template = _load_prompt(settings)
     prompt = (
         prompt_template.replace("{metadata}", json.dumps(doc_meta, ensure_ascii=False))
@@ -192,7 +177,7 @@ def generate_suggestions(
     )
     logger.info("Suggestions response len=%s", len(raw_text))
     try:
-        parsed = _extract_json(raw_text)
+        parsed = extract_json_object(raw_text)
     except Exception as exc:
         logger.warning("Suggestions JSON parse failed: %s", exc)
         parsed = {"raw": raw_text}
@@ -239,7 +224,7 @@ def generate_field_variants(
         "document_type": document.get("document_type"),
         "tags": document.get("tags"),
     }
-    trimmed = _truncate(text, settings.suggestions_max_input_chars)
+    trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
     prompt_template = _load_field_prompt(field)
     prompt = (
         prompt_template.replace("{metadata}", json.dumps(doc_meta, ensure_ascii=False))
@@ -266,7 +251,7 @@ def generate_field_variants(
     )
     logger.info("Suggestions field response len=%s", len(raw_text))
     try:
-        parsed = _extract_json(raw_text)
+        parsed = extract_json_object(raw_text)
     except Exception as exc:
         logger.warning("Suggestions field JSON parse failed: %s", exc)
         parsed = {"raw": raw_text}
