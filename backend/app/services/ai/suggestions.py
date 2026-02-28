@@ -101,10 +101,17 @@ def _load_prompt(settings: Settings) -> str:
         if configured.is_file():
             prompt_path = configured
         else:
-            # Allow repo-root relative paths like "backend/app/prompts/suggestions.txt"
-            repo_root = Path(__file__).resolve().parents[3]
-            repo_relative = repo_root / configured
-            prompt_path = repo_relative if repo_relative.is_file() else configured
+            # Allow both project-root and backend-root relative paths.
+            project_root = Path(__file__).resolve().parents[4]
+            backend_root = Path(__file__).resolve().parents[3]
+            project_relative = project_root / configured
+            backend_relative = backend_root / configured
+            if project_relative.is_file():
+                prompt_path = project_relative
+            elif backend_relative.is_file():
+                prompt_path = backend_relative
+            else:
+                prompt_path = configured
     else:
         prompt_path = DEFAULT_PROMPT_PATH
         if not prompt_path.is_file():

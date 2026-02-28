@@ -21,23 +21,30 @@ from app.services.runtime.string_list_json import parse_string_list_json
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat.txt"
-CHRONO_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat_chrono.txt"
-FOLLOWUPS_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "chat_followups.txt"
+PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
+LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
+DEFAULT_PROMPT_PATH = PROMPTS_DIR / "chat.txt"
+CHRONO_PROMPT_PATH = PROMPTS_DIR / "chat_chrono.txt"
+FOLLOWUPS_PROMPT_PATH = PROMPTS_DIR / "chat_followups.txt"
 _prompt_cache: dict[str, str] = {}
 MAX_HISTORY_TURNS = 12
 MAX_HISTORY_CHARS = 1600
 
 
 def _load_prompt_from(path: Path) -> str:
+    prompt_path = path
+    if not prompt_path.is_file():
+        legacy = LEGACY_PROMPTS_DIR / prompt_path.name
+        if legacy.is_file():
+            prompt_path = legacy
     key = str(path)
     if key in _prompt_cache:
         return _prompt_cache[key]
-    if not path.is_file():
+    if not prompt_path.is_file():
         raise RuntimeError(f"Chat prompt file not found: {path}")
-    text = path.read_text(encoding="utf-8").strip()
+    text = prompt_path.read_text(encoding="utf-8").strip()
     if not text:
-        raise RuntimeError(f"Chat prompt file empty: {path}")
+        raise RuntimeError(f"Chat prompt file empty: {prompt_path}")
     _prompt_cache[key] = text
     return text
 

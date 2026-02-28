@@ -27,6 +27,7 @@ RUN uv sync --frozen
 ENV VIRTUAL_ENV=/app/backend/.venv
 ENV PATH="/app/backend/.venv/bin:${PATH}"
 
+COPY VERSION /app/VERSION
 COPY backend/ ./
 COPY docker/ /app/docker/
 
