@@ -8,10 +8,10 @@ from pathlib import Path
 from datetime import datetime
 
 from app.config import Settings
-from app.services import llm_client
+from app.services.ai import llm_client
 from app.services.guard import ensure_text_llm_ready
-from app.services.json_extraction import extract_json_object
-from app.services.text_budget import truncate_chars
+from app.services.ai.json_extraction import extract_json_object
+from app.services.ai.text_budget import truncate_chars
 
 logger = logging.getLogger(__name__)
 

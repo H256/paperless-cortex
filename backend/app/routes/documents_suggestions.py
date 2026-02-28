@@ -23,13 +23,13 @@ from app.models import (
 from app.services import paperless
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.page_text_store import upsert_page_texts
-from app.services.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.page_texts_merge import collect_page_texts
 from app.services.queue import enqueue_task_front, enqueue_task_sequence_front
 from app.services.note_ids import next_local_note_id
-from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
-from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
+from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.text_pages import get_page_text_layers
 from app.services.time_utils import utc_now_iso
 from app.services.json_utils import parse_json_object

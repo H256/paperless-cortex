@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services import hierarchical_generation as _gen
+from app.services.ai import hierarchical_generation as _gen
 from app.services.guard import ensure_text_llm_ready
-from app.services.hierarchical_helpers import (
+from app.services.ai.hierarchical_helpers import (
     _best_effort_global_summary,
     _best_effort_page_notes_from_text,
     _best_effort_section_summary,
@@ -28,7 +28,7 @@ from app.services.hierarchical_helpers import (
     _section_notes_to_text,
     _truncate_for_tokens,
 )
-from app.services.hierarchical_storage import (
+from app.services.ai.hierarchical_storage import (
     _sorted_unique_positive_pages,
     group_notes_into_sections,
     group_page_ranges,

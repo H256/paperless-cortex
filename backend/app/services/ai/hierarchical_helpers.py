@@ -5,8 +5,8 @@ import logging
 import re
 from typing import Any
 
-from app.services.json_extraction import extract_json_object
-from app.services.text_budget import truncate_for_tokens
+from app.services.ai.json_extraction import extract_json_object
+from app.services.ai.text_budget import truncate_for_tokens
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.writeback_plan import (
+from app.services.writeback.writeback_plan import (
     canonical_ai_summary,
     compare_document_fields,
     extract_ai_summary_note,

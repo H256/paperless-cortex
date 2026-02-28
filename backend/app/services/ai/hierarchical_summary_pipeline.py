@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.models import DocumentPageNote, DocumentSectionSummary
 from app.services.documents import get_document_or_none
-from app.services.hierarchical_summary import (
+from app.services.ai.hierarchical_summary import (
     generate_global_summary,
     generate_section_summary,
     group_notes_into_sections,
@@ -16,7 +16,7 @@ from app.services.hierarchical_summary import (
     replace_section_summaries,
 )
 from app.services.queue import is_cancel_requested
-from app.services.suggestion_store import persist_suggestions
+from app.services.ai.suggestion_store import persist_suggestions
 from app.services.worker_checkpoint import (
     get_task_run_checkpoint,
     resume_stage_current,

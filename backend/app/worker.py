@@ -63,23 +63,23 @@ from app.services.page_texts_merge import collect_page_texts
 from app.services.page_text_store import upsert_page_texts
 from app.services.page_text_store import reclean_page_texts
 from app.services.page_types import PageText
-from app.services.ocr_scoring import ensure_document_ocr_score
-from app.services.suggestions import generate_field_variants, generate_normalized_suggestions
-from app.services.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
 from app.services.meta_cache import get_cached_correspondents, get_cached_tags
-from app.services import vision_ocr
+from app.services.ai import vision_ocr
 from app.services.text_cleaning import clean_ocr_text
 from app.services.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
 from app.services.error_types import classify_worker_error
 from app.services.error_types import is_retryable_error_type
 from app.services.error_types import task_source_from_payload
 from app.services.logging_setup import configure_logging, log_event
-from app.services.hierarchical_summary import (
+from app.services.ai.hierarchical_summary import (
     generate_page_notes,
     is_large_document,
     upsert_page_note,
 )
-from app.services.hierarchical_summary_pipeline import HierarchicalSummaryPipeline
+from app.services.ai.hierarchical_summary_pipeline import HierarchicalSummaryPipeline
 from app.routes.sync import _upsert_document
 from app.schemas import DocumentIn
 from app.services.task_runs import (

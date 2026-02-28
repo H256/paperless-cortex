@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from app.config import Settings
-from app.services import llm_client
+from app.services.ai import llm_client
 from app.services import qdrant
 from app.services.guard import ensure_embedding_llm_ready
 from app.services.page_types import PageText, WordBox

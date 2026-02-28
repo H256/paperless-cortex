@@ -9,7 +9,7 @@ from app.models import (
     SuggestionAudit,
     Tag,
 )
-from app.services.writeback_preview import (
+from app.services.writeback.writeback_preview import (
     local_writeback_candidate_doc_ids,
     preview_for_doc_ids,
 )

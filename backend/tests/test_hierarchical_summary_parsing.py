@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.hierarchical_summary import (
+from app.services.ai.hierarchical_summary import (
     _best_effort_section_summary,
     _compact_page_notes_for_section,
     _coerce_page_notes_payload,
@@ -136,7 +136,7 @@ def test_generate_page_notes_retries_on_meta_echo(monkeypatch):
         page_notes_max_output_tokens = 300
 
     monkeypatch.setattr(
-        "app.services.hierarchical_summary.ensure_text_llm_ready",
+        "app.services.ai.hierarchical_summary.ensure_text_llm_ready",
         lambda _settings: None,
     )
 
@@ -148,7 +148,7 @@ def test_generate_page_notes_retries_on_meta_echo(monkeypatch):
             return "<|channel|>analysis<|message|>Extract structured page notes from OCR text."
         return "Facts:\n- Alpha\nEntities:\n- Bank\nReferences:\n- Doc\nKey numbers:\n- 49,00 EUR\nUncertainties:\n- none"
 
-    monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
+    monkeypatch.setattr("app.services.ai.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_page_notes(StubSettings(), page=1, text="some text")
     assert payload["facts"]
     assert calls["count"] >= 2
@@ -181,7 +181,7 @@ def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(monkey
         summary_max_output_tokens = 700
 
     monkeypatch.setattr(
-        "app.services.hierarchical_summary.ensure_text_llm_ready",
+        "app.services.ai.hierarchical_summary.ensure_text_llm_ready",
         lambda _settings: None,
     )
 
@@ -191,7 +191,7 @@ def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(monkey
         calls["count"] += 1
         return ""
 
-    monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
+    monkeypatch.setattr("app.services.ai.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_section_summary(
         StubSettings(),
         section_key="10-12",
@@ -211,7 +211,7 @@ def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch):
         summary_max_output_tokens = 700
 
     monkeypatch.setattr(
-        "app.services.hierarchical_summary.ensure_text_llm_ready",
+        "app.services.ai.hierarchical_summary.ensure_text_llm_ready",
         lambda _settings: None,
     )
 
@@ -221,7 +221,7 @@ def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch):
         calls["count"] += 1
         return "Executive summary line.\nThis is the detailed summary."
 
-    monkeypatch.setattr("app.services.hierarchical_summary._chat_response", _fake_chat)
+    monkeypatch.setattr("app.services.ai.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_global_summary(
         StubSettings(),
         section_summaries=[

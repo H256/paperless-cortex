@@ -17,7 +17,7 @@ from app.models import (
 )
 from app.services import paperless
 from app.services.string_list_json import parse_string_list_json
-from app.services.writeback_plan import compare_document_fields, extract_ai_summary_note
+from app.services.writeback.writeback_plan import compare_document_fields, extract_ai_summary_note
 
 
 def metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:

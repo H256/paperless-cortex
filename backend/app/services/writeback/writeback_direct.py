@@ -10,7 +10,7 @@ from app.config import Settings
 from app.models import Document, DocumentNote, DocumentPendingCorrespondent, DocumentPendingTag
 from app.services.note_ids import next_local_note_id
 from app.services.time_utils import utc_now_iso
-from app.services.writeback_selection import LocalWritebackSelection, collect_local_selection, normalize_changed_field
+from app.services.writeback.writeback_selection import LocalWritebackSelection, collect_local_selection, normalize_changed_field
 
 
 def item_field_by_name(item: WritebackDryRunItem, field: str) -> WritebackFieldDiff | None:

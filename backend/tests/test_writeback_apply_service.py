@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.api_models import WritebackDryRunCall
 from app.config import load_settings
 from app.models import Document, DocumentPendingCorrespondent, Tag
-from app.services.writeback_apply import execute_writeback_call
+from app.services.writeback.writeback_apply import execute_writeback_call
 
 
 def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(session_factory, monkeypatch):

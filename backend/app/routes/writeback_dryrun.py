@@ -42,17 +42,17 @@ from app.services import paperless
 from app.services.json_utils import parse_json_list
 from app.services.string_list_json import parse_string_list_json
 from app.services.time_utils import utc_now_iso
-from app.services.writeback_execution import collect_changed_calls, execute_calls_with_audit, run_writeback_job_execution
-from app.services.writeback_plan import extract_ai_summary_note
-from app.services.writeback_selection import build_calls_for_item as _build_calls_for_item
-from app.services.writeback_apply import execute_writeback_call as _execute_call
-from app.services.writeback_direct import (
+from app.services.writeback.writeback_execution import collect_changed_calls, execute_calls_with_audit, run_writeback_job_execution
+from app.services.writeback.writeback_plan import extract_ai_summary_note
+from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item
+from app.services.writeback.writeback_apply import execute_writeback_call as _execute_call
+from app.services.writeback.writeback_direct import (
     build_writeback_conflicts as _build_writeback_conflicts,
     execute_direct_selection as _execute_direct_selection,
     resolve_direct_selection as _resolve_direct_selection,
     sync_local_field_from_paperless as _sync_local_field_from_paperless,
 )
-from app.services.writeback_preview import (
+from app.services.writeback.writeback_preview import (
     build_writeback_item as _build_item,
     local_writeback_candidate_doc_ids as _local_writeback_candidate_doc_ids,
     metadata_maps as _metadata_maps,

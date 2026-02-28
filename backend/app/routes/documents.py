@@ -24,11 +24,11 @@ from app.models import (
     Tag,
 )
 from app.services import paperless
-from app.services.hierarchical_summary import is_large_document
+from app.services.ai.hierarchical_summary import is_large_document
 from app.services.queue import enqueue_docs_front
 from app.services.text_pages import get_baseline_page_texts, score_text_quality
-from app.services.ocr_scoring import ensure_document_ocr_score
-from app.services.writeback_plan import canonical_ai_summary, extract_ai_summary_note
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.writeback.writeback_plan import canonical_ai_summary, extract_ai_summary_note
 from app.services.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.document_stats import compute_document_stats
 from app.services.document_review import derive_review_status, derive_sync_status

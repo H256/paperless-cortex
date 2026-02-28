@@ -14,7 +14,7 @@ from app.config import Settings
 from app.deps import get_settings
 from app.services.queue import is_paused, queue_stats, worker_status
 from app.services import paperless
-from app.services import llm_client
+from app.services.ai import llm_client
 from app.services.document_stats import compute_document_stats
 from app.api_models import StatusResponse
 from app.version import API_VERSION, APP_VERSION

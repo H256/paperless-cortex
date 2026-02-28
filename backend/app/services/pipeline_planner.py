@@ -17,7 +17,7 @@ from app.models import (
     DocumentSuggestion,
     TaskRun,
 )
-from app.services.hierarchical_summary import is_large_document
+from app.services.ai.hierarchical_summary import is_large_document
 
 
 class PipelineOptions(BaseModel):

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 
 from app.config import Settings
 from app.models import Document
-from app.services import llm_client
+from app.services.ai import llm_client
 from app.services.guard import ensure_text_llm_ready, ensure_qdrant_ready
 from app.services.embeddings import embed_text, search_points
 from app.services.evidence import resolve_evidence_matches

@@ -9,7 +9,7 @@ import logging
 import math
 
 from app.config import Settings
-from app.services import llm_client
+from app.services.ai import llm_client
 from app.services.guard import ensure_vision_llm_ready
 from app.services.page_types import PageText
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
-from app.services.writeback_selection import build_calls_for_item, collect_local_selection
+from app.services.writeback.writeback_selection import build_calls_for_item, collect_local_selection
 
 
 def _item(changed_fields: list[str]) -> WritebackDryRunItem:

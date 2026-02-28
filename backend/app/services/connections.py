@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 from app.config import Settings
-from app.services import llm_client
+from app.services.ai import llm_client
 from app.services import paperless
 from app.services import qdrant
 

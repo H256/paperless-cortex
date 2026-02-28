@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from app.config import Settings
-from app.services import vision_ocr
+from app.services.ai import vision_ocr
 from app.services.page_types import PageText, WordBox
 
 logger = logging.getLogger(__name__)

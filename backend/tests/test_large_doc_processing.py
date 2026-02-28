@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.hierarchical_summary import group_notes_into_sections
+from app.services.ai.hierarchical_summary import group_notes_into_sections
 from app.services.text_cleaning import clean_ocr_text, estimate_tokens
 
 

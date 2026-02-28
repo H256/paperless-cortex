@@ -5,13 +5,13 @@ import json
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
 from app.config import load_settings
 from app.models import Document, DocumentPendingTag, Tag
-from app.services.writeback_direct import (
+from app.services.writeback.writeback_direct import (
     build_writeback_conflicts,
     execute_direct_selection,
     resolve_direct_selection,
     sync_local_field_from_paperless,
 )
-from app.services.writeback_selection import LocalWritebackSelection
+from app.services.writeback.writeback_selection import LocalWritebackSelection
 
 
 def _item(changed_fields: list[str]) -> WritebackDryRunItem:
