@@ -5,6 +5,9 @@ Paperless-NGX Cortex is a separate intelligence layer for Paperless-ngx. It keep
 ## What this project is (and why it exists)
 I built this because Paperless-ngx is excellent at storage and search, but I wanted a focused intelligence layer that can be audited, resumed, and controlled without ever auto-writing back. The goal is to make document understanding and metadata suggestions fast, local, and reviewable.
 
+### Friendly reminder
+This started as personal project and is heavy biased towards my personal home setup. I thought, maybe the code, prompts, techniques or else could be useful for someone out there, looking to achieve similar.
+
 ## Benefits
 - Keeps Paperless-ngx as the source of truth and never auto-writes.
 - Adds local OCR quality checks and optional vision OCR without overwriting the baseline.
@@ -19,7 +22,7 @@ flowchart TD
   A[Paperless-ngx] --> B[Sync metadata + baseline text]
   B --> C{Need extra OCR?}
   C -- No --> E[Embeddings]
-  C -- Yes --> D[Vision OCR (optional)]
+  C -- Yes --> D[Vision OCR optional]
   D --> E
   E --> F[Suggestions]
   F --> G{Large doc?}
