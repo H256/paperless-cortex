@@ -18,6 +18,7 @@ export interface StatusResponse {
   qdrant_url?: string | null;
   redis_host?: string | null;
   text_model?: string | null;
+  chat_model?: string | null;
   embedding_model?: string | null;
   vision_model?: string | null;
   evidence_max_pages?: number | null;

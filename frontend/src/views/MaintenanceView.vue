@@ -348,6 +348,13 @@
               @copy="copyValue(runtime.text_model, 'text_model')"
             />
             <MaintenanceRuntimeRow
+              label="Chat LLM"
+              :value="runtime.chat_model"
+              :copyable="Boolean(runtime.chat_model)"
+              :copied="copiedKey === 'chat_model'"
+              @copy="copyValue(runtime.chat_model, 'chat_model')"
+            />
+            <MaintenanceRuntimeRow
               label="Embeddings"
               :value="runtime.embedding_model"
               :copyable="Boolean(runtime.embedding_model)"
