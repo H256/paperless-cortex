@@ -99,6 +99,9 @@ docker compose -f docker-compose.worker.yml up --build
   - `DATABASE_URL`
   - `QDRANT_URL`
   - `LLM_BASE_URL`
+- Model selection:
+  - `TEXT_MODEL` is used for suggestions/summaries and as chat fallback.
+  - `CHAT_MODEL` is optional and, when set, is used for chat instead of `TEXT_MODEL`.
 
 ## 6. Database setup
 1. Create the database specified by `DATABASE_URL`.
