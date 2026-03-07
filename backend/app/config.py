@@ -23,6 +23,7 @@ class Settings:
     llm_base_url: str | None
     llm_api_key: str | None
     text_model: str | None
+    chat_model: str | None
     embedding_model: str | None
     embedding_batch_size: int
     embedding_request_timeout_seconds: int
@@ -102,6 +103,7 @@ def load_settings() -> Settings:
         llm_base_url=os.getenv("LLM_BASE_URL"),
         llm_api_key=os.getenv("LLM_API_KEY"),
         text_model=os.getenv("TEXT_MODEL"),
+        chat_model=os.getenv("CHAT_MODEL"),
         embedding_model=os.getenv("EMBEDDING_MODEL"),
         embedding_batch_size=max(1, int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))),
         embedding_request_timeout_seconds=max(1, int(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "60"))),
