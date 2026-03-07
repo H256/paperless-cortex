@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from app.config import Settings
 from app.models import Document
 from app.services.ai import llm_client
-from app.services.runtime.guard import ensure_text_llm_ready, ensure_qdrant_ready
+from app.services.runtime.guard import ensure_chat_llm_ready, ensure_qdrant_ready, resolve_chat_model
 from app.services.search.embeddings import embed_text, search_points
 from app.services.search.evidence import resolve_evidence_matches
 from app.services.runtime.json_utils import parse_json_object
@@ -257,7 +257,8 @@ def generate_followups(
     doc_id: int | None = None,
     relationship_mode: str | None = None,
 ) -> list[str]:
-    ensure_text_llm_ready(settings)
+    ensure_chat_llm_ready(settings)
+    model_name = resolve_chat_model(settings) or ""
     prompt = _load_followups_prompt(settings)
     trimmed_citations = [
         {
@@ -276,7 +277,7 @@ def generate_followups(
     )
     raw = llm_client.chat_completion(
         settings,
-        model=settings.text_model or "",
+        model=model_name,
         messages=[{"role": "user", "content": prompt}],
         timeout=60,
     )
@@ -306,7 +307,8 @@ def answer_question(
     stream: bool = False,
     db: Session | None = None,
 ) -> dict[str, str | list[dict[str, Any]]] | StreamingResponse:
-    ensure_text_llm_ready(settings)
+    ensure_chat_llm_ready(settings)
+    model_name = resolve_chat_model(settings) or ""
     ensure_qdrant_ready(settings)
     vector = embed_text(settings, question)
     filter_payload: dict[str, Any] = {"must_not": [{"key": "type", "match": {"value": "doc"}}]}
@@ -337,7 +339,7 @@ def answer_question(
     if not stream:
         answer = llm_client.chat_completion(
             settings,
-            model=settings.text_model or "",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
         )
@@ -355,7 +357,7 @@ def answer_question(
         answer_chunks: list[str] = []
         for token in llm_client.stream_chat_completion(
             settings,
-            model=settings.text_model or "",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             timeout=None,
         ):

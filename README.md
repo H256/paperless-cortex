@@ -171,7 +171,8 @@ Set values in `.env`. The defaults below are the runtime defaults used by `backe
 | `QUEUE_ENABLED` | `0` | Enable queue-backed worker processing. |
 | `LLM_BASE_URL` | `` | OpenAI-compatible API base URL. |
 | `LLM_API_KEY` | `` | API key for the LLM provider. |
-| `TEXT_MODEL` | `` | Text model name for suggestions and summaries. |
+| `TEXT_MODEL` | `` | Text model name for suggestions and summaries (and chat fallback). |
+| `CHAT_MODEL` | `` | Optional chat model override; falls back to `TEXT_MODEL` when unset. |
 | `EMBEDDING_MODEL` | `` | Embedding model name. |
 | `EMBEDDING_BATCH_SIZE` | `16` | Embedding batch size. |
 | `EMBEDDING_TIMEOUT_SECONDS` | `60` | Embedding request timeout. |

@@ -21,6 +21,7 @@ class StatusResponse(BaseModel):
     qdrant_url: Optional[str] = None
     redis_host: Optional[str] = None
     text_model: Optional[str] = None
+    chat_model: Optional[str] = None
     embedding_model: Optional[str] = None
     vision_model: Optional[str] = None
     evidence_max_pages: Optional[int] = None

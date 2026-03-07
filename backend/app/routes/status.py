@@ -21,6 +21,7 @@ from app.version import API_VERSION, APP_VERSION
 from app.db import SessionLocal
 from app.models import SyncState
 from app.services.runtime.time_utils import estimate_eta_seconds
+from app.services.runtime.guard import resolve_chat_model
 
 router = APIRouter(prefix="/status", tags=["status"])
 _model_cache: dict[str, object] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}
@@ -88,6 +89,7 @@ def _status_payload(settings: Settings) -> dict[str, object]:
         "qdrant_url": settings.qdrant_url,
         "redis_host": settings.redis_host,
         "text_model": settings.text_model,
+        "chat_model": resolve_chat_model(settings),
         "embedding_model": settings.embedding_model,
         "vision_model": settings.vision_model,
         "evidence_max_pages": settings.evidence_max_pages,

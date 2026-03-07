@@ -15,6 +15,16 @@ def ensure_text_llm_ready(settings: Settings) -> None:
         raise RuntimeError("TEXT_MODEL not set")
 
 
+def resolve_chat_model(settings: Settings) -> str | None:
+    return settings.chat_model or settings.text_model
+
+
+def ensure_chat_llm_ready(settings: Settings) -> None:
+    ensure_llm_base_ready(settings)
+    if not resolve_chat_model(settings):
+        raise RuntimeError("CHAT_MODEL or TEXT_MODEL not set")
+
+
 def ensure_embedding_llm_ready(settings: Settings) -> None:
     ensure_llm_base_ready(settings)
     if not settings.embedding_model:
