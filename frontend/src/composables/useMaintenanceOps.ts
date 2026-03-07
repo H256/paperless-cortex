@@ -48,6 +48,7 @@ const EMPTY_RUNTIME = {
   qdrant_url: '',
   redis_host: '',
   text_model: '',
+  chat_model: '',
   embedding_model: '',
   vision_model: '',
   evidence_max_pages: 0,

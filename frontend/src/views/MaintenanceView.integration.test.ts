@@ -23,6 +23,7 @@ vi.mock('../composables/useMaintenanceOps', () => ({
       qdrant_url: 'http://qdrant.local',
       redis_host: 'redis.local',
       text_model: 'gpt-test',
+      chat_model: 'gpt-chat-test',
       embedding_model: 'embed-test',
       vision_model: 'vision-test',
       evidence_max_pages: 3,
