@@ -393,6 +393,62 @@
 - Updated worker error classification to unwrap `WorkerError.original_exception` so retryability and error-code mapping still reflect the real underlying failure.
 - Added regression coverage in `backend/tests/test_worker_error_types.py` to verify wrapped worker failures still classify correctly.
 
+### 29. Embeddings route coverage expansion
+
+- Added direct route coverage for `backend/app/routes/embeddings.py` in:
+  - `backend/tests/test_embeddings_routes.py`
+- Covered queue-backed ingest behavior, queue status reporting, cancel-state persistence, and search result shaping with attached local document context and quality filtering.
+- Added the new route test file to the strict mypy allowlist and kept it Ruff-clean.
+
+### 30. Meta and connections coverage expansion
+
+- Added direct route coverage for `backend/app/routes/meta.py` in:
+  - `backend/tests/test_meta_routes.py`
+- Added unit coverage for `backend/app/services/integrations/connections.py` in:
+  - `backend/tests/test_connections_service.py`
+- Covered pagination forwarding, stable response-model fields, missing-config branches, HTTP error mapping, and aggregate status formatting for the connection checks.
+
+### 31. Queue route wrapper coverage expansion
+
+- Added direct route coverage for `backend/app/routes/queue.py` in:
+  - `backend/tests/test_queue_routes_basic.py`
+- Covered disabled/enabled status payloads, enqueue count forwarding, worker-lock status wrapping, and running-task response shaping against the real response models.
+
+### 32. Sync state and queue-route coverage expansion
+
+- Added direct route coverage for `backend/app/routes/sync.py` in:
+  - `backend/tests/test_sync_routes_state.py`
+- Covered idle sync-status responses, cancel-state persistence, and queued single-document sync with priority/front-of-queue task sequencing.
+
+### 33. Document-actions queue-path coverage expansion
+
+- Added direct route coverage for `backend/app/routes/documents_actions.py` in:
+  - `backend/tests/test_documents_actions_routes.py`
+- Covered queued cleanup-text task generation and reset-and-reprocess priority enqueue behavior on the enabled queue path.
+
+### 34. Connections route contract coverage
+
+- Added direct route coverage for `backend/app/routes/connections.py` in:
+  - `backend/tests/test_connections_routes.py`
+- Covered the `/connections/` response contract independently from the service tests so route-level serialization stays pinned to the expected `ConnectionStatus` shape.
+
+### 35. Sync-documents integration coverage expansion
+
+- Added deeper integration coverage for `backend/app/routes/sync.py` in:
+  - `backend/tests/test_sync_documents_routes.py`
+- Covered the multi-step `/sync/documents` flow for mark-missing plus queued embedding follow-ups, and for `insert_only` behavior that skips existing local rows while inserting new remote rows.
+
+### 36. Process-missing service integration coverage expansion
+
+- Added deeper service coverage for `backend/app/services/pipeline/process_missing.py` in:
+  - `backend/tests/test_process_missing_service.py`
+- Covered `process_missing_documents()` directly for:
+  - `include_sync=True` forwarding with the expected sync flags
+  - dry-run selection limiting without enqueue side effects
+  - skip behavior for Paperless-tombstoned local documents
+  - aggregate preview/missing counters for paperless-embedding gaps
+  - enqueue-task sequencing when dry-run is disabled
+
 ## Verified commands
 
 ```bash
@@ -435,6 +491,11 @@ uv run ruff check app/routes/documents_actions.py app/worker.py
 uv run pytest tests/test_pipeline_fanout_service.py tests/test_pipeline_similarity_index.py tests/test_worker_checkpoint_recovery.py tests/test_worker_error_types.py tests/test_documents_routes.py
 uv run ruff check app/services/pipeline/queue.py app/routes/documents_actions.py app/worker.py
 uv run pytest tests/test_queue_resilience.py tests/test_queue_stats_self_heal.py tests/test_pipeline_fanout_service.py tests/test_worker_checkpoint_recovery.py tests/test_documents_routes.py
+uv run ruff check tests/test_process_missing_service.py
+uv run mypy --config-file pyproject.toml tests/test_process_missing_service.py
+uv run pytest tests/test_process_missing_service.py
+uv run mypy --config-file pyproject.toml
+uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.py tests/test_process_missing_service.py
 ```
 
 ## Current boundary
@@ -457,10 +518,19 @@ uv run pytest tests/test_queue_resilience.py tests/test_queue_stats_self_heal.py
 - The expanded `mypy` allowlist is passing for **123 source files**.
 - The expanded `mypy` allowlist is passing for **124 source files**.
 - The expanded `mypy` allowlist is passing for **129 source files**.
+- The expanded `mypy` allowlist is passing for **130 source files**.
+- The expanded `mypy` allowlist is passing for **132 source files**.
+- The expanded `mypy` allowlist is passing for **133 source files**.
+- The expanded `mypy` allowlist is passing for **134 source files**.
+- The expanded `mypy` allowlist is passing for **135 source files**.
+- The expanded `mypy` allowlist is passing for **136 source files**.
+- The expanded `mypy` allowlist is passing for **137 source files**.
+- The expanded `mypy` allowlist is passing for **138 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`129 / 129`).
+- Strict mypy coverage of backend Python files: **100%** (`138 / 138` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
 - The remaining broad catch is the intentional outer worker dispatch boundary, now normalized through `WorkerError` with preserved original error context.
-- Broader repo-wide Ruff cleanup, broader exception refactors, and wider test coverage are still open.
+- The last meaningful pre-`2.3` test-coverage slice is now in: thinner route/service wrappers plus deeper sync-documents and process-missing execution paths are covered.
+- The next major review item is `2.3 Add Structured Logging`.
