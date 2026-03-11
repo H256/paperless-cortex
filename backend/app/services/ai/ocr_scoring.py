@@ -5,14 +5,18 @@ import math
 import re
 import time
 from hashlib import sha256
-from typing import Any
+from json import JSONDecodeError
+from typing import TYPE_CHECKING, Any
 
 import httpx
-from sqlalchemy.orm import Session
 
-from app.config import Settings
 from app.models import Document, DocumentOcrScore, DocumentPageText
 from app.services.runtime.time_utils import utc_now_iso
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 _WEIRD_RE = re.compile(r"[^\x09\x0A\x0D\x20-\x7E\u00A0-\u024F\u1E00-\u1EFF]")
 _MULTI_SPACE_RE = re.compile(r"[ \t]{3,}")
@@ -35,7 +39,7 @@ def _post_json(settings: Settings, url: str, payload: dict[str, Any], timeout: i
         response = client.post(url, json=payload)
         try:
             return response.status_code, response.json()
-        except Exception:
+        except (JSONDecodeError, ValueError):
             return response.status_code, response.text
     finally:
         client.close()

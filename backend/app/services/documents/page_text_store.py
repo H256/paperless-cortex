@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from sqlalchemy import delete
-from sqlalchemy.orm import Session
 import logging
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import delete
 
 from app.models import DocumentPageText
-from app.services.documents.page_types import PageText
-from app.services.documents.text_pages import score_text_quality
-from app.config import Settings
 from app.services.documents.text_cleaning import clean_ocr_text, estimate_tokens
+from app.services.documents.text_pages import score_text_quality
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
+    from app.services.documents.page_types import PageText
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +41,7 @@ def upsert_page_texts(
         if page_set:
             delete_query = delete_query.where(DocumentPageText.page.in_(page_set))
     db.execute(delete_query)
-    processed_at = datetime.now(timezone.utc).isoformat()
+    processed_at = datetime.now(UTC).isoformat()
     created_at = processed_at
     for page in pages:
         if source_filter and page.source != source_filter:
@@ -81,7 +86,7 @@ def reclean_page_texts(
     rows = query.all()
     if not rows:
         return {"processed": 0, "updated": 0}
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     processed = 0
     updated = 0
     for row in rows:

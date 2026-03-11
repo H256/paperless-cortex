@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.services.pipeline.task_runs import create_task_run, find_latest_checkpoint, finish_task_run
 from app.services.pipeline.worker_checkpoint import (
     get_task_run_checkpoint,
@@ -8,7 +10,9 @@ from app.services.pipeline.worker_checkpoint import (
 )
 
 
-def test_worker_retry_checkpoint_continuation_for_mixed_task_sequence(session_factory):
+def test_worker_retry_checkpoint_continuation_for_mixed_task_sequence(
+    session_factory: Any,
+) -> None:
     with session_factory() as db:
         # First task in sequence fails and leaves checkpoint progress.
         first_run = create_task_run(

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import httpx
 
 from app.config import load_settings
 from app.services.search import qdrant
+
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
 
 
 class _FakeClient:
@@ -11,18 +16,20 @@ class _FakeClient:
         self._responses = responses
         self.calls: list[str] = []
 
-    def __enter__(self):
+    def __enter__(self) -> _FakeClient:
         return self
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         return None
 
-    def post(self, url: str, headers=None, json=None):  # noqa: ANN001
+    def post(
+        self, url: str, headers: object = None, json: object = None
+    ) -> httpx.Response:
         self.calls.append(url)
         return self._responses.pop(0)
 
 
-def test_retrieve_points_falls_back_to_points_endpoint_on_404(monkeypatch):
+def test_retrieve_points_falls_back_to_points_endpoint_on_404(monkeypatch: MonkeyPatch) -> None:
     settings = load_settings()
     request_retrieve = httpx.Request("POST", "http://qdrant/collections/test/points/retrieve")
     request_points = httpx.Request("POST", "http://qdrant/collections/test/points")
@@ -47,7 +54,9 @@ def test_retrieve_points_falls_back_to_points_endpoint_on_404(monkeypatch):
     ]
 
 
-def test_retrieve_points_uses_retrieve_endpoint_when_supported(monkeypatch):
+def test_retrieve_points_uses_retrieve_endpoint_when_supported(
+    monkeypatch: MonkeyPatch,
+) -> None:
     settings = load_settings()
     request_retrieve = httpx.Request("POST", "http://qdrant/collections/test/points/retrieve")
     fake = _FakeClient([httpx.Response(200, request=request_retrieve, json={"result": [{"id": 1}]})])

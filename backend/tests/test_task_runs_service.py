@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.models import TaskRun
-from app.services.pipeline.task_runs import create_task_run, find_latest_checkpoint, finish_task_run, list_task_runs
+from app.services.pipeline.task_runs import (
+    create_task_run,
+    find_latest_checkpoint,
+    finish_task_run,
+    list_task_runs,
+)
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
-def test_find_latest_checkpoint_returns_newest_dict(session_factory):
+def test_find_latest_checkpoint_returns_newest_dict(session_factory: Any) -> None:
     with session_factory() as db:
         db.add(
             TaskRun(
@@ -55,7 +66,7 @@ def test_find_latest_checkpoint_returns_newest_dict(session_factory):
     assert checkpoint["total"] == 37
 
 
-def test_find_latest_checkpoint_returns_none_for_invalid_payload(session_factory):
+def test_find_latest_checkpoint_returns_none_for_invalid_payload(session_factory: Any) -> None:
     with session_factory() as db:
         db.add(
             TaskRun(
@@ -85,7 +96,9 @@ def test_find_latest_checkpoint_returns_none_for_invalid_payload(session_factory
     assert checkpoint is None
 
 
-def _insert_duplicate_task_run(db, *, row_id: int, doc_id: int, task: str, source: str | None) -> None:
+def _insert_duplicate_task_run(
+    db: Session, *, row_id: int, doc_id: int, task: str, source: str | None
+) -> None:
     db.execute(
         text(
             """
@@ -111,7 +124,7 @@ def _insert_duplicate_task_run(db, *, row_id: int, doc_id: int, task: str, sourc
     )
 
 
-def test_finish_task_run_recovers_from_pending_rollback(session_factory):
+def test_finish_task_run_recovers_from_pending_rollback(session_factory: Any) -> None:
     with session_factory() as db:
         row = create_task_run(
             db,
@@ -123,7 +136,7 @@ def test_finish_task_run_recovers_from_pending_rollback(session_factory):
             attempt=1,
         )
         row_id = int(row.id)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             _insert_duplicate_task_run(db, row_id=row_id, doc_id=3001, task="sync", source=None)
             db.commit()
 
@@ -134,7 +147,7 @@ def test_finish_task_run_recovers_from_pending_rollback(session_factory):
         assert refreshed.duration_ms == 42
 
 
-def test_list_task_runs_recovers_from_pending_rollback(session_factory):
+def test_list_task_runs_recovers_from_pending_rollback(session_factory: Any) -> None:
     with session_factory() as db:
         row = create_task_run(
             db,
@@ -146,7 +159,7 @@ def test_list_task_runs_recovers_from_pending_rollback(session_factory):
             attempt=1,
         )
         row_id = int(row.id)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             _insert_duplicate_task_run(db, row_id=row_id, doc_id=3002, task="sync", source=None)
             db.commit()
 
@@ -155,7 +168,7 @@ def test_list_task_runs_recovers_from_pending_rollback(session_factory):
         assert any(item.id == row_id for item in rows)
 
 
-def test_list_task_runs_reports_total_with_paged_results(session_factory):
+def test_list_task_runs_reports_total_with_paged_results(session_factory: Any) -> None:
     with session_factory() as db:
         for doc_id in (4001, 4002, 4003):
             create_task_run(
@@ -172,7 +185,7 @@ def test_list_task_runs_reports_total_with_paged_results(session_factory):
         assert len(rows) == 1
 
 
-def test_list_task_runs_reports_total_for_empty_page_offset(session_factory):
+def test_list_task_runs_reports_total_for_empty_page_offset(session_factory: Any) -> None:
     with session_factory() as db:
         for doc_id in (5001, 5002):
             create_task_run(

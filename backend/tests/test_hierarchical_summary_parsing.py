@@ -1,21 +1,26 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
 from app.services.ai.hierarchical_summary import (
     _best_effort_section_summary,
-    _compact_page_notes_for_section,
     _coerce_page_notes_payload,
+    _compact_page_notes_for_section,
     _extract_json_dict,
     _looks_like_prompt_echo_or_meta,
+    _normalize_section_summary_payload,
     _parse_page_notes_text,
     _sanitize_model_output_text,
-    _normalize_section_summary_payload,
     generate_global_summary,
-    generate_section_summary,
     generate_page_notes,
+    generate_section_summary,
 )
 
+if TYPE_CHECKING:
+    from app.config import Settings
 
-def test_extract_json_dict_accepts_code_fence():
+
+def test_extract_json_dict_accepts_code_fence() -> None:
     raw = """```json
 {"page":1,"facts":["alpha"],"entities":[],"references":[],"key_numbers":[],"uncertainties":[]}
 ```"""
@@ -24,7 +29,7 @@ def test_extract_json_dict_accepts_code_fence():
     assert parsed["facts"] == ["alpha"]
 
 
-def test_coerce_page_notes_payload_normalizes_and_sets_page():
+def test_coerce_page_notes_payload_normalizes_and_sets_page() -> None:
     parsed = {
         "page": "999",
         "facts": [" A ", 123, "", None],
@@ -41,7 +46,7 @@ def test_coerce_page_notes_payload_normalizes_and_sets_page():
     assert payload["key_numbers"] == ["42"]
 
 
-def test_coerce_page_notes_payload_adds_fallback_excerpt_when_empty():
+def test_coerce_page_notes_payload_adds_fallback_excerpt_when_empty() -> None:
     payload = _coerce_page_notes_payload(
         3,
         {"facts": [], "entities": [], "references": [], "key_numbers": [], "uncertainties": []},
@@ -51,7 +56,7 @@ def test_coerce_page_notes_payload_adds_fallback_excerpt_when_empty():
     assert any("fallback_raw_excerpt:" in item for item in payload["uncertainties"])
 
 
-def test_parse_page_notes_text_from_markdown_sections():
+def test_parse_page_notes_text_from_markdown_sections() -> None:
     raw = """
 Facts:
 - Steuerrelevanter Gewinn: 8284,92 EUR
@@ -74,7 +79,7 @@ Uncertainties:
     assert "8284,92 EUR" in payload["key_numbers"]
 
 
-def test_parse_page_notes_text_fallbacks_without_headings():
+def test_parse_page_notes_text_fallbacks_without_headings() -> None:
     raw = "Veräußerungsgewinn 8284,92 EUR\nFreigrenze 600,00 EUR\n"
     payload = _parse_page_notes_text(5, raw)
     assert payload["page"] == 5
@@ -82,20 +87,20 @@ def test_parse_page_notes_text_fallbacks_without_headings():
     assert payload["key_numbers"]
 
 
-def test_extract_json_dict_repairs_truncated_object():
+def test_extract_json_dict_repairs_truncated_object() -> None:
     raw = '{"section":"16-20","summary":"short","key_facts":["a","b"]'
     parsed = _extract_json_dict(raw)
     assert parsed["section"] == "16-20"
     assert parsed["key_facts"] == ["a", "b"]
 
 
-def test_extract_json_dict_ignores_trailing_non_json_text():
+def test_extract_json_dict_ignores_trailing_non_json_text() -> None:
     raw = '{"section":"16-20","summary":"ok","key_facts":[]}\nNOT JSON'
     parsed = _extract_json_dict(raw)
     assert parsed["section"] == "16-20"
 
 
-def test_compact_page_notes_for_section_limits_payload_size():
+def test_compact_page_notes_for_section_limits_payload_size() -> None:
     notes = [
         {
             "page": i,
@@ -113,14 +118,14 @@ def test_compact_page_notes_for_section_limits_payload_size():
     assert '"page": 1' in payload
 
 
-def test_sanitize_model_output_text_strips_control_tokens():
+def test_sanitize_model_output_text_strips_control_tokens() -> None:
     raw = "<|channel|>analysis<|message|>Facts:\n- A\nEntities:\n- B"
     cleaned = _sanitize_model_output_text(raw)
     assert "<|" not in cleaned
     assert "Facts:" in cleaned
 
 
-def test_looks_like_prompt_echo_or_meta_detects_leakage():
+def test_looks_like_prompt_echo_or_meta_detects_leakage() -> None:
     leaked = (
         "Extract structured page notes from OCR text. "
         "Return plain text with exactly these headings: "
@@ -129,7 +134,7 @@ def test_looks_like_prompt_echo_or_meta_detects_leakage():
     assert _looks_like_prompt_echo_or_meta(leaked) is True
 
 
-def test_generate_page_notes_retries_on_meta_echo(monkeypatch):
+def test_generate_page_notes_retries_on_meta_echo(monkeypatch: Any) -> None:
     class StubSettings:
         text_model = "stub"
         page_notes_timeout_seconds = 30
@@ -142,19 +147,19 @@ def test_generate_page_notes_retries_on_meta_echo(monkeypatch):
 
     calls = {"count": 0}
 
-    def _fake_chat(*_args, **_kwargs):
+    def _fake_chat(*_args: Any, **_kwargs: Any) -> str:
         calls["count"] += 1
         if calls["count"] == 1:
             return "<|channel|>analysis<|message|>Extract structured page notes from OCR text."
         return "Facts:\n- Alpha\nEntities:\n- Bank\nReferences:\n- Doc\nKey numbers:\n- 49,00 EUR\nUncertainties:\n- none"
 
     monkeypatch.setattr("app.services.ai.hierarchical_summary._chat_response", _fake_chat)
-    payload = generate_page_notes(StubSettings(), page=1, text="some text")
+    payload = generate_page_notes(cast("Settings", StubSettings()), page=1, text="some text")
     assert payload["facts"]
     assert calls["count"] >= 2
 
 
-def test_best_effort_section_summary_collects_core_fields():
+def test_best_effort_section_summary_collects_core_fields() -> None:
     payload = _best_effort_section_summary(
         section_key="1-3",
         page_notes=[
@@ -173,7 +178,9 @@ def test_best_effort_section_summary_collects_core_fields():
     assert payload["confidence_notes"]
 
 
-def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(monkeypatch):
+def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(
+    monkeypatch: Any,
+) -> None:
     class StubSettings:
         text_model = "stub"
         section_summary_max_input_tokens = 6000
@@ -187,13 +194,13 @@ def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(monkey
 
     calls = {"count": 0}
 
-    def _fake_chat(*_args, **_kwargs):
+    def _fake_chat(*_args: Any, **_kwargs: Any) -> str:
         calls["count"] += 1
         return ""
 
     monkeypatch.setattr("app.services.ai.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_section_summary(
-        StubSettings(),
+        cast("Settings", StubSettings()),
         section_key="10-12",
         page_notes=[{"facts": ["Fact A"], "entities": ["Entity B"], "key_numbers": ["12"]}],
     )
@@ -203,7 +210,7 @@ def test_generate_section_summary_text_mode_uses_fallback_on_empty_output(monkey
     assert calls["count"] >= 2
 
 
-def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch):
+def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch: Any) -> None:
     class StubSettings:
         text_model = "stub"
         global_summary_max_input_tokens = 6000
@@ -217,13 +224,13 @@ def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch):
 
     calls = {"count": 0}
 
-    def _fake_chat(*_args, **_kwargs):
+    def _fake_chat(*_args: Any, **_kwargs: Any) -> str:
         calls["count"] += 1
         return "Executive summary line.\nThis is the detailed summary."
 
     monkeypatch.setattr("app.services.ai.hierarchical_summary._chat_response", _fake_chat)
     payload = generate_global_summary(
-        StubSettings(),
+        cast("Settings", StubSettings()),
         section_summaries=[
             {
                 "section": "1-3",
@@ -240,7 +247,7 @@ def test_generate_global_summary_text_mode_accepts_plain_text(monkeypatch):
     assert calls["count"] >= 1
 
 
-def test_section_summary_normalizer_drops_meta_thinking_lines():
+def test_section_summary_normalizer_drops_meta_thinking_lines() -> None:
     payload = _normalize_section_summary_payload(
         "1-7",
         {

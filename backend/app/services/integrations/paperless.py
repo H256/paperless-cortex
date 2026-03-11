@@ -4,12 +4,13 @@ import json
 import os
 import threading
 import time
-from typing import Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from app.config import Settings
+if TYPE_CHECKING:
+    from app.config import Settings
 
 _CACHE_LOCK = threading.Lock()
 _DOC_CACHE: dict[int, tuple[float, dict[str, Any]]] = {}
@@ -23,12 +24,25 @@ def _cache_enabled(settings: Settings, ttl_seconds: int) -> bool:
         return False
     if not settings.paperless_base_url:
         return False
-    if os.getenv("PYTEST_CURRENT_TEST"):
-        return False
-    return True
+    return not os.getenv("PYTEST_CURRENT_TEST")
 
 
 def base_url(settings: Settings) -> str | None:
+    """Extract the base URL for Paperless-NGX from settings.
+
+    Normalizes the base URL by removing trailing slashes and /api suffix.
+
+    Args:
+        settings: Application settings containing Paperless configuration
+
+    Returns:
+        Normalized base URL, or None if not configured.
+
+    Example:
+        >>> settings = Settings(paperless_base_url="http://localhost:8000/api/")
+        >>> base_url(settings)
+        'http://localhost:8000'
+    """
     if not settings.paperless_base_url:
         return None
     base = settings.paperless_base_url.rstrip("/")
@@ -45,6 +59,23 @@ def _api_base(settings: Settings) -> str:
 
 
 def client(settings: Settings) -> httpx.Client:
+    """Create an authenticated HTTPX client for Paperless-NGX API.
+
+    The client is configured with the API token, base URL, and timeout.
+
+    Args:
+        settings: Application settings with Paperless credentials
+
+    Returns:
+        Configured HTTPX client ready for API calls
+
+    Raises:
+        RuntimeError: If PAPERLESS_BASE_URL or PAPERLESS_API_TOKEN not set
+
+    Example:
+        >>> with client(settings) as c:
+        ...     response = c.get("/documents/")
+    """
     if not settings.paperless_base_url or not settings.paperless_api_token:
         raise RuntimeError("PAPERLESS_BASE_URL/PAPERLESS_API_TOKEN not set")
     return httpx.Client(
@@ -92,7 +123,9 @@ def get_document(settings: Settings, doc_id: int) -> dict[str, Any]:
         return response.json()
 
 
-def get_document_cached(settings: Settings, doc_id: int, *, ttl_seconds: int = _DOC_CACHE_TTL_SECONDS) -> dict[str, Any]:
+def get_document_cached(
+    settings: Settings, doc_id: int, *, ttl_seconds: int = _DOC_CACHE_TTL_SECONDS
+) -> dict[str, Any]:
     if not _cache_enabled(settings, ttl_seconds):
         return get_document(settings, doc_id)
     now = time.time()
@@ -153,7 +186,9 @@ def get_documents_cached(
     worker_count = max(1, min(int(max_workers), len(missing_ids)))
     fetched_results: dict[int, dict[str, Any]] = {}
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        future_by_doc = {executor.submit(get_document, settings, doc_id): doc_id for doc_id in missing_ids}
+        future_by_doc = {
+            executor.submit(get_document, settings, doc_id): doc_id for doc_id in missing_ids
+        }
         for future in as_completed(future_by_doc):
             doc_id = future_by_doc[future]
             payload = future.result()
@@ -164,7 +199,10 @@ def get_documents_cached(
         for doc_id, payload in fetched_results.items():
             _DOC_CACHE[doc_id] = (stamp, payload)
 
-    return {**cached_results, **{doc_id: dict(payload) for doc_id, payload in fetched_results.items()}}
+    return {
+        **cached_results,
+        **{doc_id: dict(payload) for doc_id, payload in fetched_results.items()},
+    }
 
 
 def list_documents_cached(
@@ -223,9 +261,7 @@ def create_tag(settings: Settings, name: str) -> dict[str, Any]:
         return response.json()
 
 
-def list_correspondents(
-    settings: Settings, page: int = 1, page_size: int = 50
-) -> dict[str, Any]:
+def list_correspondents(settings: Settings, page: int = 1, page_size: int = 50) -> dict[str, Any]:
     with client(settings) as http:
         response = http.get(
             "/correspondents/",
@@ -256,9 +292,7 @@ def create_correspondent(settings: Settings, name: str) -> dict[str, Any]:
         return response.json()
 
 
-def list_document_types(
-    settings: Settings, page: int = 1, page_size: int = 50
-) -> dict[str, Any]:
+def list_document_types(settings: Settings, page: int = 1, page_size: int = 50) -> dict[str, Any]:
     with client(settings) as http:
         response = http.get(
             "/document_types/",

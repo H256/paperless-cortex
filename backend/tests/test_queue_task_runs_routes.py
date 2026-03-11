@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import importlib
 import os
-from pathlib import Path
 import tempfile
-from types import SimpleNamespace
 import uuid
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -13,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from app.models import Base, TaskRun
 
 
-def _build_api_client(queue_enabled: bool):
+def _build_api_client(queue_enabled: bool) -> tuple[Any, Any]:
     db_path = Path(tempfile.gettempdir()) / f"paperless_intelligence_test_{uuid.uuid4().hex}.db"
     os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"
     os.environ["QUEUE_ENABLED"] = "1" if queue_enabled else "0"
@@ -31,7 +32,7 @@ def _build_api_client(queue_enabled: bool):
 
     from app.db import get_db
 
-    def override_get_db():
+    def override_get_db() -> Any:
         db = testing_session_local()
         try:
             yield db
@@ -45,7 +46,7 @@ def _build_api_client(queue_enabled: bool):
     return TestClient(main.api), testing_session_local
 
 
-def test_queue_task_runs_disabled_returns_empty():
+def test_queue_task_runs_disabled_returns_empty() -> None:
     client, _session_factory = _build_api_client(queue_enabled=False)
     response = client.get("/queue/task-runs")
     assert response.status_code == 200
@@ -60,7 +61,7 @@ def test_queue_task_runs_disabled_returns_empty():
     assert error_types_payload["items"] == []
 
 
-def test_queue_task_runs_lists_rows():
+def test_queue_task_runs_lists_rows() -> None:
     client, session_factory = _build_api_client(queue_enabled=True)
     with session_factory() as db:
         db.add(
@@ -97,7 +98,7 @@ def test_queue_task_runs_lists_rows():
     assert item["error_category"] == "embedding"
 
 
-def test_queue_task_runs_ignores_invalid_checkpoint_json():
+def test_queue_task_runs_ignores_invalid_checkpoint_json() -> None:
     client, session_factory = _build_api_client(queue_enabled=True)
     with session_factory() as db:
         db.add(
@@ -127,7 +128,7 @@ def test_queue_task_runs_ignores_invalid_checkpoint_json():
     assert payload["items"][0]["checkpoint"] is None
 
 
-def test_queue_task_runs_supports_text_query_filter():
+def test_queue_task_runs_supports_text_query_filter() -> None:
     client, session_factory = _build_api_client(queue_enabled=True)
     with session_factory() as db:
         db.add(
@@ -173,7 +174,7 @@ def test_queue_task_runs_supports_text_query_filter():
     assert payload["items"][0]["doc_id"] == 1900
 
 
-def test_queue_error_types_lists_catalog():
+def test_queue_error_types_lists_catalog() -> None:
     client, _session_factory = _build_api_client(queue_enabled=True)
     response = client.get("/queue/error-types")
     assert response.status_code == 200
@@ -185,7 +186,7 @@ def test_queue_error_types_lists_catalog():
     assert any(item["code"] == "INVALID_MODEL_OUTPUT" and item["retryable"] is False for item in items)
 
 
-def test_queue_task_runs_skips_malformed_rows(monkeypatch):
+def test_queue_task_runs_skips_malformed_rows(monkeypatch: Any) -> None:
     client, _session_factory = _build_api_client(queue_enabled=True)
 
     import app.routes.queue as queue_routes

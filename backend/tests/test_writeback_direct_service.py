@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
 from app.config import load_settings
@@ -42,13 +43,15 @@ def _item(changed_fields: list[str]) -> WritebackDryRunItem:
     )
 
 
-def test_build_writeback_conflicts_returns_changed_fields():
+def test_build_writeback_conflicts_returns_changed_fields() -> None:
     conflicts = build_writeback_conflicts(_item(["title", "tags"]))
     fields = [conf.field for conf in conflicts]
     assert fields == ["title", "tags"]
 
 
-def test_resolve_direct_selection_honors_skip_use_paperless_use_local(session_factory):
+def test_resolve_direct_selection_honors_skip_use_paperless_use_local(
+    session_factory: Any,
+) -> None:
     with session_factory() as db:
         local_doc = Document(id=1101, title="Local")
         db.add(local_doc)
@@ -56,7 +59,9 @@ def test_resolve_direct_selection_honors_skip_use_paperless_use_local(session_fa
 
         synced: list[str] = []
 
-        def _sync(_db, _local_doc, _remote_doc, field):
+        def _sync(
+            _db: Any, _local_doc: Document, _remote_doc: dict[str, str], field: str
+        ) -> None:
             synced.append(field)
 
         selection = resolve_direct_selection(
@@ -73,14 +78,14 @@ def test_resolve_direct_selection_honors_skip_use_paperless_use_local(session_fa
         assert selection.patch_payload == {}
 
 
-def test_execute_direct_selection_emits_calls_and_cleanup():
+def test_execute_direct_selection_emits_calls_and_cleanup() -> None:
     calls_executed: list[tuple[str, str]] = []
     cleaned: list[int] = []
 
-    def _execute(_settings, _db, call):
+    def _execute(_settings: Any, _db: Any, call: Any) -> None:
         calls_executed.append((call.method, call.path))
 
-    def _cleanup(_db, doc_id, _payload):
+    def _cleanup(_db: Any, doc_id: int, _payload: dict[str, Any]) -> None:
         cleaned.append(doc_id)
 
     selection = LocalWritebackSelection(
@@ -110,7 +115,7 @@ def test_execute_direct_selection_emits_calls_and_cleanup():
     assert cleaned == [1101]
 
 
-def test_sync_local_field_from_paperless_tags_clears_pending(session_factory):
+def test_sync_local_field_from_paperless_tags_clears_pending(session_factory: Any) -> None:
     with session_factory() as db:
         tag = Tag(id=2202, name="RemoteTag")
         doc = Document(id=1102, title="Doc 1102")

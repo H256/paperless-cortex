@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table, Text, Float
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -22,12 +22,8 @@ class Document(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str | None] = mapped_column(String(512))
     content: Mapped[str | None] = mapped_column(Text)
-    correspondent_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("correspondents.id")
-    )
-    document_type_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("document_types.id")
-    )
+    correspondent_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("correspondents.id"))
+    document_type_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("document_types.id"))
     document_date: Mapped[str | None] = mapped_column(String(32))
     created: Mapped[str | None] = mapped_column(String(32))
     modified: Mapped[str | None] = mapped_column(String(64))
@@ -43,19 +39,13 @@ class Document(Base):
     analysis_model: Mapped[str | None] = mapped_column(String(128))
     analysis_processed_at: Mapped[str | None] = mapped_column(String(64))
 
-    notes: Mapped[list["DocumentNote"]] = relationship(
+    notes: Mapped[list[DocumentNote]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
-    tags: Mapped[list["Tag"]] = relationship(
-        secondary=document_tags, back_populates="documents"
-    )
+    tags: Mapped[list[Tag]] = relationship(secondary=document_tags, back_populates="documents")
 
-    correspondent: Mapped["Correspondent | None"] = relationship(
-        back_populates="documents"
-    )
-    document_type: Mapped["DocumentType | None"] = relationship(
-        back_populates="documents"
-    )
+    correspondent: Mapped[Correspondent | None] = relationship(back_populates="documents")
+    document_type: Mapped[DocumentType | None] = relationship(back_populates="documents")
 
 
 class DocumentNote(Base):
@@ -279,9 +269,7 @@ class Tag(Base):
     matching_algorithm: Mapped[str | None] = mapped_column(String(64))
     is_insensitive: Mapped[bool | None] = mapped_column(Boolean)
 
-    documents: Mapped[list[Document]] = relationship(
-        secondary=document_tags, back_populates="tags"
-    )
+    documents: Mapped[list[Document]] = relationship(secondary=document_tags, back_populates="tags")
 
 
 class Correspondent(Base):

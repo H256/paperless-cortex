@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from app.config import load_settings
 from app.models import Base, Document, Tag
 from app.services.integrations import paperless
 from app.services.integrations.meta_sync import sync_tags_all
 
 
-def test_sync_tags_all_prunes_removed_tags(api_client, monkeypatch):
+def test_sync_tags_all_prunes_removed_tags(api_client: Any, monkeypatch: Any) -> None:
     engine = create_engine(
         os.environ["DATABASE_URL"],
         connect_args={"check_same_thread": False},
@@ -34,7 +36,7 @@ def test_sync_tags_all_prunes_removed_tags(api_client, monkeypatch):
     )
 
     with Session(engine) as db:
-        total, upserted = sync_tags_all(settings=None, db=db, page_size=200)
+        total, upserted = sync_tags_all(settings=load_settings(), db=db, page_size=200)
         assert total == 1
         assert upserted == 1
 

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def _read_pyproject_version(path: Path) -> str | None:
     try:
         content = path.read_text(encoding="utf-8")
-    except Exception:
+    except OSError:
         return None
     match = re.search(r'(?m)^version = "([^"]+)"\s*$', content)
     if not match:
@@ -26,7 +26,7 @@ def _read_repo_version() -> str:
     for version_file in candidates:
         try:
             value = version_file.read_text(encoding="utf-8").strip()
-        except Exception:
+        except OSError:
             continue
         if value:
             return value
@@ -36,9 +36,9 @@ def _read_repo_version() -> str:
         project_root / "pyproject.toml",
     ]
     for pyproject in pyproject_candidates:
-        value = _read_pyproject_version(pyproject)
-        if value:
-            return value
+        pyproject_version = _read_pyproject_version(pyproject)
+        if pyproject_version:
+            return pyproject_version
     return "0.0.0"
 
 

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from io import BytesIO
 import logging
 import re
 from dataclasses import dataclass
-from typing import Callable
+from io import BytesIO
+from typing import TYPE_CHECKING
 
-from app.config import Settings
 from app.services.ai import vision_ocr
 from app.services.documents.page_types import PageText, WordBox
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +26,16 @@ def split_text_pages(text: str | None) -> list[PageText]:
     pages = [p for p in parts if p]
     if len(pages) <= 1:
         return []
-    return [PageText(page=i + 1, text=page_text, source="paperless_ocr") for i, page_text in enumerate(pages)]
+    return [
+        PageText(page=i + 1, text=page_text, source="paperless_ocr")
+        for i, page_text in enumerate(pages)
+    ]
 
 
 def extract_pdf_text_pages(pdf_bytes: bytes) -> list[PageText]:
     try:
         import fitz  # PyMuPDF
-    except Exception:
+    except ImportError:
         fitz = None
 
     if fitz is not None:
@@ -77,18 +84,20 @@ def extract_pdf_text_pages(pdf_bytes: bytes) -> list[PageText]:
     try:
         from pdfminer.high_level import extract_text
         from pdfminer.pdfpage import PDFPage
-    except Exception as exc:  # pragma: no cover - optional dependency
+    except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("pdfminer.six is required for PDF page extraction") from exc
 
-    pages: list[PageText] = []
+    extracted_pages: list[PageText] = []
     buffer = BytesIO(pdf_bytes)
     page_count = sum(1 for _ in PDFPage.get_pages(buffer))
     logger.info("PDF text extraction (pdfminer) pages=%s", page_count)
     for page_idx in range(page_count):
         buffer.seek(0)
         text = extract_text(buffer, page_numbers=[page_idx]) or ""
-        pages.append(PageText(page=page_idx + 1, text=text.strip(), source="pdf_text"))
-    return pages
+        extracted_pages.append(
+            PageText(page=page_idx + 1, text=text.strip(), source="pdf_text")
+        )
+    return extracted_pages
 
 
 def is_low_quality_text(text: str, min_chars: int, max_non_alnum_ratio: float) -> bool:
@@ -121,7 +130,7 @@ def score_text_quality(text: str, settings: Settings) -> TextQuality:
     length = len(cleaned)
     words = re.findall(r"[A-Za-z0-9ÄÖÜäöüß]+", cleaned)
     word_count = len(words)
-    unique_words = len(set(w.lower() for w in words))
+    unique_words = len({w.lower() for w in words})
     letters = sum(ch.isalpha() for ch in cleaned)
     digits = sum(ch.isdigit() for ch in cleaned)
     alnum = sum(ch.isalnum() for ch in cleaned)
@@ -238,14 +247,14 @@ def get_page_text_layers(
             try:
                 pdf_bytes = fetch_pdf_bytes()
                 logger.info("Fetched PDF bytes=%s", len(pdf_bytes))
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError) as exc:
                 logger.warning("Failed to fetch PDF bytes: %s", exc)
                 pdf_bytes = None
         if pdf_bytes and settings.enable_pdf_page_extract:
             try:
                 baseline_pages = extract_pdf_text_pages(pdf_bytes)
                 logger.info("Extracted PDF text pages=%s", len(baseline_pages))
-            except Exception as exc:
+            except (RuntimeError, ValueError) as exc:
                 logger.warning("PDF text extraction failed: %s", exc)
                 baseline_pages = []
 
@@ -253,21 +262,22 @@ def get_page_text_layers(
     if settings.enable_vision_ocr:
         if not settings.vision_model:
             logger.warning("VISION_MODEL not set; skipping vision OCR")
-        elif pdf_bytes is None:
-            if fetch_pdf_bytes is not None:
-                try:
-                    pdf_bytes = fetch_pdf_bytes()
-                    logger.info("Fetched PDF bytes=%s", len(pdf_bytes))
-                except Exception as exc:
-                    logger.warning("Failed to fetch PDF bytes: %s", exc)
-                    pdf_bytes = None
+        elif pdf_bytes is None and fetch_pdf_bytes is not None:
+            try:
+                pdf_bytes = fetch_pdf_bytes()
+                logger.info("Fetched PDF bytes=%s", len(pdf_bytes))
+            except (OSError, RuntimeError, ValueError) as exc:
+                logger.warning("Failed to fetch PDF bytes: %s", exc)
+                pdf_bytes = None
         if pdf_bytes:
             try:
                 if force_full_vision:
                     page_numbers = [page.page for page in baseline_pages] or None
                     logger.info("Vision OCR full reprocess pages=%s", page_numbers or "all")
                 else:
-                    page_numbers = _select_vision_pages(settings, baseline_pages) if baseline_pages else None
+                    page_numbers = (
+                        _select_vision_pages(settings, baseline_pages) if baseline_pages else None
+                    )
                     logger.info("Vision OCR selective pages=%s", page_numbers or "all")
                 if page_numbers is None or page_numbers:
                     vision_pages = vision_ocr.ocr_pdf_pages(
@@ -275,7 +285,7 @@ def get_page_text_layers(
                         pdf_bytes,
                         page_numbers=page_numbers,
                     )
-            except Exception as exc:
+            except (RuntimeError, ValueError) as exc:
                 logger.warning("Vision OCR failed: %s", exc)
 
     return baseline_pages, vision_pages
@@ -297,13 +307,13 @@ def get_baseline_page_texts(
     try:
         pdf_bytes = fetch_pdf_bytes()
         logger.info("Fetched PDF bytes=%s", len(pdf_bytes))
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         logger.warning("Failed to fetch PDF bytes: %s", exc)
         return []
     try:
         baseline_pages = extract_pdf_text_pages(pdf_bytes)
         logger.info("Extracted PDF text pages=%s", len(baseline_pages))
-    except Exception as exc:
+    except (RuntimeError, ValueError) as exc:
         logger.warning("PDF text extraction failed: %s", exc)
         baseline_pages = []
     return baseline_pages

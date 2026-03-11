@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
-from typing import Any
+from json import JSONDecodeError
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session
 
 from app.models import TaskRun
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
 
 
 def latest_task_runs_by_signature(
@@ -58,7 +62,7 @@ def _checkpoint_from_run(run: TaskRun | None) -> dict[str, Any] | None:
         return None
     try:
         parsed = json.loads(raw)
-    except Exception:
+    except JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
 

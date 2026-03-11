@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
 from app.services.ai import llm_client
-from app.services.runtime.guard import ensure_text_llm_ready
 from app.services.ai.hierarchical_helpers import (
     _best_effort_global_summary,
     _best_effort_page_notes_from_text,
@@ -18,6 +16,10 @@ from app.services.ai.hierarchical_helpers import (
     _section_notes_to_text,
     _truncate_for_tokens,
 )
+from app.services.runtime.guard import ensure_text_llm_ready
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def _chat_response(

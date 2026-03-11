@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -22,7 +24,7 @@ def _insert_suggestion_audit(
     doc_id: int,
     created_at: str,
     action: str = "apply_to_document:title",
-):
+) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -45,7 +47,7 @@ def _insert_local_document(
     created: str,
     *,
     correspondent_id: int | None = None,
-):
+) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -60,20 +62,20 @@ def _insert_local_document(
         db.commit()
 
 
-def _insert_pending_tags(doc_id: int, names: list[str]):
+def _insert_pending_tags(doc_id: int, names: list[str]) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
             DocumentPendingTag(
                 doc_id=doc_id,
-                names_json=__import__("json").dumps(names, ensure_ascii=False),
+                names_json=json.dumps(names, ensure_ascii=False),
                 updated_at="2026-02-10T10:10:00+00:00",
             )
         )
         db.commit()
 
 
-def _insert_suggestion(doc_id: int, source: str, payload: str):
+def _insert_suggestion(doc_id: int, source: str, payload: str) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -88,14 +90,14 @@ def _insert_suggestion(doc_id: int, source: str, payload: str):
         db.commit()
 
 
-def test_get_local_document_missing(api_client):
+def test_get_local_document_missing(api_client: Any) -> None:
     response = api_client.get("/documents/999/local")
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "missing"
 
 
-def test_process_missing_queue_disabled(api_client):
+def test_process_missing_queue_disabled(api_client: Any) -> None:
     response = api_client.post("/documents/process-missing", params={"dry_run": True})
     assert response.status_code == 200
     payload = response.json()
@@ -103,7 +105,7 @@ def test_process_missing_queue_disabled(api_client):
     assert payload["dry_run"] is True
 
 
-def test_process_missing_rejects_invalid_embeddings_mode(api_client, monkeypatch):
+def test_process_missing_rejects_invalid_embeddings_mode(api_client: Any, monkeypatch: Any) -> None:
     from app.routes import documents_actions
 
     monkeypatch.setattr(documents_actions, "require_queue_enabled", lambda _settings: True)
@@ -115,7 +117,7 @@ def test_process_missing_rejects_invalid_embeddings_mode(api_client, monkeypatch
     assert "Invalid embeddings_mode" in str(response.json().get("detail"))
 
 
-def test_process_missing_rejects_invalid_limit(api_client, monkeypatch):
+def test_process_missing_rejects_invalid_limit(api_client: Any, monkeypatch: Any) -> None:
     from app.routes import documents_actions
 
     monkeypatch.setattr(documents_actions, "require_queue_enabled", lambda _settings: True)
@@ -124,9 +126,8 @@ def test_process_missing_rejects_invalid_limit(api_client, monkeypatch):
     assert "limit must be >= 1" in str(response.json().get("detail"))
 
 
-def test_get_document_suggestions_empty(api_client, monkeypatch):
-    from app.services.integrations import paperless
-    from app.services.integrations import meta_cache
+def test_get_document_suggestions_empty(api_client: Any, monkeypatch: Any) -> None:
+    from app.services.integrations import meta_cache, paperless
 
     monkeypatch.setattr(paperless, "get_document", lambda *args, **kwargs: {"content": ""})
     monkeypatch.setattr(meta_cache, "get_cached_tags", lambda *args, **kwargs: [])
@@ -140,7 +141,7 @@ def test_get_document_suggestions_empty(api_client, monkeypatch):
     assert payload["suggestions_meta"] == {}
 
 
-def test_cleanup_texts_queue_disabled(api_client):
+def test_cleanup_texts_queue_disabled(api_client: Any) -> None:
     response = api_client.post(
         "/documents/cleanup-texts",
         json={"enqueue": True, "clear_first": True},
@@ -151,7 +152,7 @@ def test_cleanup_texts_queue_disabled(api_client):
     assert payload["enqueued"] == 0
 
 
-def test_cleanup_texts_rejects_invalid_source(api_client):
+def test_cleanup_texts_rejects_invalid_source(api_client: Any) -> None:
     response = api_client.post(
         "/documents/cleanup-texts",
         json={"enqueue": False, "source": "invalid_source"},
@@ -160,7 +161,7 @@ def test_cleanup_texts_rejects_invalid_source(api_client):
     assert "Invalid source" in str(response.json().get("detail"))
 
 
-def test_enqueue_document_task_rejects_invalid_task(api_client):
+def test_enqueue_document_task_rejects_invalid_task(api_client: Any) -> None:
     response = api_client.post(
         "/documents/1/operations/enqueue-task",
         json={"task": "invalid_task"},
@@ -169,7 +170,7 @@ def test_enqueue_document_task_rejects_invalid_task(api_client):
     assert "Invalid task" in str(response.json().get("detail"))
 
 
-def test_enqueue_document_task_queue_disabled(api_client):
+def test_enqueue_document_task_queue_disabled(api_client: Any) -> None:
     response = api_client.post(
         "/documents/1/operations/enqueue-task",
         json={"task": "sync"},
@@ -182,7 +183,7 @@ def test_enqueue_document_task_queue_disabled(api_client):
     assert payload["doc_id"] == 1
 
 
-def test_list_documents_review_status_unreviewed(api_client, monkeypatch):
+def test_list_documents_review_status_unreviewed(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     monkeypatch.setattr(
@@ -209,7 +210,7 @@ def test_list_documents_review_status_unreviewed(api_client, monkeypatch):
     assert payload["results"][0]["review_status"] == "unreviewed"
 
 
-def test_mark_reviewed_moves_document_out_of_unreviewed(api_client, monkeypatch):
+def test_mark_reviewed_moves_document_out_of_unreviewed(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=41, title="Doc 41", created="2026-02-10T10:00:00+00:00")
@@ -243,7 +244,7 @@ def test_mark_reviewed_moves_document_out_of_unreviewed(api_client, monkeypatch)
     assert after.json()["count"] == 0
 
 
-def test_mark_reviewed_updates_local_review_status(api_client, monkeypatch):
+def test_mark_reviewed_updates_local_review_status(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=45, title="Doc 45", created="2026-02-10T10:00:00+00:00")
@@ -279,7 +280,7 @@ def test_mark_reviewed_updates_local_review_status(api_client, monkeypatch):
     assert after_payload["reviewed_at"]
 
 
-def test_mark_reviewed_returns_missing_when_document_not_local(api_client):
+def test_mark_reviewed_returns_missing_when_document_not_local(api_client: Any) -> None:
     response = api_client.post("/documents/9999/review/mark")
     assert response.status_code == 200
     payload = response.json()
@@ -288,7 +289,7 @@ def test_mark_reviewed_returns_missing_when_document_not_local(api_client):
     assert payload["reviewed_at"] is None
 
 
-def test_list_documents_review_status_needs_review(api_client, monkeypatch):
+def test_list_documents_review_status_needs_review(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     monkeypatch.setattr(
@@ -314,7 +315,9 @@ def test_list_documents_review_status_needs_review(api_client, monkeypatch):
     assert payload["results"][0]["review_status"] == "needs_review"
 
 
-def test_list_documents_local_overrides_force_needs_review(api_client, monkeypatch):
+def test_list_documents_local_overrides_force_needs_review(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=4, title="Local override title", created="2026-02-10")
@@ -347,7 +350,7 @@ def test_list_documents_local_overrides_force_needs_review(api_client, monkeypat
     assert payload["results"][0]["review_status"] == "needs_review"
 
 
-def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
+def test_pending_new_tags_force_needs_review(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=5, title="Doc 5", created="2026-02-10")
@@ -381,7 +384,7 @@ def test_pending_new_tags_force_needs_review(api_client, monkeypatch):
     assert payload["results"][0]["review_status"] == "needs_review"
 
 
-def test_list_documents_filter_without_correspondent(api_client, monkeypatch):
+def test_list_documents_filter_without_correspondent(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     monkeypatch.setattr(
@@ -420,7 +423,7 @@ def test_list_documents_filter_without_correspondent(api_client, monkeypatch):
     assert payload["results"][0]["correspondent"] is None
 
 
-def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch):
+def test_document_pipeline_fanout_returns_ordered_items(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=21, title="Fanout Doc", created="2026-02-10T10:00:00+00:00")
@@ -464,7 +467,7 @@ def test_document_pipeline_fanout_returns_ordered_items(api_client, monkeypatch)
     assert vision_item["status"] in {"running", "missing", "done", "failed", "retrying"}
 
 
-def test_document_pipeline_fanout_rejects_invalid_embeddings_mode(api_client):
+def test_document_pipeline_fanout_rejects_invalid_embeddings_mode(api_client: Any) -> None:
     _insert_local_document(doc_id=22, title="Fanout Invalid Mode", created="2026-02-10T10:00:00+00:00")
     response = api_client.get(
         "/documents/22/pipeline-fanout",
@@ -474,7 +477,7 @@ def test_document_pipeline_fanout_rejects_invalid_embeddings_mode(api_client):
     assert "Invalid embeddings_mode" in str(response.json().get("detail"))
 
 
-def test_continue_document_pipeline_rejects_invalid_embeddings_mode(api_client):
+def test_continue_document_pipeline_rejects_invalid_embeddings_mode(api_client: Any) -> None:
     _insert_local_document(doc_id=23, title="Continue Invalid Mode", created="2026-02-10T10:00:00+00:00")
     response = api_client.post(
         "/documents/23/pipeline/continue",
@@ -484,7 +487,7 @@ def test_continue_document_pipeline_rejects_invalid_embeddings_mode(api_client):
     assert "Invalid embeddings_mode" in str(response.json().get("detail"))
 
 
-def test_continue_document_pipeline_queue_disabled(api_client):
+def test_continue_document_pipeline_queue_disabled(api_client: Any) -> None:
     _insert_local_document(doc_id=24, title="Continue Queue Disabled", created="2026-02-10T10:00:00+00:00")
     response = api_client.post("/documents/24/pipeline/continue", params={"dry_run": True})
     assert response.status_code == 200
@@ -496,7 +499,7 @@ def test_continue_document_pipeline_queue_disabled(api_client):
     assert payload["enqueued"] == 0
 
 
-def _insert_local_note(doc_id: int, note: str, note_id: int = -1):
+def _insert_local_note(doc_id: int, note: str, note_id: int = -1) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -510,7 +513,9 @@ def _insert_local_note(doc_id: int, note: str, note_id: int = -1):
         db.commit()
 
 
-def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_client, monkeypatch):
+def test_pipeline_status_ignores_metadata_only_modified_for_processing(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=31, title="Stable Doc", created="2026-02-10T10:00:00+00:00")
@@ -599,7 +604,9 @@ def test_pipeline_status_ignores_metadata_only_modified_for_processing(api_clien
     assert payload["missing_tasks"] == []
 
 
-def test_pipeline_status_marks_evidence_optional_for_no_text_layer(api_client, monkeypatch):
+def test_pipeline_status_marks_evidence_optional_for_no_text_layer(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=32, title="Image Only", created="2026-02-10T10:00:00+00:00")
@@ -639,9 +646,9 @@ def test_pipeline_status_marks_evidence_optional_for_no_text_layer(api_client, m
     assert all(task.get("task") != "evidence_index" for task in payload["missing_tasks"])
 
 
-def test_reset_and_reprocess_clears_doc_task_runs(api_client, monkeypatch):
-    from app.services.integrations import paperless
+def test_reset_and_reprocess_clears_doc_task_runs(api_client: Any, monkeypatch: Any) -> None:
     from app.routes import documents_actions
+    from app.services.integrations import paperless
 
     _insert_local_document(doc_id=67, title="Reset TaskRuns", created="2026-02-10T10:00:00+00:00")
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
@@ -688,7 +695,9 @@ def test_reset_and_reprocess_clears_doc_task_runs(api_client, monkeypatch):
         assert db.query(TaskRun).filter(TaskRun.doc_id == 67).count() == 0
 
 
-def test_delete_similarity_index_clears_similarity_task_runs(api_client, monkeypatch):
+def test_delete_similarity_index_clears_similarity_task_runs(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.routes import documents_actions
 
     _insert_local_document(doc_id=77, title="Similarity Reset", created="2026-02-10T10:00:00+00:00")
@@ -738,7 +747,9 @@ def test_delete_similarity_index_clears_similarity_task_runs(api_client, monkeyp
         assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
 
 
-def test_get_local_document_note_override_sets_needs_review(api_client, monkeypatch):
+def test_get_local_document_note_override_sets_needs_review(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=41, title="Doc 41", created="2026-02-10T10:00:00+00:00")
@@ -768,7 +779,9 @@ def test_get_local_document_note_override_sets_needs_review(api_client, monkeypa
     assert payload["review_status"] == "needs_review"
 
 
-def test_list_documents_detects_correspondent_clear_as_override(api_client, monkeypatch):
+def test_list_documents_detects_correspondent_clear_as_override(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(
@@ -806,7 +819,9 @@ def test_list_documents_detects_correspondent_clear_as_override(api_client, monk
     assert payload["results"][0]["review_status"] == "needs_review"
 
 
-def test_get_local_document_detects_empty_title_as_override(api_client, monkeypatch):
+def test_get_local_document_detects_empty_title_as_override(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=43, title="", created="2026-02-10T10:00:00+00:00")
@@ -831,7 +846,9 @@ def test_get_local_document_detects_empty_title_as_override(api_client, monkeypa
     assert payload["review_status"] == "needs_review"
 
 
-def test_list_documents_summary_preview_only_when_requested(api_client, monkeypatch):
+def test_list_documents_summary_preview_only_when_requested(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_suggestion(

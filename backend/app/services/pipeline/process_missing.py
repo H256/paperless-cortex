@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
-
-from app.config import Settings
 from app.models import Document
 from app.services.pipeline.pipeline_planner import (
     PipelineOptions,
     collect_pipeline_cache,
     evaluate_doc_pipeline,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 
 @dataclass(frozen=True)
@@ -60,7 +64,11 @@ def process_missing_documents(
 
     docs_query = db.query(Document)
     if options.include_vision_ocr:
-        docs_query = docs_query.order_by(Document.page_count.is_(None).asc(), Document.page_count.asc(), Document.id.asc())
+        docs_query = docs_query.order_by(
+            Document.page_count.is_(None).asc(),
+            Document.page_count.asc(),
+            Document.id.asc(),
+        )
     else:
         docs_query = docs_query.order_by(Document.id.asc())
     pipeline_options = PipelineOptions(
@@ -174,7 +182,11 @@ def process_missing_documents(
                             "doc_id": int(doc.id),
                             "title": str(doc.title or f"Document {doc.id}"),
                             "missing_steps": missing_steps,
-                            "missing_tasks": [str(task.get("task") or "") for task in tasks if isinstance(task, dict)],
+                            "missing_tasks": [
+                                str(task.get("task") or "")
+                                for task in tasks
+                                if isinstance(task, dict)
+                            ],
                         }
                     )
             if options.limit is not None and selected_for_run >= options.limit:

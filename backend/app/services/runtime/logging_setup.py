@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
+if TYPE_CHECKING:
+    from app.config import Settings
 
 _RESERVED = {
     "name",
@@ -37,7 +38,7 @@ _RESERVED = {
 class JsonLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -68,7 +69,10 @@ def configure_logging(settings: Settings, *, service: str) -> None:
     else:
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root.addHandler(handler)
-    logging.getLogger(__name__).info("Logging configured", extra={"context": {"service": service, "json": settings.log_json, "level": level_name.upper()}})
+    logging.getLogger(__name__).info(
+        "Logging configured",
+        extra={"context": {"service": service, "json": settings.log_json, "level": level_name.upper()}},
+    )
 
 
 def log_event(logger: logging.Logger, level: int, message: str, **context: Any) -> None:

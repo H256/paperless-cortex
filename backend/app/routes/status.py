@@ -1,39 +1,48 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 import json
 import threading
 import time
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
+import httpx
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
-from app.config import Settings
+from app.api_models import StatusResponse
+from app.db import SessionLocal
 from app.deps import get_settings
-from app.services.pipeline.queue import is_paused, queue_stats, worker_status
-from app.services.integrations import paperless
+from app.models import SyncState
 from app.services.ai import llm_client
 from app.services.documents.document_stats import compute_document_stats
-from app.api_models import StatusResponse
-from app.version import API_VERSION, APP_VERSION
-from app.db import SessionLocal
-from app.models import SyncState
-from app.services.runtime.time_utils import estimate_eta_seconds
+from app.services.integrations import paperless
+from app.services.pipeline.queue import is_paused, queue_stats, worker_status
 from app.services.runtime.guard import resolve_chat_model
+from app.services.runtime.time_utils import estimate_eta_seconds
+from app.version import API_VERSION, APP_VERSION
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 router = APIRouter(prefix="/status", tags=["status"])
-_model_cache: dict[str, object] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}
+_model_cache: dict[str, Any] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}
 _stream_cache_lock = threading.Lock()
-_stream_cache: dict[str, object] = {"ts": 0.0, "payload": None}
+_stream_cache: dict[str, Any] = {"ts": 0.0, "payload": None}
 
 
-def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, object]]]:
+def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, Any]]]:
     ttl = max(0, settings.status_llm_models_ttl_seconds)
     now = time.time()
     if ttl and (now - float(_model_cache["ts"])) < ttl:
-        return bool(_model_cache["ok"]), str(_model_cache["detail"]), list(_model_cache["models"])
+        cached_models = _model_cache.get("models")
+        models = cached_models if isinstance(cached_models, list) else []
+        return bool(_model_cache["ok"]), str(_model_cache["detail"]), list(models)
     base_url = settings.llm_base_url
     if not base_url:
         return False, "LLM_BASE_URL not set", []
@@ -51,8 +60,10 @@ def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, object]
         data = [m for m in models if isinstance(m, dict)]
         _model_cache.update({"ts": now, "ok": True, "detail": "ok", "models": data})
         return True, "ok", data
-    except Exception as exc:
-        _model_cache.update({"ts": now, "ok": False, "detail": exc.__class__.__name__, "models": []})
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+        _model_cache.update(
+            {"ts": now, "ok": False, "detail": exc.__class__.__name__, "models": []}
+        )
         return False, exc.__class__.__name__, []
 
 
@@ -62,20 +73,22 @@ def _model_status(models: list[dict[str, object]], model_name: str | None) -> tu
     for model in models:
         if model.get("id") == model_name:
             status = model.get("status") or {}
-            value = status.get("value")
+            value = status.get("value") if isinstance(status, dict) else None
             if isinstance(value, str) and value:
                 return value == "loaded", value
             return True, "unknown"
     return False, "not found"
 
 
-def _status_payload(settings: Settings) -> dict[str, object]:
+def _status_payload(settings: Settings) -> dict[str, Any]:
     started = time.perf_counter()
     llm_ok, llm_detail, models = _fetch_models(settings)
     text_ok, text_detail = _model_status(models, settings.text_model)
     embed_ok, embed_detail = _model_status(models, settings.embedding_model)
     vision_ok, vision_detail = _model_status(models, settings.vision_model)
-    worker_ok, worker_detail = worker_status(settings) if settings.queue_enabled else (False, "Queue disabled")
+    worker_ok, worker_detail = (
+        worker_status(settings) if settings.queue_enabled else (False, "Queue disabled")
+    )
     paperless_base = paperless.base_url(settings) or ""
     return {
         "web": {"status": "UP"},
@@ -102,11 +115,11 @@ def _status_payload(settings: Settings) -> dict[str, object]:
 
 
 @router.get("", response_model=StatusResponse)
-def status(settings: Settings = Depends(get_settings)):
+def status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     return _status_payload(settings)
 
 
-def _sync_state_payload(db: Session, key: str) -> dict[str, object]:
+def _sync_state_payload(db: Session, key: str) -> dict[str, Any]:
     state = db.get(SyncState, key)
     if not state:
         return {"status": "idle", "processed": 0, "total": 0, "started_at": None}
@@ -122,25 +135,32 @@ def _sync_state_payload(db: Session, key: str) -> dict[str, object]:
     }
 
 
-def _queue_status_payload(settings: Settings) -> dict[str, object]:
+def _queue_status_payload(settings: Settings) -> dict[str, Any]:
     if not settings.queue_enabled:
-        return {"enabled": False, "length": None, "total": 0, "in_progress": 0, "done": 0, "paused": False}
+        return {
+            "enabled": False,
+            "length": None,
+            "total": 0,
+            "in_progress": 0,
+            "done": 0,
+            "paused": False,
+        }
     stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
     return {"enabled": True, **stats, "paused": is_paused(settings)}
 
 
-def _document_stats_payload(db: Session) -> dict[str, object]:
+def _document_stats_payload(db: Session) -> dict[str, Any]:
     return compute_document_stats(db)
 
 
-def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, object]:
+def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, Any]:
     state = db.get(SyncState, "embeddings")
     if settings.queue_enabled:
         stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
         status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
         started_at = state.started_at if state else None
         if status == "running" and not started_at:
-            started_at = datetime.now(timezone.utc).isoformat()
+            started_at = datetime.now(UTC).isoformat()
         eta_seconds = estimate_eta_seconds(started_at, stats["done"], stats["total"])
         return {
             "status": status,
@@ -165,7 +185,7 @@ def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, obj
     }
 
 
-def _build_stream_payload(settings: Settings) -> dict[str, object]:
+def _build_stream_payload(settings: Settings) -> dict[str, Any]:
     db = SessionLocal()
     try:
         return {
@@ -180,7 +200,7 @@ def _build_stream_payload(settings: Settings) -> dict[str, object]:
         db.close()
 
 
-def _get_cached_stream_payload(settings: Settings, *, interval_seconds: int) -> dict[str, object]:
+def _get_cached_stream_payload(settings: Settings, *, interval_seconds: int) -> dict[str, Any]:
     ttl = max(1, int(interval_seconds)) / 2.0
     now = time.time()
     with _stream_cache_lock:
@@ -196,10 +216,10 @@ def _get_cached_stream_payload(settings: Settings, *, interval_seconds: int) -> 
 
 
 @router.get("/stream")
-async def status_stream(settings: Settings = Depends(get_settings)):
+async def status_stream(settings: Settings = Depends(get_settings)) -> StreamingResponse:
     interval = max(1, settings.status_stream_interval_seconds)
 
-    async def event_generator():
+    async def event_generator() -> AsyncIterator[str]:
         while True:
             payload = _get_cached_stream_payload(settings, interval_seconds=interval)
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"

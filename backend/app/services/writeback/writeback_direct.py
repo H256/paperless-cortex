@@ -1,16 +1,28 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
-
-from app.api_models import WritebackConflictField, WritebackDryRunCall, WritebackDryRunItem, WritebackFieldDiff
-from app.config import Settings
+from app.api_models import (
+    WritebackConflictField,
+    WritebackDryRunCall,
+    WritebackDryRunItem,
+    WritebackFieldDiff,
+)
 from app.models import Document, DocumentNote, DocumentPendingCorrespondent, DocumentPendingTag
 from app.services.documents.note_ids import next_local_note_id
 from app.services.runtime.time_utils import utc_now_iso
-from app.services.writeback.writeback_selection import LocalWritebackSelection, collect_local_selection, normalize_changed_field
+from app.services.writeback.writeback_selection import (
+    LocalWritebackSelection,
+    collect_local_selection,
+    normalize_changed_field,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 
 def item_field_by_name(item: WritebackDryRunItem, field: str) -> WritebackFieldDiff | None:
@@ -76,10 +88,12 @@ def sync_local_field_from_paperless(
     if field == "note":
         notes_raw = remote_doc.get("notes")
         notes: list[dict[str, Any]] = notes_raw if isinstance(notes_raw, list) else []
-        remote_note_id, remote_note_text = extract_ai_summary_note(
-            notes
-        )
-        ai_local_notes = [note for note in (local_doc.notes or []) if str(note.note or "").strip().endswith("KI-Zusammenfassung")]
+        remote_note_id, remote_note_text = extract_ai_summary_note(notes)
+        ai_local_notes = [
+            note
+            for note in (local_doc.notes or [])
+            if str(note.note or "").strip().endswith("KI-Zusammenfassung")
+        ]
         for note in ai_local_notes:
             db.delete(note)
         if remote_note_id and remote_note_text:
@@ -154,7 +168,11 @@ def execute_direct_selection(
         execute_call_fn(settings, db, patch_call)
         calls.append(patch_call)
         cleanup_pending_rows_after_patch_fn(db, doc_id, selection.patch_payload)
-    if selection.apply_local_note and selection.note_action == "replace" and selection.note_original_id:
+    if (
+        selection.apply_local_note
+        and selection.note_action == "replace"
+        and selection.note_original_id
+    ):
         del_call = WritebackDryRunCall(
             doc_id=doc_id,
             method="DELETE",

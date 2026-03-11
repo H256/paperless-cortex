@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from sqlalchemy import delete
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING
 
+from sqlalchemy import delete
+
+from app.api_models import CorrespondentIn, DocumentTypeIn, TagIn
 from app.models import Correspondent, DocumentType, Tag, document_tags
-from app.schemas import CorrespondentIn, DocumentTypeIn, TagIn
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def upsert_tags(db: Session, rows: list[dict]) -> int:

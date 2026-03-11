@@ -5,18 +5,24 @@ import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.config import load_settings
+from app.db import SessionLocal
 from app.routes import (
     chat,
     connections,
     documents,
     documents_actions,
-    documents_suggestions,
     documents_similarity,
+    documents_suggestions,
     embeddings,
     meta,
     queue,
@@ -24,19 +30,20 @@ from app.routes import (
     sync,
     writeback_dryrun,
 )
-from app.config import load_settings
 from app.services.integrations.meta_cache import refresh_cache
 from app.services.integrations.meta_sync import sync_correspondents_all, sync_tags_all
-from app.db import SessionLocal
 from app.services.runtime.logging_setup import configure_logging
 from app.version import API_VERSION
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 SETTINGS = load_settings()
 
 def _run_startup_sync() -> None:
     try:
         refresh_cache(SETTINGS)
-    except Exception as exc:
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
         logging.getLogger(__name__).warning("Meta cache preload failed: %s", exc, exc_info=True)
 
     with SessionLocal() as db:
@@ -45,7 +52,7 @@ def _run_startup_sync() -> None:
             logging.getLogger(__name__).info(
                 "Startup sync tags total=%s upserted=%s", total, upserted
             )
-        except Exception as exc:
+        except (httpx.HTTPError, RuntimeError, ValueError, SQLAlchemyError) as exc:
             logging.getLogger(__name__).warning(
                 "Startup sync tags failed: %s", exc, exc_info=True
             )
@@ -55,14 +62,14 @@ def _run_startup_sync() -> None:
             logging.getLogger(__name__).info(
                 "Startup sync correspondents total=%s upserted=%s", total, upserted
             )
-        except Exception as exc:
+        except (httpx.HTTPError, RuntimeError, ValueError, SQLAlchemyError) as exc:
             logging.getLogger(__name__).warning(
                 "Startup sync correspondents failed: %s", exc, exc_info=True
             )
 
 
 @asynccontextmanager
-async def _app_lifespan(_app: FastAPI):
+async def _app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _run_startup_sync()
     yield
 
@@ -83,7 +90,7 @@ slow_request_logger = logging.getLogger("app.slow_requests")
 
 
 @api.middleware("http")
-async def log_slow_requests(request, call_next):
+async def log_slow_requests(request: Any, call_next: Any) -> Any:
     threshold_ms = SETTINGS.api_slow_request_log_ms
     if threshold_ms <= 0:
         return await call_next(request)
@@ -123,7 +130,7 @@ app.mount("/api", api)
 
 
 class SPAStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope):
+    async def get_response(self, path: str, scope: Any) -> Any:
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:

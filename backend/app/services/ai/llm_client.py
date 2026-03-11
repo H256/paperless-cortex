@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Iterable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import httpx
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 
-from app.config import Settings
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,17 @@ def _require(value: str | None, env_name: str) -> str:
 
 
 def base_url(settings: Settings) -> str:
+    """Get the LLM base URL from settings.
+
+    Args:
+        settings: Application settings
+
+    Returns:
+        Validated and normalized LLM base URL
+
+    Raises:
+        RuntimeError: If LLM_BASE_URL is not configured
+    """
     return _require(settings.llm_base_url, "LLM_BASE_URL")
 
 
@@ -64,6 +77,21 @@ def base_url_for_purpose(
     settings: Settings,
     purpose: Literal["text", "vision", "embedding"] = "text",
 ) -> str:
+    """Get the appropriate LLM base URL for a specific purpose.
+
+    Different purposes (text, vision, embedding) can use different
+    endpoints if configured separately in settings.
+
+    Args:
+        settings: Application settings
+        purpose: Type of LLM operation ("text", "vision", or "embedding")
+
+    Returns:
+        Base URL appropriate for the specified purpose
+
+    Raises:
+        RuntimeError: If required URL is not configured
+    """
     if purpose == "vision":
         return _require(settings.ocr_vision_base_url or settings.llm_base_url, "LLM_BASE_URL")
     if purpose == "embedding":
@@ -113,6 +141,37 @@ def chat_completion(
     temperature: float | None = None,
     json_mode: bool = False,
 ) -> str:
+    """Execute an LLM chat completion request.
+
+    This is the primary function for calling LLM models. It supports both
+    text and vision models, with optional JSON mode and parameter control.
+
+    Args:
+        settings: Application settings with LLM configuration
+        model: Name of the model to use
+        messages: Chat messages in OpenAI format (list of dicts with role/content)
+        timeout: Request timeout in seconds, or None for no timeout
+        purpose: Whether this is a "text" or "vision" model call
+        max_tokens: Maximum tokens in response, or None for model default
+        temperature: Sampling temperature (0.0-2.0), or None for model default
+        json_mode: If True, request JSON-formatted output
+
+    Returns:
+        String content of the model's response
+
+    Raises:
+        RuntimeError: If LLM response is malformed or empty
+        Exception: Various exceptions from OpenAI SDK for API errors
+
+    Example:
+        >>> messages = [{"role": "user", "content": "Summarize this document"}]
+        >>> response = chat_completion(
+        ...     settings,
+        ...     model="gpt-4",
+        ...     messages=messages,
+        ...     timeout=30.0
+        ... )
+    """
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
     debug_enabled = _llm_debug_enabled()
     debug_full_response = _llm_debug_full_response_enabled()
@@ -143,12 +202,15 @@ def chat_completion(
 
     try:
         response = client_sdk.chat.completions.create(**kwargs)
-    except Exception:
+    except BadRequestError:
         if not json_mode:
             raise
         # Some OpenAI-compatible servers do not implement response_format.
         if debug_enabled:
-            logger.warning("LLM json_mode unsupported; retrying without response_format model=%s", model)
+            logger.warning(
+                "LLM json_mode unsupported; retrying without response_format model=%s",
+                model,
+            )
         kwargs.pop("response_format", None)
         response = client_sdk.chat.completions.create(**kwargs)
     choices = response.choices or []
@@ -202,6 +264,30 @@ def embedding(
     text: str,
     timeout: float | None,
 ) -> list[float]:
+    """Generate a vector embedding for a single text string.
+
+    Args:
+        settings: Application settings with LLM configuration
+        model: Name of the embedding model to use
+        text: Input text to embed
+        timeout: Request timeout in seconds
+
+    Returns:
+        Vector embedding as a list of floats
+
+    Raises:
+        RuntimeError: If embedding response is invalid or empty
+
+    Example:
+        >>> vector = embedding(
+        ...     settings,
+        ...     model="text-embedding-3-small",
+        ...     text="Document content here",
+        ...     timeout=60.0
+        ... )
+        >>> len(vector)
+        1536
+    """
     client_sdk = _sdk_client(settings, timeout=timeout, purpose="embedding")
     response = client_sdk.embeddings.create(model=model, input=text)
     data = response.data or []

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import httpx
 
-from app.config import Settings
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def base_url(settings: Settings) -> str:

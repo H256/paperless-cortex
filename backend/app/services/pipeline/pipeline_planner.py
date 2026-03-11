@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError, ProgrammingError
-from sqlalchemy.orm import Session
 
-from app.config import Settings
 from app.models import (
     Document,
     DocumentEmbedding,
@@ -18,6 +16,11 @@ from app.models import (
     TaskRun,
 )
 from app.services.ai.hierarchical_summary import is_large_document
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 
 class PipelineOptions(BaseModel):
@@ -353,7 +356,13 @@ def evaluate_doc_pipeline(
     note_pages = {int(page) for page, _status, _processed_at, _created_at in ok_notes if page is not None and int(page) > 0}
     expected_note_pages = int(doc.page_count or 0)
     notes_complete = len(note_pages) > 0 if expected_note_pages <= 0 else len(note_pages) >= expected_note_pages
-    notes_latest_raw = max((_parse_iso(processed_at) or _parse_iso(created_at) for _p, _s, processed_at, created_at in ok_notes), default=None)
+    note_timestamps = [
+        timestamp
+        for _p, _s, processed_at, created_at in ok_notes
+        for timestamp in [_parse_iso(processed_at) or _parse_iso(created_at)]
+        if timestamp is not None
+    ]
+    notes_latest_raw = max(note_timestamps, default=None)
     notes_stale = not notes_latest_raw or (page_notes_source == "vision_ocr" and vision_updated_at is not None and notes_latest_raw < vision_updated_at)
     large_doc = is_large_document(page_count=doc.page_count, total_text=doc.content, threshold_pages=settings.large_doc_page_threshold)
     evaluate_page_notes = options.include_page_notes or options.include_summary_hierarchical

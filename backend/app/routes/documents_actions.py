@@ -1,13 +1,30 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import delete
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
-from app.config import Settings
+from app.api_models import (
+    CleanupTextsResponse,
+    ClearIntelligenceResponse,
+    DeleteEmbeddingsResponse,
+    DeleteSimilarityIndexResponse,
+    DeleteSuggestionsResponse,
+    DeleteVisionOcrResponse,
+    DocumentIn,
+    DocumentOperationEnqueueResponse,
+    DocumentPipelineContinueResponse,
+    DocumentPipelineFanoutResponse,
+    DocumentPipelineStatusResponse,
+    DocumentResetReprocessResponse,
+    ProcessMissingResponse,
+    ResetIntelligenceResponse,
+)
 from app.db import get_db
 from app.deps import get_settings
 from app.models import (
@@ -21,12 +38,16 @@ from app.models import (
     DocumentSuggestion,
     TaskRun,
 )
-from app.services.pipeline.queue import enqueue_task, enqueue_task_sequence, enqueue_task_sequence_front
-from app.services.search.embeddings import delete_points_for_doc, delete_similarity_points
-from app.services.pipeline.pipeline_fanout import build_pipeline_fanout_items, latest_task_runs_by_signature
+from app.routes.documents_common import parse_iso
+from app.routes.queue_guard import require_queue_enabled
+from app.routes.sync import _upsert_document
+from app.routes.sync import sync_documents as run_sync_documents
 from app.services.documents.page_text_store import reclean_page_texts
-from app.services.pipeline.queue_tasks import build_task_sequence
-from app.services.pipeline.process_missing import ProcessMissingOptions, process_missing_documents
+from app.services.integrations import paperless
+from app.services.pipeline.pipeline_fanout import (
+    build_pipeline_fanout_items,
+    latest_task_runs_by_signature,
+)
 from app.services.pipeline.pipeline_planner import (
     PipelineOptions,
     collect_pipeline_cache,
@@ -35,30 +56,24 @@ from app.services.pipeline.pipeline_planner import (
     post_sync_followup_tasks,
     task_signature,
 )
-from app.services.integrations import paperless
-from app.schemas import DocumentIn
-from app.routes.sync import _upsert_document
-from app.routes.sync import sync_documents as run_sync_documents
-from app.api_models import (
-    ClearIntelligenceResponse,
-    CleanupTextsResponse,
-    DocumentPipelineContinueResponse,
-    DocumentPipelineFanoutResponse,
-    DocumentPipelineStatusResponse,
-    DeleteEmbeddingsResponse,
-    DeleteSimilarityIndexResponse,
-    DocumentOperationEnqueueResponse,
-    DocumentResetReprocessResponse,
-    DeleteSuggestionsResponse,
-    DeleteVisionOcrResponse,
-    ProcessMissingResponse,
-    ResetIntelligenceResponse,
+from app.services.pipeline.process_missing import ProcessMissingOptions, process_missing_documents
+from app.services.pipeline.queue import (
+    enqueue_task,
+    enqueue_task_sequence,
+    enqueue_task_sequence_front,
 )
-from app.routes.documents_common import parse_iso
-from app.routes.queue_guard import require_queue_enabled
+from app.services.pipeline.queue_tasks import build_task_sequence
+from app.services.search.embeddings import delete_points_for_doc, delete_similarity_points
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
+ResponseDict = dict[str, object]
+ReferenceCache = dict[str, set[int]]
 
 ALLOWED_DOC_TASKS = {
     "sync",
@@ -88,15 +103,17 @@ def _get_or_sync_local_document(
     try:
         raw = paperless.get_document(settings, int(doc_id))
         data = DocumentIn.model_validate(raw)
-        cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+        cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
         _upsert_document(db, settings, data, cache)
         db.commit()
         doc = db.get(Document, int(doc_id))
         if doc:
             logger.info("Auto-synced missing local document doc_id=%s", doc_id)
             return doc
-    except Exception:
-        logger.warning("Failed to auto-sync missing local document doc_id=%s", doc_id, exc_info=True)
+    except (httpx.HTTPError, RuntimeError, ValidationError, SQLAlchemyError, ValueError):
+        logger.warning(
+            "Failed to auto-sync missing local document doc_id=%s", doc_id, exc_info=True
+        )
     raise HTTPException(status_code=404, detail="Document not found")
 
 
@@ -113,6 +130,7 @@ class CleanupTextsRequest(BaseModel):
     clear_first: bool = False
     enqueue: bool = True
 
+
 def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentSuggestion))
     db.execute(delete(DocumentPageText))
@@ -125,15 +143,27 @@ def _clear_intelligence_tables(db: Session) -> None:
 
 
 def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
-    db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).delete(synchronize_session=False)
-    db.query(DocumentPageText).filter(DocumentPageText.doc_id == doc_id).delete(synchronize_session=False)
-    db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id == doc_id).delete(synchronize_session=False)
-    db.query(DocumentOcrScore).filter(DocumentOcrScore.doc_id == doc_id).delete(synchronize_session=False)
-    db.query(DocumentPageNote).filter(DocumentPageNote.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
+    db.query(DocumentPageText).filter(DocumentPageText.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
+    db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
+    db.query(DocumentOcrScore).filter(DocumentOcrScore.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
+    db.query(DocumentPageNote).filter(DocumentPageNote.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
     db.query(DocumentSectionSummary).filter(DocumentSectionSummary.doc_id == doc_id).delete(
         synchronize_session=False
     )
-    db.query(DocumentPageAnchor).filter(DocumentPageAnchor.doc_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentPageAnchor).filter(DocumentPageAnchor.doc_id == doc_id).delete(
+        synchronize_session=False
+    )
     # Reset should not keep stale per-doc pipeline history; it confuses fan-out/status views.
     db.query(TaskRun).filter(TaskRun.doc_id == doc_id).delete(synchronize_session=False)
     db.commit()
@@ -157,7 +187,7 @@ def process_missing(
     limit: int | None = None,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
     if embeddings_mode not in ("auto", "paperless", "vision", "both"):
@@ -192,7 +222,7 @@ def process_missing(
 def _sync_ok(settings: Settings, doc: Document) -> bool:
     try:
         remote = paperless.get_document(settings, int(doc.id))
-    except Exception:
+    except (httpx.HTTPError, RuntimeError, ValueError):
         return False
     local_modified = parse_iso(doc.modified) or parse_iso(doc.created)
     remote_modified = parse_iso(remote.get("modified")) or parse_iso(remote.get("created"))
@@ -208,25 +238,33 @@ def get_document_pipeline_status(
     doc_id: int,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
     cache = collect_pipeline_cache(db, doc_ids={int(doc_id)}, settings=settings)
     options = PipelineOptions()
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     sync_ok = _sync_ok(settings, doc)
     if not sync_ok:
-        evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation["tasks"])
+        evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}, *list(evaluation["tasks"])]
     preferred_source = str(evaluation["preferred_source"])
     is_large_doc = bool(evaluation["large_doc"])
     paperless_ok = not (
         evaluation["needs_embeddings_paperless"] or evaluation["needs_suggestions_paperless"]
     )
     vision_required = settings.enable_vision_ocr
-    vision_ok = True if not vision_required else not (
-        evaluation["needs_vision"] or evaluation["needs_embeddings_vision"] or evaluation["needs_suggestions_vision"]
+    vision_ok = (
+        True
+        if not vision_required
+        else not (
+            evaluation["needs_vision"]
+            or evaluation["needs_embeddings_vision"]
+            or evaluation["needs_suggestions_vision"]
+        )
     )
-    large_ok = True if not is_large_doc else not (
-        evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"]
+    large_ok = (
+        True
+        if not is_large_doc
+        else not (evaluation["needs_page_notes"] or evaluation["needs_summary_hierarchical"])
     )
     similarity_ok = not bool(evaluation.get("needs_doc_similarity_index"))
     evidence_required = bool(evaluation.get("evidence_required", True))
@@ -234,7 +272,12 @@ def get_document_pipeline_status(
     evidence_ok = (not evidence_required) or (not evaluation["needs_evidence_index"])
 
     steps = [
-        {"key": "sync", "required": True, "done": sync_ok, "detail": "Local document is up to date with Paperless."},
+        {
+            "key": "sync",
+            "required": True,
+            "done": sync_ok,
+            "detail": "Local document is up to date with Paperless.",
+        },
         {
             "key": "evidence",
             "required": evidence_required,
@@ -301,7 +344,7 @@ def get_document_pipeline_fanout(
     embeddings_mode: str = "auto",
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
     if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
@@ -322,14 +365,19 @@ def get_document_pipeline_fanout(
     cache = collect_pipeline_cache(db, doc_ids={int(doc_id)}, settings=settings)
     evaluation = evaluate_doc_pipeline(doc=doc, settings=settings, cache=cache, options=options)
     if include_sync and not _sync_ok(settings, doc):
-        evaluation["tasks"] = [{"doc_id": int(doc_id), "task": "sync"}] + list(evaluation.get("tasks", []))
+        evaluation["tasks"] = [
+            {"doc_id": int(doc_id), "task": "sync"},
+            *list(evaluation.get("tasks", [])),
+        ]
     planned = post_sync_followup_tasks(int(doc.id), settings=settings, options=options)
     if include_sync:
-        planned = [{"doc_id": int(doc.id), "task": "sync"}] + planned
+        planned = [{"doc_id": int(doc.id), "task": "sync"}, *planned]
     planned = dedupe_tasks(planned)
     missing_signatures = {task_signature(task) for task in evaluation.get("tasks", [])}
     planned_signatures = {task_signature(task) for task in planned}
-    latest_runs = latest_task_runs_by_signature(db, doc_id=int(doc.id), signatures=planned_signatures)
+    latest_runs = latest_task_runs_by_signature(
+        db, doc_id=int(doc.id), signatures=planned_signatures
+    )
     items = build_pipeline_fanout_items(
         planned_tasks=planned,
         missing_signatures=missing_signatures,
@@ -361,12 +409,18 @@ def continue_document_pipeline(
     embeddings_mode: str = "auto",
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     doc = _get_or_sync_local_document(db=db, settings=settings, doc_id=int(doc_id))
     if embeddings_mode not in ("auto", "paperless", "vision", "both"):
         raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
     if not require_queue_enabled(settings):
-        return {"enabled": False, "doc_id": int(doc_id), "dry_run": dry_run, "missing_tasks": 0, "enqueued": 0}
+        return {
+            "enabled": False,
+            "doc_id": int(doc_id),
+            "dry_run": dry_run,
+            "missing_tasks": 0,
+            "enqueued": 0,
+        }
 
     options = PipelineOptions(
         include_sync=include_sync,
@@ -388,8 +442,10 @@ def continue_document_pipeline(
     if include_sync and not _sync_ok(settings, doc):
         followups = post_sync_followup_tasks(int(doc_id), settings=settings, options=options)
         if not evaluation.get("needs_evidence_index", False):
-            followups = [task for task in followups if str(task.get("task") or "") != "evidence_index"]
-        tasks = dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}] + tasks + followups)
+            followups = [
+                task for task in followups if str(task.get("task") or "") != "evidence_index"
+            ]
+        tasks = dedupe_tasks([{"doc_id": int(doc_id), "task": "sync"}, *tasks, *followups])
     enqueued = 0
     if tasks and not dry_run:
         enqueued = enqueue_task_sequence(settings, tasks)
@@ -406,7 +462,7 @@ def continue_document_pipeline(
 def reset_intelligence(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
     _clear_intelligence_tables(db)
@@ -417,7 +473,7 @@ def reset_intelligence(
 def clear_intelligence(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
     _clear_intelligence_tables(db)
@@ -428,7 +484,7 @@ def clear_intelligence(
 def delete_vision_ocr(
     doc_id: int | None = None,
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     query = db.query(DocumentPageText).filter(DocumentPageText.source == "vision_ocr")
     if doc_id is not None:
         query = query.filter(DocumentPageText.doc_id == doc_id)
@@ -445,7 +501,7 @@ def delete_vision_ocr(
 def delete_suggestions(
     doc_id: int | None = None,
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     query = db.query(DocumentSuggestion)
     if doc_id is not None:
         query = query.filter(DocumentSuggestion.doc_id == doc_id)
@@ -459,7 +515,7 @@ def delete_embeddings(
     doc_id: int | None = None,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     if doc_id is not None:
         delete_points_for_doc(settings, doc_id)
         row = db.get(DocumentEmbedding, doc_id)
@@ -477,13 +533,13 @@ def delete_similarity_index(
     doc_id: int | None = None,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     qdrant_deleted = 0
     qdrant_errors = 0
     try:
         delete_similarity_points(settings, doc_id=doc_id)
         qdrant_deleted = 1
-    except Exception as exc:
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
         qdrant_errors = 1
         logger.warning("Failed to delete similarity index points doc_id=%s: %s", doc_id, exc)
 
@@ -500,23 +556,39 @@ def cleanup_texts(
     payload: CleanupTextsRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     if payload.source and payload.source not in ("paperless_ocr", "vision_ocr", "pdf_text"):
         raise HTTPException(status_code=400, detail="Invalid source")
     doc_ids = [int(doc_id) for doc_id in (payload.doc_ids or []) if int(doc_id) > 0]
     if payload.enqueue:
         if not require_queue_enabled(settings):
-            return {"queued": False, "docs": len(doc_ids), "enqueued": 0, "processed": 0, "updated": 0}
+            return {
+                "queued": False,
+                "docs": len(doc_ids),
+                "enqueued": 0,
+                "processed": 0,
+                "updated": 0,
+            }
         if not doc_ids:
             doc_ids = [int(row.id) for row in db.query(Document.id).yield_per(500)]
-        tasks: list[dict] = []
+        tasks: list[dict[str, object]] = []
         for doc_id in doc_ids:
-            task: dict[str, object] = {"doc_id": doc_id, "task": "cleanup_texts", "clear_first": payload.clear_first}
+            task: dict[str, object] = {
+                "doc_id": doc_id,
+                "task": "cleanup_texts",
+                "clear_first": payload.clear_first,
+            }
             if payload.source:
                 task["source"] = payload.source
             tasks.append(task)
         enqueued = enqueue_task_sequence(settings, tasks)
-        return {"queued": True, "docs": len(doc_ids), "enqueued": enqueued, "processed": 0, "updated": 0}
+        return {
+            "queued": True,
+            "docs": len(doc_ids),
+            "enqueued": enqueued,
+            "processed": 0,
+            "updated": 0,
+        }
 
     if doc_ids:
         processed_total = 0
@@ -561,7 +633,7 @@ def enqueue_document_task(
     doc_id: int,
     payload: DocumentTaskRequest,
     settings: Settings = Depends(get_settings),
-):
+) -> ResponseDict:
     if payload.task not in ALLOWED_DOC_TASKS:
         raise HTTPException(status_code=400, detail="Invalid task")
     if not require_queue_enabled(settings):
@@ -577,19 +649,21 @@ def enqueue_document_task(
     return {"enabled": True, "enqueued": enqueued, "task": payload.task, "doc_id": doc_id}
 
 
-@router.post("/{doc_id}/operations/reset-and-reprocess", response_model=DocumentResetReprocessResponse)
+@router.post(
+    "/{doc_id}/operations/reset-and-reprocess", response_model=DocumentResetReprocessResponse
+)
 def reset_and_reprocess_document(
     doc_id: int,
     enqueue: bool = True,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     _clear_doc_intelligence(db, doc_id)
     delete_points_for_doc(settings, doc_id)
 
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
 

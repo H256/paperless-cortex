@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def load_all_pages(fetch_page: Callable[..., dict], page_size: int = 200) -> list[dict]:

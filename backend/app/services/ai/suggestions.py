@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-import os
 import json
 import logging
-from typing import Any
-from pathlib import Path
+import os
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
 from app.services.ai import llm_client
-from app.services.runtime.guard import ensure_text_llm_ready
 from app.services.ai.json_extraction import extract_json_object
 from app.services.ai.text_budget import truncate_chars
+from app.services.runtime.guard import ensure_text_llm_ready
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ def _is_iso_date(value: str) -> bool:
     try:
         datetime.fromisoformat(value)
         return True
-    except Exception:
+    except ValueError:
         return False
 
 
@@ -192,7 +194,7 @@ def generate_suggestions(
     logger.info("Suggestions response len=%s", len(raw_text))
     try:
         parsed = extract_json_object(raw_text)
-    except Exception as exc:
+    except ValueError as exc:
         logger.warning("Suggestions JSON parse failed: %s", exc)
         parsed = {"raw": raw_text}
     if settings.suggestions_debug:
@@ -266,7 +268,7 @@ def generate_field_variants(
     logger.info("Suggestions field response len=%s", len(raw_text))
     try:
         parsed = extract_json_object(raw_text)
-    except Exception as exc:
+    except ValueError as exc:
         logger.warning("Suggestions field JSON parse failed: %s", exc)
         parsed = {"raw": raw_text}
     if settings.suggestions_debug:

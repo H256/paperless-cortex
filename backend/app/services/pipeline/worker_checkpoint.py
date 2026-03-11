@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import TaskRun
 from app.services.pipeline.task_runs import update_task_run_checkpoint
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ def set_task_checkpoint(
         payload.update(extra)
     try:
         update_task_run_checkpoint(db, run_id=run_id, checkpoint=payload)
-    except Exception:
+    except SQLAlchemyError:
         logger.warning("Failed to persist task checkpoint run_id=%s stage=%s", run_id, stage)
 
 
@@ -40,7 +44,7 @@ def get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
         return None
     try:
         row = db.get(TaskRun, run_id)
-    except Exception:
+    except SQLAlchemyError:
         # Worker must stay operational even when task-runs schema is not ready yet.
         logger.debug("Failed reading task run checkpoint run_id=%s", run_id, exc_info=True)
         return None
@@ -51,7 +55,7 @@ def get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
         return None
     try:
         payload = json.loads(raw)
-    except Exception:
+    except json.JSONDecodeError:
         return None
     return payload if isinstance(payload, dict) else None
 
@@ -80,7 +84,7 @@ def resume_stage_current(
             return 0
     try:
         current = int(candidate.get("current") or 0)
-    except Exception:
+    except (TypeError, ValueError):
         return 0
     if total is not None:
         return max(0, min(current, int(total)))
