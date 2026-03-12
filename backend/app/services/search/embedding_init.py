@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.services.search.embeddings import embed_text, ensure_qdrant_collection
+from app.services.search import vector_store
+from app.services.search.embeddings import embed_text
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -10,4 +11,4 @@ if TYPE_CHECKING:
 
 def ensure_embedding_collection(settings: Settings) -> None:
     sample_embedding = embed_text(settings, "dimension probe")
-    ensure_qdrant_collection(settings, vector_size=len(sample_embedding))
+    vector_store.ensure_collection(settings, vector_size=len(sample_embedding))

@@ -18,6 +18,6 @@ def test_fetch_doc_point_vector_handles_qdrant_404(monkeypatch: MonkeyPatch) -> 
     def _raise_404(*_args: object, **_kwargs: object) -> None:
         raise httpx.HTTPStatusError("not found", request=request, response=response)
 
-    monkeypatch.setattr("app.services.search.similarity.qdrant.retrieve_points", _raise_404)
+    monkeypatch.setattr("app.services.search.similarity.vector_store.retrieve_points", _raise_404)
 
     assert fetch_doc_point_vector(load_settings(), 123) is None

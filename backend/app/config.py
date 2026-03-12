@@ -49,6 +49,14 @@ class QdrantConfig:
 
 
 @dataclass(frozen=True)
+class VectorStoreConfig:
+    provider: str
+    url: str | None
+    api_key: str | None
+    collection: str | None
+
+
+@dataclass(frozen=True)
 class QueueConfig:
     redis_host: str | None
     enabled: bool
@@ -159,6 +167,10 @@ class Settings:
     database_url: str | None
     qdrant_url: str | None
     qdrant_api_key: str | None
+    vector_store_provider: str
+    vector_store_url: str | None
+    vector_store_api_key: str | None
+    vector_store_collection: str | None
     redis_host: str | None
     queue_enabled: bool
     llm_base_url: str | None
@@ -253,6 +265,15 @@ class Settings:
             url=self.qdrant_url,
             api_key=self.qdrant_api_key,
             collection=self.qdrant_collection,
+        )
+
+    @property
+    def vector_store(self) -> VectorStoreConfig:
+        return VectorStoreConfig(
+            provider=self.vector_store_provider,
+            url=self.vector_store_url,
+            api_key=self.vector_store_api_key,
+            collection=self.vector_store_collection,
         )
 
     @property
@@ -417,6 +438,13 @@ def load_settings() -> Settings:
     if chunk_mode not in _ALLOWED_CHUNK_MODES:
         raise ValueError(f"Invalid CHUNK_MODE: {chunk_mode}")
     database_url = _normalize_database_url(_env_optional_str("DATABASE_URL"))
+    vector_store_provider = (_env_str("VECTOR_STORE_PROVIDER", "qdrant") or "qdrant").strip().lower()
+    qdrant_url = _env_optional_str("QDRANT_URL")
+    qdrant_api_key = _env_optional_str("QDRANT_API_KEY")
+    qdrant_collection = _env_str("QDRANT_COLLECTION", "paperless_chunks")
+    vector_store_url = _env_optional_str("VECTOR_STORE_URL") or qdrant_url
+    vector_store_api_key = _env_optional_str("VECTOR_STORE_API_KEY") or qdrant_api_key
+    vector_store_collection = _env_optional_str("VECTOR_STORE_COLLECTION") or qdrant_collection
     return Settings(
         log_level=(_env_str("LOG_LEVEL", "INFO") or "INFO").upper(),
         log_json=_env_bool("LOG_JSON", False),
@@ -425,8 +453,12 @@ def load_settings() -> Settings:
         paperless_base_url=paperless_base_url,
         paperless_api_token=_env_str("PAPERLESS_API_TOKEN", ""),
         database_url=database_url,
-        qdrant_url=_env_optional_str("QDRANT_URL"),
-        qdrant_api_key=_env_optional_str("QDRANT_API_KEY"),
+        qdrant_url=qdrant_url,
+        qdrant_api_key=qdrant_api_key,
+        vector_store_provider=vector_store_provider,
+        vector_store_url=vector_store_url,
+        vector_store_api_key=vector_store_api_key,
+        vector_store_collection=vector_store_collection,
         redis_host=_env_optional_str("REDIS_HOST"),
         queue_enabled=_env_bool("QUEUE_ENABLED", False),
         llm_base_url=_env_optional_str("LLM_BASE_URL"),
@@ -438,7 +470,7 @@ def load_settings() -> Settings:
         embedding_request_timeout_seconds=max(1, _env_int("EMBEDDING_TIMEOUT_SECONDS", 60)),
         embedding_max_chunks_per_doc=max(0, _env_int("EMBEDDING_MAX_CHUNKS_PER_DOC", 0)),
         embedding_max_input_tokens=max(256, _env_int("EMBEDDING_MAX_INPUT_TOKENS", 3000)),
-        qdrant_collection=_env_str("QDRANT_COLLECTION", "paperless_chunks"),
+        qdrant_collection=qdrant_collection,
         embed_on_sync=_env_bool("EMBED_ON_SYNC", False),
         chunk_mode=chunk_mode,
         chunk_max_chars=_env_int("CHUNK_MAX_CHARS", 1200),

@@ -486,3 +486,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app tests scripts alembic`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest`
+
+## Vector-store adapter baseline re-verification
+
+- Added the new adapter/config/test files to the strict mypy allowlist, raising the strict backend baseline from `156` to `159` files.
+- Re-verified the backend CI equivalent after the vector-store facade, Qdrant adapter, generic `VECTOR_STORE_*` config view, and migration-prep tests landed.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`

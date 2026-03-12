@@ -17,20 +17,20 @@ _CLIENTS: dict[tuple[float | None, bool], httpx.Client] = {}
 
 
 def base_url(settings: Settings) -> str:
-    if not settings.qdrant_url:
-        raise RuntimeError("QDRANT_URL not set")
-    return settings.qdrant_url.rstrip("/")
+    if not settings.vector_store_url:
+        raise RuntimeError("VECTOR_STORE_URL not set")
+    return settings.vector_store_url.rstrip("/")
 
 
 def collection_name(settings: Settings) -> str:
-    if not settings.qdrant_collection:
-        raise RuntimeError("QDRANT_COLLECTION not set")
-    return settings.qdrant_collection
+    if not settings.vector_store_collection:
+        raise RuntimeError("VECTOR_STORE_COLLECTION not set")
+    return settings.vector_store_collection
 
 
 def headers(settings: Settings) -> dict[str, str]:
-    if settings.qdrant_api_key:
-        return {"api-key": settings.qdrant_api_key}
+    if settings.vector_store_api_key:
+        return {"api-key": settings.vector_store_api_key}
     return {}
 
 

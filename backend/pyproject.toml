@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.4.11"
+version = "0.4.12"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -84,6 +84,8 @@ files = [
     "app/services/ai/json_extraction.py",
     # Search utilities
     "app/services/search/qdrant.py",
+    "app/services/search/vector_store.py",
+    "app/services/search/vector_backends/qdrant_adapter.py",
     "app/services/search/evidence_index.py",
     # Integration utilities
     "app/services/integrations/meta_upsert.py",
@@ -199,6 +201,7 @@ files = [
     "tests/test_process_missing_route.py",
     "tests/test_logging_setup.py",
     "tests/test_request_logging.py",
+    "tests/test_vector_store_service.py",
     "tests/conftest.py",
 ]
 

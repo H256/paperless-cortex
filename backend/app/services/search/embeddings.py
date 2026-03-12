@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import math
 import os
@@ -13,7 +12,7 @@ from app.services.ai import llm_client
 from app.services.documents.text_cleaning import estimate_tokens
 from app.services.documents.text_pages import score_text_quality
 from app.services.runtime.guard import ensure_embedding_llm_ready
-from app.services.search import qdrant
+from app.services.search import vector_store
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -496,109 +495,20 @@ def chunk_document_with_pages(
 def ensure_qdrant_collection(
     settings: Settings, vector_size: int, distance: str = "Cosine"
 ) -> None:
-    base = qdrant.base_url(settings)
-    collection = qdrant.collection_name(settings)
-    headers = qdrant.headers(settings)
-    with qdrant.client(settings, timeout=30) as client:
-        resp = client.get(f"{base}/collections/{collection}", headers=headers)
-        if resp.status_code == 200:
-            info = resp.json()
-            config = info.get("result", {}).get("config", {}).get("params", {}).get("vectors", {})
-            size = config.get("size")
-            if size and int(size) != vector_size:
-                raise RuntimeError(
-                    f"Qdrant collection '{collection}' has size {size}, "
-                    f"but embedding size is {vector_size}. Delete or use a new collection."
-                )
-            return
-        if resp.status_code != 404:
-            resp.raise_for_status()
-        create_payload = {"vectors": {"size": vector_size, "distance": distance}}
-        create = client.put(
-            f"{base}/collections/{collection}",
-            headers=headers,
-            json=create_payload,
-        )
-        create.raise_for_status()
-
-
-def _chunk_points_by_size(
-    points: list[dict[str, Any]], max_bytes: int
-) -> list[list[dict[str, Any]]]:
-    if not points:
-        return []
-    batches: list[list[dict[str, Any]]] = []
-    current: list[dict[str, Any]] = []
-    current_size = 0
-    for point in points:
-        point_json = json.dumps(point, ensure_ascii=False)
-        point_size = len(point_json.encode("utf-8"))
-        if current and current_size + point_size > max_bytes:
-            batches.append(current)
-            current = []
-            current_size = 0
-        current.append(point)
-        current_size += point_size
-    if current:
-        batches.append(current)
-    return batches
+    vector_store.ensure_collection(settings, vector_size=vector_size, distance=distance)
 
 
 def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
-    base = qdrant.base_url(settings)
-    collection = qdrant.collection_name(settings)
-    headers = qdrant.headers(settings)
-    logger.info("Qdrant upsert points=%s", len(points))
-    with qdrant.client(settings, timeout=60) as client:
-        # Qdrant payload limit is 32MB; keep chunks below ~30MB to be safe.
-        batches = _chunk_points_by_size(points, max_bytes=30 * 1024 * 1024)
-        for batch in batches:
-            response = client.put(
-                f"{base}/collections/{collection}/points",
-                headers=headers,
-                json={"points": batch},
-            )
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                detail = response.text[:500]
-                raise RuntimeError(f"Qdrant upsert failed: {detail}") from exc
-    logger.info("Qdrant upsert ok")
+    vector_store.upsert_points(settings, points)
 
 
 def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = None) -> None:
-    base = qdrant.base_url(settings)
-    collection = qdrant.collection_name(settings)
-    headers = qdrant.headers(settings)
-    must_filters: list[dict[str, object]] = [{"key": "doc_id", "match": {"value": doc_id}}]
     normalized_source = _normalize_embedding_source(source)
-    if normalized_source:
-        must_filters.append({"key": "source", "match": {"value": normalized_source}})
-    payload = {"filter": {"must": must_filters}}
-    with qdrant.client(settings, timeout=30) as client:
-        response = client.post(
-            f"{base}/collections/{collection}/points/delete",
-            headers=headers,
-            json=payload,
-        )
-        response.raise_for_status()
+    vector_store.delete_points_for_doc(settings, doc_id=doc_id, source=normalized_source)
 
 
 def delete_similarity_points(settings: Settings, *, doc_id: int | None = None) -> None:
-    base = qdrant.base_url(settings)
-    collection = qdrant.collection_name(settings)
-    headers = qdrant.headers(settings)
-    must_filters: list[dict[str, object]] = [{"key": "type", "match": {"value": "doc"}}]
-    if doc_id is not None:
-        must_filters.append({"key": "doc_id", "match": {"value": int(doc_id)}})
-    payload = {"filter": {"must": must_filters}}
-    with qdrant.client(settings, timeout=30) as client:
-        response = client.post(
-            f"{base}/collections/{collection}/points/delete",
-            headers=headers,
-            json=payload,
-        )
-        response.raise_for_status()
+    vector_store.delete_similarity_points(settings, doc_id=doc_id)
 
 
 def _vector_from_point(point: dict[str, Any]) -> list[float] | None:
@@ -641,7 +551,7 @@ def rebuild_doc_point_from_chunks(
         for start in range(0, len(point_ids), batch_size):
             ids_batch = point_ids[start : start + batch_size]
             try:
-                payload = qdrant.retrieve_points(
+                payload = vector_store.retrieve_points(
                     settings,
                     ids_batch,
                     with_vector=True,
@@ -690,7 +600,7 @@ def search_points(
     filter_payload: dict | None = None,
     score_threshold: float | None = None,
 ) -> dict[str, Any]:
-    return qdrant.search(
+    return vector_store.search_points(
         settings,
         vector,
         limit=limit,

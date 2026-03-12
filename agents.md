@@ -20,12 +20,13 @@ Build a robust, safe Paperless intelligence layer:
 - Continue-processing and triage UX with URL-synced filters
 
 ## Current branch
-- Active branch: `perf/ops-route-speedups`
+- Active branch: `develop`
 
 ## Current focus (short-term)
 1. UX/mobile polish pass for document operations and continue-processing ergonomics.
 2. Backend SRP refactor of largest route modules by extracting pipeline/writeback planning helpers into services.
 3. Continue strict KISS/DRY/SOLID cleanup during feature work.
+4. Prepare vector storage behind adapters so a future Weaviate client migration is isolated from route/service call sites.
 
 ## Session handover (2026-02-14)
 - Fixed false `Sync: Missing` after writeback by invalidating Paperless caches and reading fresh modified timestamp for reviewed/audit updates.
@@ -36,6 +37,7 @@ Build a robust, safe Paperless intelligence layer:
 ## Open work (high-level)
 - Complete responsive/mobile fit-and-finish across key screens (documents, processing, detail-heavy actions).
 - Continue extracting large route logic into dedicated services/composables to reduce coupling.
+- Continue decoupling vector search/storage behind adapter seams before switching providers from Qdrant to Weaviate.
 - Validate changes under large-dataset load and queue-heavy scenarios before release.
 
 ## Working agreements

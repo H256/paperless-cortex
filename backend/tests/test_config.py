@@ -32,6 +32,9 @@ def test_settings_exposes_domain_config_views(monkeypatch: Any) -> None:
     assert settings.queue.redis_host == "redis"
     assert settings.qdrant.url == "http://qdrant"
     assert settings.qdrant.collection == "docs"
+    assert settings.vector_store.provider == "qdrant"
+    assert settings.vector_store.url == "http://qdrant"
+    assert settings.vector_store.collection == "docs"
     assert settings.embeddings.batch_size == 32
     assert settings.embeddings.embed_on_sync is True
     assert settings.chunking.mode == "semantic"
@@ -42,6 +45,24 @@ def test_settings_exposes_domain_config_views(monkeypatch: Any) -> None:
     assert settings.paperless_base_url == settings.paperless.base_url
     assert settings.queue_enabled == settings.queue.enabled
     assert settings.embedding_batch_size == settings.embeddings.batch_size
+
+
+def test_vector_store_config_prefers_generic_over_legacy_env(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "qdrant")
+    monkeypatch.setenv("VECTOR_STORE_URL", "http://vector")
+    monkeypatch.setenv("VECTOR_STORE_COLLECTION", "vector_docs")
+    monkeypatch.setenv("VECTOR_STORE_API_KEY", "vector-key")
+    monkeypatch.setenv("QDRANT_URL", "http://legacy-qdrant")
+    monkeypatch.setenv("QDRANT_COLLECTION", "legacy_docs")
+
+    settings = load_settings()
+
+    assert settings.vector_store.provider == "qdrant"
+    assert settings.vector_store.url == "http://vector"
+    assert settings.vector_store.collection == "vector_docs"
+    assert settings.vector_store.api_key == "vector-key"
+    assert settings.qdrant.url == "http://legacy-qdrant"
+    assert settings.qdrant.collection == "legacy_docs"
 
 
 @pytest.mark.parametrize(

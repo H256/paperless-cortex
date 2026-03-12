@@ -7,7 +7,7 @@ import httpx
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Correspondent, Document, DocumentType, Tag
-from app.services.search import qdrant
+from app.services.search import vector_store
 from app.services.search.embeddings import make_doc_point_id, search_points
 
 if TYPE_CHECKING:
@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 def fetch_doc_point_vector(settings: Settings, doc_id: int) -> list[float] | None:
     point_id = make_doc_point_id(doc_id)
     try:
-        payload = qdrant.retrieve_points(settings, [point_id], with_vector=True, with_payload=False)
+        payload = vector_store.retrieve_points(
+            settings, [point_id], with_vector=True, with_payload=False
+        )
     except httpx.HTTPStatusError as exc:
         # Treat missing collection/points as "no vector yet" so API returns 404 instead of 500.
         if exc.response.status_code == 404:
