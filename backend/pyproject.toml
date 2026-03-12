@@ -141,6 +141,7 @@ files = [
     "tests/test_worker_error_types.py",
     "tests/test_worker_checkpoint_recovery.py",
     "tests/test_writeback_plan.py",
+    "tests/test_http_client_pooling.py",
     "tests/test_qdrant_service.py",
     "tests/test_similarity_service.py",
     "tests/test_writeback_preview_service.py",
