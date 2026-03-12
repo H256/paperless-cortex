@@ -267,3 +267,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_actions.py app/services/documents/operations.py`
   - `cd backend && uv run pytest tests/test_documents_actions_routes.py tests/test_process_missing_route.py tests/test_documents_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest query-optimization verification
+
+- The strict mypy allowlist count remains `143` after the low-risk eager-loading optimization pass.
+- Verified the optimized document/similarity/writeback query paths with:
+  - `cd backend && uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/search/similarity.py app/services/writeback/writeback_preview.py app/routes/writeback_dryrun.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/search/similarity.py app/services/writeback/writeback_preview.py app/routes/writeback_dryrun.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_writeback_preview_service.py`
+  - `cd backend && uv run pytest tests/test_writeback_jobs_routes.py tests/test_writeback_dryrun_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`

@@ -487,6 +487,18 @@
 - Reduced `backend/app/routes/documents_actions.py` from `622` lines to `445` lines while keeping the route contracts and existing regression coverage intact.
 - Added `backend/app/services/documents/operations.py` to the strict mypy allowlist and kept the extracted service fully typed.
 
+### 39. Low-risk query optimization pass
+
+- Replaced collection `joinedload()` usage with `selectinload()` in hot document and writeback paths to avoid row-multiplying joins on documents with many tags/notes.
+- Applied that change in:
+  - `backend/app/routes/documents.py`
+  - `backend/app/routes/documents_similarity.py`
+  - `backend/app/services/search/similarity.py`
+  - `backend/app/services/writeback/writeback_preview.py`
+  - `backend/app/routes/writeback_dryrun.py`
+- Switched the local writeback candidate scans in `backend/app/services/writeback/writeback_preview.py` to `yield_per(500)` so pending writeback discovery can stream over larger tables.
+- Kept route/service behavior stable and verified the affected document/similarity/writeback regression suites.
+
 ## Verified commands
 
 ```bash
@@ -578,6 +590,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - Wider `2.1` coverage is now moving again on top of the structured logging foundation, including direct `process-missing` route coverage and the logging regression tests in the strict mypy set.
 - `3.1 Configuration Management` is now in progress with validated domain config views in `backend/app/config.py` and dedicated regression coverage in `backend/tests/test_config.py`.
 - `3.3 Service Layer Complexity` is now in progress with the first documents-actions orchestration slice extracted into `backend/app/services/documents/operations.py`.
+- `3.2 Database Query Optimization` is now in progress with a first low-risk eager-loading and candidate-scan optimization pass across document/similarity/writeback paths.
 
 
 

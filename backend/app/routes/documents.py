@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import func, or_
-from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy.orm import load_only, selectinload
 
 from app.api_models import (
     DocumentDashboardResponse,
@@ -213,8 +213,8 @@ def _apply_derived_fields_and_review_status(
                 Document.created,
                 Document.correspondent_id,
             ),
-            joinedload(Document.tags).load_only(Tag.id),
-            joinedload(Document.correspondent).load_only(Correspondent.name),
+            selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.correspondent).load_only(Correspondent.name),
         )
         .filter(Document.id.in_(doc_ids))
         .all()

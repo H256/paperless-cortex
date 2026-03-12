@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-db-query-optimization)
+
+### Database query optimization
+- `uncommitted` perf(documents): replaced row-multiplying collection eager loads with `selectinload()` in [`backend/app/routes/documents.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents.py), [`backend/app/routes/documents_similarity.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_similarity.py), and [`backend/app/services/search/similarity.py`](E:/workspace/python/paperless-intelligence/backend/app/services/search/similarity.py) so document list and similarity payload assembly keep one primary row per document instead of expanding across tag joins.
+- `uncommitted` perf(writeback): replaced collection `joinedload()` usage with `selectinload()` in [`backend/app/services/writeback/writeback_preview.py`](E:/workspace/python/paperless-intelligence/backend/app/services/writeback/writeback_preview.py) and [`backend/app/routes/writeback_dryrun.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/writeback_dryrun.py) to reduce row explosion when previewing or executing writeback for documents with many tags/notes.
+- `uncommitted` perf(writeback): switched the local writeback candidate scans in [`backend/app/services/writeback/writeback_preview.py`](E:/workspace/python/paperless-intelligence/backend/app/services/writeback/writeback_preview.py) to `yield_per(500)` so pending-tag and pending-correspondent candidate enumeration no longer loads the full table at once.
+- `uncommitted` test(perf): verified `uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/search/similarity.py app/services/writeback/writeback_preview.py app/routes/writeback_dryrun.py`, `uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/search/similarity.py app/services/writeback/writeback_preview.py app/routes/writeback_dryrun.py`, `uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_writeback_preview_service.py` (`33 passed`), `uv run pytest tests/test_writeback_jobs_routes.py tests/test_writeback_dryrun_routes.py` (`29 passed`), and `uv run mypy --config-file pyproject.toml` (`143` files).
+
 ## 2026-03-12 (branch: feat/backend-service-srp-extract)
 
 ### Service-layer complexity reduction

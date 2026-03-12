@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
 from app.models import (
@@ -142,7 +142,7 @@ def preview_for_doc_ids(
         return []
     local_docs = (
         db.query(Document)
-        .options(joinedload(Document.tags), joinedload(Document.notes))
+        .options(selectinload(Document.tags), selectinload(Document.notes))
         .filter(Document.id.in_(doc_ids))
         .all()
     )
@@ -212,14 +212,14 @@ def local_writeback_candidate_doc_ids(db: Session) -> list[int]:
         ordered_ids.append(doc_id)
         seen.add(doc_id)
 
-    pending_rows = db.query(DocumentPendingTag.doc_id).all()
+    pending_rows = db.query(DocumentPendingTag.doc_id).yield_per(500)
     for pending_row in pending_rows:
         doc_id = int(pending_row.doc_id)
         if doc_id <= 0 or doc_id in seen:
             continue
         ordered_ids.append(doc_id)
         seen.add(doc_id)
-    pending_correspondent_rows = db.query(DocumentPendingCorrespondent.doc_id).all()
+    pending_correspondent_rows = db.query(DocumentPendingCorrespondent.doc_id).yield_per(500)
     for pending_correspondent_row in pending_correspondent_rows:
         doc_id = int(pending_correspondent_row.doc_id)
         if doc_id <= 0 or doc_id in seen:

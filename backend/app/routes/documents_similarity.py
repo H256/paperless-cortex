@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from app.api_models import SimilarDocumentsResponse, SimilarMetadata, SimilarMetadataResponse
 from app.db import get_db
@@ -30,8 +30,8 @@ def _build_document_summary_payload(db: Session, doc_ids: list[int]) -> dict[int
     docs = (
         db.query(Document)
         .options(
-            joinedload(Document.tags).load_only(Tag.id),
-            joinedload(Document.correspondent).load_only(Correspondent.name),
+            selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.correspondent).load_only(Correspondent.name),
         )
         .filter(Document.id.in_(doc_ids))
         .all()
