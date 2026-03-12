@@ -499,6 +499,13 @@
 - Switched the local writeback candidate scans in `backend/app/services/writeback/writeback_preview.py` to `yield_per(500)` so pending writeback discovery can stream over larger tables.
 - Kept route/service behavior stable and verified the affected document/similarity/writeback regression suites.
 
+### 40. Tooling and CI enforcement
+
+- Added backend CI in `.github/workflows/backend-ci.yml` to run Ruff, strict mypy, and the full backend pytest suite on backend/tooling changes.
+- Updated `.pre-commit-config.yaml` so backend mypy runs through `uv run --project backend` and frontend `oxlint` no longer depends on `bash`.
+- Migrated backend dev tooling dependencies in `backend/pyproject.toml` from deprecated `tool.uv.dev-dependencies` to `dependency-groups.dev`.
+- Verified the new tooling baseline with backend Ruff, strict mypy, full backend pytest (`221 passed`), pre-commit config validation, YAML validation for the workflow/config files, and a Windows-safe `npx --prefix frontend oxlint --version` sanity check.
+
 ## Verified commands
 
 ```bash
@@ -591,6 +598,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.1 Configuration Management` is now in progress with validated domain config views in `backend/app/config.py` and dedicated regression coverage in `backend/tests/test_config.py`.
 - `3.3 Service Layer Complexity` is now in progress with the first documents-actions orchestration slice extracted into `backend/app/services/documents/operations.py`.
 - `3.2 Database Query Optimization` is now in progress with a first low-risk eager-loading and candidate-scan optimization pass across document/similarity/writeback paths.
+- `5.2 Developer Tooling` is now in progress with backend CI, uv-backed pre-commit enforcement, and Windows-safe frontend lint-hook execution.
 
 
 

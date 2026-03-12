@@ -3,9 +3,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Base
-from app.models import Document
-from app.models import DocumentNote
+from app.models import Base, Document, DocumentNote
 from app.services.documents.note_ids import next_local_note_id
 
 

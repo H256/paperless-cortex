@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-tooling-enforcement)
+
+### Developer tooling
+- `uncommitted` ci(backend): added [`/.github/workflows/backend-ci.yml`](E:/workspace/python/paperless-intelligence/.github/workflows/backend-ci.yml) to enforce backend Ruff, strict mypy, and full backend pytest on pushes and pull requests that touch backend or tooling files.
+- `uncommitted` chore(pre-commit): updated [`.pre-commit-config.yaml`](E:/workspace/python/paperless-intelligence/.pre-commit-config.yaml) to run backend mypy through `uv run --project backend`, so local enforcement uses the real backend environment and current strict config instead of a separate mirror environment.
+- `uncommitted` chore(pre-commit): replaced the frontend `oxlint` hook shelling through `bash` with `npx --prefix frontend oxlint . --fix`, which keeps the hook usable on Windows without requiring Git Bash.
+- `uncommitted` chore(uv): migrated [`backend/pyproject.toml`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) from deprecated `tool.uv.dev-dependencies` to `[dependency-groups].dev`.
+- `uncommitted` test(tooling): verified `uv run --project backend pre-commit validate-config`, `uv run --project backend pre-commit run check-yaml --files .pre-commit-config.yaml .github/workflows/backend-ci.yml`, `uv run --project backend ruff check app tests scripts alembic`, `uv run --project backend mypy --config-file pyproject.toml`, `uv run --project backend pytest` (`221 passed`), and `npx --prefix frontend oxlint --version`.
+
 ## 2026-03-12 (branch: feat/backend-db-query-optimization)
 
 ### Database query optimization
