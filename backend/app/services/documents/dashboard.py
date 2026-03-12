@@ -30,7 +30,12 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     )
 
     correspondents_rows = (
-        db.query(Correspondent.id, Correspondent.name, func.count(Document.id))
+        db.query(
+            Correspondent.id,
+            Correspondent.name,
+            func.count(Document.id).label("total_count"),
+            func.sum(case((~is_processed, 1), else_=0)).label("unprocessed_count"),
+        )
         .join(Document, Document.correspondent_id == Correspondent.id)
         .group_by(Correspondent.id)
         .order_by(func.count(Document.id).desc(), Correspondent.name.asc())
@@ -73,13 +78,12 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         document_types.append({"id": None, "name": "No document type", "count": type_unknown})
     document_types.sort(key=lambda item: item["count"], reverse=True)
 
-    unprocessed_rows = (
-        db.query(Document.correspondent_id, func.count(Document.id))
-        .filter(~is_processed)
-        .group_by(Document.correspondent_id)
-        .all()
+    unassigned_unprocessed_count = int(
+        db.query(func.count(Document.id))
+        .filter(Document.correspondent_id.is_(None), ~is_processed)
+        .scalar()
+        or 0
     )
-    unprocessed_by_correspondent = {row[0]: int(row[1]) for row in unprocessed_rows}
 
     month_expr = func.coalesce(
         func.nullif(func.substr(Document.document_date, 1, 7), ""),
@@ -105,13 +109,22 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     }
     unprocessed_corr_list = [
         {
-            "id": corr_id,
-            "name": correspondents_map.get(corr_id)
-            or ("Unassigned correspondent" if corr_id is None else "Untitled"),
-            "count": count,
+            "id": row[0],
+            "name": correspondents_map.get(int(row[0]))
+            or ("Unassigned correspondent" if row[0] is None else "Untitled"),
+            "count": int(row[3] or 0),
         }
-        for corr_id, count in unprocessed_by_correspondent.items()
+        for row in correspondents_rows
+        if int(row[3] or 0) > 0
     ]
+    if unassigned_unprocessed_count:
+        unprocessed_corr_list.append(
+            {
+                "id": None,
+                "name": "Unassigned correspondent",
+                "count": unassigned_unprocessed_count,
+            }
+        )
     unprocessed_corr_list.sort(key=lambda item: item["count"], reverse=True)
 
     monthly_processing = [
