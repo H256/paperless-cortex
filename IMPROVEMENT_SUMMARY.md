@@ -543,6 +543,30 @@
   - `cd backend && uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+### 43. Stable API error codes and request-context responses
+
+- Added centralized exception handlers in `backend/app/main.py` for:
+  - domain errors (`PaperlessIntelligenceError`)
+  - HTTP errors
+  - request validation errors
+- Error responses now include:
+  - `detail`
+  - `error_code`
+  - `request_id`
+  - `correlation_id`
+  - `X-Error-Code` response header
+- Routed those failures through the structured logging foundation so error responses emit stable status/error-code context in logs.
+- Added `backend/tests/test_api_error_responses.py` and brought it into the strict mypy allowlist.
+
+### 44. HTTP client pooling and connection reuse
+
+- Added keyed pooled `httpx.Client` reuse for:
+  - `backend/app/services/integrations/paperless.py`
+  - `backend/app/services/search/qdrant.py`
+  - `backend/app/services/ai/llm_client.py`
+- Preserved the existing `with client(...) as http:` call sites by turning those helpers into pooled context managers instead of doing call-site rewrites.
+- Added explicit pool-clear and `atexit` cleanup hooks so long-lived processes reuse connections while tests and shutdown stay predictable.
+- Added `backend/tests/test_http_client_pooling.py` and brought it into the strict mypy allowlist.
 
 ## Verified commands
 
@@ -639,6 +663,8 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.3 Service Layer Complexity` is now in progress with the first documents-actions orchestration slice extracted into `backend/app/services/documents/operations.py`.
 - `3.2 Database Query Optimization` is now in progress with a first low-risk eager-loading and candidate-scan optimization pass across document/similarity/writeback paths.
 - `5.2 Developer Tooling` is now in progress with backend CI, uv-backed pre-commit enforcement, and Windows-safe frontend lint-hook execution.
+- `5.3 Error Messages & Observability` is now in progress with stable API error codes and request/correlation context in error responses.
+- `6.x Performance & Optimization` is now in progress with a first connection-reuse/client-pooling pass across Paperless, Qdrant, and LLM HTTP clients.
 
 
 

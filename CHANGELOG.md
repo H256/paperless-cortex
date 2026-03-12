@@ -3,6 +3,25 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-client-pooling)
+
+### Performance and connection reuse
+- `uncommitted` perf(http): added pooled `httpx.Client` reuse in [`backend/app/services/integrations/paperless.py`](E:/workspace/python/paperless-intelligence/backend/app/services/integrations/paperless.py), [`backend/app/services/search/qdrant.py`](E:/workspace/python/paperless-intelligence/backend/app/services/search/qdrant.py), and [`backend/app/services/ai/llm_client.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/llm_client.py), with keyed pools and `atexit` cleanup instead of constructing a fresh client for every request.
+- `uncommitted` perf(http): kept the existing `with client(...) as http:` call sites stable by converting those client helpers into pooled context managers, so the connection-reuse win lands without route/service signature churn.
+- `uncommitted` test(perf): added [`backend/tests/test_http_client_pooling.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_http_client_pooling.py) to verify pooled client reuse for Paperless, Qdrant, and LLM HTTP clients.
+- `uncommitted` chore(mypy): added [`backend/tests/test_http_client_pooling.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `145` configured source files.
+- `uncommitted` test(perf): verified `uv run ruff check app/services/integrations/paperless.py app/services/search/qdrant.py app/services/ai/llm_client.py tests/test_http_client_pooling.py app/services/integrations/connections.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_http_client_pooling.py tests/test_connections_service.py tests/test_qdrant_service.py tests/test_status_routes.py` (`12 passed`).
+
+## 2026-03-12 (branch: feat/backend-observability-errors)
+
+### Error messages and observability
+- `uncommitted` feat(errors): added centralized API exception handlers in [`backend/app/main.py`](E:/workspace/python/paperless-intelligence/backend/app/main.py) for domain errors, HTTP errors, and request validation errors.
+- `uncommitted` feat(errors): API error responses now carry stable `error_code`, `request_id`, and `correlation_id` fields, plus `X-Error-Code` response headers, while still preserving the existing `detail` payload.
+- `uncommitted` feat(observability): structured error responses are now logged through the existing logging foundation with stable `error_code`, `status_code`, and error-class/message fields.
+- `uncommitted` test(errors): added [`backend/tests/test_api_error_responses.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_api_error_responses.py) to verify domain, HTTP, and validation failures include stable error codes and request context.
+- `uncommitted` chore(mypy): added [`backend/tests/test_api_error_responses.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `144` configured source files.
+- `uncommitted` test(errors): verified `uv run ruff check app/main.py tests/test_api_error_responses.py tests/test_request_logging.py`, `uv run mypy --config-file pyproject.toml app/main.py tests/test_api_error_responses.py`, `uv run pytest tests/test_api_error_responses.py tests/test_request_logging.py tests/test_status_routes.py` (`8 passed`), and `uv run mypy --config-file pyproject.toml` (`144` files).
+
 ## 2026-03-12 (branch: feat/backend-documents-route-srp)
 
 ### Service-layer complexity reduction
