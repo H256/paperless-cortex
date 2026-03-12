@@ -97,6 +97,10 @@ def _build_task_runs_query(
     return query
 
 
+def _count_task_runs(query: Any) -> int:
+    return int(query.order_by(None).with_entities(func.count(TaskRun.id)).scalar() or 0)
+
+
 def create_task_run(
     db: Session,
     *,
@@ -220,18 +224,15 @@ def list_task_runs(
             error_type=error_type,
             query_text=query_text,
         )
-        rows_with_total = (
-            base_query.with_entities(TaskRun, func.count(TaskRun.id).over().label("total_rows"))
-            .order_by(TaskRun.id.desc())
-            .offset(row_offset)
-            .limit(row_limit)
-            .all()
+        result_rows = (
+            base_query.order_by(TaskRun.id.desc()).offset(row_offset).limit(row_limit).all()
         )
-        if rows_with_total:
-            total = int(rows_with_total[0][1] or 0)
-            result_rows = [row for row, _total in rows_with_total]
+        if result_rows:
+            if row_offset == 0 and len(result_rows) < row_limit:
+                return len(result_rows), result_rows
+            total = _count_task_runs(base_query)
             return total, result_rows
-        total = 0 if row_offset == 0 else int(base_query.count() or 0)
+        total = 0 if row_offset == 0 else _count_task_runs(base_query)
         result_rows_empty: list[TaskRun] = []
         return total, result_rows_empty
 

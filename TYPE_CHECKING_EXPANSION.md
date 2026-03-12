@@ -366,3 +366,45 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run pytest tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
 - Migration note:
   - `cd backend && uv run alembic upgrade head` against a throwaway SQLite database still stops on the older `6d3183eda0be_add_core_metadata_tables.py` foreign-key alteration, which is a pre-existing SQLite limitation in the migration chain rather than a regression from the new index migration.
+
+## Latest task-runs pagination-query optimization
+
+- Simplified `backend/app/services/pipeline/task_runs.py` so `list_task_runs()` fetches rows first, infers totals on short first pages, and only performs a separate count query when the exact total cannot be derived cheaply.
+- Added a regression in `backend/tests/test_task_runs_service.py` for the short-first-page total inference path.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/pipeline/task_runs.py tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/pipeline/task_runs.py tests/test_task_runs_service.py`
+  - `cd backend && uv run pytest tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
+
+## Latest document read-model query optimization
+
+- Simplified `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document query used for derived document lists, removing a separate analysis lookup for each document batch.
+- Added a regression in `backend/tests/test_documents_routes.py` to keep those analysis fields visible in derived list responses.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest document derived-list aggregation reduction
+
+- Simplified `backend/app/services/documents/read_models.py` again by:
+  - skipping ordered suggestion-row fetching when summary previews are not requested
+  - fetching `vision_ocr` doc IDs distinctly for the list-level `has_vision_pages` flag
+- Added a regression in `backend/tests/test_documents_routes.py` to keep suggestion and vision-page flags stable in derived document lists.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest writeback preview metadata-scope reduction
+
+- Simplified `backend/app/services/writeback/writeback_preview.py` by narrowing correspondent/tag metadata queries to only the IDs referenced by the current preview batch.
+- Strengthened `backend/tests/test_writeback_preview_service.py` to keep remote/local name resolution stable under the scoped metadata path.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py`
+  - `cd backend && uv run pytest tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py tests/test_writeback_jobs_routes.py`
