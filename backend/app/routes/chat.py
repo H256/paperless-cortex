@@ -1,23 +1,28 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
 import logging
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
-from app.deps import get_settings
-from app.db import get_db
-from app.services.ai.chat import answer_question
-from app.services.ai.chat import generate_followups
-from app.services.search.evidence import resolve_evidence_matches
+from fastapi import APIRouter, Depends
+
 from app.api_models import (
-    ChatRequest,
-    ChatResponse,
     ChatFollowupsRequest,
     ChatFollowupsResponse,
+    ChatRequest,
+    ChatResponse,
     EvidenceResolveRequest,
     EvidenceResolveResponse,
 )
+from app.db import get_db
+from app.deps import get_settings
+from app.services.ai.chat import answer_question, generate_followups
+from app.services.runtime.logging_setup import log_event
+from app.services.search.evidence import resolve_evidence_matches
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -28,13 +33,16 @@ def chat(
     payload: ChatRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
-    logger.info(
-        "Chat request question_len=%s top_k=%s source=%s conversation_id=%s",
-        len(payload.question),
-        payload.top_k,
-        payload.source or "all",
-        (payload.conversation_id or "new"),
+) -> Any:
+    log_event(
+        logger,
+        logging.INFO,
+        "Chat request received",
+        question_len=len(payload.question),
+        top_k=payload.top_k,
+        source=payload.source or "all",
+        conversation_id=payload.conversation_id or "new",
+        stream=False,
     )
     return answer_question(
         settings,
@@ -55,13 +63,16 @@ def chat_stream(
     payload: ChatRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
-    logger.info(
-        "Chat stream request question_len=%s top_k=%s source=%s conversation_id=%s",
-        len(payload.question),
-        payload.top_k,
-        payload.source or "all",
-        (payload.conversation_id or "new"),
+) -> Any:
+    log_event(
+        logger,
+        logging.INFO,
+        "Chat request received",
+        question_len=len(payload.question),
+        top_k=payload.top_k,
+        source=payload.source or "all",
+        conversation_id=payload.conversation_id or "new",
+        stream=True,
     )
     return answer_question(
         settings,
@@ -82,8 +93,14 @@ def chat_stream(
 def chat_followups(
     payload: ChatFollowupsRequest,
     settings: Settings = Depends(get_settings),
-):
-    logger.info("Chat followups question_len=%s", len(payload.question))
+) -> dict[str, list[str]]:
+    log_event(
+        logger,
+        logging.INFO,
+        "Chat followups requested",
+        question_len=len(payload.question),
+        citation_count=len(payload.citations or []),
+    )
     questions = generate_followups(
         settings,
         question=payload.question,
@@ -100,7 +117,14 @@ def resolve_evidence(
     payload: EvidenceResolveRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
+    log_event(
+        logger,
+        logging.INFO,
+        "Resolve evidence requested",
+        citation_count=len(payload.citations),
+        max_pages=payload.max_pages,
+    )
     matches = resolve_evidence_matches(
         [
             {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from app.config import load_settings
@@ -7,7 +9,9 @@ from app.models import Document, DocumentPageText
 from app.worker import _process_suggestions_vision
 
 
-def test_process_suggestions_vision_backfills_missing_pages(session_factory, monkeypatch):
+def test_process_suggestions_vision_backfills_missing_pages(
+    session_factory: Any, monkeypatch: Any
+) -> None:
     from app import worker as worker_mod
 
     monkeypatch.setenv("ENABLE_VISION_OCR", "1")
@@ -22,14 +26,24 @@ def test_process_suggestions_vision_backfills_missing_pages(session_factory, mon
         monkeypatch.setattr(worker_mod, "get_cached_tags", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(worker_mod, "get_cached_correspondents", lambda *_args, **_kwargs: [])
 
-        def fake_generate(_settings, _document, text, **_kwargs):
+        def fake_generate(
+            _settings: Any, _document: Any, text: str, **_kwargs: Any
+        ) -> dict[str, str]:
             captured["text"] = text
             return {"title": "Vision Title"}
 
-        def fake_persist(_db, doc_id, source, payload, **_kwargs):
+        def fake_persist(
+            _db: Any, doc_id: int, source: str, payload: dict[str, str], **_kwargs: Any
+        ) -> None:
             captured["persist"] = (doc_id, source, payload)
 
-        def fake_vision_ocr_only(_settings, db_session, doc_id, force=False, run_id=None):
+        def fake_vision_ocr_only(
+            _settings: Any,
+            db_session: Any,
+            doc_id: int,
+            force: bool = False,
+            run_id: int | None = None,
+        ) -> None:
             assert force is False
             assert run_id is None
             db_session.add(
@@ -52,7 +66,9 @@ def test_process_suggestions_vision_backfills_missing_pages(session_factory, mon
     assert captured.get("persist") == (701, "vision_ocr", {"title": "Vision Title"})
 
 
-def test_process_suggestions_vision_raises_when_no_pages_available(session_factory, monkeypatch):
+def test_process_suggestions_vision_raises_when_no_pages_available(
+    session_factory: Any, monkeypatch: Any
+) -> None:
     from app import worker as worker_mod
 
     monkeypatch.setenv("ENABLE_VISION_OCR", "1")

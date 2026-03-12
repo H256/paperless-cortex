@@ -2,51 +2,56 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload, load_only
+from sqlalchemy.orm import joinedload, load_only
 
-from app.config import Settings
+from app.api_models import (
+    DocumentDashboardResponse,
+    DocumentLocalResponse,
+    DocumentMarkReviewedResponse,
+    DocumentOcrScoresResponse,
+    DocumentsPageResponse,
+    DocumentStatsResponse,
+    DocumentTextQualityResponse,
+    PageTextsResponse,
+    PaperlessDocument,
+)
 from app.db import get_db
 from app.deps import get_settings
 from app.models import (
     Correspondent,
     Document,
     DocumentEmbedding,
-    DocumentPendingCorrespondent,
-    DocumentPendingTag,
     DocumentPageNote,
     DocumentPageText,
+    DocumentPendingCorrespondent,
+    DocumentPendingTag,
     DocumentSuggestion,
     SuggestionAudit,
     Tag,
 )
-from app.services.integrations import paperless
+from app.routes.queue_guard import require_queue_enabled
 from app.services.ai.hierarchical_summary import is_large_document
-from app.services.pipeline.queue import enqueue_docs_front
-from app.services.documents.text_pages import get_baseline_page_texts, score_text_quality
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
-from app.services.writeback.writeback_plan import canonical_ai_summary, extract_ai_summary_note
-from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
-from app.services.documents.document_stats import compute_document_stats
-from app.services.documents.document_review import derive_review_status, derive_sync_status
 from app.services.documents.dashboard import build_dashboard_payload
+from app.services.documents.document_review import derive_review_status, derive_sync_status
+from app.services.documents.document_stats import compute_document_stats
+from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.documents.text_pages import get_baseline_page_texts, score_text_quality
+from app.services.integrations import paperless
+from app.services.pipeline.queue import enqueue_docs_front
 from app.services.runtime.json_utils import parse_json_object
 from app.services.runtime.string_list_json import parse_string_list_json
-from app.routes.queue_guard import require_queue_enabled
-from app.api_models import (
-    DocumentLocalResponse,
-    DocumentStatsResponse,
-    DocumentDashboardResponse,
-    DocumentsPageResponse,
-    DocumentTextQualityResponse,
-    DocumentOcrScoresResponse,
-    DocumentMarkReviewedResponse,
-    PageTextsResponse,
-    PaperlessDocument,
-)
+from app.services.writeback.writeback_plan import canonical_ai_summary, extract_ai_summary_note
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 _DASHBOARD_CACHE: dict[str, object] = {"ts": 0.0, "data": None}
@@ -54,7 +59,7 @@ _DASHBOARD_CACHE_TTL_SECONDS = 15
 REVIEW_ACTION_MANUAL = "mark_reviewed"
 
 
-def _reviewed_audit_filter():
+def _reviewed_audit_filter() -> Any:
     return or_(
         SuggestionAudit.action.like("apply_to_document:%"),
         SuggestionAudit.action == REVIEW_ACTION_MANUAL,
@@ -91,7 +96,9 @@ def _has_local_overrides(
         return True
     if _values_differ(local_title, remote_title):
         return True
-    if remote_issue_date_norm not in (None, "") and _values_differ(local_issue_date, remote_issue_date):
+    if remote_issue_date_norm not in (None, "") and _values_differ(
+        local_issue_date, remote_issue_date
+    ):
         return True
     if _values_differ(local_correspondent_id, remote_correspondent_id):
         return True
@@ -99,15 +106,11 @@ def _has_local_overrides(
         return True
     if pending_tag_names:
         return True
-    if (local_ai_summary or "") != (remote_ai_summary or ""):
-        return True
-    return False
+    return (local_ai_summary or "") != (remote_ai_summary or "")
 
 
 def _normalize_review_status(value: str | None) -> str:
-    if value in {"all", "unreviewed", "reviewed", "needs_review"}:
-        return value
-    return "all"
+    return value if value in {"all", "unreviewed", "reviewed", "needs_review"} else "all"
 
 
 def _list_documents_from_paperless(
@@ -219,7 +222,9 @@ def _apply_derived_fields_and_review_status(
     local_by_id = {doc.id: doc for doc in local_docs}
     embed_ids = {
         int(row[0])
-        for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
+        for row in db.query(DocumentEmbedding.doc_id)
+        .filter(DocumentEmbedding.doc_id.in_(doc_ids))
+        .all()
     }
     suggestion_columns = [DocumentSuggestion.doc_id, DocumentSuggestion.source]
     if include_summary_preview:
@@ -371,7 +376,7 @@ def list_documents(
     review_status: str = "all",
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     normalized_review_status = _normalize_review_status(review_status)
     missing_correspondent_only = correspondent__id == -1
     effective_correspondent = None if missing_correspondent_only else correspondent__id
@@ -407,7 +412,9 @@ def list_documents(
             )
             if missing_correspondent_only:
                 batch_results = [row for row in batch_results if row.get("correspondent") is None]
-            matching = [row for row in batch_results if row.get("review_status") == normalized_review_status]
+            matching = [
+                row for row in batch_results if row.get("review_status") == normalized_review_status
+            ]
             batch_count = len(matching)
             if batch_count > 0 and len(selected_results) < max(1, page_size):
                 batch_start = max(0, start - filtered_total)
@@ -448,16 +455,17 @@ def list_documents(
 
 
 @router.get("/stats", response_model=DocumentStatsResponse)
-def get_document_stats(db: Session = Depends(get_db)):
+def get_document_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
     return compute_document_stats(db)
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
-def get_dashboard(db: Session = Depends(get_db)):
+def get_dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
     now = time.time()
-    cached_ts = float(_DASHBOARD_CACHE.get("ts") or 0.0)
+    cached_ts_raw = _DASHBOARD_CACHE.get("ts")
+    cached_ts = float(cached_ts_raw) if isinstance(cached_ts_raw, int | float) else 0.0
     cached_data = _DASHBOARD_CACHE.get("data")
-    if cached_data and (now - cached_ts) < _DASHBOARD_CACHE_TTL_SECONDS:
+    if isinstance(cached_data, dict) and (now - cached_ts) < _DASHBOARD_CACHE_TTL_SECONDS:
         return cached_data
     payload = build_dashboard_payload(db)
     _DASHBOARD_CACHE["ts"] = now
@@ -466,7 +474,7 @@ def get_dashboard(db: Session = Depends(get_db)):
 
 
 @router.get("/{doc_id}", response_model=PaperlessDocument)
-def get_document(doc_id: int, settings: Settings = Depends(get_settings)):
+def get_document(doc_id: int, settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     return paperless.get_document_cached(settings, doc_id)
 
 
@@ -475,12 +483,14 @@ def get_local_document(
     doc_id: int,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
     preferred_processing_source = "vision_ocr" if settings.enable_vision_ocr else "paperless_ocr"
-    expected_embedding_source = "vision" if preferred_processing_source == "vision_ocr" else "paperless"
+    expected_embedding_source = (
+        "vision" if preferred_processing_source == "vision_ocr" else "paperless"
+    )
     embedding_row = db.get(DocumentEmbedding, doc_id)
     has_embeddings = embedding_row is not None
     embedding_source = embedding_row.embedding_source if embedding_row else None
@@ -492,7 +502,9 @@ def get_local_document(
     )
     suggestion_sources = {
         str(row.source)
-        for row in db.query(DocumentSuggestion.source).filter(DocumentSuggestion.doc_id == doc_id).all()
+        for row in db.query(DocumentSuggestion.source)
+        .filter(DocumentSuggestion.doc_id == doc_id)
+        .all()
     }
     has_suggestions_paperless = "paperless_ocr" in suggestion_sources
     has_suggestions_vision = "vision_ocr" in suggestion_sources
@@ -504,7 +516,9 @@ def get_local_document(
         .scalar()
     ) or 0
     has_vision_pages = vision_done_pages > 0
-    has_complete_vision_pages = vision_done_pages >= expected_pages if expected_pages else has_vision_pages
+    has_complete_vision_pages = (
+        vision_done_pages >= expected_pages if expected_pages else has_vision_pages
+    )
     page_notes_counts = (
         db.query(
             DocumentPageNote.source,
@@ -536,9 +550,7 @@ def get_local_document(
     )
     remote_doc = paperless.get_document_cached(settings, doc_id)
     pending_row = (
-        db.query(DocumentPendingTag)
-        .filter(DocumentPendingTag.doc_id == doc_id)
-        .one_or_none()
+        db.query(DocumentPendingTag).filter(DocumentPendingTag.doc_id == doc_id).one_or_none()
     )
     pending_correspondent_row = (
         db.query(DocumentPendingCorrespondent)
@@ -546,7 +558,9 @@ def get_local_document(
         .one_or_none()
     )
     pending_tag_names = parse_string_list_json(pending_row.names_json if pending_row else None)
-    pending_correspondent_name = str(pending_correspondent_row.name or "").strip() if pending_correspondent_row else ""
+    pending_correspondent_name = (
+        str(pending_correspondent_row.name or "").strip() if pending_correspondent_row else ""
+    )
 
     local_tags = [tag.id for tag in doc.tags]
     remote_tags = remote_doc.get("tags") or []
@@ -576,7 +590,9 @@ def get_local_document(
     )
 
     remote_modified_raw = remote_doc.get("modified")
-    sync_status = derive_sync_status(local_modified=doc.modified, remote_modified=remote_modified_raw)
+    sync_status = derive_sync_status(
+        local_modified=doc.modified, remote_modified=remote_modified_raw
+    )
 
     reviewed_at_raw = (
         db.query(func.max(SuggestionAudit.created_at))
@@ -601,9 +617,7 @@ def get_local_document(
         "modified": doc.modified,
         "correspondent": doc.correspondent_id,
         "correspondent_name": (
-            doc.correspondent.name
-            if doc.correspondent
-            else (pending_correspondent_name or None)
+            doc.correspondent.name if doc.correspondent else (pending_correspondent_name or None)
         ),
         "document_type": doc.document_type_id,
         "document_type_name": doc.document_type.name if doc.document_type else None,
@@ -644,11 +658,11 @@ def get_local_document(
 def mark_document_reviewed(
     doc_id: int,
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing", "doc_id": int(doc_id), "reviewed_at": None}
-    reviewed_at = datetime.now(timezone.utc).isoformat()
+    reviewed_at = datetime.now(UTC).isoformat()
     db.add(
         SuggestionAudit(
             doc_id=int(doc_id),
@@ -666,7 +680,7 @@ def get_document_text_quality(
     doc_id: int,
     priority: bool = False,
     settings: Settings = Depends(get_settings),
-):
+) -> dict[str, object]:
     logger.info("Fetch text quality doc=%s", doc_id)
     if priority and require_queue_enabled(settings):
         enqueue_docs_front(settings, [doc_id])
@@ -696,7 +710,7 @@ def get_document_ocr_scores(
     refresh: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"doc_id": doc_id, "scores": []}
@@ -730,7 +744,7 @@ def get_document_page_texts(
     priority: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     logger.info("Fetch page texts doc=%s", doc_id)
     if priority and require_queue_enabled(settings):
         enqueue_docs_front(settings, [doc_id])
@@ -763,7 +777,11 @@ def get_document_page_texts(
             }
         )
     for page in vision_pages:
-        vision_text = page.clean_text if isinstance(page.clean_text, str) and page.clean_text.strip() else page.text
+        vision_text = (
+            page.clean_text
+            if isinstance(page.clean_text, str) and page.clean_text.strip()
+            else page.text
+        )
         pages.append(
             {
                 "page": page.page,
@@ -778,7 +796,11 @@ def get_document_page_texts(
         )
     pages.sort(key=lambda p: (p.get("page") or 0, str(p.get("source") or "")))
     expected_pages_raw = raw.get("page_count")
-    expected_pages = int(expected_pages_raw) if isinstance(expected_pages_raw, int) and expected_pages_raw > 0 else None
+    expected_pages = (
+        int(expected_pages_raw)
+        if isinstance(expected_pages_raw, int) and expected_pages_raw > 0
+        else None
+    )
     vision_page_numbers = {
         int(page.page)
         for page in vision_pages
@@ -789,7 +811,9 @@ def get_document_page_texts(
         done_pages = len(bounded_done)
         missing_pages = max(0, expected_pages - done_pages)
         is_complete = done_pages >= expected_pages
-        coverage_percent = round((done_pages / expected_pages) * 100.0, 2) if expected_pages > 0 else None
+        coverage_percent = (
+            round((done_pages / expected_pages) * 100.0, 2) if expected_pages > 0 else None
+        )
     else:
         done_pages = len(vision_page_numbers)
         missing_pages = None
@@ -815,7 +839,7 @@ def get_document_page_texts(
 def get_document_pdf(
     doc_id: int,
     settings: Settings = Depends(get_settings),
-):
+) -> Response:
     pdf_bytes = fetch_pdf_bytes(settings, doc_id)
     return Response(
         content=pdf_bytes,

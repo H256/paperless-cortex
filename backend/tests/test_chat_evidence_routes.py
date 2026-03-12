@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
 
-def test_resolve_evidence_returns_matches(api_client):
+
+def test_resolve_evidence_returns_matches(api_client: Any) -> None:
     payload = {
         "citations": [
             {"doc_id": 1756, "page": 1, "snippet": "foo"},
@@ -19,7 +21,7 @@ def test_resolve_evidence_returns_matches(api_client):
     assert data["matches"][1]["bbox"] == [1, 2, 3, 4]
 
 
-def test_resolve_evidence_caps_to_max_pages(api_client):
+def test_resolve_evidence_caps_to_max_pages(api_client: Any) -> None:
     payload = {
         "citations": [
             {"doc_id": 1, "page": 1, "snippet": "a"},
@@ -35,7 +37,7 @@ def test_resolve_evidence_caps_to_max_pages(api_client):
     assert data["count"] == 2
 
 
-def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client):
+def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client: Any) -> None:
     payload = {
         "citations": [
             {"doc_id": 1, "page": 1, "snippet": "first"},
@@ -53,7 +55,7 @@ def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client):
     assert pages == [1, 1, 2]
 
 
-def test_resolve_evidence_marks_invalid_bbox(api_client):
+def test_resolve_evidence_marks_invalid_bbox(api_client: Any) -> None:
     payload = {
         "citations": [
             {"doc_id": 1, "page": 1, "snippet": "x", "bbox": [10, 10, 5, 5]},

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.config import load_settings
 from app.models import Document, DocumentEmbedding
 
 
-def test_sync_tags_route(api_client, monkeypatch):
+def test_sync_tags_route(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.sync as sync_routes
 
     monkeypatch.setattr(sync_routes, "sync_tags_page", lambda *args, **kwargs: (7, 3))
@@ -14,7 +16,7 @@ def test_sync_tags_route(api_client, monkeypatch):
     assert response.json() == {"count": 7, "upserted": 3}
 
 
-def test_sync_correspondents_route(api_client, monkeypatch):
+def test_sync_correspondents_route(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.sync as sync_routes
 
     monkeypatch.setattr(sync_routes, "sync_correspondents_page", lambda *args, **kwargs: (5, 2))
@@ -24,7 +26,7 @@ def test_sync_correspondents_route(api_client, monkeypatch):
     assert response.json() == {"count": 5, "upserted": 2}
 
 
-def test_sync_document_types_route(api_client, monkeypatch):
+def test_sync_document_types_route(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.sync as sync_routes
 
     monkeypatch.setattr(sync_routes, "sync_document_types_page", lambda *args, **kwargs: (4, 4))
@@ -34,14 +36,14 @@ def test_sync_document_types_route(api_client, monkeypatch):
     assert response.json() == {"count": 4, "upserted": 4}
 
 
-def test_sync_embed_documents_uses_embed_text(session_factory, monkeypatch):
+def test_sync_embed_documents_uses_embed_text(session_factory: Any, monkeypatch: Any) -> None:
     import app.routes.sync as sync_routes
 
     monkeypatch.setenv("EMBEDDING_MODEL", "test-embed-model")
 
     settings = load_settings()
-    SessionLocal = session_factory
-    with SessionLocal() as db:
+    session_local = session_factory
+    with session_local() as db:
         doc = Document(id=901, title="Doc", content="hello world")
         db.add(doc)
         db.commit()
@@ -57,7 +59,11 @@ def test_sync_embed_documents_uses_embed_text(session_factory, monkeypatch):
         monkeypatch.setattr(sync_routes, "delete_points_for_doc", lambda *_args, **_kwargs: None)
 
         embed_inputs: list[str] = []
-        monkeypatch.setattr(sync_routes, "embed_text", lambda _settings, text: embed_inputs.append(text) or [0.1, 0.2, 0.3])
+        def _embed_text(_settings: Any, text: str) -> list[float]:
+            embed_inputs.append(text)
+            return [0.1, 0.2, 0.3]
+
+        monkeypatch.setattr(sync_routes, "embed_text", _embed_text)
         monkeypatch.setattr(sync_routes, "upsert_points", lambda *_args, **_kwargs: None)
 
         embedded = sync_routes._embed_documents(db, settings, [doc], force_embed=False)
@@ -69,7 +75,7 @@ def test_sync_embed_documents_uses_embed_text(session_factory, monkeypatch):
         assert row.chunk_count == 1
 
 
-def test_meta_routes(api_client, monkeypatch):
+def test_meta_routes(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.meta as meta_routes
 
     monkeypatch.setattr(
@@ -102,7 +108,7 @@ def test_meta_routes(api_client, monkeypatch):
     assert correspondent_response.json()["name"] == "ACME"
 
 
-def test_connections_route(api_client, monkeypatch):
+def test_connections_route(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.connections as connections_routes
 
     monkeypatch.setattr(

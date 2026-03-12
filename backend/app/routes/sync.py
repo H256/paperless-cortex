@@ -1,15 +1,25 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from hashlib import sha256
 import logging
+from datetime import UTC, datetime
+from hashlib import sha256
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from app.config import Settings
-from app.deps import get_settings
+from app.api_models import (
+    CorrespondentIn,
+    DocumentIn,
+    DocumentTypeIn,
+    SyncCancelResponse,
+    SyncDocumentResponse,
+    SyncDocumentsResponse,
+    SyncSimpleResponse,
+    SyncStatusResponse,
+    TagIn,
+)
 from app.db import get_db
+from app.deps import get_settings
 from app.models import (
     Correspondent,
     Document,
@@ -19,8 +29,19 @@ from app.models import (
     SyncState,
     Tag,
 )
-from app.schemas import CorrespondentIn, DocumentIn, DocumentTypeIn, TagIn
+from app.services.documents.note_ids import next_local_note_id
+from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.integrations import paperless
+from app.services.integrations.meta_sync import (
+    sync_correspondents_page,
+    sync_document_types_page,
+    sync_tags_page,
+)
+from app.services.pipeline.queue import enqueue_task_sequence, enqueue_task_sequence_front
+from app.services.pipeline.queue_tasks import build_task_sequence
+from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.runtime.time_utils import estimate_eta_seconds
+from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
     chunk_document_with_pages,
     delete_points_for_doc,
@@ -28,31 +49,21 @@ from app.services.search.embeddings import (
     make_point_id,
     upsert_points,
 )
-from app.services.documents.page_texts_merge import collect_page_texts
-from app.services.pipeline.queue import enqueue_task_sequence, enqueue_task_sequence_front
-from app.services.integrations.meta_sync import (
-    sync_correspondents_page,
-    sync_document_types_page,
-    sync_tags_page,
-)
-from app.services.documents.note_ids import next_local_note_id
-from app.api_models import (
-    SyncDocumentsResponse,
-    SyncStatusResponse,
-    SyncCancelResponse,
-    SyncDocumentResponse,
-    SyncSimpleResponse,
-)
-from app.services.runtime.time_utils import estimate_eta_seconds
-from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
-from app.services.pipeline.queue_tasks import build_task_sequence
-from app.services.search.embedding_init import ensure_embedding_collection
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 logger = logging.getLogger(__name__)
+ResponseDict = dict[str, object]
+ReferenceCache = dict[str, set[int]]
 
 
-def _apply_note_fields(target: DocumentNote, *, note_body: str, created: str | None, user: dict) -> None:
+def _apply_note_fields(
+    target: DocumentNote, *, note_body: str, created: str | None, user: dict
+) -> None:
     target.note = note_body
     target.created = created
     target.user_id = user.get("id")
@@ -69,7 +80,7 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
     for note in incoming_notes:
         try:
             note_id = int(note.id)
-        except Exception:
+        except (TypeError, ValueError):
             saw_malformed_id = True
             logger.warning(
                 "Skipping malformed note id during sync doc_id=%s note_id=%s",
@@ -105,7 +116,10 @@ def _merge_document_notes(db: Session, doc: Document, incoming_notes: list) -> N
 
     if saw_malformed_id:
         # Safety-first: avoid destructive stale cleanup when incoming note ids are malformed.
-        logger.warning("Skipping stale note cleanup due to malformed note ids doc_id=%s", getattr(doc, "id", None))
+        logger.warning(
+            "Skipping stale note cleanup due to malformed note ids doc_id=%s",
+            getattr(doc, "id", None),
+        )
         return
 
     for stale in [note for note in list(doc.notes or []) if int(note.id) not in incoming_ids]:
@@ -124,7 +138,7 @@ def sync_documents(
     insert_only: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     if embed is None:
         embed = settings.embed_on_sync
     modified_since: str | None = None
@@ -139,7 +153,7 @@ def sync_documents(
     upserted = 0
     processed = 0
     seen_ids: set[int] = set()
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
     page = max(1, page)
     total = 0
     embed_queue: list[Document] = []
@@ -186,7 +200,11 @@ def sync_documents(
             state.processed = processed
         db.commit()
         if embed:
-            ids = inserted_ids if insert_only else [DocumentIn.model_validate(raw).id for raw in results]
+            ids = (
+                inserted_ids
+                if insert_only
+                else [DocumentIn.model_validate(raw).id for raw in results]
+            )
             if ids:
                 embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
         if not payload.get("next"):
@@ -195,17 +213,13 @@ def sync_documents(
             break
         page += 1
 
-    state.last_synced_at = datetime.now(timezone.utc).isoformat()
+    state.last_synced_at = datetime.now(UTC).isoformat()
     state.status = "idle"
     db.commit()
     marked_deleted = 0
     if mark_missing and not incremental:
-        timestamp = datetime.now(timezone.utc).isoformat()
-        missing_docs = (
-            db.query(Document)
-            .filter(~Document.id.in_(list(seen_ids)))
-            .all()
-        )
+        timestamp = datetime.now(UTC).isoformat()
+        missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
         for doc in missing_docs:
             if doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"):
                 continue
@@ -217,12 +231,14 @@ def sync_documents(
     if embed and embed_queue:
         if settings.queue_enabled:
             for doc in embed_queue:
-                tasks = build_task_sequence(settings, doc.id, include_sync=False, force=bool(force_embed))
+                tasks = build_task_sequence(
+                    settings, doc.id, include_sync=False, force=bool(force_embed)
+                )
                 enqueue_task_sequence(settings, tasks)
             embed_state = get_or_create_state(db, "embeddings")
             embed_state.status = "running"
             ensure_started(embed_state)
-            embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
+            embed_state.last_synced_at = datetime.now(UTC).isoformat()
             db.commit()
             embedded = 0
         else:
@@ -237,7 +253,7 @@ def sync_documents(
 
 
 @router.get("/documents", response_model=SyncStatusResponse)
-def sync_status(db: Session = Depends(get_db)):
+def sync_status(db: Session = Depends(get_db)) -> ResponseDict:
     state = db.get(SyncState, "documents")
     if not state:
         return {"last_synced_at": None, "status": "idle", "processed": 0, "total": 0}
@@ -254,7 +270,7 @@ def sync_status(db: Session = Depends(get_db)):
 
 
 @router.post("/documents/cancel", response_model=SyncCancelResponse)
-def cancel_sync(db: Session = Depends(get_db)):
+def cancel_sync(db: Session = Depends(get_db)) -> ResponseDict:
     state = db.get(SyncState, "documents")
     if not state:
         return {"status": "idle"}
@@ -267,7 +283,7 @@ def _upsert_document(
     db: Session,
     settings: Settings,
     data: DocumentIn,
-    cache: dict[str, set[int]],
+    cache: ReferenceCache,
 ) -> None:
     doc = db.get(Document, data.id)
     if not doc:
@@ -290,37 +306,35 @@ def _upsert_document(
     doc.user_can_change = data.user_can_change
     doc.is_shared_by_requester = data.is_shared_by_requester
 
-    if data.correspondent is not None:
-        if data.correspondent not in cache["correspondents"]:
-            correspondent = db.get(Correspondent, data.correspondent)
-            if not correspondent:
-                raw = paperless.get_correspondent(settings, data.correspondent)
-                corr_data = CorrespondentIn.model_validate(raw)
-                correspondent = Correspondent(
-                    id=corr_data.id,
-                    name=corr_data.name,
-                    slug=corr_data.slug,
-                    matching_algorithm=corr_data.matching_algorithm,
-                    is_insensitive=corr_data.is_insensitive,
-                )
-                db.merge(correspondent)
-            cache["correspondents"].add(data.correspondent)
+    if data.correspondent is not None and data.correspondent not in cache["correspondents"]:
+        correspondent = db.get(Correspondent, data.correspondent)
+        if not correspondent:
+            raw = paperless.get_correspondent(settings, data.correspondent)
+            corr_data = CorrespondentIn.model_validate(raw)
+            correspondent = Correspondent(
+                id=corr_data.id,
+                name=corr_data.name,
+                slug=corr_data.slug,
+                matching_algorithm=corr_data.matching_algorithm,
+                is_insensitive=corr_data.is_insensitive,
+            )
+            db.merge(correspondent)
+        cache["correspondents"].add(data.correspondent)
 
-    if data.document_type is not None:
-        if data.document_type not in cache["document_types"]:
-            doc_type = db.get(DocumentType, data.document_type)
-            if not doc_type:
-                raw = paperless.get_document_type(settings, data.document_type)
-                doc_type_data = DocumentTypeIn.model_validate(raw)
-                doc_type = DocumentType(
-                    id=doc_type_data.id,
-                    name=doc_type_data.name,
-                    slug=doc_type_data.slug,
-                    matching_algorithm=doc_type_data.matching_algorithm,
-                    is_insensitive=doc_type_data.is_insensitive,
-                )
-                db.merge(doc_type)
-            cache["document_types"].add(data.document_type)
+    if data.document_type is not None and data.document_type not in cache["document_types"]:
+        doc_type = db.get(DocumentType, data.document_type)
+        if not doc_type:
+            raw = paperless.get_document_type(settings, data.document_type)
+            doc_type_data = DocumentTypeIn.model_validate(raw)
+            doc_type = DocumentType(
+                id=doc_type_data.id,
+                name=doc_type_data.name,
+                slug=doc_type_data.slug,
+                matching_algorithm=doc_type_data.matching_algorithm,
+                is_insensitive=doc_type_data.is_insensitive,
+            )
+            db.merge(doc_type)
+        cache["document_types"].add(data.document_type)
 
     _merge_document_notes(db, doc, data.notes)
 
@@ -357,13 +371,13 @@ def sync_document(
     embed: bool | None = None,
     force_embed: bool = False,
     priority: bool = False,
-):
+) -> ResponseDict:
     if embed is None:
         embed = settings.embed_on_sync
     logger.info("Sync doc=%s embed=%s force_embed=%s", doc_id, embed, force_embed)
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
     embedded = 0
@@ -371,7 +385,9 @@ def sync_document(
         doc = db.get(Document, doc_id)
         if doc:
             if settings.queue_enabled:
-                tasks = build_task_sequence(settings, doc.id, include_sync=False, force=bool(force_embed))
+                tasks = build_task_sequence(
+                    settings, doc.id, include_sync=False, force=bool(force_embed)
+                )
                 if priority:
                     enqueue_task_sequence_front(settings, tasks, force=True)
                 else:
@@ -379,7 +395,7 @@ def sync_document(
                 embed_state = get_or_create_state(db, "embeddings")
                 embed_state.status = "running"
                 ensure_started(embed_state)
-                embed_state.last_synced_at = datetime.now(timezone.utc).isoformat()
+                embed_state.last_synced_at = datetime.now(UTC).isoformat()
                 db.commit()
                 embedded = 0
             else:
@@ -394,7 +410,7 @@ def sync_tags(
     page_size: int = 200,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     count, upserted = sync_tags_page(settings, db, page=page, page_size=page_size)
     return {"count": count, "upserted": upserted}
 
@@ -405,7 +421,7 @@ def sync_correspondents(
     page_size: int = 200,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     count, upserted = sync_correspondents_page(settings, db, page=page, page_size=page_size)
     return {"count": count, "upserted": upserted}
 
@@ -416,7 +432,7 @@ def sync_document_types(
     page_size: int = 200,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> ResponseDict:
     count, upserted = sync_document_types_page(settings, db, page=page, page_size=page_size)
     return {"count": count, "upserted": upserted}
 
@@ -458,18 +474,27 @@ def _embed_documents(
             hash_source = content_value
         content_hash = sha256((hash_source or "").encode("utf-8")).hexdigest()
         existing = db.get(DocumentEmbedding, doc.id)
-        if (not force_embed) and existing and existing.content_hash == content_hash and existing.embedding_model == settings.embedding_model:
-            if existing.chunk_count:
-                logger.info("Skip embed doc=%s (unchanged)", doc.id)
-                processed += 1
-                state.processed = processed
-                if processed % 5 == 0 or processed == state.total:
-                    db.commit()
-                continue
+        if (
+            (not force_embed)
+            and existing
+            and existing.content_hash == content_hash
+            and existing.embedding_model == settings.embedding_model
+            and existing.chunk_count
+        ):
+            logger.info("Skip embed doc=%s (unchanged)", doc.id)
+            processed += 1
+            state.processed = processed
+            if processed % 5 == 0 or processed == state.total:
+                db.commit()
+            continue
         embedding_source = "vision" if vision_pages else "paperless"
         delete_points_for_doc(settings, doc.id, source=embedding_source)
         baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
-        vision_chunks = chunk_document_with_pages(settings, content_value, vision_pages or None) if vision_pages else []
+        vision_chunks = (
+            chunk_document_with_pages(settings, content_value, vision_pages or None)
+            if vision_pages
+            else []
+        )
         chunks = baseline_chunks + vision_chunks
         logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
         doc_points = []
@@ -499,7 +524,7 @@ def _embed_documents(
             db.add(existing)
         existing.content_hash = content_hash
         existing.embedding_model = settings.embedding_model
-        existing.embedded_at = datetime.now(timezone.utc).isoformat()
+        existing.embedded_at = datetime.now(UTC).isoformat()
         previous_source = str(existing.embedding_source or "").strip().lower()
         if previous_source == "both" or (previous_source and previous_source != embedding_source):
             existing.embedding_source = "both"
@@ -514,8 +539,6 @@ def _embed_documents(
     if points:
         db.commit()
     state.status = "idle"
-    state.last_synced_at = datetime.now(timezone.utc).isoformat()
+    state.last_synced_at = datetime.now(UTC).isoformat()
     db.commit()
     return embedded
-
-

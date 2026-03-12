@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import re
 import json
+import re
 from difflib import SequenceMatcher
-from typing import Any
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
 from app.models import DocumentPageAnchor
 from app.services.documents.documents import fetch_pdf_bytes
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 
 def _norm_token(value: str) -> str:
@@ -25,7 +28,7 @@ def _normalize_bbox(raw: Any) -> list[float] | None:
         return None
     try:
         x0, y0, x1, y1 = [float(value) for value in raw]
-    except Exception:
+    except (TypeError, ValueError):
         return None
     if not (x1 > x0 and y1 > y0):
         return None
@@ -80,8 +83,12 @@ def _match_snippet_to_words(words: list[dict[str, Any]], snippet: str) -> tuple[
     matched = [word for word in words[start:end] if _normalize_bbox(word.get("bbox")) is not None]
     if not matched:
         return None, 0.0
-    bboxes = [_normalize_bbox(word.get("bbox")) for word in matched]
-    bboxes = [bbox for bbox in bboxes if bbox is not None]
+    bboxes: list[list[float]] = [
+        bbox
+        for word in matched
+        for bbox in [_normalize_bbox(word.get("bbox"))]
+        if bbox is not None
+    ]
     if not bboxes:
         return None, 0.0
     x0 = min(bbox[0] for bbox in bboxes)
@@ -125,7 +132,7 @@ def _load_page_words(
                             restored.append({"text": text, "bbox": bbox})
                         words_cache[cache_key] = restored
                         return restored
-                except Exception:
+                except json.JSONDecodeError:
                     pass
     pdf_bytes = pdf_cache.get(doc_id)
     if pdf_bytes is None:
@@ -234,7 +241,7 @@ def resolve_evidence_matches(
                 try:
                     words = _load_page_words(settings, doc_id, page, pdf_cache, words_cache, db=db)
                     resolved = _match_snippet_to_words(words, snippet)
-                except Exception:
+                except (RuntimeError, ValueError, OSError):
                     resolved = (None, 0.0)
                 resolved_cache[cache_key] = resolved
             resolved_bbox, resolved_score = resolved

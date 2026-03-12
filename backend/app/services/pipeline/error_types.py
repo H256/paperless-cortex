@@ -4,6 +4,9 @@ from typing import Any
 
 
 def _text(exc: Exception) -> str:
+    original = getattr(exc, "original_exception", None)
+    if isinstance(original, Exception):
+        return str(original).lower()
     return str(exc).lower()
 
 
@@ -47,8 +50,10 @@ ERROR_TYPE_CATALOG: dict[str, dict[str, Any]] = {
 
 
 def classify_worker_error(exc: Exception) -> str:
-    message = _text(exc)
-    class_name = exc.__class__.__name__.lower()
+    original = getattr(exc, "original_exception", None)
+    candidate = original if isinstance(original, Exception) else exc
+    message = _text(candidate)
+    class_name = candidate.__class__.__name__.lower()
     if "exceed_context_size_error" in message or "context size" in message:
         return "EMBED_CONTEXT_OVERFLOW"
     if "timeout" in message or "timed out" in message:

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
+import httpx
 
-from app.config import Settings
 from app.models import DocumentPageNote, DocumentSectionSummary
-from app.services.documents.documents import get_document_or_none
 from app.services.ai.hierarchical_summary import (
     generate_global_summary,
     generate_section_summary,
@@ -15,13 +13,19 @@ from app.services.ai.hierarchical_summary import (
     is_large_document,
     replace_section_summaries,
 )
-from app.services.pipeline.queue import is_cancel_requested
 from app.services.ai.suggestion_store import persist_suggestions
+from app.services.documents.documents import get_document_or_none
+from app.services.pipeline.queue import is_cancel_requested
 from app.services.pipeline.worker_checkpoint import (
     get_task_run_checkpoint,
     resume_stage_current,
     set_task_checkpoint,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +214,13 @@ class HierarchicalSummaryPipeline:
                     page_notes=page_notes,
                 )
                 section_payloads.append((section_key, section_summary))
-            except Exception as exc:
-                logger.warning("Section summary failed doc=%s section=%s error=%s", doc_id, section_key, exc)
+            except (RuntimeError, ValueError, httpx.HTTPError) as exc:
+                logger.warning(
+                    "Section summary failed doc=%s section=%s error=%s",
+                    doc_id,
+                    section_key,
+                    exc,
+                )
             finally:
                 set_task_checkpoint(
                     self.db,
@@ -238,7 +247,7 @@ class HierarchicalSummaryPipeline:
                 self.settings,
                 section_summaries=[payload for _, payload in section_payloads],
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, httpx.HTTPError) as exc:
             global_payload = _fallback_global_payload(exc)
 
         global_payload["source"] = resolved_source

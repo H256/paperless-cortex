@@ -1,22 +1,25 @@
 from __future__ import annotations
 
-import os
 import base64
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
 import logging
 import math
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-from app.config import Settings
 from app.services.ai import llm_client
-from app.services.runtime.guard import ensure_vision_llm_ready
 from app.services.documents.page_types import PageText
+from app.services.runtime.guard import ensure_vision_llm_ready
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import fitz
+
+    from app.config import Settings
 
 DEFAULT_VISION_PROMPT = "Extract all readable text from this page image. Return only the text."
 
@@ -56,8 +59,6 @@ class VisionPage:
     width: int
     height: int
 
-
-
 def _render_page_image(
     doc: fitz.Document,
     page_index: int,
@@ -67,7 +68,7 @@ def _render_page_image(
 ) -> tuple[bytes, int, int]:
     try:
         import fitz  # PyMuPDF
-    except Exception as exc:  # pragma: no cover - optional dependency
+    except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("pymupdf is required for vision OCR") from exc
     page = doc.load_page(page_index)
     rect = page.rect
@@ -95,7 +96,7 @@ def render_pdf_pages(
 ) -> list[VisionPage]:
     try:
         import fitz  # PyMuPDF
-    except Exception as exc:  # pragma: no cover - optional dependency
+    except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("pymupdf is required for vision OCR") from exc
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -132,7 +133,7 @@ def iter_pdf_pages(
 ) -> Iterable[VisionPage]:
     try:
         import fitz  # PyMuPDF
-    except Exception as exc:  # pragma: no cover - optional dependency
+    except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("pymupdf is required for vision OCR") from exc
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")

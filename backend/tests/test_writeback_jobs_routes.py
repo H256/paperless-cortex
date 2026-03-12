@@ -1,42 +1,43 @@
 from __future__ import annotations
 
+import json
 import os
+from typing import Any
 
-from sqlalchemy import text
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.models import Document, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
 
 
-def _insert_document(doc_id: int, title: str):
+def _insert_document(doc_id: int, title: str) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Document(id=doc_id, title=title))
         db.commit()
 
 
-def _insert_tag(tag_id: int, name: str):
+def _insert_tag(tag_id: int, name: str) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Tag(id=tag_id, name=name))
         db.commit()
 
 
-def _insert_pending_tags(doc_id: int, names: list[str]):
+def _insert_pending_tags(doc_id: int, names: list[str]) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
             DocumentPendingTag(
                 doc_id=doc_id,
-                names_json=__import__("json").dumps(names, ensure_ascii=False),
+                names_json=json.dumps(names, ensure_ascii=False),
                 updated_at="2026-02-10T10:10:00+00:00",
             )
         )
         db.commit()
 
 
-def test_writeback_job_create_and_execute_dry_run(api_client, monkeypatch):
+def test_writeback_job_create_and_execute_dry_run(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_document(501, "Local title")
@@ -44,7 +45,7 @@ def test_writeback_job_create_and_execute_dry_run(api_client, monkeypatch):
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title",
             "document_date": None,
@@ -71,7 +72,7 @@ def test_writeback_job_create_and_execute_dry_run(api_client, monkeypatch):
     assert executed["dry_run"] is True
 
 
-def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
+def test_writeback_job_execute_real_calls_paperless(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_document(502, "Local title 502")
@@ -79,7 +80,7 @@ def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 502",
             "document_date": None,
@@ -89,9 +90,9 @@ def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
         },
     )
 
-    calls = {"patch": 0}
+    calls: dict[str, int] = {"patch": 0}
 
-    def _fake_patch(settings, doc_id, payload):
+    def _fake_patch(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
         calls["patch"] += 1
         return {"id": doc_id, **payload}
 
@@ -112,14 +113,14 @@ def test_writeback_job_execute_real_calls_paperless(api_client, monkeypatch):
     assert calls["patch"] >= 1
 
 
-def test_writeback_job_create_deduplicates_pending(api_client, monkeypatch):
+def test_writeback_job_create_deduplicates_pending(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_document(503, "Local title 503")
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 503",
             "document_date": None,
@@ -136,7 +137,7 @@ def test_writeback_job_create_deduplicates_pending(api_client, monkeypatch):
     assert first.json()["id"] == second.json()["id"]
 
 
-def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
+def test_writeback_execute_pending_runs_all(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_document(504, "Local title 504")
@@ -144,7 +145,7 @@ def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": f"Remote title {doc_id}",
             "document_date": None,
@@ -165,14 +166,14 @@ def test_writeback_execute_pending_runs_all(api_client, monkeypatch):
     assert payload["failed"] == 0
 
 
-def test_writeback_job_delete_removes_pending_job(api_client, monkeypatch):
+def test_writeback_job_delete_removes_pending_job(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_document(530, "Local title 530")
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 530",
             "document_date": None,
@@ -194,14 +195,14 @@ def test_writeback_job_delete_removes_pending_job(api_client, monkeypatch):
     assert int(payload["job_id"]) == job_id
 
 
-def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
+def test_writeback_execute_now_executes_without_queue(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
     _insert_document(506, "Local title 506")
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 506",
             "created": None,
@@ -210,9 +211,9 @@ def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
             "notes": [],
         },
     )
-    calls = {"patch": 0}
+    calls: dict[str, int] = {"patch": 0}
 
-    def _fake_patch(settings, doc_id, payload):
+    def _fake_patch(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
         calls["patch"] += 1
         return {"id": doc_id, **payload}
 
@@ -230,14 +231,16 @@ def test_writeback_execute_now_executes_without_queue(api_client, monkeypatch):
     assert calls["patch"] >= 1
 
 
-def test_writeback_execute_now_rejects_without_valid_doc_ids(api_client, monkeypatch):
+def test_writeback_execute_now_rejects_without_valid_doc_ids(api_client: Any, monkeypatch: Any) -> None:
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
     result = api_client.post("/writeback/execute-now", json={"doc_ids": [0, -1]})
     assert result.status_code == 400
     assert "No valid doc_ids provided" in str(result.json().get("detail"))
 
 
-def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_client, monkeypatch):
+def test_writeback_execute_now_updates_local_modified_and_review_timestamp(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_document(510, "Local title 510")
@@ -245,7 +248,7 @@ def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_c
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 510",
             "created": "2026-02-01",
@@ -258,7 +261,7 @@ def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_c
     monkeypatch.setattr(
         paperless,
         "update_document",
-        lambda settings, doc_id, payload: {"id": doc_id, **payload},
+        lambda _settings, doc_id, payload: {"id": doc_id, **payload},
     )
     monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
     monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
@@ -284,14 +287,16 @@ def test_writeback_execute_now_updates_local_modified_and_review_timestamp(api_c
         assert audit.created_at == remote_modified
 
 
-def test_writeback_direct_requires_resolution_when_modified_changed(api_client, monkeypatch):
+def test_writeback_direct_requires_resolution_when_modified_changed(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_document(507, "Local title 507")
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 507",
             "created": "2026-02-01",
@@ -313,11 +318,14 @@ def test_writeback_direct_requires_resolution_when_modified_changed(api_client, 
     assert isinstance(payload["conflicts"], list)
 
 
-def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkeypatch):
-    from app.services.integrations import paperless
+def test_writeback_execute_now_creates_missing_paperless_tags(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
+
     from app.models import Document
+    from app.services.integrations import paperless
 
     _insert_document(508, "Local title 508")
     _insert_tag(901, "Tag-New")
@@ -331,7 +339,7 @@ def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkey
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 508",
             "created": "2026-02-01",
@@ -342,14 +350,15 @@ def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkey
         },
     )
 
-    monkeypatch.setattr(paperless, "list_all_tags", lambda settings: [])
-    monkeypatch.setattr(paperless, "create_tag", lambda settings, name: {"id": 777, "name": name})
-    patch_payloads: list[dict] = []
-    monkeypatch.setattr(
-        paperless,
-        "update_document",
-        lambda settings, doc_id, payload: patch_payloads.append(payload) or {"id": doc_id, **payload},
-    )
+    monkeypatch.setattr(paperless, "list_all_tags", lambda _settings: [])
+    monkeypatch.setattr(paperless, "create_tag", lambda _settings, name: {"id": 777, "name": name})
+    patch_payloads: list[dict[str, Any]] = []
+
+    def _update_document(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        patch_payloads.append(dict(payload))
+        return {"id": doc_id, **payload}
+
+    monkeypatch.setattr(paperless, "update_document", _update_document)
     monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
     monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
@@ -360,18 +369,19 @@ def test_writeback_execute_now_creates_missing_paperless_tags(api_client, monkey
     assert patch_payloads[0].get("tags") == [777]
 
 
-def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch):
-    from app.services.integrations import paperless
+def test_writeback_direct_executes_for_pending_tags_only(api_client: Any, monkeypatch: Any) -> None:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
+
     from app.models import Document
+    from app.services.integrations import paperless
 
     _insert_document(509, "Doc 509")
     _insert_pending_tags(509, ["BrandNew"])
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Doc 509",
             "created": "2026-02-01",
@@ -381,14 +391,15 @@ def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch
             "notes": [],
         },
     )
-    monkeypatch.setattr(paperless, "list_all_tags", lambda settings: [])
-    monkeypatch.setattr(paperless, "create_tag", lambda settings, name: {"id": 778, "name": name})
-    patch_payloads: list[dict] = []
-    monkeypatch.setattr(
-        paperless,
-        "update_document",
-        lambda settings, doc_id, payload: patch_payloads.append(payload) or {"id": doc_id, **payload},
-    )
+    monkeypatch.setattr(paperless, "list_all_tags", lambda _settings: [])
+    monkeypatch.setattr(paperless, "create_tag", lambda _settings, name: {"id": 778, "name": name})
+    patch_payloads: list[dict[str, Any]] = []
+
+    def _update_document(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        patch_payloads.append(dict(payload))
+        return {"id": doc_id, **payload}
+
+    monkeypatch.setattr(paperless, "update_document", _update_document)
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
     result = api_client.post(
@@ -409,20 +420,22 @@ def test_writeback_direct_executes_for_pending_tags_only(api_client, monkeypatch
         assert pending is None
 
 
-def test_writeback_job_create_rejects_without_valid_doc_ids(api_client):
+def test_writeback_job_create_rejects_without_valid_doc_ids(api_client: Any) -> None:
     create_resp = api_client.post("/writeback/jobs", json={"doc_ids": [0, -5]})
     assert create_resp.status_code == 400
     assert "No valid doc_ids provided" in str(create_resp.json().get("detail"))
 
 
-def test_writeback_job_create_rejects_when_no_changes_detected(api_client, monkeypatch):
+def test_writeback_job_create_rejects_when_no_changes_detected(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_document(540, "Same title")
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Same title",
             "document_date": None,
@@ -438,13 +451,13 @@ def test_writeback_job_create_rejects_when_no_changes_detected(api_client, monke
     assert "No writeback changes detected" in str(create_resp.json().get("detail"))
 
 
-def test_writeback_job_get_returns_404_for_missing_job(api_client):
+def test_writeback_job_get_returns_404_for_missing_job(api_client: Any) -> None:
     response = api_client.get("/writeback/jobs/999999")
     assert response.status_code == 404
     assert "Writeback job not found" in str(response.json().get("detail"))
 
 
-def test_writeback_job_delete_rejects_running_job(api_client):
+def test_writeback_job_delete_rejects_running_job(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -467,7 +480,7 @@ def test_writeback_job_delete_rejects_running_job(api_client):
     assert "Cannot delete a running writeback job" in str(response.json().get("detail"))
 
 
-def test_writeback_jobs_list_returns_503_when_table_missing(api_client):
+def test_writeback_jobs_list_returns_503_when_table_missing(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE writeback_jobs"))
@@ -477,7 +490,9 @@ def test_writeback_jobs_list_returns_503_when_table_missing(api_client):
     assert "Writeback jobs table is missing" in str(response.json().get("detail"))
 
 
-def test_writeback_job_execute_rejects_real_execution_when_disabled(api_client, monkeypatch):
+def test_writeback_job_execute_rejects_real_execution_when_disabled(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "0")
@@ -485,7 +500,7 @@ def test_writeback_job_execute_rejects_real_execution_when_disabled(api_client, 
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title 560",
             "document_date": None,
@@ -503,14 +518,16 @@ def test_writeback_job_execute_rejects_real_execution_when_disabled(api_client, 
     assert "WRITEBACK_EXECUTE_ENABLED=1" in str(exec_resp.json().get("detail"))
 
 
-def test_writeback_execute_pending_rejects_real_execution_when_disabled(api_client, monkeypatch):
+def test_writeback_execute_pending_rejects_real_execution_when_disabled(
+    api_client: Any, monkeypatch: Any
+) -> None:
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "0")
     result = api_client.post("/writeback/jobs/execute-pending", json={"dry_run": False, "limit": 1})
     assert result.status_code == 400
     assert "WRITEBACK_EXECUTE_ENABLED=1" in str(result.json().get("detail"))
 
 
-def test_writeback_job_execute_returns_503_when_table_missing(api_client):
+def test_writeback_job_execute_returns_503_when_table_missing(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE writeback_jobs"))
@@ -520,7 +537,7 @@ def test_writeback_job_execute_returns_503_when_table_missing(api_client):
     assert "Writeback jobs table is missing" in str(response.json().get("detail"))
 
 
-def test_writeback_history_limit_zero_clamps_and_filters_statuses(api_client):
+def test_writeback_history_limit_zero_clamps_and_filters_statuses(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(
@@ -570,7 +587,7 @@ def test_writeback_history_limit_zero_clamps_and_filters_statuses(api_client):
     assert statuses.issubset({"completed", "failed"})
 
 
-def test_writeback_history_returns_503_when_table_missing(api_client):
+def test_writeback_history_returns_503_when_table_missing(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE writeback_jobs"))
@@ -580,7 +597,9 @@ def test_writeback_history_returns_503_when_table_missing(api_client):
     assert "Writeback jobs table is missing" in str(response.json().get("detail"))
 
 
-def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(api_client, monkeypatch):
+def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_document(571, "Local title 571")
@@ -588,7 +607,7 @@ def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(api_cl
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": f"Remote title {doc_id}",
             "created": None,
@@ -602,7 +621,7 @@ def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(api_cl
     monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
     monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
 
-    def _patch(settings, doc_id, payload):
+    def _patch(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
         if int(doc_id) == 572:
             raise RuntimeError("forced patch failure for lifecycle test")
         return {"id": doc_id, **payload}

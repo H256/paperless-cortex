@@ -7,7 +7,7 @@ from app.services.writeback.writeback_plan import (
 )
 
 
-def test_extract_ai_summary_note_detects_marker():
+def test_extract_ai_summary_note_detects_marker() -> None:
     note_id, note_text = extract_ai_summary_note(
         [
             {"id": 1, "note": "foo"},
@@ -18,12 +18,12 @@ def test_extract_ai_summary_note_detects_marker():
     assert note_text and note_text.endswith("KI-Zusammenfassung")
 
 
-def test_canonical_ai_summary_ignores_marker_meta_line():
+def test_canonical_ai_summary_ignores_marker_meta_line() -> None:
     text = "Zusammenfassung Inhalt\n\nModel:gpt\nKI-Zusammenfassung"
     assert canonical_ai_summary(text) == "Zusammenfassung Inhalt"
 
 
-def test_compare_document_fields_detects_note_change_only():
+def test_compare_document_fields_detects_note_change_only() -> None:
     changed, payload = compare_document_fields(
         local_title="A",
         remote_title="A",

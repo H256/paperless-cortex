@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
 
-def test_queue_dlq_endpoints_disabled(api_client):
+
+def test_queue_dlq_endpoints_disabled(api_client: Any) -> None:
     get_resp = api_client.get("/queue/dlq")
     assert get_resp.status_code == 200
     assert get_resp.json()["enabled"] is False

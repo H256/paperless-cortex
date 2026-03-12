@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
+import httpx
+
 from app.services.ai import llm_client
 from app.services.integrations import paperless
 from app.services.search import qdrant
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def check_paperless(settings: Settings) -> tuple[bool, str]:
     try:
         paperless.list_documents(settings, page=1, page_size=1)
         return True, "ok"
-    except Exception as exc:
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
         return False, exc.__class__.__name__
 
 
@@ -26,7 +30,7 @@ def check_qdrant(settings: Settings) -> tuple[bool, str]:
             response = http.get(f"{base}/healthz", headers=qdrant.headers(settings))
             response.raise_for_status()
         return True, "ok"
-    except Exception as exc:
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
         return False, exc.__class__.__name__
 
 
@@ -41,7 +45,7 @@ def check_llm(settings: Settings) -> tuple[bool, str]:
             )
             response.raise_for_status()
         return True, "ok"
-    except Exception as exc:
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
         return False, exc.__class__.__name__
 
 

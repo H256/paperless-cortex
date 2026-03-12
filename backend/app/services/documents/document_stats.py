@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import and_, case, exists, func, select
-from sqlalchemy.orm import Session
 
 from app.models import Document, DocumentEmbedding, DocumentPageText, DocumentSuggestion
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def compute_document_stats(db: Session) -> dict[str, int]:

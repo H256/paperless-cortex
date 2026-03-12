@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from sqlalchemy import delete
-from sqlalchemy.orm import Session
 import logging
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import delete
 
 from app.models import Document, DocumentSuggestion, SuggestionAudit
 from app.services.runtime.json_utils import parse_json_object
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +32,7 @@ def upsert_suggestion(
             DocumentSuggestion.source == source,
         )
     )
-    processed_at = processed_at or datetime.now(timezone.utc).isoformat()
+    processed_at = processed_at or datetime.now(UTC).isoformat()
     created_at = processed_at
     db.add(
         DocumentSuggestion(
@@ -79,7 +83,7 @@ def update_suggestion_field(
         field=field,
         old_value=json.dumps(old_value, ensure_ascii=False) if old_value is not None else None,
         new_value=json.dumps(value, ensure_ascii=False) if value is not None else None,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
     )
     db.add(audit)
     db.commit()
@@ -98,7 +102,7 @@ def audit_suggestion_run(
         doc_id=doc_id,
         action=action,
         source=source,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
     )
     db.add(audit)
     if commit:
@@ -124,5 +128,3 @@ def persist_suggestions(
     )
     audit_suggestion_run(db, doc_id, source, action, commit=False)
     db.commit()
-
-

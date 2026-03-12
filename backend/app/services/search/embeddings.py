@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-import os
 import json
-import math
-import re
 import logging
-from typing import Any
+import math
+import os
+import re
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from app.config import Settings
 from app.services.ai import llm_client
-from app.services.search import qdrant
-from app.services.runtime.guard import ensure_embedding_llm_ready
-from app.services.documents.page_types import PageText, WordBox
 from app.services.documents.text_cleaning import estimate_tokens
 from app.services.documents.text_pages import score_text_quality
+from app.services.runtime.guard import ensure_embedding_llm_ready
+from app.services.search import qdrant
+
+if TYPE_CHECKING:
+    from app.config import Settings
+    from app.services.documents.page_types import PageText, WordBox
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ def _is_context_overflow_error(exc: Exception) -> bool:
     return (
         "exceed_context_size_error" in message
         or "exceeds the available context size" in message
-        or "context size" in message and "exceed" in message
+        or ("context size" in message and "exceed" in message)
     )
 
 
@@ -190,7 +192,7 @@ def embed_text(
             text=text,
             timeout=settings.embedding_request_timeout_seconds,
         )
-    except Exception as exc:
+    except (RuntimeError, ValueError, httpx.HTTPError) as exc:
         if not _is_context_overflow_error(exc):
             raise
         fallback_tokens = max(256, int(getattr(settings, "embedding_max_input_tokens", 3000)) // 2)
@@ -209,21 +211,22 @@ def embed_text(
             len(text),
         )
         if telemetry is not None:
-            telemetry["overflow_fallback_calls"] = int(telemetry.get("overflow_fallback_calls", 0)) + 1
-            telemetry["overflow_fallback_parts"] = int(telemetry.get("overflow_fallback_parts", 0)) + len(
-                fallback_parts
+            telemetry["overflow_fallback_calls"] = (
+                int(telemetry.get("overflow_fallback_calls", 0)) + 1
             )
+            telemetry["overflow_fallback_parts"] = int(
+                telemetry.get("overflow_fallback_parts", 0)
+            ) + len(fallback_parts)
         vectors = [embed_text(settings, part, telemetry=telemetry) for part in fallback_parts]
         embedding = _average_vectors(vectors)
-    if settings.llm_base_url and settings.embedding_model:
-        if os.getenv("LLM_DEBUG") == "1":
-            sample = embedding[:5]
-            logger.info(
-                "LLM embed model=%s len=%s sample=%s",
-                settings.embedding_model,
-                len(embedding),
-                sample,
-            )
+    if settings.llm_base_url and settings.embedding_model and os.getenv("LLM_DEBUG") == "1":
+        sample = embedding[:5]
+        logger.info(
+            "LLM embed model=%s len=%s sample=%s",
+            settings.embedding_model,
+            len(embedding),
+            sample,
+        )
     return embedding
 
 
@@ -250,7 +253,7 @@ def embed_texts(
             texts=texts,
             timeout=settings.embedding_request_timeout_seconds,
         )
-    except Exception as exc:
+    except (RuntimeError, ValueError, httpx.HTTPError) as exc:
         logger.warning(
             "Batch embeddings failed; fallback to single requests items=%s error=%s",
             len(texts),
@@ -273,17 +276,15 @@ def semantic_chunks(text: str, max_chars: int = 1200, overlap: int = 200) -> lis
             current_len = 0
 
     for para in paragraphs:
-        if len(para) > max_chars:
-            # split long paragraphs into sentences
-            sentences = re.split(r"(?<=[.!?])\s+", para)
-        else:
-            sentences = [para]
+        sentences = re.split(r"(?<=[.!?])\s+", para) if len(para) > max_chars else [para]
         for sentence in sentences:
             if not sentence:
                 continue
             start = 0
             while start < len(sentence):
-                piece = sentence[start : start + max_chars] if len(sentence) > max_chars else sentence
+                piece = (
+                    sentence[start : start + max_chars] if len(sentence) > max_chars else sentence
+                )
                 start += max_chars
                 if not piece:
                     continue
@@ -311,7 +312,7 @@ def sentence_chunks(text: str) -> list[str]:
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0 or norm_b == 0:
@@ -343,7 +344,7 @@ def semantic_merge_chunks(
             current_len = 0
             last_vec = None
 
-    for sentence, vec in zip(sentences, sentence_vectors):
+    for sentence, vec in zip(sentences, sentence_vectors, strict=False):
         if not current:
             current.append(sentence)
             current_len = len(sentence)
@@ -389,7 +390,9 @@ def chunk_text(settings: Settings, text: str) -> list[str]:
             len(chunks),
         )
         return chunks
-    chunks = semantic_chunks(text, max_chars=settings.chunk_max_chars, overlap=settings.chunk_overlap)
+    chunks = semantic_chunks(
+        text, max_chars=settings.chunk_max_chars, overlap=settings.chunk_overlap
+    )
     logger.info("Chunking mode=heuristic chunks=%s", len(chunks))
     return chunks
 
@@ -457,21 +460,21 @@ def chunk_document_with_pages(
                 continue
             words = getattr(page, "words", None)
             if words:
-                for chunk in _chunk_word_boxes(settings, words):
+                for word_chunk in _chunk_word_boxes(settings, words):
                     chunks.append(
                         {
-                            "text": chunk["text"],
+                            "text": word_chunk["text"],
                             "page": page.page,
                             "source": page.source,
                             "quality_score": quality.score,
-                            "bbox": chunk.get("bbox"),
+                            "bbox": word_chunk.get("bbox"),
                         }
                     )
             else:
-                for chunk in chunk_text(settings, page.text):
+                for chunk_text_value in chunk_text(settings, page.text):
                     chunks.append(
                         {
-                            "text": chunk,
+                            "text": chunk_text_value,
                             "page": page.page,
                             "source": page.source,
                             "quality_score": quality.score,
@@ -519,7 +522,9 @@ def ensure_qdrant_collection(
         create.raise_for_status()
 
 
-def _chunk_points_by_size(points: list[dict[str, Any]], max_bytes: int) -> list[list[dict[str, Any]]]:
+def _chunk_points_by_size(
+    points: list[dict[str, Any]], max_bytes: int
+) -> list[list[dict[str, Any]]]:
     if not points:
         return []
     batches: list[list[dict[str, Any]]] = []
@@ -629,7 +634,10 @@ def rebuild_doc_point_from_chunks(
     vectors: list[list[float]] = []
     batch_size = 128
     for source_name in sources:
-        point_ids = [make_point_id(normalized_doc_id, chunk, source_name) for chunk in range(normalized_chunk_count)]
+        point_ids = [
+            make_point_id(normalized_doc_id, chunk, source_name)
+            for chunk in range(normalized_chunk_count)
+        ]
         for start in range(0, len(point_ids), batch_size):
             ids_batch = point_ids[start : start + batch_size]
             try:

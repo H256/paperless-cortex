@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from app.config import Settings
-from app.services.integrations import paperless
+import httpx
+
 from app.services.documents.pagination import load_all_pages
+from app.services.integrations import paperless
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +25,10 @@ def refresh_cache(settings: Settings) -> None:
             lambda **kw: paperless.list_correspondents(settings, **kw)
         )
         _cache["tags"] = sorted(
-            {t.get("name") for t in tags if t.get("name")}, key=str.lower
+            {str(t.get("name")) for t in tags if t.get("name")}, key=str.lower
         )
         _cache["correspondents"] = sorted(
-            {c.get("name") for c in correspondents if c.get("name")}, key=str.lower
+            {str(c.get("name")) for c in correspondents if c.get("name")}, key=str.lower
         )
         _loaded = True
         logger.info(
@@ -31,7 +36,7 @@ def refresh_cache(settings: Settings) -> None:
             len(_cache["tags"]),
             len(_cache["correspondents"]),
         )
-    except Exception as exc:
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
         logger.warning("Meta cache refresh failed: %s", exc)
         _loaded = False
 

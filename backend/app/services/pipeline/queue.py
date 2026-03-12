@@ -3,11 +3,18 @@ from __future__ import annotations
 import json
 import logging
 import time
+from json import JSONDecodeError
 from threading import Lock
-from typing import Iterable
+from typing import TYPE_CHECKING, Any
 
-from app.config import Settings
+from redis.exceptions import RedisError
+
 from app.services.pipeline.queue_tasks import build_task_sequence
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +62,12 @@ def _redis_url(host: str) -> str:
     return f"redis://{host}"
 
 
-def _get_client(settings: Settings):
+def _get_client(settings: Settings) -> Any | None:
     if not settings.redis_host:
         return None
     try:
         import redis
-    except Exception as exc:  # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise RuntimeError("redis package not installed") from exc
     url = _redis_url(settings.redis_host)
     with _CLIENT_LOCK:
@@ -205,7 +212,7 @@ def _enqueue_tasks_bulk(settings: Settings, tasks: list[dict], front: bool, forc
             added_batch = sum(1 for result in sadd_results if result)
             if added_batch:
                 client.incrby(STATS_TOTAL, added_batch)
-            for idx, (key, payload) in enumerate(zip(keys, payloads)):
+            for idx, (key, payload) in enumerate(zip(keys, payloads, strict=False)):
                 is_new = bool(sadd_results[idx])
                 if is_new:
                     client.lpush(QUEUE_KEY, payload)
@@ -293,15 +300,16 @@ def queue_stats(settings: Settings) -> dict[str, int] | None:
             heartbeat_raw = client.get(WORKER_HEARTBEAT_KEY)
             heartbeat_at = int(heartbeat_raw) if heartbeat_raw is not None else None
             now = int(time.time())
-            heartbeat_stale = heartbeat_at is None or (now - heartbeat_at) > (WORKER_HEARTBEAT_TTL * 2)
-            running_old_enough = (
-                running_started_at is None
-                or (now - int(running_started_at)) > max(60, WORKER_HEARTBEAT_TTL * 2)
+            heartbeat_stale = heartbeat_at is None or (now - heartbeat_at) > (
+                WORKER_HEARTBEAT_TTL * 2
             )
+            running_old_enough = running_started_at is None or (
+                now - int(running_started_at)
+            ) > max(60, WORKER_HEARTBEAT_TTL * 2)
             if (not has_lock) and heartbeat_stale and running_old_enough:
                 client.set(STATS_IN_PROGRESS, 0)
                 in_progress = 0
-        except Exception:
+        except (TypeError, ValueError):
             pass
     last_run_seconds_raw = client.get(LAST_RUN_SECONDS_KEY)
     last_run_at = client.get(LAST_RUN_AT_KEY)
@@ -309,7 +317,7 @@ def queue_stats(settings: Settings) -> dict[str, int] | None:
     if last_run_seconds_raw is not None:
         try:
             last_run_seconds = float(last_run_seconds_raw)
-        except Exception:
+        except (TypeError, ValueError):
             last_run_seconds = None
     return {
         "length": length,
@@ -333,7 +341,7 @@ def peek_queue(settings: Settings, limit: int = 20) -> list[dict]:
             if isinstance(payload, dict):
                 items.append(payload)
                 continue
-        except Exception:
+        except JSONDecodeError:
             pass
         if str(entry).isdigit():
             items.append({"doc_id": int(entry), "task": "full"})
@@ -384,7 +392,7 @@ def record_last_run(settings: Settings, duration_seconds: float) -> None:
     try:
         client.set(LAST_RUN_SECONDS_KEY, max(0.0, float(duration_seconds)))
         client.set(LAST_RUN_AT_KEY, int(time.time()))
-    except Exception:
+    except RedisError:
         return
 
 
@@ -414,7 +422,7 @@ def is_cancel_requested(settings: Settings) -> bool:
         return False
     try:
         return bool(client.get(CANCEL_KEY))
-    except Exception:
+    except (RedisError, RuntimeError):
         logger.warning("Cancel check failed; treating as not-cancelled", exc_info=True)
         return False
 
@@ -439,7 +447,7 @@ def is_paused(settings: Settings) -> bool:
         return False
     try:
         return bool(client.get(PAUSE_KEY))
-    except Exception:
+    except (RedisError, RuntimeError):
         logger.warning("Pause check failed; treating as not-paused", exc_info=True)
         return False
 
@@ -449,7 +457,7 @@ def _parse_queue_entry(entry: str) -> dict | None:
         payload = json.loads(entry)
         if isinstance(payload, dict):
             return payload
-    except Exception:
+    except JSONDecodeError:
         payload = None
     if str(entry).isdigit():
         return {"doc_id": int(entry), "task": "full"}
@@ -523,7 +531,7 @@ def acquire_worker_lock(settings: Settings, token: str) -> bool:
         return False
     try:
         return bool(client.set(WORKER_LOCK_KEY, token, nx=True, ex=WORKER_LOCK_TTL))
-    except Exception:
+    except (RedisError, RuntimeError):
         return False
 
 
@@ -537,7 +545,7 @@ def refresh_worker_lock(settings: Settings, token: str) -> bool:
             return False
         client.set(WORKER_LOCK_KEY, token, ex=WORKER_LOCK_TTL)
         return True
-    except Exception:
+    except (RedisError, RuntimeError):
         return False
 
 
@@ -549,7 +557,7 @@ def release_worker_lock(settings: Settings, token: str) -> None:
         current = client.get(WORKER_LOCK_KEY)
         if current == token:
             client.delete(WORKER_LOCK_KEY)
-    except Exception:
+    except (RedisError, RuntimeError):
         return
 
 
@@ -560,13 +568,9 @@ def worker_lock_status(settings: Settings) -> dict[str, object]:
     try:
         owner = client.get(WORKER_LOCK_KEY)
         ttl_raw = client.ttl(WORKER_LOCK_KEY)
-    except Exception:
+    except (RedisError, RuntimeError):
         return {"has_lock": False, "owner": None, "ttl_seconds": None}
-    ttl_seconds: int | None
-    if ttl_raw is None or int(ttl_raw) < 0:
-        ttl_seconds = None
-    else:
-        ttl_seconds = int(ttl_raw)
+    ttl_seconds: int | None = None if ttl_raw is None or int(ttl_raw) < 0 else int(ttl_raw)
     return {
         "has_lock": bool(owner),
         "owner": owner,
@@ -584,7 +588,7 @@ def set_running_task(settings: Settings, task: dict) -> None:
             "started_at": int(time.time()),
         }
         client.set(RUNNING_TASK_KEY, json.dumps(payload))
-    except Exception:
+    except (RedisError, RuntimeError, TypeError):
         return
 
 
@@ -594,7 +598,7 @@ def clear_running_task(settings: Settings) -> None:
         return
     try:
         client.delete(RUNNING_TASK_KEY)
-    except Exception:
+    except (RedisError, RuntimeError):
         return
 
 
@@ -604,13 +608,13 @@ def get_running_task(settings: Settings) -> dict[str, object]:
         return {"task": None, "started_at": None}
     try:
         raw = client.get(RUNNING_TASK_KEY)
-    except Exception:
+    except (RedisError, RuntimeError):
         return {"task": None, "started_at": None}
     if not raw:
         return {"task": None, "started_at": None}
     try:
         payload = json.loads(raw)
-    except Exception:
+    except JSONDecodeError:
         return {"task": None, "started_at": None}
     if not isinstance(payload, dict):
         return {"task": None, "started_at": None}
@@ -621,7 +625,7 @@ def get_running_task(settings: Settings) -> dict[str, object]:
     if started_at is not None:
         try:
             started_at = int(started_at)
-        except Exception:
+        except (TypeError, ValueError):
             started_at = None
     # Self-heal stale "running" marker after crash/interrupt:
     # if lock is gone and heartbeat is stale, clear marker.
@@ -631,11 +635,13 @@ def get_running_task(settings: Settings) -> dict[str, object]:
         heartbeat_at = int(heartbeat_raw) if heartbeat_raw is not None else None
         now = int(time.time())
         heartbeat_stale = heartbeat_at is None or (now - heartbeat_at) > (WORKER_HEARTBEAT_TTL * 2)
-        running_old_enough = started_at is None or (now - int(started_at)) > max(60, WORKER_HEARTBEAT_TTL * 2)
+        running_old_enough = started_at is None or (now - started_at) > max(
+            60, WORKER_HEARTBEAT_TTL * 2
+        )
         if (not has_lock) and heartbeat_stale and running_old_enough:
             client.delete(RUNNING_TASK_KEY)
             return {"task": None, "started_at": None}
-    except Exception:
+    except (RedisError, RuntimeError, TypeError, ValueError):
         pass
     return {"task": task, "started_at": started_at}
 
@@ -670,7 +676,7 @@ def peek_dead_letters(settings: Settings, limit: int = 100) -> list[dict]:
     for raw in raw_items:
         try:
             payload = json.loads(raw)
-        except Exception:
+        except JSONDecodeError:
             payload = {"raw": raw}
         if isinstance(payload, dict):
             items.append(payload)
@@ -690,10 +696,10 @@ def peek_delayed_queue(settings: Settings, limit: int = 50) -> list[dict]:
             parsed = json.loads(entry)
             if isinstance(parsed, dict):
                 task_payload = parsed
-        except Exception:
+        except JSONDecodeError:
             task_payload = None
         due_at = int(score)
-        due_in = max(0, int(round(score - now)))
+        due_in = max(0, round(score - now))
         items.append(
             {
                 "task": task_payload,
@@ -725,7 +731,7 @@ def requeue_dead_letter_item(settings: Settings, index: int) -> bool:
         client.rpush(DLQ_KEY, *items)
     try:
         parsed = json.loads(entry)
-    except Exception:
+    except JSONDecodeError:
         return False
     if not isinstance(parsed, dict):
         return False
@@ -754,7 +760,7 @@ def reset_worker_lock(settings: Settings, force: bool = False) -> dict[str, obje
                             "reset": False,
                             "reason": "worker_active",
                         }
-                except Exception:
+                except (TypeError, ValueError):
                     pass
         deleted = int(client.delete(WORKER_LOCK_KEY))
         return {
@@ -762,7 +768,7 @@ def reset_worker_lock(settings: Settings, force: bool = False) -> dict[str, obje
             "reset": deleted > 0,
             "reason": "ok" if deleted > 0 else "not_found",
         }
-    except Exception:
+    except (RedisError, RuntimeError):
         return {"had_lock": False, "reset": False, "reason": "error"}
 
 
@@ -775,7 +781,7 @@ def worker_status(settings: Settings) -> tuple[bool, str]:
         return False, "No heartbeat"
     try:
         last = int(raw)
-    except Exception:
+    except (TypeError, ValueError):
         return False, "Invalid heartbeat"
     age = max(0, int(time.time()) - last)
     if age > WORKER_HEARTBEAT_TTL:

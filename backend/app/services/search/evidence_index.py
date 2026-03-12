@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any
-
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from app.models import DocumentPageAnchor
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def extract_pdf_page_anchors(pdf_bytes: bytes) -> list[dict[str, Any]]:
@@ -47,7 +48,7 @@ def upsert_page_anchors(
     source: str,
     rows: list[dict[str, Any]],
 ) -> None:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     for row in rows:
         page = int(row.get("page") or 0)
         if page <= 0:

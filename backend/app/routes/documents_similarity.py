@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.api_models import SimilarDocumentsResponse, SimilarMetadata, SimilarMetadataResponse
-from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
-from app.models import Document, Tag, Correspondent
+from app.models import Correspondent, Document, Tag
 from app.routes.documents import _apply_derived_fields_and_review_status
 from app.services.search.similarity import (
     aggregate_similar_metadata,
     fetch_doc_point_vector,
     search_similar_doc_points,
 )
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
@@ -73,7 +77,7 @@ def get_similar_documents(
     min_score: float | None = Query(default=None, ge=0.0),
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     vector = fetch_doc_point_vector(settings, doc_id)
     if not vector:
         raise HTTPException(status_code=404, detail="Doc embedding not found")
@@ -100,7 +104,7 @@ def get_duplicate_documents(
     top_k: int = Query(default=10, ge=1, le=50),
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     vector = fetch_doc_point_vector(settings, doc_id)
     if not vector:
         raise HTTPException(status_code=404, detail="Doc embedding not found")
@@ -126,7 +130,7 @@ def get_similar_metadata(
     top_k: int = Query(default=10, ge=1, le=50),
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     vector = fetch_doc_point_vector(settings, doc_id)
     if not vector:
         raise HTTPException(status_code=404, detail="Doc embedding not found")

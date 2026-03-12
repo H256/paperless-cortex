@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from app.config import Settings
+from typing import TYPE_CHECKING
+
 from app.services.search.embeddings import embed_text, ensure_qdrant_collection
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def ensure_embedding_collection(settings: Settings) -> None:

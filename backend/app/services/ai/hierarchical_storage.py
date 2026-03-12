@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete
-from sqlalchemy.orm import Session
 
 from app.models import DocumentPageNote, DocumentSectionSummary
-from app.services.ai.hierarchical_helpers import _json_dumps, _page_note_payload_to_text, _sanitize_model_output_text
+from app.services.ai.hierarchical_helpers import (
+    _json_dumps,
+    _page_note_payload_to_text,
+    _sanitize_model_output_text,
+)
 from app.services.documents.text_cleaning import estimate_tokens
 from app.services.runtime.time_utils import utc_now_iso
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def upsert_page_note(
@@ -103,7 +109,7 @@ def group_page_ranges(pages: list[int], section_pages: int) -> list[tuple[int, i
 
 
 def _sorted_unique_positive_pages(pages: list[int]) -> list[int]:
-    return sorted(set(int(page) for page in pages if int(page) > 0))
+    return sorted({int(page) for page in pages if int(page) > 0})
 
 
 def group_notes_into_sections(

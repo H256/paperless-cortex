@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable, TypeVar
+from json import JSONDecodeError
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.exc import PendingRollbackError
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError, PendingRollbackError, ProgrammingError
 
 from app.models import TaskRun
 from app.services.runtime.time_utils import utc_now_iso
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
 logger = logging.getLogger(__name__)
-T = TypeVar("T")
 
 
 def _is_missing_task_runs_table_error(exc: Exception) -> bool:
@@ -28,7 +32,9 @@ def _ensure_session_ready(db: Session) -> None:
         db.rollback()
 
 
-def _run_with_pending_recovery(db: Session, *, context: str, operation: Callable[[], T]) -> T:
+def _run_with_pending_recovery[T](
+    db: Session, *, context: str, operation: Callable[[], T]
+) -> T:
     _ensure_session_ready(db)
     try:
         return operation()
@@ -39,7 +45,7 @@ def _run_with_pending_recovery(db: Session, *, context: str, operation: Callable
         return operation()
 
 
-def _run_task_runs_operation(
+def _run_task_runs_operation[T](
     db: Session,
     *,
     context: str,
@@ -49,13 +55,15 @@ def _run_task_runs_operation(
 ) -> T:
     try:
         return _run_with_pending_recovery(db, context=context, operation=operation)
-    except Exception as exc:
+    except (PendingRollbackError, OperationalError, ProgrammingError) as exc:
         db.rollback()
         if _is_missing_task_runs_table_error(exc) and on_missing_table is not None:
             if missing_table_log:
                 logger.warning(missing_table_log)
             return on_missing_table()
         raise
+
+
 def _build_task_runs_query(
     db: Session,
     *,
@@ -64,7 +72,7 @@ def _build_task_runs_query(
     status: str | None = None,
     error_type: str | None = None,
     query_text: str | None = None,
-):
+) -> Any:
     query = db.query(TaskRun)
     if doc_id is not None:
         query = query.filter(TaskRun.doc_id == doc_id)
@@ -221,11 +229,11 @@ def list_task_runs(
         )
         if rows_with_total:
             total = int(rows_with_total[0][1] or 0)
-            rows = [row for row, _total in rows_with_total]
-            return total, rows
+            result_rows = [row for row, _total in rows_with_total]
+            return total, result_rows
         total = 0 if row_offset == 0 else int(base_query.count() or 0)
-        rows: list[TaskRun] = []
-        return total, rows
+        result_rows_empty: list[TaskRun] = []
+        return total, result_rows_empty
 
     return _run_task_runs_operation(
         db,
@@ -263,7 +271,7 @@ def find_latest_checkpoint(
             return None
         try:
             payload = json.loads(raw)
-        except Exception:
+        except JSONDecodeError:
             return None
         return payload if isinstance(payload, dict) else None
 
