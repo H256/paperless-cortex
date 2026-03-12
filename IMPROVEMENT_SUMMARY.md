@@ -721,6 +721,8 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.3 Service Layer Complexity` moved further again: vision OCR, page-note generation, and hierarchical-summary execution now live in `backend/app/services/pipeline/worker_content_tasks.py`, which leaves `backend/app/worker.py` close to its intended role as orchestration plus wrapper seams.
 - `3.3 Service Layer Complexity` moved further again: the remaining `_process_doc` full-document flow now lives in `backend/app/services/pipeline/worker_orchestration.py`, which leaves `backend/app/worker.py` essentially as runtime loop, dispatch wiring, and test-friendly wrappers.
 - CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent also passes locally (`lint`, `type-check`, `test:coverage`, `build`), `backend/scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.4.8`.
+- `5.1 API Documentation` is now in progress: the public document and writeback route/service seams have focused docstrings covering review-status filtering, derived local payload assembly, dashboard aggregation, and writeback preview/job behavior.
+- CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `backend/scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.4.9`.
 
 
 

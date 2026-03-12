@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.4.8"
+    "version": "0.4.9"
   },
   "paths": {
     "/documents/": {
@@ -11,6 +11,7 @@
           "documents"
         ],
         "summary": "List Documents",
+        "description": "List Paperless documents with optional local derived state overlays.\n\nThe route preserves the upstream Paperless pagination contract for the\nunfiltered path and falls back to local post-filtering when review-status\nsemantics require derived state from the local cache.",
         "operationId": "list_documents_documents__get",
         "parameters": [
           {
@@ -174,6 +175,7 @@
           "documents"
         ],
         "summary": "Get Document Stats",
+        "description": "Return aggregate processing counters for the local document cache.",
         "operationId": "get_document_stats_documents_stats_get",
         "responses": {
           "200": {
@@ -195,6 +197,7 @@
           "documents"
         ],
         "summary": "Get Dashboard",
+        "description": "Return the cached dashboard payload used by the operations views.",
         "operationId": "get_dashboard_documents_dashboard_get",
         "responses": {
           "200": {
@@ -258,6 +261,7 @@
           "documents"
         ],
         "summary": "Get Local Document",
+        "description": "Return the local document view with derived processing and review state.",
         "operationId": "get_local_document_documents__doc_id__local_get",
         "parameters": [
           {
@@ -3948,6 +3952,7 @@
           "writeback"
         ],
         "summary": "Dry Run Preview",
+        "description": "Preview pending writeback changes for one document or a paged selection.",
         "operationId": "dry_run_preview_writeback_dry_run_preview_get",
         "parameters": [
           {
@@ -4068,6 +4073,7 @@
           "writeback"
         ],
         "summary": "Create Writeback Job",
+        "description": "Create a persisted writeback job from the current previewable changes.",
         "operationId": "create_writeback_job_writeback_jobs_post",
         "requestBody": {
           "required": true,

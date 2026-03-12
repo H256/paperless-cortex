@@ -155,6 +155,7 @@ def preview_for_doc_ids(
     db: Session,
     doc_ids: list[int],
 ) -> list[WritebackDryRunItem]:
+    """Build writeback preview items for the requested local document ids."""
     if not doc_ids:
         return []
     local_docs = (
@@ -249,6 +250,7 @@ def preview_for_doc_ids(
 
 
 def local_writeback_candidate_doc_ids(db: Session) -> list[int]:
+    """Return locally discoverable writeback candidates in stable preview order."""
     audit_rows = (
         db.query(
             SuggestionAudit.doc_id,

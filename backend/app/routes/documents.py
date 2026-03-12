@@ -66,6 +66,12 @@ def list_documents(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    """List Paperless documents with optional local derived state overlays.
+
+    The route preserves the upstream Paperless pagination contract for the
+    unfiltered path and falls back to local post-filtering when review-status
+    semantics require derived state from the local cache.
+    """
     normalized_review_status = normalize_review_status(review_status)
     missing_correspondent_only = correspondent__id == -1
     effective_correspondent = None if missing_correspondent_only else correspondent__id
@@ -146,11 +152,13 @@ def list_documents(
 
 @router.get("/stats", response_model=DocumentStatsResponse)
 def get_document_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Return aggregate processing counters for the local document cache."""
     return compute_document_stats(db)
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
 def get_dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
+    """Return the cached dashboard payload used by the operations views."""
     now = time.time()
     cached_ts_raw = _DASHBOARD_CACHE.get("ts")
     cached_ts = float(cached_ts_raw) if isinstance(cached_ts_raw, int | float) else 0.0
@@ -174,6 +182,7 @@ def get_local_document(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    """Return the local document view with derived processing and review state."""
     return build_local_document_payload(doc_id=doc_id, settings=settings, db=db)
 
 

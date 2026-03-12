@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 
 def build_dashboard_payload(db: Session) -> dict[str, object]:
+    """Build the document operations dashboard payload from local aggregates."""
     is_processed = and_(
         exists().where(DocumentEmbedding.doc_id == Document.id),
         exists().where(and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")),

@@ -369,6 +369,7 @@ def dry_run_preview(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
+    """Preview pending writeback changes for one document or a paged selection."""
     if doc_id is not None and doc_id > 0:
         doc_ids = [int(doc_id)]
         total_count = 1
@@ -433,6 +434,7 @@ def create_writeback_job(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
+    """Create a persisted writeback job from the current previewable changes."""
     doc_ids = sorted({int(doc_id) for doc_id in request.doc_ids if int(doc_id) > 0})
     if not doc_ids:
         raise HTTPException(status_code=400, detail="No valid doc_ids provided")

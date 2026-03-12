@@ -164,6 +164,12 @@ def apply_derived_fields_and_review_status(
     page: int,
     page_size: int,
 ) -> dict[str, object]:
+    """Overlay local derived fields and review state onto a Paperless page.
+
+    This is the main enrichment seam for document-list responses: it merges
+    local cache state, writeback-pending metadata, processing flags, and
+    review-status derivation onto the upstream Paperless result rows.
+    """
     if not include_derived and review_status == "all":
         return payload
 
@@ -385,6 +391,7 @@ def build_local_document_payload(
     settings: Settings,
     db: Session,
 ) -> dict[str, object]:
+    """Build the local document detail payload with processing/review signals."""
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
