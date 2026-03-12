@@ -36,6 +36,15 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` chore(mypy): added [`backend/app/services/documents/sync_operations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `145` configured source files.
 - `uncommitted` test(sync): verified `uv run ruff check app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`, `uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py` (`17 passed`).
 
+## 2026-03-12 (branch: feat/backend-embeddings-route-srp)
+
+### Service-layer complexity reduction
+- `uncommitted` refactor(embeddings): extracted embeddings ingest/search/status/cancel orchestration out of [`backend/app/routes/embeddings.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/embeddings.py) into the new service module [`backend/app/services/documents/embedding_operations.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/embedding_operations.py).
+- `uncommitted` refactor(embeddings): centralized queue-backed embeddings enqueue behavior, non-queue embeddings ingest execution, vector-search result shaping, queue-status payload shaping, and cancel handling in the service layer while keeping the route as the HTTP boundary.
+- `uncommitted` refactor(embeddings): preserved the existing route test patch points by injecting the embedding/search helper functions from the route module into the new service module instead of hard-coding the dependencies at the service layer.
+- `uncommitted` chore(mypy): added [`backend/app/services/documents/embedding_operations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `148` configured source files.
+- `uncommitted` test(embeddings): verified `uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`, `uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py` (`14 passed`).
+
 ## 2026-03-12 (branch: feat/backend-tooling-enforcement)
 
 ### Developer tooling

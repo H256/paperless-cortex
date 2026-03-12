@@ -568,6 +568,23 @@
 - Added explicit pool-clear and `atexit` cleanup hooks so long-lived processes reuse connections while tests and shutdown stay predictable.
 - Added `backend/tests/test_http_client_pooling.py` and brought it into the strict mypy allowlist.
 
+### 45. Embeddings route service extraction
+
+- Extracted embeddings route orchestration out of `backend/app/routes/embeddings.py` into the new service module:
+  - `backend/app/services/documents/embedding_operations.py`
+- Centralized:
+  - queue-backed embeddings enqueue behavior
+  - non-queue embeddings ingest execution
+  - vector-search result shaping
+  - embeddings queue-status payload shaping
+  - embeddings cancellation handling
+- Kept the route contracts unchanged and preserved the existing route-test monkeypatch seams by injecting the route-level helper functions into the service layer.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
 ## Verified commands
 
 ```bash
@@ -650,8 +667,9 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **143 source files**.
 - The expanded mypy allowlist is passing for **144 source files**.
 - The expanded mypy allowlist is passing for **145 source files**.
+- The expanded mypy allowlist is passing for **148 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`145 / 145` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`148 / 148` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.

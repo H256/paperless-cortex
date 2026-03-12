@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **145 source files**
+- Current configured `mypy` coverage: **148 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 145 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 145 files**
+- Net change in the latest follow-up slices: **46 -> 148 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 148 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`145 / 145`)
+- Current strict-checked share of backend Python files: **100%** (`148 / 148`)
 
 ## Files added in this slice
 
@@ -287,6 +287,16 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+
+## Latest embeddings extraction expansion
+
+- Added `backend/app/services/documents/embedding_operations.py` to the strict mypy allowlist.
+- Extracted the `embeddings.py` ingest/search/status/cancel orchestration into the new service module while preserving route-level behavior and the current embeddings route test seams.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
 
 ## Latest query-optimization verification
 
