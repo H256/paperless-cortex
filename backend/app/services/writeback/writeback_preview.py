@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, load_only, selectinload
 
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
 from app.models import (
     Correspondent,
     Document,
+    DocumentNote,
     DocumentPendingCorrespondent,
     DocumentPendingTag,
     SuggestionAudit,
@@ -158,7 +159,17 @@ def preview_for_doc_ids(
         return []
     local_docs = (
         db.query(Document)
-        .options(selectinload(Document.tags), selectinload(Document.notes))
+        .options(
+            load_only(
+                Document.id,
+                Document.title,
+                Document.document_date,
+                Document.created,
+                Document.correspondent_id,
+            ),
+            selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.notes).load_only(DocumentNote.id, DocumentNote.note),
+        )
         .filter(Document.id.in_(doc_ids))
         .all()
     )
@@ -167,7 +178,7 @@ def preview_for_doc_ids(
         return []
 
     pending_rows = (
-        db.query(DocumentPendingTag)
+        db.query(DocumentPendingTag.doc_id, DocumentPendingTag.names_json)
         .filter(DocumentPendingTag.doc_id.in_(list(local_by_id.keys())))
         .all()
     )
@@ -257,14 +268,16 @@ def local_writeback_candidate_doc_ids(db: Session) -> list[int]:
         ordered_ids.append(doc_id)
         seen.add(doc_id)
 
-    pending_rows = db.query(DocumentPendingTag.doc_id).yield_per(500)
+    pending_rows = db.query(DocumentPendingTag.doc_id).distinct().yield_per(500)
     for pending_row in pending_rows:
         doc_id = int(pending_row.doc_id)
         if doc_id <= 0 or doc_id in seen:
             continue
         ordered_ids.append(doc_id)
         seen.add(doc_id)
-    pending_correspondent_rows = db.query(DocumentPendingCorrespondent.doc_id).yield_per(500)
+    pending_correspondent_rows = (
+        db.query(DocumentPendingCorrespondent.doc_id).distinct().yield_per(500)
+    )
     for pending_correspondent_row in pending_correspondent_rows:
         doc_id = int(pending_correspondent_row.doc_id)
         if doc_id <= 0 or doc_id in seen:
