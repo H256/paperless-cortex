@@ -277,3 +277,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_writeback_preview_service.py`
   - `cd backend && uv run pytest tests/test_writeback_jobs_routes.py tests/test_writeback_dryrun_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest tooling-enforcement verification
+
+- The strict mypy allowlist count remains `143` after the backend CI and pre-commit enforcement changes.
+- Verified the enforced tooling commands with:
+  - `uv run --project backend pre-commit validate-config`
+  - `uv run --project backend pre-commit run check-yaml --files .pre-commit-config.yaml .github/workflows/backend-ci.yml`
+  - `cd backend && uv run --project backend ruff check app tests scripts alembic`
+  - `cd backend && uv run --project backend mypy --config-file pyproject.toml`
+  - `cd backend && uv run --project backend pytest`
