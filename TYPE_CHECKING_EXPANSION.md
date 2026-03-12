@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **129 source files**
+- Current configured `mypy` coverage: **138 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 129 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 129 files**
+- Net change in the latest follow-up slices: **46 -> 138 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 138 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`129 / 129`)
+- Current strict-checked share of backend Python files: **100%** (`138 / 138`)
 
 ## Files added in this slice
 
@@ -168,6 +168,15 @@ These files were not added to the strict mypy allowlist in this slice, but they 
   - `backend/alembic/env.py`
   - `backend/scripts/export_openapi.py`
   - `backend/tests/test_documents_routes.py`
+  - `backend/tests/test_embeddings_routes.py`
+  - `backend/tests/test_meta_routes.py`
+  - `backend/tests/test_connections_service.py`
+  - `backend/tests/test_queue_routes_basic.py`
+  - `backend/tests/test_sync_routes_state.py`
+  - `backend/tests/test_documents_actions_routes.py`
+  - `backend/tests/test_connections_routes.py`
+  - `backend/tests/test_sync_documents_routes.py`
+  - `backend/tests/test_process_missing_service.py`
 
 ## Latest verified validation
 
@@ -197,4 +206,23 @@ uv run pytest tests/test_writeback_dryrun_routes.py
 uv run ruff check tests/test_writeback_jobs_routes.py tests/test_documents_routes.py tests/test_writeback_dryrun_routes.py tests/conftest.py scripts/export_openapi.py alembic/env.py
 uv run pytest tests/test_writeback_jobs_routes.py
 uv run pytest tests/test_documents_routes.py
+uv run ruff check tests/test_embeddings_routes.py
+uv run pytest tests/test_embeddings_routes.py
+uv run ruff check tests/test_meta_routes.py tests/test_connections_service.py
+uv run pytest tests/test_meta_routes.py tests/test_connections_service.py
+uv run ruff check tests/test_queue_routes_basic.py
+uv run pytest tests/test_queue_routes_basic.py
+uv run ruff check tests/test_sync_routes_state.py
+uv run pytest tests/test_sync_routes_state.py
+uv run ruff check tests/test_documents_actions_routes.py
+uv run pytest tests/test_documents_actions_routes.py
+uv run ruff check tests/test_connections_routes.py
+uv run pytest tests/test_connections_routes.py
+uv run ruff check tests/test_sync_documents_routes.py
+uv run pytest tests/test_sync_documents_routes.py
+uv run ruff check tests/test_process_missing_service.py
+uv run mypy --config-file pyproject.toml tests/test_process_missing_service.py
+uv run pytest tests/test_process_missing_service.py
+uv run mypy --config-file pyproject.toml
+uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.py tests/test_process_missing_service.py
 ```
