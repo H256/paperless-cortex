@@ -555,7 +555,7 @@ All granular implementation slices and refactors are tracked here.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
 - `31cf6e3` refactor(worker): extracted queue payload parsing, cancel handling, and task dispatch selection from `backend/app/worker.py` into `backend/app/services/pipeline/worker_runtime.py`.
 - `774cbb0` refactor(embeddings): extracted embeddings route orchestration from `backend/app/routes/embeddings.py` into `backend/app/services/documents/embedding_operations.py`.
-- `pending` refactor(worker): extracted sync/embedding/evidence/similarity task helpers from `backend/app/worker.py` into `backend/app/services/pipeline/worker_document_tasks.py` and left thin worker wrappers in place.
+- `899bb3a` refactor(worker): extracted sync/embedding/evidence/similarity task helpers from `backend/app/worker.py` into `backend/app/services/pipeline/worker_document_tasks.py` and left thin worker wrappers in place.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
