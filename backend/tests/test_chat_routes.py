@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.responses import StreamingResponse
 
 
-def test_chat_route_returns_conversation_id(api_client, monkeypatch):
-    def _answer_question(*_args, **_kwargs):
+def test_chat_route_returns_conversation_id(api_client: Any, monkeypatch: Any) -> None:
+    def _answer_question(*_args: object, **_kwargs: object) -> dict[str, object]:
         return {
             "question": "q",
             "answer": "a",
@@ -19,12 +21,14 @@ def test_chat_route_returns_conversation_id(api_client, monkeypatch):
     assert data["conversation_id"] == "conv-abc"
 
 
-def test_chat_stream_route_emits_done_with_conversation_id(api_client, monkeypatch):
-    def _stream():
+def test_chat_stream_route_emits_done_with_conversation_id(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    def _stream() -> Any:
         yield b'data: {"token":"a"}\n\n'
         yield b'event: done\ndata: {"answer":"ok","conversation_id":"conv-stream","citations":[]}\n\n'
 
-    def _answer_question(*_args, **_kwargs):
+    def _answer_question(*_args: object, **_kwargs: object) -> StreamingResponse:
         return StreamingResponse(_stream(), media_type="text/event-stream")
 
     monkeypatch.setattr("app.routes.chat.answer_question", _answer_question)
@@ -33,4 +37,3 @@ def test_chat_stream_route_emits_done_with_conversation_id(api_client, monkeypat
     body = response.text
     assert "event: done" in body
     assert '"conversation_id":"conv-stream"' in body
-

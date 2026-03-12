@@ -2,22 +2,31 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Iterable
-from pathlib import Path
-from uuid import uuid4
 from datetime import datetime
-from sqlalchemy.orm import Session
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from fastapi.responses import StreamingResponse
 
-from app.config import Settings
 from app.models import Document
 from app.services.ai import llm_client
-from app.services.runtime.guard import ensure_chat_llm_ready, ensure_qdrant_ready, resolve_chat_model
-from app.services.search.embeddings import embed_text, search_points
-from app.services.search.evidence import resolve_evidence_matches
+from app.services.runtime.guard import (
+    ensure_chat_llm_ready,
+    ensure_qdrant_ready,
+    resolve_chat_model,
+)
 from app.services.runtime.json_utils import parse_json_object
 from app.services.runtime.string_list_json import parse_string_list_json
+from app.services.search.embeddings import embed_text, search_points
+from app.services.search.evidence import resolve_evidence_matches
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +104,12 @@ def _dedupe_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not current:
             deduped[key] = item
             continue
-        current_score = float(current.get("score") or 0) * (float(current.get("quality_score") or 100) / 100.0)
-        next_score = float(item.get("score") or 0) * (float(item.get("quality_score") or 100) / 100.0)
+        current_score = float(current.get("score") or 0) * (
+            float(current.get("quality_score") or 100) / 100.0
+        )
+        next_score = float(item.get("score") or 0) * (
+            float(item.get("quality_score") or 100) / 100.0
+        )
         if next_score > current_score:
             deduped[key] = item
     return list(deduped.values())
@@ -123,7 +136,7 @@ def _parse_date(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(value)
-    except Exception:
+    except ValueError:
         return None
 
 
@@ -157,7 +170,8 @@ def _sort_sources_chrono(
 
     return sorted(sources, key=sort_key)
 
-def _normalize_history(history: list[dict[str, str]] | list[Any]) -> list[tuple[str, str]]:
+
+def _normalize_history(history: Sequence[dict[str, str] | Any]) -> list[tuple[str, str]]:
     if not history:
         return []
     items: list[tuple[str, str]] = []
@@ -178,7 +192,7 @@ def _normalize_history(history: list[dict[str, str]] | list[Any]) -> list[tuple[
     return items
 
 
-def _format_history(history: list[dict[str, str]] | list[Any]) -> str:
+def _format_history(history: Sequence[dict[str, str] | Any]) -> str:
     items = _normalize_history(history)
     if not items:
         return "None"
@@ -302,7 +316,7 @@ def answer_question(
     min_quality: int | None = None,
     doc_id: int | None = None,
     relationship_mode: str | None = None,
-    history: list[dict[str, str]] | None = None,
+    history: Sequence[dict[str, str] | Any] | None = None,
     conversation_id: str | None = None,
     stream: bool = False,
     db: Session | None = None,
@@ -324,11 +338,10 @@ def answer_question(
     if relationship_mode == "chrono":
         sources = _sort_sources_chrono(sources, db=db)
     sources = _renumber_sources(sources)
-    if sources:
-        sources_text = _format_sources(sources)
-    else:
-        sources_text = "No sources available."
-    prompt = _load_chrono_prompt(settings) if relationship_mode == "chrono" else _load_prompt(settings)
+    sources_text = _format_sources(sources) if sources else "No sources available."
+    prompt = (
+        _load_chrono_prompt(settings) if relationship_mode == "chrono" else _load_prompt(settings)
+    )
     resolved_conversation_id = _ensure_conversation_id(conversation_id)
     prompt = (
         prompt.replace("{question}", question.strip())
@@ -344,8 +357,8 @@ def answer_question(
             timeout=120,
         )
         _resolve_evidence_for_sources(settings, sources, db=db)
-        for source in sources:
-            source.pop("text", None)
+        for citation in sources:
+            citation.pop("text", None)
         return {
             "question": question,
             "answer": answer,
@@ -363,11 +376,11 @@ def answer_question(
         ):
             answer_chunks.append(token)
             payload = json.dumps({"token": token})
-            yield f"data: {payload}\n\n".encode("utf-8")
+            yield f"data: {payload}\n\n".encode()
         answer = "".join(answer_chunks).strip()
         _resolve_evidence_for_sources(settings, sources, db=db)
-        for source in sources:
-            source.pop("text", None)
+        for citation in sources:
+            citation.pop("text", None)
         done_payload = json.dumps(
             {
                 "answer": answer,
@@ -375,6 +388,6 @@ def answer_question(
                 "citations": sources,
             }
         )
-        yield f"event: done\ndata: {done_payload}\n\n".encode("utf-8")
+        yield f"event: done\ndata: {done_payload}\n\n".encode()
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

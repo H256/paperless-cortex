@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
 
 from app.config import load_settings
 from app.models import TaskRun
@@ -12,8 +13,14 @@ from app.services.pipeline.pipeline_planner import (
     post_sync_followup_tasks,
 )
 
+if TYPE_CHECKING:
+    from app.models import Document
 
-def _base_cache(doc_id: int) -> dict:
+
+PipelineCache = dict[str, Any]
+
+
+def _base_cache(doc_id: int) -> PipelineCache:
     return {
         "embeddings": {doc_id: "paperless"},
         "embedded_at_by_doc": {},
@@ -27,13 +34,13 @@ def _base_cache(doc_id: int) -> dict:
     }
 
 
-def test_evaluate_doc_pipeline_marks_similarity_index_missing():
+def test_evaluate_doc_pipeline_marks_similarity_index_missing() -> None:
     settings = load_settings()
     doc = SimpleNamespace(id=11, page_count=1, content="sample text")
     cache = _base_cache(doc.id)
 
     result = evaluate_doc_pipeline(
-        doc=doc,
+        doc=cast("Document", doc),
         settings=settings,
         cache=cache,
         options=PipelineOptions(
@@ -53,12 +60,12 @@ def test_evaluate_doc_pipeline_marks_similarity_index_missing():
     assert any(str(task.get("task")) == "similarity_index" for task in result["tasks"])
 
 
-def test_evaluate_doc_pipeline_skips_similarity_index_when_step_disabled():
+def test_evaluate_doc_pipeline_skips_similarity_index_when_step_disabled() -> None:
     settings = load_settings()
     doc = SimpleNamespace(id=12, page_count=1, content="sample text")
     cache = _base_cache(doc.id)
     result = evaluate_doc_pipeline(
-        doc=doc,
+        doc=cast("Document", doc),
         settings=settings,
         cache=cache,
         options=PipelineOptions(
@@ -78,14 +85,18 @@ def test_evaluate_doc_pipeline_skips_similarity_index_when_step_disabled():
     assert all(str(task.get("task")) != "similarity_index" for task in result["tasks"])
 
 
-def test_evaluate_doc_pipeline_skips_similarity_when_already_fresh():
+def test_evaluate_doc_pipeline_skips_similarity_when_already_fresh() -> None:
     settings = load_settings()
     doc = SimpleNamespace(id=13, page_count=1, content="sample text")
     cache = _base_cache(doc.id)
-    cache["embedded_at_by_doc"][doc.id] = datetime(2026, 2, 26, 10, 0, 0)
-    cache["similarity_indexed_at_by_doc"][doc.id] = datetime(2026, 2, 26, 10, 1, 0)
+    embedded_at_by_doc = cast("dict[int, datetime]", cache["embedded_at_by_doc"])
+    similarity_indexed_at_by_doc = cast(
+        "dict[int, datetime]", cache["similarity_indexed_at_by_doc"]
+    )
+    embedded_at_by_doc[doc.id] = datetime(2026, 2, 26, 10, 0, 0)
+    similarity_indexed_at_by_doc[doc.id] = datetime(2026, 2, 26, 10, 1, 0)
     result = evaluate_doc_pipeline(
-        doc=doc,
+        doc=cast("Document", doc),
         settings=settings,
         cache=cache,
         options=PipelineOptions(
@@ -105,7 +116,7 @@ def test_evaluate_doc_pipeline_skips_similarity_when_already_fresh():
     assert all(str(task.get("task")) != "similarity_index" for task in result["tasks"])
 
 
-def test_post_sync_followup_tasks_include_similarity_index():
+def test_post_sync_followup_tasks_include_similarity_index() -> None:
     settings = load_settings()
     tasks = post_sync_followup_tasks(
         42,
@@ -127,7 +138,7 @@ def test_post_sync_followup_tasks_include_similarity_index():
     assert any(str(task.get("task")) == "similarity_index" for task in tasks)
 
 
-def test_post_sync_followup_tasks_skip_similarity_when_embeddings_disabled():
+def test_post_sync_followup_tasks_skip_similarity_when_embeddings_disabled() -> None:
     settings = load_settings()
     tasks = post_sync_followup_tasks(
         42,
@@ -149,7 +160,7 @@ def test_post_sync_followup_tasks_skip_similarity_when_embeddings_disabled():
     assert all(str(task.get("task")) != "similarity_index" for task in tasks)
 
 
-def test_collect_pipeline_cache_reads_completed_similarity_runs(session_factory):
+def test_collect_pipeline_cache_reads_completed_similarity_runs(session_factory: Any) -> None:
     with session_factory() as db:
         db.add(
             TaskRun(
@@ -173,10 +184,10 @@ def test_collect_pipeline_cache_reads_completed_similarity_runs(session_factory)
     assert 1971 in cache["similarity_indexed_at_by_doc"]
 
 
-def test_evaluate_doc_pipeline_marks_similarity_missing_when_embeddings_missing():
+def test_evaluate_doc_pipeline_marks_similarity_missing_when_embeddings_missing() -> None:
     settings = load_settings()
     doc = SimpleNamespace(id=17, page_count=1, content="sample text")
-    cache = {
+    cache: PipelineCache = {
         "embeddings": {},
         "embedded_at_by_doc": {},
         "similarity_indexed_at_by_doc": {},
@@ -189,7 +200,7 @@ def test_evaluate_doc_pipeline_marks_similarity_missing_when_embeddings_missing(
     }
 
     result = evaluate_doc_pipeline(
-        doc=doc,
+        doc=cast("Document", doc),
         settings=settings,
         cache=cache,
         options=PipelineOptions(

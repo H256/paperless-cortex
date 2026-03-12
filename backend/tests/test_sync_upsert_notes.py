@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 
+from app.api_models import DocumentIn
 from app.config import load_settings
 from app.models import Document, DocumentNote
 from app.routes.sync import _merge_document_notes, _upsert_document
-from app.schemas import DocumentIn
+
+CacheSets = dict[str, set[int]]
 
 
-def test_upsert_document_notes_is_idempotent(session_factory):
+def test_upsert_document_notes_is_idempotent(session_factory: Any) -> None:
     settings = load_settings()
-    payload = {
+    payload: dict[str, Any] = {
         "id": 1959,
         "title": "Test doc",
         "content": "abc",
@@ -39,7 +42,7 @@ def test_upsert_document_notes_is_idempotent(session_factory):
         "tags": [],
     }
     data = DocumentIn.model_validate(payload)
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: CacheSets = {"correspondents": set(), "document_types": set(), "tags": set()}
 
     with session_factory() as db:
         _upsert_document(db, settings, data, cache)
@@ -59,9 +62,9 @@ def test_upsert_document_notes_is_idempotent(session_factory):
         assert notes[0].note == "updated"
 
 
-def test_upsert_document_notes_remaps_legacy_positive_collision(session_factory):
+def test_upsert_document_notes_remaps_legacy_positive_collision(session_factory: Any) -> None:
     settings = load_settings()
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: CacheSets = {"correspondents": set(), "document_types": set(), "tags": set()}
     with session_factory() as db:
         # Existing legacy local AI note accidentally used positive id namespace.
         doc_old = Document(id=1001, title="old")
@@ -121,10 +124,12 @@ def test_upsert_document_notes_remaps_legacy_positive_collision(session_factory)
         assert moved is not None
 
 
-def test_upsert_document_notes_ignores_duplicate_ids_in_single_payload(session_factory):
+def test_upsert_document_notes_ignores_duplicate_ids_in_single_payload(
+    session_factory: Any,
+) -> None:
     settings = load_settings()
-    cache = {"correspondents": set(), "document_types": set(), "tags": set()}
-    payload = {
+    cache: CacheSets = {"correspondents": set(), "document_types": set(), "tags": set()}
+    payload: dict[str, Any] = {
         "id": 1959,
         "title": "Test doc",
         "content": "abc",
@@ -170,7 +175,7 @@ def test_upsert_document_notes_ignores_duplicate_ids_in_single_payload(session_f
         assert notes[0].note == "first"
 
 
-def test_upsert_document_notes_skips_malformed_note_ids(session_factory):
+def test_upsert_document_notes_skips_malformed_note_ids(session_factory: Any) -> None:
     with session_factory() as db:
         doc = Document(id=1959, title="Test doc")
         db.add(doc)
@@ -198,7 +203,9 @@ def test_upsert_document_notes_skips_malformed_note_ids(session_factory):
         assert notes[0].note == "valid"
 
 
-def test_upsert_document_notes_malformed_ids_do_not_trigger_stale_removal(session_factory):
+def test_upsert_document_notes_malformed_ids_do_not_trigger_stale_removal(
+    session_factory: Any,
+) -> None:
     with session_factory() as db:
         doc = Document(id=1959, title="Test doc")
         db.add(doc)

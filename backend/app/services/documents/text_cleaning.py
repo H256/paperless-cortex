@@ -55,7 +55,7 @@ def clean_ocr_text(text: str | None) -> str:
         import ftfy
 
         cleaned = ftfy.fix_text(cleaned)
-    except Exception:
+    except ImportError:
         pass
     cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
     lines = cleaned.split("\n")
@@ -80,12 +80,16 @@ def clean_ocr_text(text: str | None) -> str:
                 joined.append(current)
                 continue
             # Join hard line wraps for plain text lines.
-            if current and nxt and not current.endswith((".", ":", ";", "?", "!")):
-                if not re.match(r"^[-*•]\s+", nxt):
-                    current = f"{current} {nxt}"
-                    i += 2
-                    joined.append(current)
-                    continue
+            if (
+                current
+                and nxt
+                and not current.endswith((".", ":", ";", "?", "!"))
+                and not re.match(r"^[-*•]\s+", nxt)
+            ):
+                current = f"{current} {nxt}"
+                i += 2
+                joined.append(current)
+                continue
         joined.append(current)
         i += 1
 

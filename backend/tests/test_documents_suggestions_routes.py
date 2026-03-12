@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import Document, DocumentSuggestion
 
 
-def test_suggest_field_note_uses_current_summary(api_client, monkeypatch):
+def test_suggest_field_note_uses_current_summary(api_client: Any, monkeypatch: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Document(id=707, title="Doc 707", content="Inhalt"))
@@ -36,15 +37,15 @@ def test_suggest_field_note_uses_current_summary(api_client, monkeypatch):
     monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
 
     def _fake_generate_field_variants(
-        settings,
-        document,
-        text,
-        tags,
-        correspondents,
-        field,
-        count,
-        current_value=None,
-    ):
+        settings: Any,
+        document: Any,
+        text: str,
+        tags: Any,
+        correspondents: Any,
+        field: str,
+        count: int,
+        current_value: object = None,
+    ) -> dict[str, list[str] | object]:
         captured["field"] = field
         captured["current_value"] = current_value
         return {"variants": ["new summary variant"]}
@@ -62,7 +63,7 @@ def test_suggest_field_note_uses_current_summary(api_client, monkeypatch):
     assert captured["current_value"] == "old summary"
 
 
-def test_apply_field_note_updates_summary_payload(api_client):
+def test_apply_field_note_updates_summary_payload(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Document(id=708, title="Doc 708", content="Inhalt"))

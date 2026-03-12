@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
-from app.config import Settings
 from app.models import (
     Correspondent,
     Document,
@@ -18,6 +17,9 @@ from app.models import (
 from app.services.integrations import paperless
 from app.services.runtime.string_list_json import parse_string_list_json
 from app.services.writeback.writeback_plan import compare_document_fields, extract_ai_summary_note
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:

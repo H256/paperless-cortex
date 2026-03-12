@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any
 
 from app.models import (
     Document,
@@ -14,8 +15,13 @@ from app.services.writeback.writeback_preview import (
     preview_for_doc_ids,
 )
 
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
 
-def test_preview_for_doc_ids_builds_changed_item_with_pending_values(session_factory, monkeypatch):
+
+def test_preview_for_doc_ids_builds_changed_item_with_pending_values(
+    session_factory: Any, monkeypatch: MonkeyPatch
+) -> None:
     from app.config import load_settings
     from app.services.integrations import paperless
 
@@ -68,7 +74,9 @@ def test_preview_for_doc_ids_builds_changed_item_with_pending_values(session_fac
         assert item.correspondent.proposed.get("pending_name") == "Pending Corr"
 
 
-def test_preview_for_doc_ids_uses_fallback_document_fetch(session_factory, monkeypatch):
+def test_preview_for_doc_ids_uses_fallback_document_fetch(
+    session_factory: Any, monkeypatch: MonkeyPatch
+) -> None:
     from app.config import load_settings
     from app.services.integrations import paperless
 
@@ -79,7 +87,7 @@ def test_preview_for_doc_ids_uses_fallback_document_fetch(session_factory, monke
         called = {"fallback": 0}
         monkeypatch.setattr(paperless, "get_documents_cached", lambda *_args, **_kwargs: {})
 
-        def _fallback(*_args, **_kwargs):
+        def _fallback(*_args: object, **_kwargs: object) -> dict[str, object]:
             called["fallback"] += 1
             return {
                 "id": 902,
@@ -98,7 +106,7 @@ def test_preview_for_doc_ids_uses_fallback_document_fetch(session_factory, monke
         assert called["fallback"] == 1
 
 
-def test_local_writeback_candidate_doc_ids_dedupes_sources(session_factory):
+def test_local_writeback_candidate_doc_ids_dedupes_sources(session_factory: Any) -> None:
     with session_factory() as db:
         db.add(
             SuggestionAudit(

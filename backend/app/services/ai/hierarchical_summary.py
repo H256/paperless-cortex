@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.services.ai import hierarchical_generation as _gen
-from app.services.runtime.guard import ensure_text_llm_ready
 from app.services.ai.hierarchical_helpers import (
     _best_effort_global_summary,
     _best_effort_page_notes_from_text,
@@ -36,13 +35,17 @@ from app.services.ai.hierarchical_storage import (
     replace_section_summaries,
     upsert_page_note,
 )
+from app.services.runtime.guard import ensure_text_llm_ready
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 _GEN_CHAT_RESPONSE = _gen._chat_response
 _GEN_CHAT_JSON_RESPONSE = _gen._chat_json_response
 
 
 def _chat_response(
-    settings,
+    settings: Settings,
     *,
     prompt: str,
     timeout: int,
@@ -59,7 +62,7 @@ def _chat_response(
 
 
 def _chat_json_response(
-    settings,
+    settings: Settings,
     *,
     prompt: str,
     timeout: int,
@@ -80,13 +83,13 @@ def _sync_generation_overrides() -> None:
     _gen._chat_json_response = _chat_json_response
 
 
-def generate_page_notes(settings, *, page: int, text: str) -> dict[str, Any]:
+def generate_page_notes(settings: Settings, *, page: int, text: str) -> dict[str, Any]:
     _sync_generation_overrides()
     return _gen.generate_page_notes(settings, page=page, text=text)
 
 
 def generate_section_summary(
-    settings,
+    settings: Settings,
     *,
     section_key: str,
     page_notes: list[dict[str, Any]],
@@ -100,7 +103,7 @@ def generate_section_summary(
 
 
 def generate_global_summary(
-    settings,
+    settings: Settings,
     *,
     section_summaries: list[dict[str, Any]],
 ) -> dict[str, Any]:

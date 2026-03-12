@@ -18,7 +18,7 @@ def normalize_tags(value: Any) -> list[int]:
     for item in value:
         try:
             normalized.append(int(item))
-        except Exception:
+        except (TypeError, ValueError):
             continue
     return sorted(set(normalized))
 
@@ -31,8 +31,12 @@ def extract_ai_summary_note(notes: list[dict[str, Any]] | None) -> tuple[int | N
         if raw_text.strip().endswith(AI_SUMMARY_MARKER):
             note_id = note.get("id")
             try:
-                return int(note_id), raw_text
-            except Exception:
+                if isinstance(note_id, int):
+                    return note_id, raw_text
+                if isinstance(note_id, str):
+                    return int(note_id), raw_text
+                return None, raw_text
+            except (TypeError, ValueError):
                 return None, raw_text
     return None, None
 

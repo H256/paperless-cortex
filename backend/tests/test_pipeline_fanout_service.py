@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.models import TaskRun
 from app.services.pipeline.pipeline_fanout import (
     build_pipeline_fanout_items,
@@ -8,7 +10,7 @@ from app.services.pipeline.pipeline_fanout import (
 )
 
 
-def test_fanout_status_from_run_prioritizes_run_state():
+def test_fanout_status_from_run_prioritizes_run_state() -> None:
     running = TaskRun(task="vision_ocr", status="running")
     failed = TaskRun(task="vision_ocr", status="failed")
 
@@ -18,7 +20,7 @@ def test_fanout_status_from_run_prioritizes_run_state():
     assert fanout_status_from_run(is_missing=False, run=None) == "done"
 
 
-def test_build_pipeline_fanout_items_includes_checkpoint_and_run_metadata():
+def test_build_pipeline_fanout_items_includes_checkpoint_and_run_metadata() -> None:
     planned = [{"doc_id": 1, "task": "vision_ocr", "source": "vision_ocr"}]
     run = TaskRun(
         task="vision_ocr",
@@ -51,7 +53,7 @@ def test_build_pipeline_fanout_items_includes_checkpoint_and_run_metadata():
     assert item["last_started_at"] == "2026-02-20T10:00:00+00:00"
 
 
-def test_build_pipeline_fanout_items_ignores_non_object_checkpoint():
+def test_build_pipeline_fanout_items_ignores_non_object_checkpoint() -> None:
     planned = [{"doc_id": 1, "task": "sync"}]
     run = TaskRun(task="sync", source=None, status="done", checkpoint_json='["unexpected"]')
     latest_runs = {("sync", ""): run}
@@ -68,7 +70,9 @@ def test_build_pipeline_fanout_items_ignores_non_object_checkpoint():
     assert items[0]["status"] == "done"
 
 
-def test_latest_task_runs_by_signature_returns_latest_record_per_signature(session_factory):
+def test_latest_task_runs_by_signature_returns_latest_record_per_signature(
+    session_factory: Any,
+) -> None:
     with session_factory() as db:
         db.add(TaskRun(doc_id=11, task="sync", source=None, status="done"))
         db.add(TaskRun(doc_id=11, task="sync", source=None, status="running"))

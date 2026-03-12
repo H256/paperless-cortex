@@ -2,46 +2,59 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import case, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
-from app.config import Settings
-from app.db import get_db
-from app.deps import get_settings
-from app.models import (
-    Correspondent,
-    DocumentNote,
-    DocumentPendingCorrespondent,
-    DocumentPendingTag,
-    DocumentPageText,
-    DocumentSuggestion,
-    Tag,
-)
-from app.services.integrations import paperless
-from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
-from app.services.documents.page_text_store import upsert_page_texts
-from app.services.ai.ocr_scoring import ensure_document_ocr_score
-from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
-from app.services.documents.page_texts_merge import collect_page_texts
-from app.services.pipeline.queue import enqueue_task_front, enqueue_task_sequence_front
-from app.services.documents.note_ids import next_local_note_id
-from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, update_suggestion_field
-from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
-from app.services.documents.text_pages import get_page_text_layers
-from app.services.runtime.time_utils import utc_now_iso
-from app.services.runtime.json_utils import parse_json_object
-from app.services.runtime.string_list_json import dumps_normalized_string_list, parse_string_list_json, normalize_string_list
 from app.api_models import (
     ApplyFieldSuggestionResponse,
     ApplySuggestionResponse,
     SuggestFieldVariantsResponse,
     SuggestionsResponse,
 )
+from app.db import get_db
+from app.deps import get_settings
+from app.models import (
+    Correspondent,
+    DocumentNote,
+    DocumentPageText,
+    DocumentPendingCorrespondent,
+    DocumentPendingTag,
+    DocumentSuggestion,
+    Tag,
+)
 from app.routes.documents_common import load_suggestions_map
 from app.routes.queue_guard import require_queue_enabled
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.suggestion_store import (
+    audit_suggestion_run,
+    persist_suggestions,
+    update_suggestion_field,
+)
+from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.documents.note_ids import next_local_note_id
+from app.services.documents.page_text_store import upsert_page_texts
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.documents.text_pages import get_page_text_layers
+from app.services.integrations import paperless
+from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services.pipeline.queue import enqueue_task_front, enqueue_task_sequence_front
+from app.services.runtime.json_utils import parse_json_object
+from app.services.runtime.string_list_json import (
+    dumps_normalized_string_list,
+    normalize_string_list,
+    parse_string_list_json,
+)
+from app.services.runtime.time_utils import utc_now_iso
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -64,11 +77,7 @@ def _variant_source_key(source: str, field: str) -> str:
 
 
 def _build_suggestions_meta(db: Session, doc_id: int) -> dict[str, dict[str, str | None]]:
-    meta_rows = (
-        db.query(DocumentSuggestion)
-        .filter(DocumentSuggestion.doc_id == doc_id)
-        .all()
-    )
+    meta_rows = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).all()
     ocr_model = (
         db.query(DocumentPageText.model_name)
         .filter(
@@ -113,7 +122,7 @@ def _append_similar_docs_metadata(
         score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
         metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
         suggestions_by_source["similar_docs"] = metadata
-    except Exception as exc:
+    except (ImportError, RuntimeError, SQLAlchemyError, ValueError, TypeError) as exc:
         logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
 
 
@@ -132,7 +141,7 @@ def get_document_suggestions(
     include_similar: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     logger = logging.getLogger(__name__)
     logger.info("Fetch suggestions doc=%s source=%s refresh=%s", doc_id, source, refresh)
     raw = paperless.get_document(settings, doc_id)
@@ -232,9 +241,13 @@ def get_document_suggestions(
             if vision is not None:
                 suggestions_by_source["vision_ocr"] = vision
         if source == "vision_ocr" and "paperless_ocr" not in suggestions_by_source:
-            suggestions_by_source.update(load_suggestions_map(db, doc_id, tags, source="paperless_ocr"))
+            suggestions_by_source.update(
+                load_suggestions_map(db, doc_id, tags, source="paperless_ocr")
+            )
         if source == "paperless_ocr" and "vision_ocr" not in suggestions_by_source:
-            suggestions_by_source.update(load_suggestions_map(db, doc_id, tags, source="vision_ocr"))
+            suggestions_by_source.update(
+                load_suggestions_map(db, doc_id, tags, source="vision_ocr")
+            )
     else:
         suggestions_by_source = load_suggestions_map(db, doc_id, tags)
 
@@ -261,7 +274,7 @@ def suggest_field_variants(
     priority: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     raw = paperless.get_document(settings, doc_id)
     tags = get_cached_tags(settings)
     correspondents = get_cached_correspondents(settings)
@@ -286,13 +299,17 @@ def suggest_field_variants(
                 force_full_vision=True,
             )
             if vision_generated:
-                upsert_page_texts(db, settings, doc_id, vision_generated, source_filter="vision_ocr")
+                upsert_page_texts(
+                    db, settings, doc_id, vision_generated, source_filter="vision_ocr"
+                )
                 doc = get_document_or_none(db, doc_id)
                 if doc:
                     ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=True)
                 vision_pages = (
                     db.query(DocumentPageText)
-                    .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+                    .filter(
+                        DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr"
+                    )
                     .order_by(DocumentPageText.page.asc())
                     .all()
                 )
@@ -335,7 +352,12 @@ def suggest_field_variants(
     if not isinstance(variants, list):
         variants = []
     audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")
-    return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "variants": variants}
+    return {
+        "doc_id": doc_id,
+        "source": payload.source,
+        "field": payload.field,
+        "variants": variants,
+    }
 
 
 @router.get("/{doc_id}/suggestions/field/variants", response_model=SuggestFieldVariantsResponse)
@@ -344,7 +366,7 @@ def get_field_variants(
     source: str,
     field: str,
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     variant_source = _variant_source_key(source, field)
     row = (
         db.query(DocumentSuggestion)
@@ -363,7 +385,7 @@ def apply_field_suggestion(
     doc_id: int,
     payload: SuggestionFieldApply,
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     if payload.source not in ("paperless_ocr", "vision_ocr"):
         raise ValueError("Invalid source")
     if payload.field not in ("title", "date", "correspondent", "tags", "note"):
@@ -381,7 +403,7 @@ def apply_suggestion_to_document(
     payload: ApplySuggestionToDocument,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     logger = logging.getLogger(__name__)
 
     def _format_ai_summary_note(
@@ -398,7 +420,7 @@ def apply_suggestion_to_document(
             try:
                 parsed = datetime.fromisoformat(candidate)
                 return parsed.strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
+            except ValueError:
                 compact = raw.replace("T", " ")
                 return compact[:19]
 
@@ -501,9 +523,7 @@ def apply_suggestion_to_document(
             updated = True
     elif field == "tags":
         pending_row = (
-            db.query(DocumentPendingTag)
-            .filter(DocumentPendingTag.doc_id == doc_id)
-            .one_or_none()
+            db.query(DocumentPendingTag).filter(DocumentPendingTag.doc_id == doc_id).one_or_none()
         )
         old_pending: list[str] = []
         if pending_row and pending_row.names_json:
@@ -561,7 +581,7 @@ def apply_suggestion_to_document(
                 .filter(
                     DocumentNote.document_id == doc_id,
                     or_(
-                        DocumentNote.note.like("AI_SUMMARY v1 –%"),
+                        DocumentNote.note.like("AI_SUMMARY v1 -%"),
                         DocumentNote.note.like("%\nKI-Zusammenfassung"),
                     ),
                 )

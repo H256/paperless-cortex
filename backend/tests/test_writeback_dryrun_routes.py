@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -16,26 +17,28 @@ from app.models import (
 )
 
 
-def _insert_document(doc_id: int):
+def _insert_document(doc_id: int) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         db.add(Document(id=doc_id, title="Local title"))
         db.commit()
 
 
-def test_dry_run_preview_with_doc_id_uses_direct_document(api_client, monkeypatch):
+def test_dry_run_preview_with_doc_id_uses_direct_document(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_document(123)
 
-    def _list_documents_should_not_run(*args, **kwargs):
+    def _list_documents_should_not_run(*args: Any, **kwargs: Any) -> None:
         raise AssertionError("list_documents should not be called when doc_id is provided")
 
     monkeypatch.setattr(paperless, "list_documents", _list_documents_should_not_run)
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote title",
             "document_date": None,
@@ -56,10 +59,12 @@ def test_dry_run_preview_with_doc_id_uses_direct_document(api_client, monkeypatc
     assert payload["items"][0]["doc_id"] == 123
 
 
-def test_reviewed_timestamp_uses_fresh_remote_document(session_factory, monkeypatch):
+def test_reviewed_timestamp_uses_fresh_remote_document(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    from app.deps import get_settings
     from app.routes.writeback_dryrun import _reviewed_timestamp_for_doc
     from app.services.integrations import paperless
-    from app.deps import get_settings
 
     with session_factory() as db:
         db.add(Document(id=321, title="Local", modified="2026-02-14T10:00:00+00:00"))
@@ -85,7 +90,9 @@ def test_reviewed_timestamp_uses_fresh_remote_document(session_factory, monkeypa
         assert refreshed.modified == "2026-02-14T11:11:11+00:00"
 
 
-def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, monkeypatch):
+def test_dry_run_preview_only_changed_uses_local_audit_candidates(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     _insert_document(501)
@@ -104,14 +111,14 @@ def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, mo
         )
         db.commit()
 
-    def _list_documents_should_not_run(*args, **kwargs):
+    def _list_documents_should_not_run(*args: Any, **kwargs: Any) -> None:
         raise AssertionError("list_documents should not be called for only_changed preview with local candidates")
 
     monkeypatch.setattr(paperless, "list_documents", _list_documents_should_not_run)
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Remote original title",
             "created": None,
@@ -131,7 +138,9 @@ def test_dry_run_preview_only_changed_uses_local_audit_candidates(api_client, mo
     assert 501 in ids
 
 
-def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, monkeypatch):
+def test_execute_now_resolves_pending_correspondent_and_sets_local(
+    api_client: Any, monkeypatch: Any
+) -> None:
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
     from app.services.integrations import paperless
@@ -153,7 +162,7 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Doc 777",
             "created": None,
@@ -165,9 +174,9 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
     )
     monkeypatch.setattr(paperless, "list_all_correspondents", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(paperless, "create_correspondent", lambda *_args, **_kwargs: {"id": "77", "name": "New Corr"})
-    patch_payloads: list[dict] = []
+    patch_payloads: list[dict[str, Any]] = []
 
-    def _update_document(_settings, _doc_id, payload):
+    def _update_document(_settings: Any, _doc_id: int, payload: dict[str, Any]) -> dict[str, int]:
         patch_payloads.append(dict(payload))
         return {"id": _doc_id}
 
@@ -189,7 +198,9 @@ def test_execute_now_resolves_pending_correspondent_and_sets_local(api_client, m
         assert (corr.name or "").strip() == "New Corr"
 
 
-def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_client, monkeypatch):
+def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(
+    api_client: Any, monkeypatch: Any
+) -> None:
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
     from app.services.integrations import paperless
@@ -211,7 +222,7 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": "Doc 1869",
             "created": "2026-02-10T10:00:00+00:00",
@@ -223,9 +234,9 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
     )
     monkeypatch.setattr(paperless, "list_all_correspondents", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(paperless, "create_correspondent", lambda *_args, **_kwargs: {"id": 18690, "name": "Corr 1869"})
-    captured_payloads: list[dict] = []
+    captured_payloads: list[dict[str, Any]] = []
 
-    def _update_document(_settings, _doc_id, payload):
+    def _update_document(_settings: Any, _doc_id: int, payload: dict[str, Any]) -> dict[str, int]:
         captured_payloads.append(dict(payload))
         return {"id": _doc_id}
 
@@ -239,7 +250,9 @@ def test_execute_direct_skips_invalid_created_none_and_sets_correspondent(api_cl
     assert payload.get("correspondent") == 18690
 
 
-def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkeypatch):
+def test_execute_direct_migrates_stale_local_correspondent_id(
+    api_client: Any, monkeypatch: Any
+) -> None:
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
 
     from app.services.integrations import paperless
@@ -256,7 +269,7 @@ def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkey
     monkeypatch.setattr(
         paperless,
         "get_document",
-        lambda settings, doc_id: {
+        lambda _settings, doc_id: {
             "id": doc_id,
             "title": f"Doc {doc_id}",
             "created": None,
@@ -276,9 +289,9 @@ def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkey
         "create_correspondent",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not create when same name exists")),
     )
-    patch_payloads: list[dict] = []
+    patch_payloads: list[dict[str, Any]] = []
 
-    def _update_document(_settings, _doc_id, payload):
+    def _update_document(_settings: Any, _doc_id: int, payload: dict[str, Any]) -> dict[str, int]:
         patch_payloads.append(dict(payload))
         return {"id": _doc_id}
 
@@ -301,7 +314,9 @@ def test_execute_direct_migrates_stale_local_correspondent_id(api_client, monkey
         assert (new_corr.name or "").strip() == "Legacy Corr"
 
 
-def test_execute_direct_use_paperless_resolutions_sync_local_fields(api_client, monkeypatch):
+def test_execute_direct_use_paperless_resolutions_sync_local_fields(
+    api_client: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})

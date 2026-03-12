@@ -2,56 +2,61 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from app.config import Settings
+from app.api_models import (
+    ErrorTypeCatalogResponse,
+    QueueCancelResponse,
+    QueueDelayedResponse,
+    QueueDlqActionResponse,
+    QueueDlqResponse,
+    QueueEnqueueResponse,
+    QueueMoveResponse,
+    QueuePauseResponse,
+    QueuePeekResponse,
+    QueueRemoveResponse,
+    QueueResetResponse,
+    QueueRunningResponse,
+    QueueStatusResponse,
+    QueueWorkerLockResetResponse,
+    QueueWorkerLockStatusResponse,
+    TaskRunItem,
+    TaskRunListResponse,
+)
 from app.db import get_db
 from app.deps import get_settings
+from app.routes.queue_helpers import queue_disabled_response
+from app.services.pipeline.error_types import get_error_type_details, list_error_type_details
 from app.services.pipeline.queue import (
-    enqueue_docs,
-    queue_stats,
-    peek_queue,
     cancel_queue,
-    reset_stats,
-    pause_queue,
-    resume_queue,
-    is_paused,
-    reorder_queue,
-    move_queue_item_to_top,
-    move_queue_item_to_bottom,
-    remove_queue_item,
-    worker_lock_status,
-    reset_worker_lock,
+    clear_dead_letters,
+    enqueue_docs,
     get_running_task,
+    is_paused,
+    move_queue_item_to_bottom,
+    move_queue_item_to_top,
+    pause_queue,
     peek_dead_letters,
     peek_delayed_queue,
-    clear_dead_letters,
+    peek_queue,
+    queue_stats,
+    remove_queue_item,
+    reorder_queue,
     requeue_dead_letter_item,
+    reset_stats,
+    reset_worker_lock,
+    resume_queue,
+    worker_lock_status,
 )
 from app.services.pipeline.task_runs import list_task_runs
-from app.services.pipeline.error_types import get_error_type_details, list_error_type_details
-from app.routes.queue_helpers import queue_disabled_response
-from app.api_models import (
-    QueueStatusResponse,
-    QueueEnqueueResponse,
-    QueuePeekResponse,
-    QueueCancelResponse,
-    QueueResetResponse,
-    QueuePauseResponse,
-    QueueMoveResponse,
-    QueueRemoveResponse,
-    QueueWorkerLockStatusResponse,
-    QueueWorkerLockResetResponse,
-    QueueRunningResponse,
-    TaskRunListResponse,
-    TaskRunItem,
-    QueueDlqResponse,
-    QueueDlqActionResponse,
-    QueueDelayedResponse,
-    ErrorTypeCatalogResponse,
-)
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 router = APIRouter(prefix="/queue", tags=["queue"])
 logger = logging.getLogger(__name__)
@@ -86,7 +91,7 @@ def _parse_json_object(raw: str | None) -> dict | None:
         return None
     try:
         parsed = json.loads(payload)
-    except Exception:
+    except json.JSONDecodeError:
         return None
     if isinstance(parsed, dict):
         return parsed
@@ -94,15 +99,15 @@ def _parse_json_object(raw: str | None) -> dict | None:
 
 
 @router.get("/status", response_model=QueueStatusResponse)
-def get_queue_status(settings: Settings = Depends(get_settings)):
+def get_queue_status(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(length=None, paused=False)
-    stats = queue_stats(settings) or {"length": None, "total": 0, "in_progress": 0, "done": 0}
+    stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
     return {"enabled": True, **stats, "paused": is_paused(settings)}
 
 
 @router.post("/enqueue", response_model=QueueEnqueueResponse)
-def enqueue(payload: QueueEnqueue, settings: Settings = Depends(get_settings)):
+def enqueue(payload: QueueEnqueue, settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(enqueued=0)
     count = enqueue_docs(settings, payload.doc_ids)
@@ -110,7 +115,7 @@ def enqueue(payload: QueueEnqueue, settings: Settings = Depends(get_settings)):
 
 
 @router.get("/peek", response_model=QueuePeekResponse)
-def peek(limit: int = 20, settings: Settings = Depends(get_settings)):
+def peek(limit: int = 20, settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(items=[])
     items = peek_queue(settings, limit=limit)
@@ -118,7 +123,7 @@ def peek(limit: int = 20, settings: Settings = Depends(get_settings)):
 
 
 @router.post("/clear", response_model=QueueCancelResponse)
-def clear(settings: Settings = Depends(get_settings)):
+def clear(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response()
     cancel_queue(settings)
@@ -126,7 +131,7 @@ def clear(settings: Settings = Depends(get_settings)):
 
 
 @router.post("/cancel", response_model=QueueCancelResponse)
-def cancel(settings: Settings = Depends(get_settings)):
+def cancel(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response()
     cancel_queue(settings)
@@ -134,7 +139,7 @@ def cancel(settings: Settings = Depends(get_settings)):
 
 
 @router.post("/reset-stats", response_model=QueueResetResponse)
-def reset(settings: Settings = Depends(get_settings)):
+def reset(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response()
     reset_stats(settings)
@@ -142,7 +147,7 @@ def reset(settings: Settings = Depends(get_settings)):
 
 
 @router.post("/pause", response_model=QueuePauseResponse)
-def pause(settings: Settings = Depends(get_settings)):
+def pause(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(paused=False)
     pause_queue(settings)
@@ -150,7 +155,7 @@ def pause(settings: Settings = Depends(get_settings)):
 
 
 @router.post("/resume", response_model=QueuePauseResponse)
-def resume(settings: Settings = Depends(get_settings)):
+def resume(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(paused=False)
     resume_queue(settings)
@@ -158,7 +163,7 @@ def resume(settings: Settings = Depends(get_settings)):
 
 
 @router.post("/reorder", response_model=QueueMoveResponse)
-def move(payload: QueueMoveRequest, settings: Settings = Depends(get_settings)):
+def move(payload: QueueMoveRequest, settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(moved=False)
     moved = reorder_queue(settings, payload.from_index, payload.to_index)
@@ -166,7 +171,9 @@ def move(payload: QueueMoveRequest, settings: Settings = Depends(get_settings)):
 
 
 @router.post("/move-top", response_model=QueueMoveResponse)
-def move_top(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_settings)):
+def move_top(
+    payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(moved=False)
     moved = move_queue_item_to_top(settings, payload.index)
@@ -174,7 +181,9 @@ def move_top(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_set
 
 
 @router.post("/move-bottom", response_model=QueueMoveResponse)
-def move_bottom(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_settings)):
+def move_bottom(
+    payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(moved=False)
     moved = move_queue_item_to_bottom(settings, payload.index)
@@ -182,7 +191,7 @@ def move_bottom(payload: QueueMoveEdgeRequest, settings: Settings = Depends(get_
 
 
 @router.post("/remove", response_model=QueueRemoveResponse)
-def remove(payload: QueueRemoveRequest, settings: Settings = Depends(get_settings)):
+def remove(payload: QueueRemoveRequest, settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(removed=False)
     removed = remove_queue_item(settings, payload.index)
@@ -190,21 +199,23 @@ def remove(payload: QueueRemoveRequest, settings: Settings = Depends(get_setting
 
 
 @router.get("/worker-lock", response_model=QueueWorkerLockStatusResponse)
-def get_worker_lock(settings: Settings = Depends(get_settings)):
+def get_worker_lock(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(has_lock=False, owner=None, ttl_seconds=None)
     return {"enabled": True, **worker_lock_status(settings)}
 
 
 @router.get("/running", response_model=QueueRunningResponse)
-def get_running(settings: Settings = Depends(get_settings)):
+def get_running(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(task=None, started_at=None)
     return {"enabled": True, **get_running_task(settings)}
 
 
 @router.post("/worker-lock/reset", response_model=QueueWorkerLockResetResponse)
-def reset_worker_lock_route(force: bool = False, settings: Settings = Depends(get_settings)):
+def reset_worker_lock_route(
+    force: bool = False, settings: Settings = Depends(get_settings)
+) -> dict[str, object]:
     if not settings.queue_enabled:
         return queue_disabled_response(reset=False, had_lock=False, reason="queue_disabled")
     result = reset_worker_lock(settings, force=force)
@@ -212,7 +223,7 @@ def reset_worker_lock_route(force: bool = False, settings: Settings = Depends(ge
 
 
 @router.get("/dlq", response_model=QueueDlqResponse)
-def get_dlq(limit: int = 100, settings: Settings = Depends(get_settings)):
+def get_dlq(limit: int = 100, settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return {"enabled": False, "items": []}
     items = peek_dead_letters(settings, limit=limit)
@@ -220,7 +231,9 @@ def get_dlq(limit: int = 100, settings: Settings = Depends(get_settings)):
 
 
 @router.get("/delayed", response_model=QueueDelayedResponse)
-def get_delayed_queue(limit: int = 100, settings: Settings = Depends(get_settings)):
+def get_delayed_queue(
+    limit: int = 100, settings: Settings = Depends(get_settings)
+) -> dict[str, object]:
     if not settings.queue_enabled:
         return {"enabled": False, "items": []}
     items = peek_delayed_queue(settings, limit=limit)
@@ -228,7 +241,7 @@ def get_delayed_queue(limit: int = 100, settings: Settings = Depends(get_setting
 
 
 @router.post("/dlq/clear", response_model=QueueDlqActionResponse)
-def clear_dlq(settings: Settings = Depends(get_settings)):
+def clear_dlq(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return {"enabled": False, "ok": False}
     clear_dead_letters(settings)
@@ -236,7 +249,9 @@ def clear_dlq(settings: Settings = Depends(get_settings)):
 
 
 @router.post("/dlq/requeue", response_model=QueueDlqActionResponse)
-def requeue_dlq(payload: QueueDlqRequeueRequest, settings: Settings = Depends(get_settings)):
+def requeue_dlq(
+    payload: QueueDlqRequeueRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, object]:
     if not settings.queue_enabled:
         return {"enabled": False, "ok": False}
     ok = requeue_dead_letter_item(settings, payload.index)
@@ -253,8 +268,8 @@ def get_task_runs(
     limit: int = 100,
     offset: int = 0,
     settings: Settings = Depends(get_settings),
-    db=Depends(get_db),
-):
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
     if not settings.queue_enabled:
         return {"enabled": False, "count": 0, "items": []}
     total, rows = list_task_runs(
@@ -292,7 +307,7 @@ def get_task_runs(
                     updated_at=row.updated_at,
                 )
             )
-        except Exception:
+        except (AttributeError, TypeError, ValidationError, ValueError):
             logger.exception(
                 "Failed to serialize task-run row id=%s doc_id=%s task=%s",
                 getattr(row, "id", None),
@@ -303,7 +318,7 @@ def get_task_runs(
 
 
 @router.get("/error-types", response_model=ErrorTypeCatalogResponse)
-def get_error_types(settings: Settings = Depends(get_settings)):
+def get_error_types(settings: Settings = Depends(get_settings)) -> dict[str, object]:
     if not settings.queue_enabled:
         return {"enabled": False, "items": []}
     return {"enabled": True, "items": list_error_type_details()}

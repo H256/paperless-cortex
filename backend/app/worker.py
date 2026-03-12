@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import socket
 import threading
 import time
-from datetime import datetime, timezone
-from collections.abc import Iterable
+from datetime import UTC, datetime
+from json import JSONDecodeError
+from typing import TYPE_CHECKING
 
-from sqlalchemy.orm import Session
+import httpx
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.api_models import DocumentIn
 from app.config import load_settings
 from app.db import SessionLocal
+from app.exceptions import WorkerError
 from app.models import (
     Document,
     DocumentEmbedding,
@@ -20,68 +26,57 @@ from app.models import (
     DocumentPageText,
     DocumentSuggestion,
 )
-from app.services.integrations import paperless
-from app.services.documents.documents import fetch_pdf_bytes_for_doc, get_document_or_none
-from app.services.search.embeddings import (
-    average_vectors,
-    chunk_document_with_pages,
-    enforce_embedding_chunk_budget,
-    summarize_chunk_split_telemetry,
-    delete_points_for_doc,
-    embed_texts,
-    make_doc_point_id,
-    make_point_id,
-    rebuild_doc_point_from_chunks,
-    upsert_points,
-)
-from app.services.search.embedding_init import ensure_embedding_collection
-from app.services.pipeline.queue import (
-    QUEUE_KEY,
-    _get_client,
-    mark_in_progress,
-    mark_done,
-    QUEUE_SET,
-    task_key,
-    mark_worker_heartbeat,
-    record_last_run,
-    acquire_worker_lock,
-    refresh_worker_lock,
-    release_worker_lock,
-    is_cancel_requested,
-    clear_cancel,
-    reset_stats,
-    clear_queue,
-    is_paused,
-    set_running_task,
-    clear_running_task,
-    enqueue_task_delayed,
-    move_due_delayed_tasks,
-    add_dead_letter,
-)
-from app.services.documents.text_pages import get_baseline_page_texts
-from app.services.documents.page_texts_merge import collect_page_texts
-from app.services.documents.page_text_store import upsert_page_texts
-from app.services.documents.page_text_store import reclean_page_texts
-from app.services.documents.page_types import PageText
-from app.services.ai.ocr_scoring import ensure_document_ocr_score
-from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
-from app.services.ai.suggestion_store import audit_suggestion_run, persist_suggestions, upsert_suggestion
-from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
+from app.routes.sync import _upsert_document
 from app.services.ai import vision_ocr
-from app.services.documents.text_cleaning import clean_ocr_text
-from app.services.search.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
-from app.services.pipeline.error_types import classify_worker_error
-from app.services.pipeline.error_types import is_retryable_error_type
-from app.services.pipeline.error_types import task_source_from_payload
-from app.services.runtime.logging_setup import configure_logging, log_event
 from app.services.ai.hierarchical_summary import (
     generate_page_notes,
     is_large_document,
     upsert_page_note,
 )
 from app.services.ai.hierarchical_summary_pipeline import HierarchicalSummaryPipeline
-from app.routes.sync import _upsert_document
-from app.schemas import DocumentIn
+from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.suggestion_store import (
+    audit_suggestion_run,
+    persist_suggestions,
+    upsert_suggestion,
+)
+from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.documents.documents import fetch_pdf_bytes_for_doc, get_document_or_none
+from app.services.documents.page_text_store import reclean_page_texts, upsert_page_texts
+from app.services.documents.page_texts_merge import collect_page_texts
+from app.services.documents.page_types import PageText
+from app.services.documents.text_cleaning import clean_ocr_text
+from app.services.documents.text_pages import get_baseline_page_texts
+from app.services.integrations import paperless
+from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
+from app.services.pipeline.error_types import (
+    classify_worker_error,
+    is_retryable_error_type,
+    task_source_from_payload,
+)
+from app.services.pipeline.queue import (
+    QUEUE_KEY,
+    QUEUE_SET,
+    _get_client,
+    acquire_worker_lock,
+    add_dead_letter,
+    clear_cancel,
+    clear_queue,
+    clear_running_task,
+    enqueue_task_delayed,
+    is_cancel_requested,
+    is_paused,
+    mark_done,
+    mark_in_progress,
+    mark_worker_heartbeat,
+    move_due_delayed_tasks,
+    record_last_run,
+    refresh_worker_lock,
+    release_worker_lock,
+    reset_stats,
+    set_running_task,
+    task_key,
+)
 from app.services.pipeline.task_runs import (
     create_task_run,
     find_latest_checkpoint,
@@ -89,10 +84,33 @@ from app.services.pipeline.task_runs import (
 )
 from app.services.pipeline.worker_checkpoint import (
     get_task_run_checkpoint as _get_task_run_checkpoint,
+)
+from app.services.pipeline.worker_checkpoint import (
     resume_stage_current as _resume_stage_current,
+)
+from app.services.pipeline.worker_checkpoint import (
     set_task_checkpoint as _set_task_checkpoint,
 )
-import json
+from app.services.runtime.logging_setup import configure_logging, log_event
+from app.services.search.embedding_init import ensure_embedding_collection
+from app.services.search.embeddings import (
+    average_vectors,
+    chunk_document_with_pages,
+    delete_points_for_doc,
+    embed_texts,
+    enforce_embedding_chunk_budget,
+    make_doc_point_id,
+    make_point_id,
+    rebuild_doc_point_from_chunks,
+    summarize_chunk_split_telemetry,
+    upsert_points,
+)
+from app.services.search.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
@@ -102,7 +120,7 @@ VISION_OCR_BATCH_DEFAULT = 25
 def _safe_rollback(db: Session, *, context: str = "") -> None:
     try:
         db.rollback()
-    except Exception:
+    except SQLAlchemyError:
         if context:
             logger.debug("DB rollback failed context=%s", context, exc_info=True)
 
@@ -235,7 +253,7 @@ def _build_distilled_context_from_page_notes(
                             if cleaned:
                                 parts_list.append(f"{key}: " + "; ".join(cleaned[:12]))
                     text = "\n".join(parts_list).strip() or raw
-        except Exception:
+        except JSONDecodeError:
             text = raw
         if not text:
             continue
@@ -273,7 +291,7 @@ def _build_distilled_context_from_hier_summary(
         return ""
     try:
         payload = json.loads(row.payload)
-    except Exception:
+    except JSONDecodeError:
         return ""
     if not isinstance(payload, dict):
         return ""
@@ -284,7 +302,9 @@ def _build_distilled_context_from_hier_summary(
     summary = str(payload.get("summary") or "").strip()
     executive = str(payload.get("executive_summary") or "").strip()
     key_facts = payload.get("key_facts") if isinstance(payload.get("key_facts"), list) else []
-    key_entities = payload.get("key_entities") if isinstance(payload.get("key_entities"), list) else []
+    key_entities = (
+        payload.get("key_entities") if isinstance(payload.get("key_entities"), list) else []
+    )
     key_numbers = payload.get("key_numbers") if isinstance(payload.get("key_numbers"), list) else []
     key_dates = payload.get("key_dates") if isinstance(payload.get("key_dates"), list) else []
     has_signal = bool(summary or executive or key_facts or key_entities or key_numbers or key_dates)
@@ -336,7 +356,15 @@ def _build_distilled_context_from_hier_summary(
     return "\n\n".join(parts).strip()
 
 
-def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, vision_pages, embedding_source: str, run_id: int | None = None) -> None:
+def _embed_with_pages(
+    settings,
+    db: Session,
+    doc: Document,
+    baseline_pages,
+    vision_pages,
+    embedding_source: str,
+    run_id: int | None = None,
+) -> None:
     content_value = clean_ocr_text(doc.content or "")
     page_texts = (baseline_pages or []) + (vision_pages or [])
     hash_source = (
@@ -369,7 +397,9 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
                 words=getattr(page, "words", None),
             )
         )
-    baseline_chunks = chunk_document_with_pages(settings, content_value, normalized_baseline_pages or None)
+    baseline_chunks = chunk_document_with_pages(
+        settings, content_value, normalized_baseline_pages or None
+    )
     vision_chunks = (
         chunk_document_with_pages(settings, content_value, normalized_vision_pages or None)
         if normalized_vision_pages
@@ -431,7 +461,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         vectors = embed_texts(settings, texts, telemetry=telemetry)
         doc_vectors.extend(vectors)
         points = []
-        for offset, (chunk, vector) in enumerate(zip(chunk_batch, vectors)):
+        for offset, (chunk, vector) in enumerate(zip(chunk_batch, vectors, strict=False)):
             chunk_idx = start + offset
             chunk_text_value = texts[offset]
             points.append(
@@ -498,7 +528,7 @@ def _embed_with_pages(settings, db: Session, doc: Document, baseline_pages, visi
         db.add(existing)
     existing.content_hash = content_hash
     existing.embedding_model = settings.embedding_model
-    existing.embedded_at = datetime.now(timezone.utc).isoformat()
+    existing.embedded_at = datetime.now(UTC).isoformat()
     previous_source = str(existing.embedding_source or "").strip().lower()
     if previous_source == "both" or (previous_source and previous_source != embedding_source):
         existing.embedding_source = "both"
@@ -514,7 +544,7 @@ def _process_sync_only(settings, db: Session, doc_id: int) -> None:
         return
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
-    cache: dict[str, set[str]] = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: dict[str, set[int]] = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
     doc = get_document_or_none(db, doc_id)
@@ -528,7 +558,7 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
         return
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
-    cache: dict[str, set[str]] = {"correspondents": set(), "document_types": set(), "tags": set()}
+    cache: dict[str, set[int]] = {"correspondents": set(), "document_types": set(), "tags": set()}
     _upsert_document(db, settings, data, cache)
     db.commit()
 
@@ -563,7 +593,9 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
             _process_page_notes(settings, db, doc_id, source="vision_ocr", run_id=run_id)
             _process_summary_hierarchical(settings, db, doc_id, source="vision_ocr", run_id=run_id)
         else:
-            _process_summary_hierarchical(settings, db, doc_id, source="paperless_ocr", run_id=run_id)
+            _process_summary_hierarchical(
+                settings, db, doc_id, source="paperless_ocr", run_id=run_id
+            )
 
     # Suggestions
     tags = get_cached_tags(settings)
@@ -635,7 +667,10 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
             model_name=settings.text_model,
         )
 
-def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = False, run_id: int | None = None) -> None:
+
+def _process_vision_ocr_only(
+    settings, db: Session, doc_id: int, force: bool = False, run_id: int | None = None
+) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort vision OCR doc=%s", doc_id)
         return
@@ -660,10 +695,14 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
         if force:
             target_pages = list(range(1, expected_pages + 1))
         else:
-            target_pages = [page for page in range(1, expected_pages + 1) if page not in existing_pages]
+            target_pages = [
+                page for page in range(1, expected_pages + 1) if page not in existing_pages
+            ]
             if not target_pages:
                 ensure_document_ocr_score(settings, db, doc, "vision_ocr")
-                logger.info("Vision OCR skipped (already complete) doc=%s pages=%s", doc_id, expected_pages)
+                logger.info(
+                    "Vision OCR skipped (already complete) doc=%s pages=%s", doc_id, expected_pages
+                )
                 return
     else:
         if not force and existing_pages:
@@ -696,7 +735,9 @@ def _process_vision_ocr_only(settings, db: Session, doc_id: int, force: bool = F
 
     processed_any = False
     if target_pages is None:
-        _set_task_checkpoint(db, run_id=run_id, stage="vision_ocr", current=0, total=0, extra={"mode": "all"})
+        _set_task_checkpoint(
+            db, run_id=run_id, stage="vision_ocr", current=0, total=0, extra={"mode": "all"}
+        )
         generated = vision_ocr.ocr_pdf_pages(
             settings,
             pdf_bytes,
@@ -801,7 +842,9 @@ def _process_cleanup_texts(
     )
 
 
-def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id: int | None = None) -> None:
+def _process_page_notes(
+    settings, db: Session, doc_id: int, source: str, run_id: int | None = None
+) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort page notes doc=%s source=%s", doc_id, source)
         return
@@ -809,7 +852,11 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id:
     if not doc:
         return
     if not _is_large_doc(settings, doc):
-        logger.info("Page notes skipped (small doc) doc=%s threshold=%s", doc_id, settings.large_doc_page_threshold)
+        logger.info(
+            "Page notes skipped (small doc) doc=%s threshold=%s",
+            doc_id,
+            settings.large_doc_page_threshold,
+        )
         return
     if source == "paperless_ocr":
         _ensure_paperless_page_texts(settings, db, doc)
@@ -879,7 +926,7 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id:
                 status="ok",
                 model_name=settings.text_model,
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, httpx.HTTPError) as exc:
             upsert_page_note(
                 db,
                 doc_id=doc_id,
@@ -890,7 +937,13 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id:
                 error=str(exc)[:1000],
                 model_name=settings.text_model,
             )
-            logger.warning("Page notes failed doc=%s page=%s source=%s error=%s", doc_id, page.page, source, exc)
+            logger.warning(
+                "Page notes failed doc=%s page=%s source=%s error=%s",
+                doc_id,
+                page.page,
+                source,
+                exc,
+            )
         finally:
             processed_pages += 1
             _set_task_checkpoint(
@@ -903,11 +956,16 @@ def _process_page_notes(settings, db: Session, doc_id: int, source: str, run_id:
             )
 
 
-def _process_summary_hierarchical(settings, db: Session, doc_id: int, source: str, run_id: int | None = None) -> None:
+def _process_summary_hierarchical(
+    settings, db: Session, doc_id: int, source: str, run_id: int | None = None
+) -> None:
     pipeline = HierarchicalSummaryPipeline(settings, db)
     pipeline.run(doc_id=doc_id, source=source, run_id=run_id)
 
-def _process_embeddings_paperless(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
+
+def _process_embeddings_paperless(
+    settings, db: Session, doc_id: int, run_id: int | None = None
+) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
         return
@@ -952,7 +1010,9 @@ def _process_evidence_index(
     upsert_page_anchors(db, doc_id=doc_id, source=source, rows=rows)
 
 
-def _process_embeddings_vision(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
+def _process_embeddings_vision(
+    settings, db: Session, doc_id: int, run_id: int | None = None
+) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
         return
@@ -984,7 +1044,7 @@ def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
     if not ok:
         raise RuntimeError(
             f"similarity_index_rebuild_failed doc_id={int(doc_id)} "
-            f"chunk_count={int(embedding.chunk_count or 0)} source={str(embedding.embedding_source or '')}"
+            f"chunk_count={int(embedding.chunk_count or 0)} source={embedding.embedding_source or ''!s}"
         )
 
 
@@ -1049,7 +1109,9 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
     )
     expected_pages = int(doc.page_count or 0)
     bounded_pages = {int(page.page) for page in vision_pages if int(page.page) > 0}
-    has_complete_vision = bool(vision_pages) if expected_pages <= 0 else len(bounded_pages) >= expected_pages
+    has_complete_vision = (
+        bool(vision_pages) if expected_pages <= 0 else len(bounded_pages) >= expected_pages
+    )
     if settings.enable_vision_ocr and not has_complete_vision:
         logger.info(
             "Vision suggestions requested without complete vision OCR; backfilling doc=%s expected_pages=%s have=%s",
@@ -1115,7 +1177,12 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
     field = str(task.get("field") or "")
     count = int(task.get("count") or 3)
     current = task.get("current")
-    if source not in ("paperless_ocr", "vision_ocr") or field not in ("title", "date", "correspondent", "tags"):
+    if source not in ("paperless_ocr", "vision_ocr") or field not in (
+        "title",
+        "date",
+        "correspondent",
+        "tags",
+    ):
         return
     raw = paperless.get_document(settings, doc_id)
     tags = get_cached_tags(settings)
@@ -1127,7 +1194,9 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
             .order_by(DocumentPageText.page.asc())
             .all()
         )
-        text = _join_page_texts_limited(vision_pages, max_chars=settings.worker_suggestions_max_chars)
+        text = _join_page_texts_limited(
+            vision_pages, max_chars=settings.worker_suggestions_max_chars
+        )
     else:
         doc = get_document_or_none(db, doc_id)
         text = clean_ocr_text(doc.content) if doc and doc.content else ""
@@ -1175,8 +1244,12 @@ def _dispatch_task(
             source=str((task or {}).get("source") or "paperless_pdf"),
             run_id=run_id,
         ),
-        "embeddings_paperless": lambda: _process_embeddings_paperless(settings, db, doc_id, run_id=run_id),
-        "embeddings_vision": lambda: _process_embeddings_vision(settings, db, doc_id, run_id=run_id),
+        "embeddings_paperless": lambda: _process_embeddings_paperless(
+            settings, db, doc_id, run_id=run_id
+        ),
+        "embeddings_vision": lambda: _process_embeddings_vision(
+            settings, db, doc_id, run_id=run_id
+        ),
         "similarity_index": lambda: _process_similarity_index(settings, db, doc_id),
         "cleanup_texts": lambda: _process_cleanup_texts(
             settings,
@@ -1185,8 +1258,12 @@ def _dispatch_task(
             source=str((task or {}).get("source")) if (task or {}).get("source") else None,
             clear_first=bool((task or {}).get("clear_first")),
         ),
-        "page_notes_paperless": lambda: _process_page_notes(settings, db, doc_id, "paperless_ocr", run_id=run_id),
-        "page_notes_vision": lambda: _process_page_notes(settings, db, doc_id, "vision_ocr", run_id=run_id),
+        "page_notes_paperless": lambda: _process_page_notes(
+            settings, db, doc_id, "paperless_ocr", run_id=run_id
+        ),
+        "page_notes_vision": lambda: _process_page_notes(
+            settings, db, doc_id, "vision_ocr", run_id=run_id
+        ),
         "summary_hierarchical": lambda: _process_summary_hierarchical(
             settings,
             db,
@@ -1248,11 +1325,13 @@ def main() -> None:
         while not stop_event.is_set():
             try:
                 mark_worker_heartbeat(settings)
-            except Exception:
+            except (RedisError, RuntimeError):
                 logger.warning("Worker heartbeat update failed", exc_info=True)
             stop_event.wait(HEARTBEAT_INTERVAL_SECONDS)
 
-    lock_refresher = threading.Thread(target=_lock_refresher, name="worker-lock-refresher", daemon=True)
+    lock_refresher = threading.Thread(
+        target=_lock_refresher, name="worker-lock-refresher", daemon=True
+    )
     heartbeat_refresher = threading.Thread(
         target=_heartbeat_refresher,
         name="worker-heartbeat-refresher",
@@ -1279,7 +1358,7 @@ def main() -> None:
             task = None
             try:
                 task = json.loads(doc_id_str)
-            except Exception:
+            except JSONDecodeError:
                 task = None
             if isinstance(task, dict) and "doc_id" in task:
                 raw_task_doc_id = task.get("doc_id")
@@ -1291,7 +1370,7 @@ def main() -> None:
             else:
                 try:
                     doc_id = int(doc_id_str)
-                except Exception:
+                except (TypeError, ValueError):
                     logger.warning("Invalid doc_id in queue: %s", doc_id_str)
                     continue
                 task_type = "full"
@@ -1314,11 +1393,13 @@ def main() -> None:
             if isinstance(task, dict):
                 try:
                     retry_attempt = int(task.get("retry_count") or 0)
-                except Exception:
+                except (TypeError, ValueError):
                     retry_attempt = 0
             try:
                 with SessionLocal() as db:
-                    task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
+                    task_payload = (
+                        task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
+                    )
                     source = task_source_from_payload(task if isinstance(task, dict) else None)
                     run_row = create_task_run(
                         db,
@@ -1354,10 +1435,20 @@ def main() -> None:
                             run_id=run_id,
                         )
                     except Exception as exc:
+                        worker_error = (
+                            exc
+                            if isinstance(exc, WorkerError)
+                            else WorkerError(
+                                str(exc),
+                                task=task_type,
+                                attempt=retry_attempt + 1,
+                                original_exception=exc,
+                            )
+                        )
                         _safe_rollback(db, context="dispatch_task_failed")
                         run_status = "failed"
-                        run_error_type = classify_worker_error(exc)
-                        run_error_message = str(exc)
+                        run_error_type = classify_worker_error(worker_error)
+                        run_error_message = worker_error.message
                         log_event(
                             logger,
                             logging.ERROR,
@@ -1367,6 +1458,7 @@ def main() -> None:
                             retry_attempt=retry_attempt + 1,
                             error_type=run_error_type,
                             error_message=run_error_message,
+                            error_class=worker_error.original_type or worker_error.__class__.__name__,
                         )
                         logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
                     finally:
@@ -1382,7 +1474,7 @@ def main() -> None:
                             retry_payload = dict(task_payload)
                             retry_payload["retry_count"] = retry_attempt + 1
                             pending_retry_payload = retry_payload
-                            pending_retry_delay_seconds = min(300, 5 * (2 ** retry_attempt))
+                            pending_retry_delay_seconds = min(300, 5 * (2**retry_attempt))
                             run_status = "retrying"
                             log_event(
                                 logger,
@@ -1396,7 +1488,9 @@ def main() -> None:
                             )
                         elif run_status == "failed":
                             pending_dead_letter = {
-                                "task": task_payload if isinstance(task_payload, dict) else {"doc_id": doc_id, "task": task_type},
+                                "task": task_payload
+                                if isinstance(task_payload, dict)
+                                else {"doc_id": doc_id, "task": task_type},
                                 "error_type": run_error_type or "WORKER_TASK_ERROR",
                                 "error_message": run_error_message or "unknown error",
                                 "attempt": retry_attempt + 1,
@@ -1411,7 +1505,7 @@ def main() -> None:
                                 error_type=run_error_type,
                                 error_message=run_error_message,
                             )
-            except Exception as exc:
+            except SQLAlchemyError as exc:
                 log_event(
                     logger,
                     logging.ERROR,
@@ -1432,7 +1526,9 @@ def main() -> None:
                     else:
                         client.srem(QUEUE_SET, str(doc_id))
                 if pending_retry_payload is not None:
-                    enqueue_task_delayed(settings, pending_retry_payload, pending_retry_delay_seconds or 5)
+                    enqueue_task_delayed(
+                        settings, pending_retry_payload, pending_retry_delay_seconds or 5
+                    )
                 elif pending_dead_letter is not None:
                     add_dead_letter(
                         settings,

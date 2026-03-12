@@ -1,34 +1,35 @@
 from __future__ import annotations
 
-import logging
 import json
-from typing import Any
+import logging
+from typing import TYPE_CHECKING, Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, joinedload
 
 from app.api_models import (
-    WritebackHistoryResponse,
+    WritebackDirectExecuteRequest,
+    WritebackDirectExecuteResponse,
     WritebackDryRunCall,
     WritebackDryRunExecuteRequest,
     WritebackDryRunExecuteResponse,
+    WritebackDryRunPreviewResponse,
     WritebackExecuteNowRequest,
     WritebackExecuteNowResponse,
-    WritebackDirectExecuteRequest,
-    WritebackDirectExecuteResponse,
-    WritebackJobCreateRequest,
-    WritebackJobDetail,
+    WritebackExecutePendingJobResult,
     WritebackExecutePendingRequest,
     WritebackExecutePendingResponse,
-    WritebackExecutePendingJobResult,
+    WritebackHistoryResponse,
+    WritebackJobCreateRequest,
+    WritebackJobDeleteResponse,
+    WritebackJobDetail,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
-    WritebackJobDeleteResponse,
     WritebackJobSummary,
-    WritebackDryRunPreviewResponse,
 )
-from app.config import Settings
 from app.db import get_db
 from app.deps import get_settings
 from app.models import (
@@ -42,25 +43,45 @@ from app.services.integrations import paperless
 from app.services.runtime.json_utils import parse_json_list
 from app.services.runtime.string_list_json import parse_string_list_json
 from app.services.runtime.time_utils import utc_now_iso
-from app.services.writeback.writeback_execution import collect_changed_calls, execute_calls_with_audit, run_writeback_job_execution
-from app.services.writeback.writeback_plan import extract_ai_summary_note
-from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item
 from app.services.writeback.writeback_apply import execute_writeback_call as _execute_call
 from app.services.writeback.writeback_direct import (
     build_writeback_conflicts as _build_writeback_conflicts,
+)
+from app.services.writeback.writeback_direct import (
     execute_direct_selection as _execute_direct_selection,
+)
+from app.services.writeback.writeback_direct import (
     resolve_direct_selection as _resolve_direct_selection,
+)
+from app.services.writeback.writeback_direct import (
     sync_local_field_from_paperless as _sync_local_field_from_paperless,
 )
+from app.services.writeback.writeback_execution import (
+    collect_changed_calls,
+    execute_calls_with_audit,
+    run_writeback_job_execution,
+)
+from app.services.writeback.writeback_plan import extract_ai_summary_note
 from app.services.writeback.writeback_preview import (
     build_writeback_item as _build_item,
+)
+from app.services.writeback.writeback_preview import (
     local_writeback_candidate_doc_ids as _local_writeback_candidate_doc_ids,
+)
+from app.services.writeback.writeback_preview import (
     metadata_maps as _metadata_maps,
+)
+from app.services.writeback.writeback_preview import (
     preview_for_doc_ids as _preview_for_doc_ids,
 )
+from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/writeback", tags=["writeback"])
+
 
 def _missing_writeback_jobs_table(exc: Exception) -> bool:
     text = str(exc).lower()
@@ -77,7 +98,10 @@ def _raise_missing_table_message() -> None:
         detail="Writeback jobs table is missing. Run database migrations (alembic upgrade head).",
     )
 
-def _cleanup_pending_rows_after_patch(db: Session, doc_id: int, patch_payload: dict[str, Any]) -> None:
+
+def _cleanup_pending_rows_after_patch(
+    db: Session, doc_id: int, patch_payload: dict[str, Any]
+) -> None:
     if "tags" in patch_payload:
         pending_row = (
             db.query(DocumentPendingTag)
@@ -116,7 +140,7 @@ def _deserialize_doc_ids(job: WritebackJob) -> list[int]:
     for item in parse_json_list(job.doc_ids_json):
         try:
             doc_ids.append(int(item))
-        except Exception:
+        except (TypeError, ValueError):
             continue
     return doc_ids
 
@@ -128,7 +152,7 @@ def _deserialize_calls(job: WritebackJob) -> list[WritebackDryRunCall]:
             continue
         try:
             calls.append(WritebackDryRunCall(**item))
-        except Exception:
+        except ValidationError:
             continue
     return calls
 
@@ -150,7 +174,7 @@ def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) ->
             if local_doc:
                 local_doc.modified = modified
             return modified
-    except Exception:
+    except (httpx.HTTPError, RuntimeError, ValueError):
         logger.warning("Failed to fetch paperless modified for reviewed_at doc=%s", doc_id)
     return utc_now_iso()
 
@@ -189,7 +213,11 @@ def execute_writeback_direct_for_document(
         .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
         .one_or_none()
     )
-    pending_correspondent_name = str(pending_correspondent_row.name or "").strip() if pending_correspondent_row else ""
+    pending_correspondent_name = (
+        str(pending_correspondent_row.name or "").strip()
+        if pending_correspondent_row
+        else ""
+    )
     remote_doc = paperless.get_document_cached(settings, doc_id)
     item = _build_item(
         local_doc=local_doc,
@@ -224,7 +252,9 @@ def execute_writeback_direct_for_document(
 
     known_modified = (request.known_paperless_modified or "").strip()
     current_modified = str(remote_doc.get("modified") or "").strip()
-    needs_conflict_resolution = bool(known_modified and current_modified and known_modified != current_modified)
+    needs_conflict_resolution = bool(
+        known_modified and current_modified and known_modified != current_modified
+    )
     if needs_conflict_resolution and not request.resolutions:
         return WritebackDirectExecuteResponse(
             status="conflicts",
@@ -263,7 +293,7 @@ def execute_writeback_direct_for_document(
         )
     except RuntimeError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if calls or request.resolutions:
         reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
@@ -410,7 +440,10 @@ def create_writeback_job(
 
     existing = (
         db.query(WritebackJob)
-        .filter(WritebackJob.status.in_(["pending", "running"]), WritebackJob.doc_ids_json == doc_ids_json)
+        .filter(
+            WritebackJob.status.in_(["pending", "running"]),
+            WritebackJob.doc_ids_json == doc_ids_json,
+        )
         .order_by(WritebackJob.id.desc())
         .first()
     )
@@ -567,7 +600,11 @@ def execute_pending_writeback_jobs(
         )
 
     limit = max(0, int(request.limit or 0))
-    query = db.query(WritebackJob).filter(WritebackJob.status == "pending").order_by(WritebackJob.id.asc())
+    query = (
+        db.query(WritebackJob)
+        .filter(WritebackJob.status == "pending")
+        .order_by(WritebackJob.id.asc())
+    )
     if limit > 0:
         query = query.limit(limit)
 

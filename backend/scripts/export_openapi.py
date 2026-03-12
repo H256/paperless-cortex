@@ -1,26 +1,26 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-try:
-    import sqlalchemy  # noqa: F401
-except ModuleNotFoundError:
-    sqlalchemy = types.ModuleType("sqlalchemy")
+if importlib.util.find_spec("sqlalchemy") is None:
+    sqlalchemy: Any = types.ModuleType("sqlalchemy")
 
-    def _placeholder(*_args, **_kwargs):
+    def _placeholder(*_args: Any, **_kwargs: Any) -> None:
         return None
 
     class _DeclarativeBase:
-        metadata = object()
+        metadata: object = object()
 
     class _Mapped:
-        def __class_getitem__(cls, _item):
+        def __class_getitem__(cls, _item: Any) -> type[_Mapped]:
             return cls
 
     sqlalchemy.create_engine = _placeholder
@@ -31,7 +31,7 @@ except ModuleNotFoundError:
     sqlalchemy.Boolean = sqlalchemy.Column = sqlalchemy.ForeignKey = sqlalchemy.Integer = _placeholder
     sqlalchemy.String = sqlalchemy.Table = sqlalchemy.Text = _placeholder
 
-    orm = types.ModuleType("sqlalchemy.orm")
+    orm: Any = types.ModuleType("sqlalchemy.orm")
     orm.Session = type("Session", (), {})
     orm.sessionmaker = lambda *args, **kwargs: _placeholder
     orm.DeclarativeBase = _DeclarativeBase

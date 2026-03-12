@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from app.config import Settings
+from typing import TYPE_CHECKING
+
 from app.services.search import qdrant
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def ensure_llm_base_ready(settings: Settings) -> None:

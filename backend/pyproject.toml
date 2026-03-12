@@ -22,6 +22,7 @@ dev-dependencies = [
     "mypy>=1.15.0",
     "pytest>=8.3.0",
     "ruff>=0.6.0",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.mypy]
@@ -33,14 +34,145 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 files = [
-    "app/services/writeback_apply.py",
-    "app/services/writeback_execution.py",
-    "app/services/writeback_selection.py",
-    "app/services/writeback_direct.py",
-    "app/services/writeback_preview.py",
-    "app/services/worker_checkpoint.py",
+    "alembic/env.py",
+    "scripts/export_openapi.py",
+    "app/__init__.py",
+    # Writeback services (already configured)
+    "app/services/writeback/writeback_apply.py",
+    "app/services/writeback/writeback_execution.py",
+    "app/services/writeback/writeback_selection.py",
+    "app/services/writeback/writeback_direct.py",
+    "app/services/writeback/writeback_preview.py",
+    "app/services/pipeline/worker_checkpoint.py",
     "app/routes/writeback_dryrun.py",
     "app/worker.py",
+    # Runtime utilities (well-typed)
+    "app/services/runtime/time_utils.py",
+    "app/services/runtime/json_utils.py",
+    "app/services/runtime/string_list_json.py",
+    "app/services/runtime/logging_setup.py",
+    # Documents utilities (simple, well-typed)
+    "app/services/documents/documents.py",
+    "app/services/documents/dashboard.py",
+    "app/services/documents/page_types.py",
+    "app/services/documents/note_ids.py",
+    "app/services/documents/pagination.py",
+    "app/services/documents/text_cleaning.py",
+    "app/services/documents/text_pages.py",
+    "app/services/documents/document_stats.py",
+    "app/services/documents/document_review.py",
+    # AI services (core functionality)
+    "app/services/ai/llm_client.py",
+    "app/services/ai/ocr_scoring.py",
+    "app/services/ai/chat.py",
+    "app/services/ai/hierarchical_helpers.py",
+    "app/services/ai/suggestions.py",
+    "app/services/ai/vision_ocr.py",
+    "app/services/ai/hierarchical_generation.py",
+    "app/services/ai/hierarchical_summary.py",
+    "app/services/ai/hierarchical_summary_pipeline.py",
+    "app/services/ai/text_budget.py",
+    "app/services/ai/json_extraction.py",
+    # Search utilities
+    "app/services/search/qdrant.py",
+    "app/services/search/evidence_index.py",
+    # Integration utilities
+    "app/services/integrations/meta_upsert.py",
+    # Pipeline utilities
+    "app/services/pipeline/error_types.py",
+    "app/services/pipeline/pipeline_fanout.py",
+    "app/services/pipeline/queue.py",
+    "app/services/pipeline/sync_state.py",
+    "app/services/runtime/guard.py",
+    # Config and exceptions
+    "app/config.py",
+    "app/db.py",
+    "app/exceptions.py",
+    "app/main.py",
+    "app/version.py",
+    # Additional well-typed services
+    "app/services/documents/page_texts_merge.py",
+    "app/services/documents/page_text_store.py",
+    "app/services/ai/suggestion_store.py",
+    "app/services/ai/hierarchical_storage.py",
+    "app/services/integrations/meta_sync.py",
+    "app/services/integrations/meta_cache.py",
+    "app/services/integrations/connections.py",
+    "app/services/integrations/paperless.py",
+    "app/services/search/similarity.py",
+    "app/services/search/embedding_init.py",
+    "app/services/pipeline/task_runs.py",
+    "app/services/pipeline/pipeline_planner.py",
+    "app/services/pipeline/process_missing.py",
+    "app/services/pipeline/queue_tasks.py",
+    "app/services/writeback/writeback_plan.py",
+    # Core models and schemas
+    "app/models.py",
+    "app/api_models.py",
+    "app/deps.py",
+    "app/routes/chat.py",
+    "app/routes/__init__.py",
+    "app/routes/connections.py",
+    "app/routes/documents_common.py",
+    "app/routes/documents_similarity.py",
+    "app/routes/meta.py",
+    "app/routes/queue.py",
+    "app/routes/queue_helpers.py",
+    "app/routes/queue_guard.py",
+    "app/routes/status.py",
+    "app/routes/sync.py",
+    "app/routes/documents_actions.py",
+    "app/routes/documents.py",
+    "app/routes/documents_suggestions.py",
+    "app/routes/embeddings.py",
+    "app/services/ai/__init__.py",
+    "app/services/documents/__init__.py",
+    "app/services/integrations/__init__.py",
+    "app/services/pipeline/__init__.py",
+    "app/services/runtime/__init__.py",
+    "app/services/search/__init__.py",
+    "app/services/writeback/__init__.py",
+    "app/services/search/evidence.py",
+    "app/services/search/embeddings.py",
+    "tests/test_json_utils.py",
+    "tests/test_note_ids.py",
+    "tests/test_string_list_json.py",
+    "tests/test_worker_error_types.py",
+    "tests/test_worker_checkpoint_recovery.py",
+    "tests/test_writeback_plan.py",
+    "tests/test_qdrant_service.py",
+    "tests/test_similarity_service.py",
+    "tests/test_writeback_preview_service.py",
+    "tests/test_task_runs_service.py",
+    "tests/test_writeback_selection_service.py",
+    "tests/test_chat_routes.py",
+    "tests/test_status_routes.py",
+    "tests/test_meta_sync.py",
+    "tests/test_sync_upsert_notes.py",
+    "tests/test_documents_suggestions_routes.py",
+    "tests/test_writeback_direct_service.py",
+    "tests/test_queue_resilience.py",
+    "tests/test_queue_stats_self_heal.py",
+    "tests/test_pipeline_similarity_index.py",
+    "tests/test_worker_vision_suggestions.py",
+    "tests/test_writeback_apply_service.py",
+    "tests/test_embedding_chunk_budget.py",
+    "tests/test_hierarchical_summary_parsing.py",
+    "tests/test_pipeline_fanout_service.py",
+    "tests/test_evidence_service.py",
+    "tests/test_chat_evidence_routes.py",
+    "tests/test_sync_meta_connections_routes.py",
+    "tests/test_large_doc_processing.py",
+    "tests/test_queue_delayed_routes.py",
+    "tests/test_queue_dlq_routes.py",
+    "tests/test_worker_resume_checkpoint.py",
+    "tests/test_worker_retry_checkpoint_sequence.py",
+    "tests/test_queue_task_runs_routes.py",
+    "tests/test_chat_service_evidence.py",
+    "tests/test_documents_routes.py",
+    "tests/test_writeback_dryrun_routes.py",
+    "tests/test_writeback_jobs_routes.py",
+    "tests/conftest.py",
 ]
 
 [[tool.mypy.overrides]]
@@ -51,3 +183,34 @@ module = [
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = false
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # function call in argument defaults (FastAPI uses this pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/versions/*.py" = ["N999"]  # allow non-standard naming in migrations
+"tests/*.py" = ["N802", "N803"]  # allow non-standard function/arg names in tests
+"app/api_models.py" = ["N815"]  # preserve public API field names like documentType
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

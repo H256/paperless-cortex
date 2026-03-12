@@ -32,7 +32,7 @@ def _item(changed_fields: list[str]) -> WritebackDryRunItem:
     )
 
 
-def test_collect_local_selection_normalizes_and_maps_payload():
+def test_collect_local_selection_normalizes_and_maps_payload() -> None:
     selection = collect_local_selection(item=_item(["document_date", "correspondent", "tags"]), fields=["document_date", "correspondent", "tags"])
     assert selection.patch_payload["created"] == "2026-02-01"
     assert selection.patch_payload["correspondent"] == 2
@@ -42,7 +42,7 @@ def test_collect_local_selection_normalizes_and_maps_payload():
     assert selection.apply_local_note is False
 
 
-def test_build_calls_for_item_includes_patch_delete_post_for_note_replace():
+def test_build_calls_for_item_includes_patch_delete_post_for_note_replace() -> None:
     calls = build_calls_for_item(_item(["title", "note"]))
     assert len(calls) == 3
     assert calls[0].method == "PATCH"
@@ -53,6 +53,6 @@ def test_build_calls_for_item_includes_patch_delete_post_for_note_replace():
     assert calls[2].payload.get("note") == "new"
 
 
-def test_build_calls_for_item_empty_when_not_changed():
+def test_build_calls_for_item_empty_when_not_changed() -> None:
     calls = build_calls_for_item(_item([]))
     assert calls == []

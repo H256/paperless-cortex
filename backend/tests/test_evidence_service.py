@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -8,7 +9,7 @@ from app.config import load_settings
 from app.services.search.evidence import resolve_evidence_matches
 
 
-def test_resolve_evidence_uses_provided_bbox_when_valid():
+def test_resolve_evidence_uses_provided_bbox_when_valid() -> None:
     matches = resolve_evidence_matches(
         [{"doc_id": 1756, "page": 3, "snippet": "x", "bbox": [10, 20, 30, 40]}],
         max_pages=3,
@@ -18,7 +19,7 @@ def test_resolve_evidence_uses_provided_bbox_when_valid():
     assert matches[0]["bbox"] == [10.0, 20.0, 30.0, 40.0]
 
 
-def test_resolve_evidence_returns_no_match_without_bbox():
+def test_resolve_evidence_returns_no_match_without_bbox() -> None:
     matches = resolve_evidence_matches(
         [{"doc_id": 1756, "page": 3, "snippet": "valid snippet", "bbox": None}],
         max_pages=3,
@@ -28,7 +29,9 @@ def test_resolve_evidence_returns_no_match_without_bbox():
     assert matches[0]["bbox"] is None
 
 
-def test_resolve_evidence_uses_pdf_word_matching_when_settings_available(monkeypatch):
+def test_resolve_evidence_uses_pdf_word_matching_when_settings_available(
+    monkeypatch: Any,
+) -> None:
     settings = load_settings()
 
     monkeypatch.setattr(
@@ -50,7 +53,7 @@ def test_resolve_evidence_uses_pdf_word_matching_when_settings_available(monkeyp
     assert matches[0]["bbox"] == [10.0, 10.0, 150.0, 20.0]
 
 
-def test_resolve_evidence_parses_real_pdf_fixture(monkeypatch):
+def test_resolve_evidence_parses_real_pdf_fixture(monkeypatch: Any) -> None:
     fitz = pytest.importorskip("fitz")
     _ = fitz
     settings = load_settings()

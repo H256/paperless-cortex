@@ -1,16 +1,21 @@
 from __future__ import annotations
 
-import logging
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+import httpx
 from sqlalchemy.exc import OperationalError, ProgrammingError
-from sqlalchemy.orm import Session
 
-from app.api_models import WritebackDryRunCall, WritebackDryRunItem
-from app.config import Settings
 from app.models import SuggestionAudit, WritebackJob
 from app.services.runtime.time_utils import utc_now_iso
+
+if TYPE_CHECKING:
+    import logging
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
+    from app.api_models import WritebackDryRunCall, WritebackDryRunItem
+    from app.config import Settings
 
 
 def collect_changed_calls(
@@ -111,7 +116,7 @@ def run_writeback_job_execution(
             reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
             logger=logger,
         )
-    except Exception as exc:
+    except (RuntimeError, ValueError, httpx.HTTPError) as exc:
         execution_error = str(exc)
 
     job.finished_at = utc_now_iso()

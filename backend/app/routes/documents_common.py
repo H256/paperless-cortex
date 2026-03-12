@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING
 
 from app.models import Document, DocumentSuggestion
-from app.services.runtime.json_utils import parse_json_object
 from app.services.ai.suggestions import normalize_suggestions_payload
+from app.services.runtime.json_utils import parse_json_object
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -14,7 +16,7 @@ def parse_iso(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except Exception:
+    except ValueError:
         return None
 
 

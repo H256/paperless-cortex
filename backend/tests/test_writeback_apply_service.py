@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.api_models import WritebackDryRunCall
 from app.config import load_settings
 from app.models import Document, DocumentPendingCorrespondent, Tag
 from app.services.writeback.writeback_apply import execute_writeback_call
 
 
-def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(session_factory, monkeypatch):
+def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(
+    session_factory: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     settings = load_settings()
@@ -26,7 +30,7 @@ def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(sessio
         monkeypatch.setattr(paperless, "create_tag", lambda *_args, **_kwargs: {"id": 2, "name": "PendingTag"})
         monkeypatch.setattr(paperless, "list_all_correspondents", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(paperless, "create_correspondent", lambda *_args, **_kwargs: {"id": 77, "name": "New Corr"})
-        patched: list[dict] = []
+        patched: list[dict[str, Any]] = []
         monkeypatch.setattr(
             paperless,
             "update_document",
@@ -62,7 +66,9 @@ def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(sessio
         assert pending_corr is None
 
 
-def test_execute_writeback_call_post_and_delete_paths(session_factory, monkeypatch):
+def test_execute_writeback_call_post_and_delete_paths(
+    session_factory: Any, monkeypatch: Any
+) -> None:
     from app.services.integrations import paperless
 
     settings = load_settings()
@@ -100,7 +106,9 @@ def test_execute_writeback_call_post_and_delete_paths(session_factory, monkeypat
         assert ("del", 1202, 66) in notes
 
 
-def test_execute_writeback_call_delete_raises_for_invalid_note_path(session_factory):
+def test_execute_writeback_call_delete_raises_for_invalid_note_path(
+    session_factory: Any,
+) -> None:
     settings = load_settings()
     with session_factory() as db:
         try:

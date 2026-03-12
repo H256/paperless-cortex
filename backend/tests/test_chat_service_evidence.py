@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from app.config import load_settings
 from app.services.ai.chat import MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, answer_question
 
 
-def test_answer_question_enriches_citations_with_evidence(monkeypatch):
+def test_answer_question_enriches_citations_with_evidence(monkeypatch: Any) -> None:
     settings = load_settings()
 
     monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _settings: None)
@@ -30,7 +32,13 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
     )
     monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
     monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
-    def _resolver(citations, max_pages=3, settings=None, db=None):
+
+    def _resolver(
+        citations: list[dict[str, Any]],
+        max_pages: int = 3,
+        settings: Any = None,
+        db: Any = None,
+    ) -> list[dict[str, Any]]:
         return [
             {
                 "doc_id": 1756,
@@ -47,14 +55,14 @@ def test_answer_question_enriches_citations_with_evidence(monkeypatch):
 
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
-    citations = result["citations"]
+    citations = cast("list[dict[str, Any]]", result["citations"])
     assert len(citations) == 1
     assert citations[0]["evidence_status"] == "ok"
     assert citations[0]["evidence_confidence"] == 0.95
     assert citations[0]["bbox"] == [10, 20, 30, 40]
 
 
-def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
+def test_answer_question_skips_evidence_for_short_snippets(monkeypatch: Any) -> None:
     settings = load_settings()
 
     monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _settings: None)
@@ -83,7 +91,12 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
 
     called = {"value": False}
 
-    def _resolver(citations, max_pages=3, settings=None, db=None):
+    def _resolver(
+        citations: list[dict[str, Any]],
+        max_pages: int = 3,
+        settings: Any = None,
+        db: Any = None,
+    ) -> list[dict[str, Any]]:
         called["value"] = True
         return []
 
@@ -92,10 +105,11 @@ def test_answer_question_skips_evidence_for_short_snippets(monkeypatch):
     result = answer_question(settings, question="What changed?", top_k=3)
     assert isinstance(result, dict)
     assert called["value"] is False
-    assert result["citations"][0].get("evidence_status") is None
+    citations = cast("list[dict[str, Any]]", result["citations"])
+    assert citations[0].get("evidence_status") is None
 
 
-def test_answer_question_uses_configured_evidence_limits(monkeypatch):
+def test_answer_question_uses_configured_evidence_limits(monkeypatch: Any) -> None:
     monkeypatch.setenv("EVIDENCE_MIN_SNIPPET_CHARS", "5")
     monkeypatch.setenv("EVIDENCE_MAX_PAGES", "2")
     settings = load_settings()
@@ -146,9 +160,14 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
     monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _settings: "{question}\n{sources}\n{history}")
     monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", lambda *args, **kwargs: "ok")
 
-    called = {"max_pages": None}
+    called: dict[str, int | None] = {"max_pages": None}
 
-    def _resolver(citations, max_pages=3, settings=None, db=None):
+    def _resolver(
+        citations: list[dict[str, Any]],
+        max_pages: int = 3,
+        settings: Any = None,
+        db: Any = None,
+    ) -> list[dict[str, Any]]:
         called["max_pages"] = max_pages
         return [
             {
@@ -170,7 +189,7 @@ def test_answer_question_uses_configured_evidence_limits(monkeypatch):
     assert called["max_pages"] == 2
 
 
-def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
+def test_answer_question_renumbers_citations_after_filtering(monkeypatch: Any) -> None:
     settings = load_settings()
 
     monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _settings: None)
@@ -219,11 +238,12 @@ def test_answer_question_renumbers_citations_after_filtering(monkeypatch):
 
     result = answer_question(settings, question="What changed?", top_k=3, min_quality=80)
     assert isinstance(result, dict)
-    citation_ids = [item["id"] for item in result["citations"]]
+    citations = cast("list[dict[str, Any]]", result["citations"])
+    citation_ids = [item["id"] for item in citations]
     assert citation_ids == [1, 2]
 
 
-def test_answer_question_generates_and_echoes_conversation_id(monkeypatch):
+def test_answer_question_generates_and_echoes_conversation_id(monkeypatch: Any) -> None:
     settings = load_settings()
     monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _settings: None)
     monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
@@ -249,7 +269,7 @@ def test_answer_question_generates_and_echoes_conversation_id(monkeypatch):
     assert echoed["conversation_id"] == "thread-123"
 
 
-def test_answer_question_limits_history_in_prompt(monkeypatch):
+def test_answer_question_limits_history_in_prompt(monkeypatch: Any) -> None:
     settings = load_settings()
     monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _settings: None)
     monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _settings: None)
@@ -260,7 +280,9 @@ def test_answer_question_limits_history_in_prompt(monkeypatch):
 
     captured = {"prompt": ""}
 
-    def _chat_completion(_settings, model, messages, timeout=120):
+    def _chat_completion(
+        _settings: Any, model: str, messages: list[dict[str, Any]], timeout: int = 120
+    ) -> str:
         captured["prompt"] = str(messages[0].get("content") or "")
         return "ok"
 
@@ -282,7 +304,7 @@ def test_answer_question_limits_history_in_prompt(monkeypatch):
     assert ("x" * (MAX_HISTORY_CHARS + 30)) not in prompt
 
 
-def test_answer_question_prefers_chat_model_over_text_model(monkeypatch):
+def test_answer_question_prefers_chat_model_over_text_model(monkeypatch: Any) -> None:
     monkeypatch.setenv("TEXT_MODEL", "text-default")
     monkeypatch.setenv("CHAT_MODEL", "chat-override")
     settings = load_settings()
@@ -295,7 +317,9 @@ def test_answer_question_prefers_chat_model_over_text_model(monkeypatch):
 
     captured = {"model": ""}
 
-    def _chat_completion(_settings, model, messages, timeout=120):
+    def _chat_completion(
+        _settings: Any, model: str, messages: list[dict[str, Any]], timeout: int = 120
+    ) -> str:
         captured["model"] = str(model)
         return "ok"
 
@@ -305,7 +329,9 @@ def test_answer_question_prefers_chat_model_over_text_model(monkeypatch):
     assert captured["model"] == "chat-override"
 
 
-def test_answer_question_falls_back_to_text_model_when_chat_model_missing(monkeypatch):
+def test_answer_question_falls_back_to_text_model_when_chat_model_missing(
+    monkeypatch: Any,
+) -> None:
     monkeypatch.delenv("CHAT_MODEL", raising=False)
     monkeypatch.setenv("TEXT_MODEL", "text-default")
     settings = load_settings()
@@ -318,7 +344,9 @@ def test_answer_question_falls_back_to_text_model_when_chat_model_missing(monkey
 
     captured = {"model": ""}
 
-    def _chat_completion(_settings, model, messages, timeout=120):
+    def _chat_completion(
+        _settings: Any, model: str, messages: list[dict[str, Any]], timeout: int = 120
+    ) -> str:
         captured["model"] = str(model)
         return "ok"
 

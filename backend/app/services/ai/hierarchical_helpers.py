@@ -87,7 +87,7 @@ def _coerce_page_notes_payload(
     payload: dict[str, Any],
     raw_fallback: str | None = None,
 ) -> dict[str, Any]:
-    result = {"page": int(page)}
+    result: dict[str, Any] = {"page": int(page)}
     for key in _PAGE_NOTES_ALL_KEYS:
         result[key] = _normalize_list(payload.get(key))
     if raw_fallback and not any(result[key] for key in _PAGE_NOTES_CONTENT_KEYS):

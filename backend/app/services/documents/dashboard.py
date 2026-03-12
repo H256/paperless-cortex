@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import and_, case, exists, func, or_
-from sqlalchemy.orm import Session
 
 from app.models import (
     Correspondent,
@@ -14,6 +15,9 @@ from app.models import (
     document_tags,
 )
 from app.services.documents.document_stats import compute_document_stats
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def build_dashboard_payload(db: Session) -> dict[str, object]:
@@ -94,11 +98,15 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         .all()
     )
 
-    unprocessed_corr_ids = [corr_id for corr_id in unprocessed_by_correspondent.keys() if corr_id is not None]
+    unprocessed_corr_ids = [
+        corr_id for corr_id in unprocessed_by_correspondent if corr_id is not None
+    ]
     correspondents_map = (
         {
             row[0]: row[1]
-            for row in db.query(Correspondent.id, Correspondent.name).filter(Correspondent.id.in_(unprocessed_corr_ids)).all()
+            for row in db.query(Correspondent.id, Correspondent.name)
+            .filter(Correspondent.id.in_(unprocessed_corr_ids))
+            .all()
         }
         if unprocessed_corr_ids
         else {}
@@ -106,7 +114,8 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     unprocessed_corr_list = [
         {
             "id": corr_id,
-            "name": correspondents_map.get(corr_id) or ("Unassigned correspondent" if corr_id is None else "Untitled"),
+            "name": correspondents_map.get(corr_id)
+            or ("Unassigned correspondent" if corr_id is None else "Untitled"),
             "count": count,
         }
         for corr_id, count in unprocessed_by_correspondent.items()
@@ -123,7 +132,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         for row in monthly_rows
     ]
     if monthly_processing and monthly_processing[0]["label"] == "Unknown":
-        monthly_processing = monthly_processing[1:] + [monthly_processing[0]]
+        monthly_processing = [*monthly_processing[1:], monthly_processing[0]]
 
     page_bucket_row = db.query(
         func.sum(case((or_(Document.page_count.is_(None), Document.page_count < 1), 1), else_=0)).label("unknown"),

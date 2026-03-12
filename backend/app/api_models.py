@@ -1,12 +1,68 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-from pydantic import BaseModel, ConfigDict
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class DocumentNoteIn(BaseModel):
+    id: int
+    note: str | None = None
+    created: str | None = None
+    user: dict[str, Any] | None = None
+
+
+class DocumentIn(BaseModel):
+    id: int
+    title: str | None = None
+    content: str | None = None
+    correspondent: int | None = None
+    document_type: int | None = None
+    document_date: str | None = None
+    created: str | None = None
+    modified: str | None = None
+    added: str | None = None
+    deleted_at: str | None = None
+    archive_serial_number: int | None = None
+    original_file_name: str | None = None
+    mime_type: str | None = None
+    page_count: int | None = None
+    owner: int | None = None
+    user_can_change: bool | None = None
+    is_shared_by_requester: bool | None = None
+    notes: list[DocumentNoteIn] = Field(default_factory=list)
+    tags: list[int] = Field(default_factory=list)
+
+
+class TagIn(BaseModel):
+    id: int
+    name: str | None = None
+    color: str | None = None
+    is_inbox_tag: bool | None = None
+    slug: str | None = None
+    matching_algorithm: int | str | None = None
+    is_insensitive: bool | None = None
+
+
+class CorrespondentIn(BaseModel):
+    id: int
+    name: str | None = None
+    slug: str | None = None
+    matching_algorithm: int | str | None = None
+    is_insensitive: bool | None = None
+
+
+class DocumentTypeIn(BaseModel):
+    id: int
+    name: str | None = None
+    slug: str | None = None
+    matching_algorithm: int | str | None = None
+    is_insensitive: bool | None = None
 
 
 class StatusEntry(BaseModel):
     status: str
-    detail: Optional[str] = None
+    detail: str | None = None
 
 
 class StatusResponse(BaseModel):
@@ -16,42 +72,42 @@ class StatusResponse(BaseModel):
     llm_text: StatusEntry
     llm_embedding: StatusEntry
     llm_vision: StatusEntry
-    paperless_base_url: Optional[str] = None
-    llm_base_url: Optional[str] = None
-    qdrant_url: Optional[str] = None
-    redis_host: Optional[str] = None
-    text_model: Optional[str] = None
-    chat_model: Optional[str] = None
-    embedding_model: Optional[str] = None
-    vision_model: Optional[str] = None
-    evidence_max_pages: Optional[int] = None
-    evidence_min_snippet_chars: Optional[int] = None
-    app_version: Optional[str] = None
-    api_version: Optional[str] = None
-    frontend_version: Optional[str] = None
-    latency_ms: Optional[int] = None
+    paperless_base_url: str | None = None
+    llm_base_url: str | None = None
+    qdrant_url: str | None = None
+    redis_host: str | None = None
+    text_model: str | None = None
+    chat_model: str | None = None
+    embedding_model: str | None = None
+    vision_model: str | None = None
+    evidence_max_pages: int | None = None
+    evidence_min_snippet_chars: int | None = None
+    app_version: str | None = None
+    api_version: str | None = None
+    frontend_version: str | None = None
+    latency_ms: int | None = None
 
 
 class QueueStatusResponse(BaseModel):
     enabled: bool
-    length: Optional[int] = None
-    total: Optional[int] = None
-    in_progress: Optional[int] = None
-    done: Optional[int] = None
-    paused: Optional[bool] = None
-    last_run_seconds: Optional[float] = None
-    last_run_at: Optional[int] = None
+    length: int | None = None
+    total: int | None = None
+    in_progress: int | None = None
+    done: int | None = None
+    paused: bool | None = None
+    last_run_seconds: float | None = None
+    last_run_at: int | None = None
 
 
 class QueueEnqueueResponse(BaseModel):
     enabled: bool
-    enqueued: Optional[int] = None
+    enqueued: int | None = None
 
 
 class QueuePeekItem(BaseModel):
-    doc_id: Optional[int] = None
-    task: Optional[str] = None
-    raw: Optional[str] = None
+    doc_id: int | None = None
+    task: str | None = None
+    raw: str | None = None
 
 
 class QueuePeekResponse(BaseModel):
@@ -61,7 +117,7 @@ class QueuePeekResponse(BaseModel):
 
 class QueueCancelResponse(BaseModel):
     enabled: bool
-    cancelled: Optional[bool] = None
+    cancelled: bool | None = None
 
 
 class QueueResetResponse(BaseModel):
@@ -86,29 +142,29 @@ class QueueRemoveResponse(BaseModel):
 class QueueWorkerLockStatusResponse(BaseModel):
     enabled: bool
     has_lock: bool
-    owner: Optional[str] = None
-    ttl_seconds: Optional[int] = None
+    owner: str | None = None
+    ttl_seconds: int | None = None
 
 
 class QueueWorkerLockResetResponse(BaseModel):
     enabled: bool
     reset: bool
     had_lock: bool
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class QueueRunningResponse(BaseModel):
     enabled: bool
-    task: Optional[QueuePeekItem] = None
-    started_at: Optional[int] = None
+    task: QueuePeekItem | None = None
+    started_at: int | None = None
 
 
 class QueueDlqItem(BaseModel):
-    task: Optional[dict[str, Any]] = None
-    error_type: Optional[str] = None
-    error_message: Optional[str] = None
-    attempt: Optional[int] = None
-    created_at: Optional[int] = None
+    task: dict[str, Any] | None = None
+    error_type: str | None = None
+    error_message: str | None = None
+    attempt: int | None = None
+    created_at: int | None = None
 
 
 class QueueDlqResponse(BaseModel):
@@ -122,10 +178,10 @@ class QueueDlqActionResponse(BaseModel):
 
 
 class QueueDelayedItem(BaseModel):
-    task: Optional[dict[str, Any]] = None
-    raw: Optional[str] = None
-    due_at: Optional[int] = None
-    due_in_seconds: Optional[int] = None
+    task: dict[str, Any] | None = None
+    raw: str | None = None
+    due_at: int | None = None
+    due_in_seconds: int | None = None
 
 
 class QueueDelayedResponse(BaseModel):
@@ -147,22 +203,22 @@ class ErrorTypeCatalogResponse(BaseModel):
 
 class TaskRunItem(BaseModel):
     id: int
-    doc_id: Optional[int] = None
+    doc_id: int | None = None
     task: str
-    source: Optional[str] = None
+    source: str | None = None
     status: str
-    worker_id: Optional[str] = None
+    worker_id: str | None = None
     attempt: int
-    checkpoint: Optional[dict[str, Any]] = None
-    error_type: Optional[str] = None
-    error_retryable: Optional[bool] = None
-    error_category: Optional[str] = None
-    error_message: Optional[str] = None
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
-    duration_ms: Optional[int] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    checkpoint: dict[str, Any] | None = None
+    error_type: str | None = None
+    error_retryable: bool | None = None
+    error_category: str | None = None
+    error_message: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    duration_ms: int | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class TaskRunListResponse(BaseModel):
@@ -180,36 +236,36 @@ class ConnectionStatus(BaseModel):
 
 class PaperlessDocument(BaseModel):
     model_config = ConfigDict(extra="allow")
-    id: Optional[int] = None
-    title: Optional[str] = None
-    content: Optional[str] = None
-    correspondent: Optional[int] = None
-    document_type: Optional[int] = None
-    document_date: Optional[str] = None
-    created: Optional[str] = None
-    modified: Optional[str] = None
+    id: int | None = None
+    title: str | None = None
+    content: str | None = None
+    correspondent: int | None = None
+    document_type: int | None = None
+    document_date: str | None = None
+    created: str | None = None
+    modified: str | None = None
     tags: list[int] = []
 
 
 class DocumentSummary(PaperlessDocument):
-    correspondent_name: Optional[str] = None
-    pending_correspondent_name: Optional[str] = None
-    local_cached: Optional[bool] = None
-    local_overrides: Optional[bool] = None
-    review_status: Optional[str] = None
-    reviewed_at: Optional[str] = None
-    has_embeddings: Optional[bool] = None
-    has_suggestions: Optional[bool] = None
-    has_suggestions_paperless: Optional[bool] = None
-    has_suggestions_vision: Optional[bool] = None
-    has_vision_pages: Optional[bool] = None
+    correspondent_name: str | None = None
+    pending_correspondent_name: str | None = None
+    local_cached: bool | None = None
+    local_overrides: bool | None = None
+    review_status: str | None = None
+    reviewed_at: str | None = None
+    has_embeddings: bool | None = None
+    has_suggestions: bool | None = None
+    has_suggestions_paperless: bool | None = None
+    has_suggestions_vision: bool | None = None
+    has_vision_pages: bool | None = None
     pending_tag_names: list[str] = []
 
 
 class SimilarDocumentMatch(BaseModel):
     doc_id: int
-    score: Optional[float] = None
-    document: Optional[DocumentSummary] = None
+    score: float | None = None
+    document: DocumentSummary | None = None
 
 
 class SimilarDocumentsResponse(BaseModel):
@@ -219,11 +275,11 @@ class SimilarDocumentsResponse(BaseModel):
 
 
 class SimilarMetadata(BaseModel):
-    title: Optional[str] = None
+    title: str | None = None
     tags: list[str] = []
-    correspondent: Optional[str] = None
-    documentType: Optional[str] = None
-    language: Optional[str] = None
+    correspondent: str | None = None
+    documentType: str | None = None
+    language: str | None = None
 
 
 class SimilarMetadataResponse(BaseModel):
@@ -233,106 +289,106 @@ class SimilarMetadataResponse(BaseModel):
 
 
 class DocumentNoteOut(BaseModel):
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class DocumentLocalResponse(BaseModel):
-    id: Optional[int] = None
-    title: Optional[str] = None
-    content: Optional[str] = None
-    document_date: Optional[str] = None
-    created: Optional[str] = None
-    modified: Optional[str] = None
-    correspondent: Optional[int] = None
-    correspondent_name: Optional[str] = None
-    document_type: Optional[int] = None
-    document_type_name: Optional[str] = None
+    id: int | None = None
+    title: str | None = None
+    content: str | None = None
+    document_date: str | None = None
+    created: str | None = None
+    modified: str | None = None
+    correspondent: int | None = None
+    correspondent_name: str | None = None
+    document_type: int | None = None
+    document_type_name: str | None = None
     tags: list[int] = []
     notes: list[DocumentNoteOut] = []
-    original_file_name: Optional[str] = None
-    status: Optional[str] = None
-    local_overrides: Optional[bool] = None
-    sync_status: Optional[str] = None
-    review_status: Optional[str] = None
-    reviewed_at: Optional[str] = None
-    paperless_modified: Optional[str] = None
+    original_file_name: str | None = None
+    status: str | None = None
+    local_overrides: bool | None = None
+    sync_status: str | None = None
+    review_status: str | None = None
+    reviewed_at: str | None = None
+    paperless_modified: str | None = None
     pending_tag_names: list[str] = []
-    pending_correspondent_name: Optional[str] = None
-    has_embeddings: Optional[bool] = None
-    embedding_source: Optional[str] = None
-    embedding_chunk_count: Optional[int] = None
-    has_embedding_for_preferred_source: Optional[bool] = None
-    has_suggestions_paperless: Optional[bool] = None
-    has_suggestions_vision: Optional[bool] = None
-    has_vision_pages: Optional[bool] = None
-    vision_pages_done: Optional[int] = None
-    vision_pages_expected: Optional[int] = None
-    has_complete_vision_pages: Optional[bool] = None
-    has_page_notes_paperless: Optional[bool] = None
-    has_page_notes_vision: Optional[bool] = None
-    page_notes_paperless_done: Optional[int] = None
-    page_notes_vision_done: Optional[int] = None
-    page_notes_expected: Optional[int] = None
-    has_complete_page_notes_paperless: Optional[bool] = None
-    has_complete_page_notes_vision: Optional[bool] = None
-    has_hierarchical_summary: Optional[bool] = None
-    is_large_document: Optional[bool] = None
-    preferred_processing_source: Optional[str] = None
+    pending_correspondent_name: str | None = None
+    has_embeddings: bool | None = None
+    embedding_source: str | None = None
+    embedding_chunk_count: int | None = None
+    has_embedding_for_preferred_source: bool | None = None
+    has_suggestions_paperless: bool | None = None
+    has_suggestions_vision: bool | None = None
+    has_vision_pages: bool | None = None
+    vision_pages_done: int | None = None
+    vision_pages_expected: int | None = None
+    has_complete_vision_pages: bool | None = None
+    has_page_notes_paperless: bool | None = None
+    has_page_notes_vision: bool | None = None
+    page_notes_paperless_done: int | None = None
+    page_notes_vision_done: int | None = None
+    page_notes_expected: int | None = None
+    has_complete_page_notes_paperless: bool | None = None
+    has_complete_page_notes_vision: bool | None = None
+    has_hierarchical_summary: bool | None = None
+    is_large_document: bool | None = None
+    preferred_processing_source: str | None = None
 
 
 class DocumentMarkReviewedResponse(BaseModel):
     status: str
     doc_id: int
-    reviewed_at: Optional[str] = None
+    reviewed_at: str | None = None
 
 
 class DocumentsPageResponse(BaseModel):
-    count: Optional[int] = None
-    next: Optional[str] = None
-    previous: Optional[str] = None
+    count: int | None = None
+    next: str | None = None
+    previous: str | None = None
     results: list[DocumentSummary] = []
 
 
 class TagResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
-    id: Optional[int] = None
-    name: Optional[str] = None
-    color: Optional[str] = None
-    is_inbox_tag: Optional[bool] = None
-    slug: Optional[str] = None
-    matching_algorithm: Optional[Any] = None
-    is_insensitive: Optional[bool] = None
+    id: int | None = None
+    name: str | None = None
+    color: str | None = None
+    is_inbox_tag: bool | None = None
+    slug: str | None = None
+    matching_algorithm: Any | None = None
+    is_insensitive: bool | None = None
 
 
 class CorrespondentResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
-    id: Optional[int] = None
-    name: Optional[str] = None
-    slug: Optional[str] = None
-    matching_algorithm: Optional[Any] = None
-    is_insensitive: Optional[bool] = None
+    id: int | None = None
+    name: str | None = None
+    slug: str | None = None
+    matching_algorithm: Any | None = None
+    is_insensitive: bool | None = None
 
 
 class DocumentTypeResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
-    id: Optional[int] = None
-    name: Optional[str] = None
-    slug: Optional[str] = None
-    matching_algorithm: Optional[Any] = None
-    is_insensitive: Optional[bool] = None
+    id: int | None = None
+    name: str | None = None
+    slug: str | None = None
+    matching_algorithm: Any | None = None
+    is_insensitive: bool | None = None
 
 
 class TagsPageResponse(BaseModel):
-    count: Optional[int] = None
-    next: Optional[str] = None
-    previous: Optional[str] = None
+    count: int | None = None
+    next: str | None = None
+    previous: str | None = None
     results: list[TagResponse] = []
 
 
 class CorrespondentsPageResponse(BaseModel):
-    count: Optional[int] = None
-    next: Optional[str] = None
-    previous: Optional[str] = None
+    count: int | None = None
+    next: str | None = None
+    previous: str | None = None
     results: list[CorrespondentResponse] = []
 
 
@@ -347,7 +403,7 @@ class DocumentStatsResponse(BaseModel):
 
 
 class DashboardCount(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     name: str
     count: int
 
@@ -389,13 +445,13 @@ class DocumentTextQualityResponse(BaseModel):
 
 class DocumentOcrScoreOut(BaseModel):
     source: str
-    verdict: Optional[str] = None
-    quality_score: Optional[float] = None
+    verdict: str | None = None
+    quality_score: float | None = None
     components: dict[str, float] = {}
     noise: dict[str, float] = {}
     ppl: dict[str, Any] = {}
-    model_name: Optional[str] = None
-    processed_at: Optional[str] = None
+    model_name: str | None = None
+    processed_at: str | None = None
 
 
 class DocumentOcrScoresResponse(BaseModel):
@@ -405,15 +461,15 @@ class DocumentOcrScoresResponse(BaseModel):
 
 class SuggestionPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
-    raw: Optional[str] = None
-    parsed: Optional[dict[str, Any]] = None
+    raw: str | None = None
+    parsed: dict[str, Any] | None = None
 
 
 class SuggestionsResponse(BaseModel):
     doc_id: int
     suggestions: dict[str, Any] = {}
-    suggestions_meta: Optional[dict[str, Any]] = None
-    queued: Optional[bool] = None
+    suggestions_meta: dict[str, Any] | None = None
+    queued: bool | None = None
 
 
 class SuggestFieldVariantsResponse(BaseModel):
@@ -421,18 +477,18 @@ class SuggestFieldVariantsResponse(BaseModel):
     source: str
     field: str
     variants: list[Any] = []
-    queued: Optional[bool] = None
+    queued: bool | None = None
 
 
 class ApplyFieldSuggestionResponse(BaseModel):
     status: str
-    suggestions: Optional[dict[str, Any]] = None
+    suggestions: dict[str, Any] | None = None
 
 
 class ApplySuggestionResponse(BaseModel):
     status: str
-    updated: Optional[bool] = None
-    unmatched: Optional[Any] = None
+    updated: bool | None = None
+    unmatched: Any | None = None
 
 
 class PageTextQuality(BaseModel):
@@ -444,42 +500,42 @@ class PageTextQuality(BaseModel):
 class PageTextOut(BaseModel):
     page: int
     source: str
-    text: Optional[str] = None
-    quality: Optional[PageTextQuality] = None
+    text: str | None = None
+    quality: PageTextQuality | None = None
 
 
 class PageTextsResponse(BaseModel):
     doc_id: int
     pages: list[PageTextOut] = []
-    vision_progress: Optional[dict[str, Any]] = None
+    vision_progress: dict[str, Any] | None = None
 
 
 class EmbeddingIngestResponse(BaseModel):
-    ingested: Optional[int] = None
-    documents_embedded: Optional[int] = None
-    queued: Optional[int] = None
-    status: Optional[str] = None
+    ingested: int | None = None
+    documents_embedded: int | None = None
+    queued: int | None = None
+    status: str | None = None
 
 
 class EmbeddingMatchDocument(BaseModel):
     id: int
-    title: Optional[str] = None
-    document_date: Optional[str] = None
-    created: Optional[str] = None
-    correspondent_id: Optional[int] = None
-    correspondent_name: Optional[str] = None
+    title: str | None = None
+    document_date: str | None = None
+    created: str | None = None
+    correspondent_id: int | None = None
+    correspondent_name: str | None = None
 
 
 class EmbeddingMatch(BaseModel):
-    doc_id: Optional[int] = None
-    page: Optional[int] = None
-    snippet: Optional[str] = None
-    score: Optional[float] = None
-    combined_score: Optional[float] = None
-    source: Optional[str] = None
-    quality_score: Optional[float] = None
-    bbox: Optional[Any] = None
-    document: Optional[EmbeddingMatchDocument] = None
+    doc_id: int | None = None
+    page: int | None = None
+    snippet: str | None = None
+    score: float | None = None
+    combined_score: float | None = None
+    source: str | None = None
+    quality_score: float | None = None
+    bbox: Any | None = None
+    document: EmbeddingMatchDocument | None = None
 
 
 class EmbeddingSearchResponse(BaseModel):
@@ -492,10 +548,10 @@ class EmbeddingStatusResponse(BaseModel):
     status: str
     processed: int
     total: int
-    started_at: Optional[str] = None
-    last_synced_at: Optional[str] = None
-    cancel_requested: Optional[bool] = None
-    eta_seconds: Optional[int] = None
+    started_at: str | None = None
+    last_synced_at: str | None = None
+    cancel_requested: bool | None = None
+    eta_seconds: int | None = None
 
 
 class SyncDocumentsResponse(BaseModel):
@@ -503,19 +559,19 @@ class SyncDocumentsResponse(BaseModel):
     upserted: int
     incremental: bool
     embedded: int
-    status: Optional[str] = None
-    queued: Optional[int] = None
-    marked_deleted: Optional[int] = None
+    status: str | None = None
+    queued: int | None = None
+    marked_deleted: int | None = None
 
 
 class SyncStatusResponse(BaseModel):
-    last_synced_at: Optional[str] = None
+    last_synced_at: str | None = None
     status: str
     processed: int
     total: int
-    started_at: Optional[str] = None
-    cancel_requested: Optional[bool] = None
-    eta_seconds: Optional[int] = None
+    started_at: str | None = None
+    cancel_requested: bool | None = None
+    eta_seconds: int | None = None
 
 
 class SyncCancelResponse(BaseModel):
@@ -539,18 +595,18 @@ class ProcessMissingResponse(BaseModel):
     enqueued: int
     tasks: int
     dry_run: bool = False
-    selected: Optional[int] = None
-    missing_docs: Optional[int] = None
-    missing_vision_ocr: Optional[int] = None
-    missing_embeddings: Optional[int] = None
-    missing_embeddings_paperless: Optional[int] = None
-    missing_embeddings_vision: Optional[int] = None
-    missing_doc_similarity_index: Optional[int] = None
-    missing_page_notes: Optional[int] = None
-    missing_summary_hierarchical: Optional[int] = None
-    missing_evidence_index: Optional[int] = None
-    missing_suggestions_paperless: Optional[int] = None
-    missing_suggestions_vision: Optional[int] = None
+    selected: int | None = None
+    missing_docs: int | None = None
+    missing_vision_ocr: int | None = None
+    missing_embeddings: int | None = None
+    missing_embeddings_paperless: int | None = None
+    missing_embeddings_vision: int | None = None
+    missing_doc_similarity_index: int | None = None
+    missing_page_notes: int | None = None
+    missing_summary_hierarchical: int | None = None
+    missing_evidence_index: int | None = None
+    missing_suggestions_paperless: int | None = None
+    missing_suggestions_vision: int | None = None
     missing_by_step: dict[str, int] = {}
     preview_docs: list[dict[str, Any]] = []
 
@@ -559,7 +615,7 @@ class PipelineStepStatus(BaseModel):
     key: str
     required: bool
     done: bool
-    detail: Optional[str] = None
+    detail: str | None = None
 
 
 class DocumentPipelineStatusResponse(BaseModel):
@@ -578,14 +634,14 @@ class DocumentPipelineStatusResponse(BaseModel):
 class PipelineFanoutItem(BaseModel):
     order: int
     task: str
-    source: Optional[str] = None
+    source: str | None = None
     status: str
-    detail: Optional[str] = None
-    checkpoint: Optional[dict[str, Any]] = None
-    error_type: Optional[str] = None
-    error_message: Optional[str] = None
-    last_started_at: Optional[str] = None
-    last_finished_at: Optional[str] = None
+    detail: str | None = None
+    checkpoint: dict[str, Any] | None = None
+    error_type: str | None = None
+    error_message: str | None = None
+    last_started_at: str | None = None
+    last_finished_at: str | None = None
 
 
 class DocumentPipelineFanoutResponse(BaseModel):
@@ -661,16 +717,16 @@ class DocumentResetReprocessResponse(BaseModel):
 
 class ChatCitation(BaseModel):
     id: int
-    doc_id: Optional[int] = None
-    page: Optional[int] = None
-    source: Optional[str] = None
-    bbox: Optional[Any] = None
-    score: Optional[float] = None
-    quality_score: Optional[float] = None
-    snippet: Optional[str] = None
-    evidence_status: Optional[str] = None
-    evidence_confidence: Optional[float] = None
-    evidence_error: Optional[str] = None
+    doc_id: int | None = None
+    page: int | None = None
+    source: str | None = None
+    bbox: Any | None = None
+    score: float | None = None
+    quality_score: float | None = None
+    snippet: str | None = None
+    evidence_status: str | None = None
+    evidence_confidence: float | None = None
+    evidence_error: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -688,20 +744,20 @@ class ChatHistoryItem(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     top_k: int = 6
-    source: Optional[str] = None
-    min_quality: Optional[int] = None
-    doc_id: Optional[int] = None
-    relationship_mode: Optional[str] = None
-    history: Optional[list[ChatHistoryItem]] = None
-    conversation_id: Optional[str] = None
+    source: str | None = None
+    min_quality: int | None = None
+    doc_id: int | None = None
+    relationship_mode: str | None = None
+    history: list[ChatHistoryItem] | None = None
+    conversation_id: str | None = None
 
 
 class ChatFollowupsRequest(BaseModel):
     question: str
     answer: str
     citations: list[ChatCitation] = []
-    doc_id: Optional[int] = None
-    relationship_mode: Optional[str] = None
+    doc_id: int | None = None
+    relationship_mode: str | None = None
 
 
 class ChatFollowupsResponse(BaseModel):
@@ -712,8 +768,8 @@ class EvidenceCitationRequest(BaseModel):
     doc_id: int
     page: int
     snippet: str
-    source: Optional[str] = None
-    bbox: Optional[Any] = None
+    source: str | None = None
+    bbox: Any | None = None
 
 
 class EvidenceResolveRequest(BaseModel):
@@ -726,10 +782,10 @@ class EvidenceMatch(BaseModel):
     doc_id: int
     page: int
     snippet: str
-    bbox: Optional[Any] = None
+    bbox: Any | None = None
     confidence: float = 0.0
     status: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class EvidenceResolveResponse(BaseModel):
@@ -792,7 +848,7 @@ class WritebackExecuteNowResponse(BaseModel):
 
 
 class WritebackDirectExecuteRequest(BaseModel):
-    known_paperless_modified: Optional[str] = None
+    known_paperless_modified: str | None = None
     resolutions: dict[str, str] = {}
 
 
@@ -831,10 +887,10 @@ class WritebackJobSummary(BaseModel):
     docs_selected: int
     docs_changed: int
     calls_count: int
-    created_at: Optional[str] = None
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
-    error: Optional[str] = None
+    created_at: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    error: str | None = None
 
 
 class WritebackJobDetail(WritebackJobSummary):
@@ -864,7 +920,7 @@ class WritebackExecutePendingJobResult(BaseModel):
     docs_changed: int
     calls_count: int
     doc_ids: list[int] = []
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class WritebackExecutePendingResponse(BaseModel):

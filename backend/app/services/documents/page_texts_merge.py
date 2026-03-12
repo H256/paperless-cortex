@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING
 
-from app.config import Settings
 from app.models import Document, DocumentPageText
+from app.services.documents.documents import fetch_pdf_bytes_for_doc
 from app.services.documents.page_text_store import upsert_page_texts
 from app.services.documents.text_pages import get_baseline_page_texts, get_page_text_layers
-from app.services.documents.documents import fetch_pdf_bytes_for_doc
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 
 def collect_page_texts(

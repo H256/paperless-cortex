@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 from sqlalchemy.orm import Session, joinedload
 
-from app.api_models import WritebackDryRunCall
-from app.config import Settings
 from app.models import Correspondent, Document, DocumentPendingCorrespondent, Tag
 from app.services.integrations import paperless
+
+if TYPE_CHECKING:
+    from app.api_models import WritebackDryRunCall
+    from app.config import Settings
 
 
 def resolve_paperless_tag_ids(
@@ -20,18 +22,19 @@ def resolve_paperless_tag_ids(
 ) -> list[int]:
     local_tags = db.query(Tag).filter(Tag.id.in_(local_tag_ids)).all()
     local_names = [str(tag.name or "").strip() for tag in local_tags if str(tag.name or "").strip()]
-    for name in (pending_tag_names or []):
+    for name in pending_tag_names or []:
         clean = str(name or "").strip()
         if clean and clean not in local_names:
             local_names.append(clean)
     if not local_names:
         return []
     remote_tags = paperless.list_all_tags(settings)
-    remote_by_name = {
-        str(tag.get("name") or "").strip().lower(): int(tag.get("id"))
-        for tag in remote_tags
-        if isinstance(tag.get("id"), int) and str(tag.get("name") or "").strip()
-    }
+    remote_by_name: dict[str, int] = {}
+    for tag in remote_tags:
+        raw_id = tag.get("id")
+        raw_name = str(tag.get("name") or "").strip()
+        if isinstance(raw_id, int) and raw_name:
+            remote_by_name[raw_name.lower()] = raw_id
     resolved_ids: list[int] = []
     for name in local_names:
         key = name.lower()
@@ -67,7 +70,7 @@ def resolve_paperless_correspondent_id(
                 return None
             try:
                 return int(raw)
-            except Exception:
+            except ValueError:
                 return None
         return None
 
@@ -87,17 +90,21 @@ def resolve_paperless_correspondent_id(
             )
 
     local_name = str(pending_correspondent_name or "").strip()
-    local_id = int(local_correspondent_id) if isinstance(local_correspondent_id, int) and local_correspondent_id > 0 else None
+    local_id = (
+        int(local_correspondent_id)
+        if isinstance(local_correspondent_id, int) and local_correspondent_id > 0
+        else None
+    )
     if not local_name and local_id:
         local_row = db.query(Correspondent).filter(Correspondent.id == int(local_id)).one_or_none()
         local_name = str(local_row.name or "").strip() if local_row else ""
 
     remote_rows = paperless.list_all_correspondents(settings)
-    remote_by_id = {
-        int(row.get("id")): str(row.get("name") or "").strip()
-        for row in remote_rows
-        if _as_int(row.get("id")) is not None
-    }
+    remote_by_id: dict[int, str] = {}
+    for row in remote_rows:
+        row_id = _as_int(row.get("id"))
+        if row_id is not None:
+            remote_by_id[row_id] = str(row.get("name") or "").strip()
     if local_id and local_id in remote_by_id:
         return local_id
 
@@ -132,7 +139,9 @@ def execute_writeback_call(settings: Settings, db: Session, call: WritebackDryRu
         pending_correspondent_name = payload.pop("pending_correspondent_name", None)
         if "correspondent" in payload:
             had_correspondent = True
-            local_correspondent_id = int(raw_correspondent) if isinstance(raw_correspondent, int) else None
+            local_correspondent_id = (
+                int(raw_correspondent) if isinstance(raw_correspondent, int) else None
+            )
             resolved_correspondent_id = resolve_paperless_correspondent_id(
                 settings,
                 db,
@@ -152,7 +161,11 @@ def execute_writeback_call(settings: Settings, db: Session, call: WritebackDryRu
             had_tags = True
             local_tag_ids = [int(tag_id) for tag_id in raw_tags if isinstance(tag_id, int)]
             pending_names_raw = payload.pop("pending_tag_names", [])
-            pending_names = [str(name).strip() for name in pending_names_raw if str(name).strip()] if isinstance(pending_names_raw, list) else []
+            pending_names = (
+                [str(name).strip() for name in pending_names_raw if str(name).strip()]
+                if isinstance(pending_names_raw, list)
+                else []
+            )
             payload["tags"] = resolve_paperless_tag_ids(settings, db, local_tag_ids, pending_names)
             db.flush()
         if payload.get("created") in (None, ""):
@@ -167,7 +180,7 @@ def execute_writeback_call(settings: Settings, db: Session, call: WritebackDryRu
             response_text = ""
             try:
                 response_text = str(exc.response.text or "").strip()
-            except Exception:
+            except (RuntimeError, TypeError, ValueError):
                 response_text = ""
             status_code = int(exc.response.status_code) if exc.response is not None else 0
             # Paperless often rejects null/invalid created fields; retry once without created.
@@ -182,7 +195,7 @@ def execute_writeback_call(settings: Settings, db: Session, call: WritebackDryRu
                         retry_text = ""
                         try:
                             retry_text = str(retry_exc.response.text or "").strip()
-                        except Exception:
+                        except (RuntimeError, TypeError, ValueError):
                             retry_text = ""
                         raise RuntimeError(
                             f"Paperless PATCH failed doc={int(call.doc_id)} status={int(retry_exc.response.status_code)} "
@@ -207,9 +220,17 @@ def execute_writeback_call(settings: Settings, db: Session, call: WritebackDryRu
             )
             if local_doc:
                 resolved_ids_raw = payload.get("tags")
-                resolved_ids: list[object] = resolved_ids_raw if isinstance(resolved_ids_raw, list) else []
-                resolved_ids_int: list[int] = [tag_id for tag_id in resolved_ids if isinstance(tag_id, int)]
-                existing_tags = db.query(Tag).filter(Tag.id.in_(resolved_ids_int)).all() if resolved_ids_int else []
+                resolved_ids: list[object] = (
+                    resolved_ids_raw if isinstance(resolved_ids_raw, list) else []
+                )
+                resolved_ids_int: list[int] = [
+                    tag_id for tag_id in resolved_ids if isinstance(tag_id, int)
+                ]
+                existing_tags = (
+                    db.query(Tag).filter(Tag.id.in_(resolved_ids_int)).all()
+                    if resolved_ids_int
+                    else []
+                )
                 by_id = {tag.id: tag for tag in existing_tags}
                 local_doc.tags = [by_id[tag_id] for tag_id in resolved_ids_int if tag_id in by_id]
         if had_correspondent:
@@ -237,13 +258,13 @@ def execute_writeback_call(settings: Settings, db: Session, call: WritebackDryRu
         if query_id and query_id[0]:
             try:
                 note_id = int(query_id[0])
-            except Exception:
+            except ValueError:
                 note_id = None
         if note_id is None:
             try:
                 segment = parsed.path.rstrip("/").split("/")[-1]
                 note_id = int(segment)
-            except Exception:
+            except ValueError:
                 note_id = None
         if note_id is None:
             raise RuntimeError(f"Cannot parse note id from path: {path}")

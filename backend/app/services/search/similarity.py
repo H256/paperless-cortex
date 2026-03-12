@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Document, Tag, Correspondent, DocumentType
-
-from app.config import Settings
+from app.models import Correspondent, Document, DocumentType, Tag
 from app.services.search import qdrant
 from app.services.search.embeddings import make_doc_point_id, search_points
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -102,10 +103,20 @@ def aggregate_similar_metadata(
             key = str(doc.document_type.name)
             doc_type_weights[key] = doc_type_weights.get(key, 0.0) + score
 
-    top_title = next(iter(sorted(title_weights.items(), key=lambda item: item[1], reverse=True)), None)
-    sorted_tags = [name for name, _ in sorted(tag_weights.items(), key=lambda item: item[1], reverse=True)]
-    top_corr = next(iter(sorted(correspondent_weights.items(), key=lambda item: item[1], reverse=True)), None)
-    top_doc_type = next(iter(sorted(doc_type_weights.items(), key=lambda item: item[1], reverse=True)), None)
+    top_title = next(
+        iter(sorted(title_weights.items(), key=lambda item: item[1], reverse=True)), None
+    )
+    sorted_tags = [
+        name for name, _ in sorted(tag_weights.items(), key=lambda item: item[1], reverse=True)
+    ]
+    top_corr = next(
+        iter(sorted(correspondent_weights.items(), key=lambda item: item[1], reverse=True)),
+        None,
+    )
+    top_doc_type = next(
+        iter(sorted(doc_type_weights.items(), key=lambda item: item[1], reverse=True)),
+        None,
+    )
     return {
         "title": top_title[0] if top_title else None,
         "tags": sorted_tags[:4],

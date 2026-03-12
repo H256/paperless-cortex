@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-
 from typing import Any
-
 
 _JSON_DECODER = json.JSONDecoder()
 
@@ -15,7 +13,7 @@ def repair_truncated_json_object(raw: str) -> dict[str, Any] | None:
     try:
         parsed = json.loads(candidate)
         return parsed if isinstance(parsed, dict) else None
-    except Exception:
+    except json.JSONDecodeError:
         pass
 
     in_string = False
@@ -46,7 +44,7 @@ def repair_truncated_json_object(raw: str) -> dict[str, Any] | None:
     repaired = repaired.replace(",}", "}").replace(",]", "]")
     try:
         parsed = json.loads(repaired)
-    except Exception:
+    except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
 
@@ -65,7 +63,7 @@ def extract_json_object(text: str) -> dict[str, Any]:
             parsed, _end = _JSON_DECODER.raw_decode(raw[start:])
             if isinstance(parsed, dict):
                 return parsed
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             pass
     end = raw.rfind("}")
     if start != -1 and end != -1 and end > start:
