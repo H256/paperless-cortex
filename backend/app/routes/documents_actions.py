@@ -40,8 +40,6 @@ from app.models import (
     TaskRun,
 )
 from app.routes.queue_guard import require_queue_enabled
-from app.routes.sync import _upsert_document
-from app.routes.sync import sync_documents as run_sync_documents
 from app.services.documents.operations import (
     build_document_pipeline_fanout_payload,
     build_document_pipeline_status_payload,
@@ -49,6 +47,7 @@ from app.services.documents.operations import (
     continue_document_pipeline_payload,
     run_cleanup_texts,
 )
+from app.services.documents.sync_operations import run_documents_sync, upsert_document
 from app.services.integrations import paperless
 from app.services.pipeline.process_missing import ProcessMissingOptions, process_missing_documents
 from app.services.pipeline.queue import (
@@ -85,6 +84,38 @@ ALLOWED_DOC_TASKS = {
 }
 
 
+def _run_documents_sync_for_process_missing(
+    *,
+    page_size: int = 50,
+    incremental: bool = True,
+    embed: bool | None = None,
+    page: int = 1,
+    page_only: bool = False,
+    force_embed: bool = False,
+    mark_missing: bool = False,
+    insert_only: bool = False,
+    settings: Settings,
+    db: Session,
+) -> ResponseDict:
+    if embed is None:
+        embed = settings.embed_on_sync
+    return run_documents_sync(
+        db=db,
+        settings=settings,
+        page_size=page_size,
+        incremental=incremental,
+        embed=embed,
+        page=page,
+        page_only=page_only,
+        force_embed=force_embed,
+        mark_missing=mark_missing,
+        insert_only=insert_only,
+        list_documents_fn=paperless.list_documents,
+        build_task_sequence_fn=build_task_sequence,
+        enqueue_task_sequence_fn=enqueue_task_sequence,
+    )
+
+
 def _get_or_sync_local_document(
     *,
     db: Session,
@@ -98,7 +129,7 @@ def _get_or_sync_local_document(
         raw = paperless.get_document(settings, int(doc_id))
         data = DocumentIn.model_validate(raw)
         cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
-        _upsert_document(db, settings, data, cache)
+        upsert_document(db, settings, data, cache)
         db.commit()
         doc = db.get(Document, int(doc_id))
         if doc:
@@ -208,7 +239,7 @@ def process_missing(
         settings=settings,
         db=db,
         options=options,
-        run_sync_documents=run_sync_documents,
+        run_sync_documents=_run_documents_sync_for_process_missing,
         enqueue_task_sequence=enqueue_task_sequence,
     )
 
@@ -481,7 +512,7 @@ def reset_and_reprocess_document(
     raw = paperless.get_document(settings, doc_id)
     data = DocumentIn.model_validate(raw)
     cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
-    _upsert_document(db, settings, data, cache)
+    upsert_document(db, settings, data, cache)
     db.commit()
 
     enqueued = 0
