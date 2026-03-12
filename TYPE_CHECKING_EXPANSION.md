@@ -477,3 +477,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app tests scripts alembic`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest`
+
+## API documentation baseline re-verification (chat/queue/status/task-runs)
+
+- No new mypy allowlist files were needed for the final `5.1` documentation slice; the strict backend baseline remains `156` files green.
+- Re-verified the backend CI equivalent after the chat, queue, status, task-run, logging, and error-catalog docstring additions plus the version bump.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`

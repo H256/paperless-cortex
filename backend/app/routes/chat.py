@@ -34,6 +34,7 @@ def chat(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> Any:
+    """Answer a chat question against the local evidence/search stack."""
     log_event(
         logger,
         logging.INFO,
@@ -64,6 +65,7 @@ def chat_stream(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> Any:
+    """Start a streaming chat answer using the same retrieval path as the non-stream endpoint."""
     log_event(
         logger,
         logging.INFO,
@@ -94,6 +96,7 @@ def chat_followups(
     payload: ChatFollowupsRequest,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, list[str]]:
+    """Generate suggested follow-up questions from an existing answer and citation set."""
     log_event(
         logger,
         logging.INFO,
@@ -118,6 +121,7 @@ def resolve_evidence(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    """Resolve citation snippets into richer evidence/page matches for the UI."""
     log_event(
         logger,
         logging.INFO,

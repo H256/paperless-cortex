@@ -39,11 +39,13 @@ _LOG_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar("log_context", defa
 
 
 def get_log_context() -> dict[str, Any]:
+    """Return the current structured logging context for this execution scope."""
     current = _LOG_CONTEXT.get()
     return dict(current) if isinstance(current, dict) else {}
 
 
 def bind_log_context(**context: Any) -> Token[dict[str, Any] | None]:
+    """Merge context values into the current structured logging scope and return a reset token."""
     merged = get_log_context()
     for key, value in context.items():
         if value is not None:
@@ -52,10 +54,12 @@ def bind_log_context(**context: Any) -> Token[dict[str, Any] | None]:
 
 
 def reset_log_context(token: Token[dict[str, Any] | None]) -> None:
+    """Restore a previously saved structured logging context token."""
     _LOG_CONTEXT.reset(token)
 
 
 def clear_log_context() -> None:
+    """Clear all structured logging context for the current execution scope."""
     _LOG_CONTEXT.set(None)
 
 
@@ -98,6 +102,7 @@ class JsonLogFormatter(logging.Formatter):
 
 
 def configure_logging(settings: Settings, *, service: str) -> None:
+    """Configure root logging with JSON/plain formatting and per-service context injection."""
     level_name = settings.log_level if settings.log_level else "INFO"
     level = getattr(logging, level_name.upper(), logging.INFO)
     root = logging.getLogger()
@@ -125,4 +130,5 @@ def log_event(
     exc_info: Any = None,
     **context: Any,
 ) -> None:
+    """Emit a structured log entry with optional extra context and exception info."""
     logger.log(level, message, extra={"context": context}, exc_info=exc_info)

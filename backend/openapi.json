@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.4.10"
+    "version": "0.4.11"
   },
   "paths": {
     "/documents/": {
@@ -2906,6 +2906,7 @@
           "queue"
         ],
         "summary": "Get Queue Status",
+        "description": "Return queue length/progress plus paused state for the active worker queue.",
         "operationId": "get_queue_status_queue_status_get",
         "responses": {
           "200": {
@@ -2927,6 +2928,7 @@
           "queue"
         ],
         "summary": "Enqueue",
+        "description": "Enqueue one or more document IDs for default worker processing.",
         "operationId": "enqueue_queue_enqueue_post",
         "requestBody": {
           "content": {
@@ -2968,6 +2970,7 @@
           "queue"
         ],
         "summary": "Peek",
+        "description": "Preview queued work items without removing them from the queue.",
         "operationId": "peek_queue_peek_get",
         "parameters": [
           {
@@ -3011,6 +3014,7 @@
           "queue"
         ],
         "summary": "Clear",
+        "description": "Clear the active queue by reusing the queue-cancel path.",
         "operationId": "clear_queue_clear_post",
         "responses": {
           "200": {
@@ -3032,6 +3036,7 @@
           "queue"
         ],
         "summary": "Cancel",
+        "description": "Request queue cancellation for the current worker run.",
         "operationId": "cancel_queue_cancel_post",
         "responses": {
           "200": {
@@ -3053,6 +3058,7 @@
           "queue"
         ],
         "summary": "Reset",
+        "description": "Reset persisted queue counters without modifying queued items.",
         "operationId": "reset_queue_reset_stats_post",
         "responses": {
           "200": {
@@ -3074,6 +3080,7 @@
           "queue"
         ],
         "summary": "Pause",
+        "description": "Pause queue consumption while keeping queued items intact.",
         "operationId": "pause_queue_pause_post",
         "responses": {
           "200": {
@@ -3095,6 +3102,7 @@
           "queue"
         ],
         "summary": "Resume",
+        "description": "Resume queue consumption after a pause.",
         "operationId": "resume_queue_resume_post",
         "responses": {
           "200": {
@@ -3116,6 +3124,7 @@
           "queue"
         ],
         "summary": "Move",
+        "description": "Move a queue item from one index to another.",
         "operationId": "move_queue_reorder_post",
         "requestBody": {
           "content": {
@@ -3157,6 +3166,7 @@
           "queue"
         ],
         "summary": "Move Top",
+        "description": "Move a queue item to the front of the queue.",
         "operationId": "move_top_queue_move_top_post",
         "requestBody": {
           "content": {
@@ -3198,6 +3208,7 @@
           "queue"
         ],
         "summary": "Move Bottom",
+        "description": "Move a queue item to the end of the queue.",
         "operationId": "move_bottom_queue_move_bottom_post",
         "requestBody": {
           "content": {
@@ -3239,6 +3250,7 @@
           "queue"
         ],
         "summary": "Remove",
+        "description": "Remove one queue item by index.",
         "operationId": "remove_queue_remove_post",
         "requestBody": {
           "content": {
@@ -3280,6 +3292,7 @@
           "queue"
         ],
         "summary": "Get Worker Lock",
+        "description": "Report worker-lock ownership and TTL details for queue debugging.",
         "operationId": "get_worker_lock_queue_worker_lock_get",
         "responses": {
           "200": {
@@ -3301,6 +3314,7 @@
           "queue"
         ],
         "summary": "Get Running",
+        "description": "Return the task the worker currently marks as running, if any.",
         "operationId": "get_running_queue_running_get",
         "responses": {
           "200": {
@@ -3322,6 +3336,7 @@
           "queue"
         ],
         "summary": "Reset Worker Lock Route",
+        "description": "Reset the worker lock for recovery scenarios, optionally forcing the reset.",
         "operationId": "reset_worker_lock_route_queue_worker_lock_reset_post",
         "parameters": [
           {
@@ -3365,6 +3380,7 @@
           "queue"
         ],
         "summary": "Get Dlq",
+        "description": "List dead-letter queue items for inspection and recovery.",
         "operationId": "get_dlq_queue_dlq_get",
         "parameters": [
           {
@@ -3408,6 +3424,7 @@
           "queue"
         ],
         "summary": "Get Delayed Queue",
+        "description": "List delayed queue items that are waiting for their retry time.",
         "operationId": "get_delayed_queue_queue_delayed_get",
         "parameters": [
           {
@@ -3451,6 +3468,7 @@
           "queue"
         ],
         "summary": "Clear Dlq",
+        "description": "Clear all dead-letter queue items.",
         "operationId": "clear_dlq_queue_dlq_clear_post",
         "responses": {
           "200": {
@@ -3472,6 +3490,7 @@
           "queue"
         ],
         "summary": "Requeue Dlq",
+        "description": "Move one dead-letter queue item back into the active queue.",
         "operationId": "requeue_dlq_queue_dlq_requeue_post",
         "requestBody": {
           "content": {
@@ -3513,6 +3532,7 @@
           "queue"
         ],
         "summary": "Get Task Runs",
+        "description": "List persisted worker task runs with filters for queue/ops inspection.",
         "operationId": "get_task_runs_queue_task_runs_get",
         "parameters": [
           {
@@ -3646,6 +3666,7 @@
           "queue"
         ],
         "summary": "Get Error Types",
+        "description": "Return the stable worker error-type catalog exposed to the UI.",
         "operationId": "get_error_types_queue_error_types_get",
         "responses": {
           "200": {
@@ -3667,6 +3688,7 @@
           "status"
         ],
         "summary": "Status",
+        "description": "Return the consolidated application health/config snapshot.",
         "operationId": "status_status_get",
         "responses": {
           "200": {
@@ -3688,6 +3710,7 @@
           "status"
         ],
         "summary": "Status Stream",
+        "description": "Stream the consolidated app, queue, sync, and stats payload as server-sent events.",
         "operationId": "status_stream_status_stream_get",
         "responses": {
           "200": {
@@ -3707,6 +3730,7 @@
           "chat"
         ],
         "summary": "Chat",
+        "description": "Answer a chat question against the local evidence/search stack.",
         "operationId": "chat_chat_post",
         "requestBody": {
           "content": {
@@ -3748,6 +3772,7 @@
           "chat"
         ],
         "summary": "Chat Stream",
+        "description": "Start a streaming chat answer using the same retrieval path as the non-stream endpoint.",
         "operationId": "chat_stream_chat_stream_post",
         "requestBody": {
           "content": {
@@ -3789,6 +3814,7 @@
           "chat"
         ],
         "summary": "Chat Followups",
+        "description": "Generate suggested follow-up questions from an existing answer and citation set.",
         "operationId": "chat_followups_chat_followups_post",
         "requestBody": {
           "content": {
@@ -3830,6 +3856,7 @@
           "chat"
         ],
         "summary": "Resolve Evidence",
+        "description": "Resolve citation snippets into richer evidence/page matches for the UI.",
         "operationId": "resolve_evidence_chat_resolve_evidence_post",
         "requestBody": {
           "content": {

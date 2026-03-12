@@ -50,6 +50,7 @@ ERROR_TYPE_CATALOG: dict[str, dict[str, Any]] = {
 
 
 def classify_worker_error(exc: Exception) -> str:
+    """Map a raw worker exception to one stable public error-type code."""
     original = getattr(exc, "original_exception", None)
     candidate = original if isinstance(original, Exception) else exc
     message = _text(candidate)
@@ -70,11 +71,13 @@ def classify_worker_error(exc: Exception) -> str:
 
 
 def is_retryable_error_type(error_type: str) -> bool:
+    """Return whether a stable error-type code should be treated as retryable."""
     payload = ERROR_TYPE_CATALOG.get(str(error_type or "").strip())
     return bool(payload.get("retryable")) if isinstance(payload, dict) else False
 
 
 def get_error_type_details(error_type: str | None) -> dict[str, Any] | None:
+    """Return the public metadata payload for one stable error-type code."""
     normalized = str(error_type or "").strip()
     if not normalized:
         return None
@@ -90,6 +93,7 @@ def get_error_type_details(error_type: str | None) -> dict[str, Any] | None:
 
 
 def list_error_type_details() -> list[dict[str, Any]]:
+    """Return the full stable error-type catalog sorted by code."""
     items: list[dict[str, Any]] = []
     for code in sorted(ERROR_TYPE_CATALOG.keys()):
         detail = get_error_type_details(code)
@@ -99,6 +103,7 @@ def list_error_type_details() -> list[dict[str, Any]]:
 
 
 def task_source_from_payload(task: dict[str, Any] | None) -> str | None:
+    """Extract and normalize an optional task source from a queue payload."""
     if not isinstance(task, dict):
         return None
     source = task.get("source")

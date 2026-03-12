@@ -111,6 +111,7 @@ def create_task_run(
     worker_id: str | None,
     attempt: int = 1,
 ) -> TaskRun:
+    """Create a persisted task-run row for one worker execution attempt."""
     timestamp = utc_now_iso()
     row = TaskRun(
         doc_id=doc_id,
@@ -154,6 +155,7 @@ def finish_task_run(
     error_type: str | None = None,
     error_message: str | None = None,
 ) -> None:
+    """Mark a persisted task run as finished and store its terminal outcome."""
     def _finish() -> None:
         row = db.get(TaskRun, run_id)
         if not row:
@@ -182,6 +184,7 @@ def update_task_run_checkpoint(
     run_id: int,
     checkpoint: dict[str, Any],
 ) -> None:
+    """Persist the latest checkpoint payload for a running task."""
     payload = json.dumps(checkpoint, ensure_ascii=False)
 
     def _update() -> None:
@@ -212,6 +215,7 @@ def list_task_runs(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[TaskRun]]:
+    """List persisted task runs with filtering and total-count support for the ops UI."""
     row_limit = max(1, min(int(limit), 1000))
     row_offset = max(0, int(offset))
 
@@ -252,6 +256,7 @@ def find_latest_checkpoint(
     task: str,
     source: str | None = None,
 ) -> dict[str, Any] | None:
+    """Return the newest checkpoint payload for a doc/task pair, if one exists."""
     def _find() -> dict[str, Any] | None:
         query = (
             db.query(TaskRun)

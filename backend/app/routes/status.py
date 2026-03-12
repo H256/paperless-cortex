@@ -116,6 +116,7 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
 
 @router.get("", response_model=StatusResponse)
 def status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    """Return the consolidated application health/config snapshot."""
     return _status_payload(settings)
 
 
@@ -217,6 +218,7 @@ def _get_cached_stream_payload(settings: Settings, *, interval_seconds: int) -> 
 
 @router.get("/stream")
 async def status_stream(settings: Settings = Depends(get_settings)) -> StreamingResponse:
+    """Stream the consolidated app, queue, sync, and stats payload as server-sent events."""
     interval = max(1, settings.status_stream_interval_seconds)
 
     async def event_generator() -> AsyncIterator[str]:
