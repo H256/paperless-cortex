@@ -440,3 +440,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_content_tasks.py app/services/pipeline/worker_suggestion_tasks.py tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`
+
+## Latest worker orchestration extraction
+
+- Added `backend/app/services/pipeline/worker_orchestration.py` to the strict mypy allowlist.
+- Extracted `_process_doc` full-document orchestration out of `backend/app/worker.py` into the new service module while preserving the existing wrapper seam and orchestration tests.
+- The strict mypy allowlist count is now `156`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_orchestration.py tests/test_worker_doc_orchestration.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py`

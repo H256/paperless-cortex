@@ -87,6 +87,9 @@ from app.services.pipeline.worker_document_tasks import (
 from app.services.pipeline.worker_document_tasks import (
     process_sync_only as _service_process_sync_only,
 )
+from app.services.pipeline.worker_orchestration import (
+    process_full_document as _service_process_full_document,
+)
 from app.services.pipeline.worker_runtime import (
     dispatch_worker_task,
     handle_worker_cancel_request,
@@ -187,116 +190,30 @@ def _process_sync_only(settings, db: Session, doc_id: int) -> None:
 
 
 def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort doc=%s", doc_id)
-        return
-    _process_sync_only(settings, db, doc_id)
-    raw = paperless.get_document(settings, doc_id)
-
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    _process_evidence_index(settings, db, doc_id, run_id=run_id)
-    ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
-
-    # Embeddings (with vision OCR)
-    baseline_pages, vision_pages, _ = collect_page_texts(
+    _service_process_full_document(
         settings,
-        db,
-        doc,
-        force_vision=True,
-    )
-    if vision_pages:
-        ensure_document_ocr_score(settings, db, doc, "vision_ocr")
-    _embed_with_pages(
-        settings,
-        db,
-        doc,
-        baseline_pages,
-        vision_pages,
-        "vision" if vision_pages else "paperless",
-        run_id=run_id,
-    )
-
-    if _is_large_doc(settings, doc):
-        _process_page_notes(settings, db, doc_id, source="paperless_ocr", run_id=run_id)
-        if vision_pages:
-            _process_page_notes(settings, db, doc_id, source="vision_ocr", run_id=run_id)
-            _process_summary_hierarchical(settings, db, doc_id, source="vision_ocr", run_id=run_id)
-        else:
-            _process_summary_hierarchical(
-                settings, db, doc_id, source="paperless_ocr", run_id=run_id
-            )
-
-    # Suggestions
-    tags = get_cached_tags(settings)
-    correspondents = get_cached_correspondents(settings)
-    baseline_text = doc.content or ""
-    if _is_large_doc(settings, doc):
-        distilled = _service_build_distilled_context_from_hier_summary(
-            db,
-            doc_id=doc_id,
-            source="paperless_ocr",
-            max_chars=settings.worker_suggestions_max_chars,
-        )
-        if not distilled:
-            distilled = _service_build_distilled_context_from_page_notes(
-                db,
-                doc_id=doc_id,
-                source="paperless_ocr",
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if distilled:
-            baseline_text = distilled
-    baseline_suggestions = generate_normalized_suggestions(
-        settings,
-        raw,
-        baseline_text,
-        tags=tags,
-        correspondents=correspondents,
-    )
-    persist_suggestions(
         db,
         doc_id,
-        "paperless_ocr",
-        baseline_suggestions,
-        model_name=settings.text_model,
+        run_id=run_id,
+        is_cancel_requested_fn=is_cancel_requested,
+        process_sync_only_fn=_process_sync_only,
+        get_document_fn=paperless.get_document,
+        get_local_document_fn=get_document_or_none,
+        process_evidence_index_fn=_process_evidence_index,
+        ensure_ocr_score_fn=ensure_document_ocr_score,
+        collect_page_texts_fn=collect_page_texts,
+        embed_with_pages_fn=_embed_with_pages,
+        is_large_doc_fn=_is_large_doc,
+        process_page_notes_fn=_process_page_notes,
+        process_summary_hierarchical_fn=_process_summary_hierarchical,
+        get_tags_fn=get_cached_tags,
+        get_correspondents_fn=get_cached_correspondents,
+        build_hier_summary_fn=_service_build_distilled_context_from_hier_summary,
+        build_page_notes_fn=_service_build_distilled_context_from_page_notes,
+        join_pages_fn=_service_join_page_texts_limited,
+        generate_suggestions_fn=generate_normalized_suggestions,
+        persist_suggestions_fn=persist_suggestions,
     )
-    if vision_pages:
-        vision_text = ""
-        if _is_large_doc(settings, doc):
-            vision_text = _service_build_distilled_context_from_hier_summary(
-                db,
-                doc_id=doc_id,
-                source="vision_ocr",
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if not vision_text:
-            vision_text = _service_build_distilled_context_from_page_notes(
-                db,
-                doc_id=doc_id,
-                source="vision_ocr",
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if not vision_text:
-            vision_text = _service_join_page_texts_limited(
-                vision_pages,
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        vision_suggestions = generate_normalized_suggestions(
-            settings,
-            raw,
-            vision_text,
-            tags=tags,
-            correspondents=correspondents,
-        )
-        persist_suggestions(
-            db,
-            doc_id,
-            "vision_ocr",
-            vision_suggestions,
-            model_name=settings.text_model,
-        )
 
 
 def _process_vision_ocr_only(

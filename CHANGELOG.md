@@ -564,6 +564,7 @@ All granular implementation slices and refactors are tracked here.
 - `ad48610` refactor(worker): extracted suggestion-generation and field-variant worker tasks from `backend/app/worker.py` into `backend/app/services/pipeline/worker_suggestion_tasks.py` while keeping worker wrappers stable and adding direct `suggest_field` worker regression coverage.
 - `1a0158c` test(worker): added direct `_process_doc` orchestration coverage for the large-document vision path and cancel short-circuit path in `backend/tests/test_worker_doc_orchestration.py` to stabilize the next worker split.
 - `b85023b` refactor(worker): extracted vision OCR, page-notes, and hierarchical-summary worker tasks from `backend/app/worker.py` into `backend/app/services/pipeline/worker_content_tasks.py`, leaving `worker.py` primarily as orchestration and wrapper glue.
+- `50a6cb3` refactor(worker): extracted full-document worker orchestration from `backend/app/worker.py` into `backend/app/services/pipeline/worker_orchestration.py`, leaving `worker.py` as runtime loop, dispatch map, and stable wrapper seams.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.

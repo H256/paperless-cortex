@@ -47,6 +47,7 @@ files = [
     "app/services/pipeline/worker_runtime.py",
     "app/services/pipeline/worker_document_tasks.py",
     "app/services/pipeline/worker_content_tasks.py",
+    "app/services/pipeline/worker_orchestration.py",
     "app/services/pipeline/worker_suggestion_tasks.py",
     "app/routes/writeback_dryrun.py",
     "app/worker.py",
