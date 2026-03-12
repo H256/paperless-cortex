@@ -386,3 +386,15 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
   - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest document derived-list aggregation reduction
+
+- Simplified `backend/app/services/documents/read_models.py` again by:
+  - skipping ordered suggestion-row fetching when summary previews are not requested
+  - fetching `vision_ocr` doc IDs distinctly for the list-level `has_vision_pages` flag
+- Added a regression in `backend/tests/test_documents_routes.py` to keep suggestion and vision-page flags stable in derived document lists.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`

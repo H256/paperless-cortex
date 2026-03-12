@@ -204,14 +204,15 @@ def apply_derived_fields_and_review_status(
         for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
     }
     suggestion_columns: list[Any] = [DocumentSuggestion.doc_id, DocumentSuggestion.source]
+    suggestion_query = db.query(*suggestion_columns).filter(DocumentSuggestion.doc_id.in_(doc_ids))
     if include_summary_preview:
         suggestion_columns.append(DocumentSuggestion.payload)
-    suggestion_rows = (
-        db.query(*suggestion_columns)
-        .filter(DocumentSuggestion.doc_id.in_(doc_ids))
-        .order_by(DocumentSuggestion.doc_id.asc(), DocumentSuggestion.source.asc())
-        .all()
-    )
+        suggestion_query = (
+            db.query(*suggestion_columns)
+            .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+            .order_by(DocumentSuggestion.doc_id.asc(), DocumentSuggestion.source.asc())
+        )
+    suggestion_rows = suggestion_query.all()
     suggestions_by_doc: dict[int, set[str]] = {}
     for row in suggestion_rows:
         doc_id = int(row[0])
@@ -236,6 +237,7 @@ def apply_derived_fields_and_review_status(
         int(row[0])
         for row in db.query(DocumentPageText.doc_id)
         .filter(DocumentPageText.doc_id.in_(doc_ids), DocumentPageText.source == "vision_ocr")
+        .distinct()
         .all()
     }
     reviewed_rows = (

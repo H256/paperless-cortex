@@ -94,6 +94,22 @@ def _insert_suggestion(doc_id: int, source: str, payload: str) -> None:
         db.commit()
 
 
+def _insert_page_text(doc_id: int, page: int, source: str, text: str) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentPageText(
+                doc_id=doc_id,
+                page=page,
+                source=source,
+                text=text,
+                raw_text=text,
+                clean_text=text,
+            )
+        )
+        db.commit()
+
+
 def test_get_local_document_missing(api_client: Any) -> None:
     response = api_client.get("/documents/999/local")
     assert response.status_code == 200
@@ -932,3 +948,48 @@ def test_list_documents_includes_local_analysis_fields(api_client: Any, monkeypa
     assert payload["count"] == 1
     assert payload["results"][0]["analysis_model"] == "gpt-local"
     assert payload["results"][0]["analysis_processed_at"] == "2026-02-11T12:30:00+00:00"
+
+
+def test_list_documents_includes_suggestion_and_vision_flags(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_local_document(
+        doc_id=46,
+        title="Doc 46",
+        created="2026-02-10T10:00:00+00:00",
+    )
+    _insert_suggestion(doc_id=46, source="paperless_ocr", payload='{"title":"Doc 46"}')
+    _insert_suggestion(doc_id=46, source="vision_ocr", payload='{"title":"Doc 46 Vision"}')
+    _insert_page_text(doc_id=46, page=1, source="vision_ocr", text="Vision page 1")
+    _insert_page_text(doc_id=46, page=2, source="vision_ocr", text="Vision page 2")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 46,
+                    "title": "Doc 46",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    row = payload["results"][0]
+    assert row["has_suggestions"] is True
+    assert row["has_suggestions_paperless"] is True
+    assert row["has_suggestions_vision"] is True
+    assert row["has_vision_pages"] is True
