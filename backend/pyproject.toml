@@ -45,6 +45,7 @@ files = [
     "app/services/writeback/writeback_preview.py",
     "app/services/pipeline/worker_checkpoint.py",
     "app/services/pipeline/worker_runtime.py",
+    "app/services/pipeline/worker_document_tasks.py",
     "app/routes/writeback_dryrun.py",
     "app/worker.py",
     # Runtime utilities (well-typed)

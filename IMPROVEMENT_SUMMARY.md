@@ -683,9 +683,9 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **144 source files**.
 - The expanded mypy allowlist is passing for **145 source files**.
 - The expanded mypy allowlist is passing for **148 source files**.
-- The expanded mypy allowlist is passing for **150 source files**.
+- The expanded mypy allowlist is passing for **151 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`150 / 150` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`151 / 151` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
@@ -699,6 +699,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `5.2 Developer Tooling` is now in progress with backend CI, uv-backed pre-commit enforcement, and Windows-safe frontend lint-hook execution.
 - `5.3 Error Messages & Observability` is now in progress with stable API error codes and request/correlation context in error responses.
 - `6.x Performance & Optimization` is now in progress with a first connection-reuse/client-pooling pass across Paperless, Qdrant, and LLM HTTP clients.
+- `3.3 Service Layer Complexity` moved further with a second worker extraction: sync/embedding/evidence/similarity task helpers now live in `backend/app/services/pipeline/worker_document_tasks.py`, leaving `backend/app/worker.py` as a thinner orchestration boundary around the remaining OCR/page-note/suggestion flows.
 
 
 

@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **150 source files**
+- Current configured `mypy` coverage: **151 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 150 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 150 files**
+- Net change in the latest follow-up slices: **46 -> 151 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 151 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`150 / 150`)
+- Current strict-checked share of backend Python files: **100%** (`151 / 151`)
 
 ## Files added in this slice
 
@@ -306,6 +306,16 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py`
+
+## Latest worker document-task extraction expansion
+
+- Added `backend/app/services/pipeline/worker_document_tasks.py` to the strict mypy allowlist.
+- Extracted the sync/embedding/evidence/similarity task helpers out of `backend/app/worker.py` into the new service module while keeping the worker entry points stable as thin wrappers.
+- The strict mypy allowlist count is now `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_document_tasks.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py tests/test_pipeline_similarity_index.py tests/test_documents_routes.py`
 
 ## Latest query-optimization verification
 
