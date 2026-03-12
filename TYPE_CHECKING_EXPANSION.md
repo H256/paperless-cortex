@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **143 source files**
+- Current configured `mypy` coverage: **144 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 143 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 143 files**
+- Net change in the latest follow-up slices: **46 -> 144 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 144 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`143 / 143`)
+- Current strict-checked share of backend Python files: **100%** (`144 / 144`)
 
 ## Files added in this slice
 
@@ -267,6 +267,16 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_actions.py app/services/documents/operations.py`
   - `cd backend && uv run pytest tests/test_documents_actions_routes.py tests/test_process_missing_route.py tests/test_documents_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest documents read-model extraction expansion
+
+- Added `backend/app/services/documents/read_models.py` to the strict mypy allowlist.
+- Extracted the `documents.py` list/local-read shaping helpers into the new service module while preserving route-level behavior and reusing the same read-model seam from `documents_similarity.py`.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
 
 ## Latest query-optimization verification
 

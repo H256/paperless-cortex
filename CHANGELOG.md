@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-documents-route-srp)
+
+### Service-layer complexity reduction
+- `uncommitted` refactor(documents): extracted document list/local-read model shaping out of [`backend/app/routes/documents.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents.py) into the new service module [`backend/app/services/documents/read_models.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/read_models.py).
+- `uncommitted` refactor(documents): centralized review-status normalization, Paperless list pagination/filtering, derived-field enrichment, local override detection, and local document payload assembly in the service layer so the route stays focused on HTTP concerns.
+- `uncommitted` refactor(documents): rewired [`backend/app/routes/documents_similarity.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_similarity.py) to consume the extracted document read-model helper directly instead of importing a private route helper.
+- `uncommitted` chore(mypy): added [`backend/app/services/documents/read_models.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `144` configured source files.
+- `uncommitted` test(documents): verified `uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`, `uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py` (`37 passed`).
+
 ## 2026-03-12 (branch: feat/backend-tooling-enforcement)
 
 ### Developer tooling

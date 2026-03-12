@@ -506,6 +506,24 @@
 - Migrated backend dev tooling dependencies in `backend/pyproject.toml` from deprecated `tool.uv.dev-dependencies` to `dependency-groups.dev`.
 - Verified the new tooling baseline with backend Ruff, strict mypy, full backend pytest (`221 passed`), pre-commit config validation, YAML validation for the workflow/config files, and a Windows-safe `npx --prefix frontend oxlint --version` sanity check.
 
+### 41. Documents read-model service extraction
+
+- Extracted document list/local-read model shaping out of `backend/app/routes/documents.py` into the new service module:
+  - `backend/app/services/documents/read_models.py`
+- Centralized:
+  - review-status normalization
+  - Paperless list pagination/filtering for route consumers
+  - derived-field enrichment and summary-preview shaping
+  - local override detection
+  - local document payload assembly
+- Rewired `backend/app/routes/documents_similarity.py` to consume the extracted service helper directly instead of importing a private route helper from `documents.py`.
+- Added `backend/app/services/documents/read_models.py` to the strict mypy allowlist and kept the extracted service fully typed.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
 ## Verified commands
 
 ```bash
@@ -586,8 +604,9 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **141 source files**.
 - The expanded mypy allowlist is passing for **142 source files**.
 - The expanded mypy allowlist is passing for **143 source files**.
+- The expanded mypy allowlist is passing for **144 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`143 / 143` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`144 / 144` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
