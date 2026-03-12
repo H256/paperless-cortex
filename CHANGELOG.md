@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-observability-errors)
+
+### Error messages and observability
+- `uncommitted` feat(errors): added centralized API exception handlers in [`backend/app/main.py`](E:/workspace/python/paperless-intelligence/backend/app/main.py) for domain errors, HTTP errors, and request validation errors.
+- `uncommitted` feat(errors): API error responses now carry stable `error_code`, `request_id`, and `correlation_id` fields, plus `X-Error-Code` response headers, while still preserving the existing `detail` payload.
+- `uncommitted` feat(observability): structured error responses are now logged through the existing logging foundation with stable `error_code`, `status_code`, and error-class/message fields.
+- `uncommitted` test(errors): added [`backend/tests/test_api_error_responses.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_api_error_responses.py) to verify domain, HTTP, and validation failures include stable error codes and request context.
+- `uncommitted` chore(mypy): added [`backend/tests/test_api_error_responses.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `144` configured source files.
+- `uncommitted` test(errors): verified `uv run ruff check app/main.py tests/test_api_error_responses.py tests/test_request_logging.py`, `uv run mypy --config-file pyproject.toml app/main.py tests/test_api_error_responses.py`, `uv run pytest tests/test_api_error_responses.py tests/test_request_logging.py tests/test_status_routes.py` (`8 passed`), and `uv run mypy --config-file pyproject.toml` (`144` files).
+
 ## 2026-03-12 (branch: feat/backend-tooling-enforcement)
 
 ### Developer tooling

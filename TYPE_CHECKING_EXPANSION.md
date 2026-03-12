@@ -287,3 +287,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run --project backend ruff check app tests scripts alembic`
   - `cd backend && uv run --project backend mypy --config-file pyproject.toml`
   - `cd backend && uv run --project backend pytest`
+
+## Latest error-observability expansion
+
+- Added `backend/tests/test_api_error_responses.py` to the strict mypy allowlist.
+- The strict mypy allowlist count is now `144`.
+- Verified the centralized error-response/observability changes with:
+  - `cd backend && uv run ruff check app/main.py tests/test_api_error_responses.py tests/test_request_logging.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/main.py tests/test_api_error_responses.py`
+  - `cd backend && uv run pytest tests/test_api_error_responses.py tests/test_request_logging.py tests/test_status_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
