@@ -585,6 +585,21 @@
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
 
+### 46. Worker runtime service extraction
+
+- Extracted worker runtime orchestration out of `backend/app/worker.py` into the new service module:
+  - `backend/app/services/pipeline/worker_runtime.py`
+- Centralized:
+  - queue-payload parsing
+  - worker cancel-path handling
+  - task dispatch selection
+- Kept the actual per-task OCR/embedding/suggestion implementations in `worker.py` for this slice, while moving the queue/runtime control flow into the service layer.
+- Added `backend/tests/test_worker_runtime.py` to pin queue-payload parsing, cancel handling, and dispatch routing behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py`
+
 ## Verified commands
 
 ```bash
@@ -668,8 +683,9 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **144 source files**.
 - The expanded mypy allowlist is passing for **145 source files**.
 - The expanded mypy allowlist is passing for **148 source files**.
+- The expanded mypy allowlist is passing for **150 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`148 / 148` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`150 / 150` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.

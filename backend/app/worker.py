@@ -91,6 +91,11 @@ from app.services.pipeline.worker_checkpoint import (
 from app.services.pipeline.worker_checkpoint import (
     set_task_checkpoint as _set_task_checkpoint,
 )
+from app.services.pipeline.worker_runtime import (
+    dispatch_worker_task,
+    handle_worker_cancel_request,
+    parse_worker_queue_item,
+)
 from app.services.runtime.logging_setup import (
     bind_log_context,
     configure_logging,
@@ -1231,15 +1236,14 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
     db.commit()
 
 
-def _dispatch_task(
+def _build_dispatch_handler(
     settings,
     db: Session,
     task_type: str,
     doc_id: int,
     task: dict | None,
-    *,
-    run_id: int | None = None,
-) -> None:
+    run_id: int | None,
+):
     handlers = {
         "sync": lambda: _process_sync_only(settings, db, doc_id),
         "evidence_index": lambda: _process_evidence_index(
@@ -1280,25 +1284,7 @@ def _dispatch_task(
         "suggestions_vision": lambda: _process_suggestions_vision(settings, db, doc_id),
         "suggest_field": lambda: _process_suggest_field(settings, db, task or {}),
     }
-    if task_type == "vision_ocr":
-        force = bool(task.get("force")) if isinstance(task, dict) else False
-        _process_vision_ocr_only(settings, db, doc_id, force=force, run_id=run_id)
-        return
-    handler = handlers.get(task_type)
-    if handler:
-        handler()
-        return
-    _process_doc(settings, db, doc_id, run_id=run_id)
-
-
-def _handle_worker_cancel_request(settings) -> bool:
-    if not is_cancel_requested(settings):
-        return False
-    log_event(logger, logging.INFO, "Worker cancel requested; clearing queue")
-    clear_queue(settings)
-    reset_stats(settings)
-    clear_cancel(settings)
-    return True
+    return handlers.get(task_type)
 
 
 def main() -> None:
@@ -1365,7 +1351,15 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             move_due_delayed_tasks(settings, limit=100)
-            if _handle_worker_cancel_request(settings):
+            if handle_worker_cancel_request(
+                settings,
+                is_cancel_requested_fn=is_cancel_requested,
+                clear_queue_fn=clear_queue,
+                reset_stats_fn=reset_stats,
+                clear_cancel_fn=clear_cancel,
+                log_fn=log_event,
+                logger=logger,
+            ):
                 time.sleep(0.5)
                 continue
             item = client.blpop(QUEUE_KEY, timeout=5)
@@ -1373,36 +1367,21 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             _, doc_id_str = item
-            task = None
-            try:
-                task = json.loads(doc_id_str)
-            except JSONDecodeError:
-                task = None
-            if isinstance(task, dict) and "doc_id" in task:
-                raw_task_doc_id = task.get("doc_id")
-                if not isinstance(raw_task_doc_id, int):
-                    log_event(
-                        logger,
-                        logging.WARNING,
-                        "Invalid task doc_id in queue payload",
-                        payload=task,
-                    )
-                    continue
-                doc_id = int(raw_task_doc_id)
-                task_type = str(task.get("task") or "full")
-            else:
-                try:
-                    doc_id = int(doc_id_str)
-                except (TypeError, ValueError):
-                    log_event(
-                        logger,
-                        logging.WARNING,
-                        "Invalid doc_id in queue",
-                        payload=doc_id_str,
-                    )
-                    continue
-                task_type = "full"
-            if _handle_worker_cancel_request(settings):
+            parsed = parse_worker_queue_item(doc_id_str, log_fn=log_event, logger=logger)
+            if parsed is None:
+                continue
+            doc_id = parsed["doc_id"]
+            task_type = parsed["task_type"]
+            task = parsed["task_payload"]
+            if handle_worker_cancel_request(
+                settings,
+                is_cancel_requested_fn=is_cancel_requested,
+                clear_queue_fn=clear_queue,
+                reset_stats_fn=reset_stats,
+                clear_cancel_fn=clear_cancel,
+                log_fn=log_event,
+                logger=logger,
+            ):
                 log_event(
                     logger,
                     logging.INFO,
@@ -1423,12 +1402,7 @@ def main() -> None:
             pending_retry_payload: dict | None = None
             pending_retry_delay_seconds: int | None = None
             pending_dead_letter: dict | None = None
-            retry_attempt = 0
-            if isinstance(task, dict):
-                try:
-                    retry_attempt = int(task.get("retry_count") or 0)
-                except (TypeError, ValueError):
-                    retry_attempt = 0
+            retry_attempt = parsed["retry_attempt"]
             task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
             task_context_token = bind_log_context(
                 doc_id=doc_id,
@@ -1464,13 +1438,34 @@ def main() -> None:
                                     stage="resume",
                                     extra={"resume_from": previous_checkpoint},
                                 )
-                        _dispatch_task(
-                            settings,
-                            db,
-                            task_type,
-                            doc_id,
-                            task if isinstance(task, dict) else None,
+                        dispatch_worker_task(
+                            settings=settings,
+                            db=db,
+                            task_type=task_type,
+                            doc_id=doc_id,
+                            task=task if isinstance(task, dict) else None,
                             run_id=run_id,
+                            build_handler_fn=lambda current_task_type, current_doc_id, current_task, current_run_id: _build_dispatch_handler(
+                                settings,
+                                db,
+                                current_task_type,
+                                current_doc_id,
+                                current_task if isinstance(current_task, dict) else None,
+                                current_run_id,
+                            ),
+                            process_vision_ocr_force_fn=lambda active_settings, active_db, active_doc_id, force, active_run_id: _process_vision_ocr_only(
+                                active_settings,
+                                active_db,
+                                active_doc_id,
+                                force=force,
+                                run_id=active_run_id,
+                            ),
+                            process_full_doc_fn=lambda active_settings, active_db, active_doc_id, active_run_id: _process_doc(
+                                active_settings,
+                                active_db,
+                                active_doc_id,
+                                run_id=active_run_id,
+                            ),
                         )
                     except Exception as exc:
                         worker_error = (

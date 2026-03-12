@@ -44,6 +44,7 @@ files = [
     "app/services/writeback/writeback_direct.py",
     "app/services/writeback/writeback_preview.py",
     "app/services/pipeline/worker_checkpoint.py",
+    "app/services/pipeline/worker_runtime.py",
     "app/routes/writeback_dryrun.py",
     "app/worker.py",
     # Runtime utilities (well-typed)
@@ -142,6 +143,7 @@ files = [
     "tests/test_note_ids.py",
     "tests/test_string_list_json.py",
     "tests/test_worker_error_types.py",
+    "tests/test_worker_runtime.py",
     "tests/test_worker_checkpoint_recovery.py",
     "tests/test_writeback_plan.py",
     "tests/test_http_client_pooling.py",

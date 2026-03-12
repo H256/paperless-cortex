@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **148 source files**
+- Current configured `mypy` coverage: **150 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 148 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 148 files**
+- Net change in the latest follow-up slices: **46 -> 150 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 150 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`148 / 148`)
+- Current strict-checked share of backend Python files: **100%** (`150 / 150`)
 
 ## Files added in this slice
 
@@ -297,6 +297,15 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest worker runtime extraction expansion
+
+- Added `backend/app/services/pipeline/worker_runtime.py` and `backend/tests/test_worker_runtime.py` to the strict mypy allowlist.
+- Extracted the `worker.py` queue-payload parsing, cancel-path handling, and task-dispatch selection into the new service module while preserving the existing worker task implementations and regression behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py`
 
 ## Latest query-optimization verification
 
