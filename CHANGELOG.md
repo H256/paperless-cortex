@@ -558,7 +558,7 @@ All granular implementation slices and refactors are tracked here.
 - `899bb3a` refactor(worker): extracted sync/embedding/evidence/similarity task helpers from `backend/app/worker.py` into `backend/app/services/pipeline/worker_document_tasks.py` and left thin worker wrappers in place.
 - `07c20cc` perf(db): added composite `task_runs` indexes for the worker/queue list and checkpoint lookup paths to reduce filtered pagination cost on larger histories.
 - `005a7ad` perf(db): simplified `task_runs` pagination by fetching the page first, inferring totals on short first pages, and only running a separate count query when the total cannot be derived cheaply.
-- `pending` perf(db): removed an extra local-document analysis lookup in `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document fetch used for derived document lists.
+- `d4f1aff` perf(db): removed an extra local-document analysis lookup in `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document fetch used for derived document lists.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
