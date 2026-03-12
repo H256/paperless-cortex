@@ -203,16 +203,24 @@ def apply_derived_fields_and_review_status(
         int(row[0])
         for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
     }
-    suggestion_columns: list[Any] = [DocumentSuggestion.doc_id, DocumentSuggestion.source]
-    suggestion_query = db.query(*suggestion_columns).filter(DocumentSuggestion.doc_id.in_(doc_ids))
     if include_summary_preview:
-        suggestion_columns.append(DocumentSuggestion.payload)
-        suggestion_query = (
-            db.query(*suggestion_columns)
+        suggestion_rows = (
+            db.query(
+                DocumentSuggestion.doc_id,
+                DocumentSuggestion.source,
+                DocumentSuggestion.payload,
+            )
             .filter(DocumentSuggestion.doc_id.in_(doc_ids))
             .order_by(DocumentSuggestion.doc_id.asc(), DocumentSuggestion.source.asc())
+            .all()
         )
-    suggestion_rows = suggestion_query.all()
+    else:
+        suggestion_rows = (
+            db.query(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+            .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+            .group_by(DocumentSuggestion.doc_id, DocumentSuggestion.source)
+            .all()
+        )
     suggestions_by_doc: dict[int, set[str]] = {}
     for row in suggestion_rows:
         doc_id = int(row[0])
@@ -224,7 +232,7 @@ def apply_derived_fields_and_review_status(
             normalized_doc_id = int(row[0])
             if normalized_doc_id in summary_preview_by_doc:
                 continue
-            preview_payload = row[2] if len(row) > 2 else None
+            preview_payload = row[2]
             parsed_payload = parse_json_object(str(preview_payload or ""))
             summary = parsed_payload.get("summary")
             if not isinstance(summary, str):

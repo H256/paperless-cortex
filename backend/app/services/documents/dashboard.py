@@ -98,19 +98,11 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         .all()
     )
 
-    unprocessed_corr_ids = [
-        corr_id for corr_id in unprocessed_by_correspondent if corr_id is not None
-    ]
-    correspondents_map = (
-        {
-            row[0]: row[1]
-            for row in db.query(Correspondent.id, Correspondent.name)
-            .filter(Correspondent.id.in_(unprocessed_corr_ids))
-            .all()
-        }
-        if unprocessed_corr_ids
-        else {}
-    )
+    correspondents_map = {
+        int(row[0]): str(row[1] or "Untitled")
+        for row in correspondents_rows
+        if row[0] is not None
+    }
     unprocessed_corr_list = [
         {
             "id": corr_id,

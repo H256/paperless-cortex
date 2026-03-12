@@ -450,3 +450,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_orchestration.py tests/test_worker_doc_orchestration.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py`
+
+## Current baseline re-verification
+
+- No new mypy allowlist files were needed for this SQL/perf slice; the strict backend baseline remains `156` files green.
+- Re-verified the current backend CI equivalent after the latest query optimizations and version bump.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
