@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-config-validation)
+
+### Configuration management
+- `uncommitted` refactor(config): split [`backend/app/config.py`](E:/workspace/python/paperless-intelligence/backend/app/config.py) into validated domain config views (`logging`, `api`, `worker`, `paperless`, `database`, `qdrant`, `queue`, `llm`, `embeddings`, `chunking`, `vision`, `suggestions`, `summary`, `http`, `ocr_score`, `evidence`, `writeback`) while preserving the existing flat `Settings` fields for compatibility.
+- `uncommitted` refactor(config): added explicit environment parsing helpers in [`backend/app/config.py`](E:/workspace/python/paperless-intelligence/backend/app/config.py) for booleans, ints, floats, optional strings, and database URL normalization, plus strict validation for malformed booleans, malformed integers, and invalid `CHUNK_MODE` values.
+- `uncommitted` test(config): added [`backend/tests/test_config.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_config.py) to verify the new domain config views and invalid environment-value validation paths.
+- `uncommitted` chore(mypy): added [`backend/tests/test_config.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `142` configured source files.
+- `uncommitted` test(config): verified `uv run ruff check app/config.py tests/test_config.py`, `uv run mypy --config-file pyproject.toml app/config.py tests/test_config.py`, `uv run pytest tests/test_config.py tests/test_status_routes.py tests/test_request_logging.py tests/test_qdrant_service.py` (`11 passed`), and `uv run mypy --config-file pyproject.toml` (`142` files).
+
 ## 2026-03-12 (branch: feat/backend-structured-logging)
 
 ### Structured logging foundation

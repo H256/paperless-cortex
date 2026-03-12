@@ -181,6 +181,7 @@ files = [
     "tests/test_documents_actions_routes.py",
     "tests/test_writeback_dryrun_routes.py",
     "tests/test_writeback_jobs_routes.py",
+    "tests/test_config.py",
     "tests/test_process_missing_route.py",
     "tests/test_logging_setup.py",
     "tests/test_request_logging.py",
