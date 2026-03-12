@@ -506,6 +506,21 @@
 - Migrated backend dev tooling dependencies in `backend/pyproject.toml` from deprecated `tool.uv.dev-dependencies` to `dependency-groups.dev`.
 - Verified the new tooling baseline with backend Ruff, strict mypy, full backend pytest (`221 passed`), pre-commit config validation, YAML validation for the workflow/config files, and a Windows-safe `npx --prefix frontend oxlint --version` sanity check.
 
+### 41. Stable API error codes and request-context responses
+
+- Added centralized exception handlers in `backend/app/main.py` for:
+  - domain errors (`PaperlessIntelligenceError`)
+  - HTTP errors
+  - request validation errors
+- Error responses now include:
+  - `detail`
+  - `error_code`
+  - `request_id`
+  - `correlation_id`
+  - `X-Error-Code` response header
+- Routed those failures through the structured logging foundation so error responses emit stable status/error-code context in logs.
+- Added `backend/tests/test_api_error_responses.py` and brought it into the strict mypy allowlist.
+
 ## Verified commands
 
 ```bash
@@ -599,6 +614,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.3 Service Layer Complexity` is now in progress with the first documents-actions orchestration slice extracted into `backend/app/services/documents/operations.py`.
 - `3.2 Database Query Optimization` is now in progress with a first low-risk eager-loading and candidate-scan optimization pass across document/similarity/writeback paths.
 - `5.2 Developer Tooling` is now in progress with backend CI, uv-backed pre-commit enforcement, and Windows-safe frontend lint-hook execution.
+- `5.3 Error Messages & Observability` is now in progress with stable API error codes and request/correlation context in error responses.
 
 
 
