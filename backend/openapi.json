@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.1.0"
+    "version": "0.4.3"
   },
   "paths": {
     "/documents/": {
@@ -3748,7 +3748,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "title": "Response Chat Stream Chat Stream Post"
+                }
               }
             }
           },
@@ -8360,6 +8362,17 @@
               }
             ],
             "title": "Text Model"
+          },
+          "chat_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
           },
           "embedding_model": {
             "anyOf": [
