@@ -504,3 +504,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app tests scripts alembic`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest`
+
+## Weaviate adapter coverage baseline re-verification
+
+- Added [`backend/tests/test_weaviate_adapter.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_weaviate_adapter.py) to the strict mypy allowlist, raising the strict backend baseline from `161` to `162` files.
+- Re-verified the backend CI equivalent after adding direct fake-client coverage for Weaviate collection creation, chunk-vs-centroid upsert routing, centroid-search selection, and centroid retrieve fallback.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
