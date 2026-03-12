@@ -180,15 +180,6 @@ def apply_derived_fields_and_review_status(
         payload["previous"] = None
         return payload
 
-    analysis_by_doc = {
-        int(row.id): {
-            "analysis_model": row.analysis_model,
-            "analysis_processed_at": row.analysis_processed_at,
-        }
-        for row in db.query(Document.id, Document.analysis_model, Document.analysis_processed_at)
-        .filter(Document.id.in_(doc_ids))
-        .all()
-    }
     local_docs = (
         db.query(Document)
         .options(
@@ -198,6 +189,8 @@ def apply_derived_fields_and_review_status(
                 Document.document_date,
                 Document.created,
                 Document.correspondent_id,
+                Document.analysis_model,
+                Document.analysis_processed_at,
             ),
             selectinload(Document.tags).load_only(Tag.id),
             selectinload(Document.correspondent).load_only(Correspondent.name),
@@ -324,7 +317,8 @@ def apply_derived_fields_and_review_status(
         doc["pending_correspondent_name"] = pending_correspondent_name or None
         doc["local_overrides"] = local_overrides
         doc["has_embeddings"] = doc_id in embed_ids
-        doc.update(analysis_by_doc.get(doc_id, {}))
+        doc["analysis_model"] = local_doc.analysis_model if local_doc else None
+        doc["analysis_processed_at"] = local_doc.analysis_processed_at if local_doc else None
         sources = suggestions_by_doc.get(doc_id, set())
         doc["has_suggestions"] = bool(sources)
         doc["has_suggestions_paperless"] = "paperless_ocr" in sources

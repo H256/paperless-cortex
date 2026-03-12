@@ -702,6 +702,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.3 Service Layer Complexity` moved further with a second worker extraction: sync/embedding/evidence/similarity task helpers now live in `backend/app/services/pipeline/worker_document_tasks.py`, leaving `backend/app/worker.py` as a thinner orchestration boundary around the remaining OCR/page-note/suggestion flows.
 - `3.2 Database Query Optimization` moved further with composite `task_runs` indexes aligned to the queue history and checkpoint lookup filters (`doc_id`/`task`/`source`/`id`, `status`/`task`/`id`), which is the first DB-focused follow-up after the route/worker SRP cleanup.
 - `3.2 Database Query Optimization` moved again with a cheaper `task_runs` pagination path in `backend/app/services/pipeline/task_runs.py`: the service no longer uses a window-count query on every page fetch, and instead derives totals cheaply where possible and falls back to a plain count only when necessary.
+- `3.2 Database Query Optimization` moved again in the document list path: `backend/app/services/documents/read_models.py` no longer issues a separate analysis-field lookup per document batch, and instead loads those fields with the main local document query that already hydrates derived list state.
 
 
 

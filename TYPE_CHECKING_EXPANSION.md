@@ -376,3 +376,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/services/pipeline/task_runs.py tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml app/services/pipeline/task_runs.py tests/test_task_runs_service.py`
   - `cd backend && uv run pytest tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
+
+## Latest document read-model query optimization
+
+- Simplified `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document query used for derived document lists, removing a separate analysis lookup for each document batch.
+- Added a regression in `backend/tests/test_documents_routes.py` to keep those analysis fields visible in derived list responses.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
