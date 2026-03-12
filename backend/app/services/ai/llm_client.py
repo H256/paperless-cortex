@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import atexit
 import logging
 import os
+import threading
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Literal
 
 import httpx
 from openai import BadRequestError, OpenAI
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from app.config import Settings
 
 logger = logging.getLogger(__name__)
+_CLIENT_LOCK = threading.Lock()
+_CLIENTS: dict[tuple[float | None, bool], httpx.Client] = {}
 
 
 def _llm_debug_enabled() -> bool:
@@ -106,8 +111,36 @@ def sdk_base_url(
     return f"{base_url_for_purpose(settings, purpose=purpose)}/v1"
 
 
-def client(settings: Settings, timeout: float | None) -> httpx.Client:
-    return httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
+def clear_client_pool() -> None:
+    with _CLIENT_LOCK:
+        clients = list(_CLIENTS.values())
+        _CLIENTS.clear()
+    for pooled_client in clients:
+        pooled_client.close()
+
+
+@atexit.register
+def _close_pooled_clients() -> None:
+    clear_client_pool()
+
+
+def _client_key(settings: Settings, timeout: float | None) -> tuple[float | None, bool]:
+    return (float(timeout) if timeout is not None else None, bool(settings.httpx_verify_tls))
+
+
+def _shared_client(settings: Settings, timeout: float | None) -> httpx.Client:
+    key = _client_key(settings, timeout)
+    with _CLIENT_LOCK:
+        pooled_client = _CLIENTS.get(key)
+        if pooled_client is None or pooled_client.is_closed:
+            pooled_client = httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
+            _CLIENTS[key] = pooled_client
+        return pooled_client
+
+
+@contextmanager
+def client(settings: Settings, timeout: float | None) -> Iterator[httpx.Client]:
+    yield _shared_client(settings, timeout)
 
 
 def headers(settings: Settings) -> dict[str, str]:

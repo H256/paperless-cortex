@@ -297,3 +297,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml app/main.py tests/test_api_error_responses.py`
   - `cd backend && uv run pytest tests/test_api_error_responses.py tests/test_request_logging.py tests/test_status_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest client-pooling expansion
+
+- Added `backend/tests/test_http_client_pooling.py` to the strict mypy allowlist.
+- The strict mypy allowlist count is now `145`.
+- Verified the client-pooling/performance slice with:
+  - `cd backend && uv run ruff check app/services/integrations/paperless.py app/services/search/qdrant.py app/services/ai/llm_client.py tests/test_http_client_pooling.py app/services/integrations/connections.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_http_client_pooling.py tests/test_connections_service.py tests/test_qdrant_service.py tests/test_status_routes.py`

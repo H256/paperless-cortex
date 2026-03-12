@@ -1,20 +1,26 @@
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from app.config import Settings
 
 _CACHE_LOCK = threading.Lock()
 _DOC_CACHE: dict[int, tuple[float, dict[str, Any]]] = {}
 _LIST_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_CLIENT_LOCK = threading.Lock()
+_CLIENTS: dict[tuple[str, str, bool], httpx.Client] = {}
 _DOC_CACHE_TTL_SECONDS = 10
 _LIST_CACHE_TTL_SECONDS = 10
 
@@ -58,7 +64,28 @@ def _api_base(settings: Settings) -> str:
     return f"{base}/api"
 
 
-def client(settings: Settings) -> httpx.Client:
+def clear_client_pool() -> None:
+    with _CLIENT_LOCK:
+        clients = list(_CLIENTS.values())
+        _CLIENTS.clear()
+    for pooled_client in clients:
+        pooled_client.close()
+
+
+@atexit.register
+def _close_pooled_clients() -> None:
+    clear_client_pool()
+
+
+def _client_key(settings: Settings) -> tuple[str, str, bool]:
+    return (
+        _api_base(settings),
+        str(settings.paperless_api_token or ""),
+        bool(settings.httpx_verify_tls),
+    )
+
+
+def _shared_client(settings: Settings) -> httpx.Client:
     """Create an authenticated HTTPX client for Paperless-NGX API.
 
     The client is configured with the API token, base URL, and timeout.
@@ -78,12 +105,23 @@ def client(settings: Settings) -> httpx.Client:
     """
     if not settings.paperless_base_url or not settings.paperless_api_token:
         raise RuntimeError("PAPERLESS_BASE_URL/PAPERLESS_API_TOKEN not set")
-    return httpx.Client(
-        base_url=_api_base(settings),
-        headers={"Authorization": f"Token {settings.paperless_api_token}"},
-        timeout=15,
-        verify=settings.httpx_verify_tls,
-    )
+    key = _client_key(settings)
+    with _CLIENT_LOCK:
+        pooled_client = _CLIENTS.get(key)
+        if pooled_client is None or pooled_client.is_closed:
+            pooled_client = httpx.Client(
+                base_url=_api_base(settings),
+                headers={"Authorization": f"Token {settings.paperless_api_token}"},
+                timeout=15,
+                verify=settings.httpx_verify_tls,
+            )
+            _CLIENTS[key] = pooled_client
+        return pooled_client
+
+
+@contextmanager
+def client(settings: Settings) -> Iterator[httpx.Client]:
+    yield _shared_client(settings)
 
 
 def list_documents(
