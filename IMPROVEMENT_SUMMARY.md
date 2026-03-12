@@ -705,6 +705,8 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.2 Database Query Optimization` moved again in the document list path: `backend/app/services/documents/read_models.py` no longer issues a separate analysis-field lookup per document batch, and instead loads those fields with the main local document query that already hydrates derived list state.
 - `3.2 Database Query Optimization` moved again in the same document list path: derived list assembly now skips ordered suggestion-row fetching unless summary previews are requested, and the `vision_ocr` presence flag is driven from distinct doc IDs instead of all matching page rows.
 - `3.2 Database Query Optimization` moved into the writeback-preview path: preview assembly now scopes metadata lookups to the correspondent/tag IDs actually referenced by the current preview batch instead of loading the full metadata tables every time.
+- `3.3 Service Layer Complexity` moved further again: worker suggestion-generation, vision-suggestion recovery, and field-variant task handling now live in `backend/app/services/pipeline/worker_suggestion_tasks.py`, with `backend/app/worker.py` reduced to stable wrappers plus the remaining OCR/page-note orchestration.
+- `2.1 Increase Test Coverage` also moved with that worker slice: direct worker coverage now includes the `suggest_field` task path in `backend/tests/test_worker_suggest_field.py`.
 
 
 

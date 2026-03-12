@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
 import socket
 import threading
 import time
-from json import JSONDecodeError
 from typing import TYPE_CHECKING
 
 import httpx
@@ -18,9 +16,7 @@ from app.db import SessionLocal
 from app.exceptions import WorkerError
 from app.models import (
     Document,
-    DocumentPageNote,
     DocumentPageText,
-    DocumentSuggestion,
 )
 from app.services.ai import vision_ocr
 from app.services.ai.hierarchical_summary import (
@@ -108,6 +104,24 @@ from app.services.pipeline.worker_runtime import (
     handle_worker_cancel_request,
     parse_worker_queue_item,
 )
+from app.services.pipeline.worker_suggestion_tasks import (
+    build_distilled_context_from_hier_summary as _service_build_distilled_context_from_hier_summary,
+)
+from app.services.pipeline.worker_suggestion_tasks import (
+    build_distilled_context_from_page_notes as _service_build_distilled_context_from_page_notes,
+)
+from app.services.pipeline.worker_suggestion_tasks import (
+    join_page_texts_limited as _service_join_page_texts_limited,
+)
+from app.services.pipeline.worker_suggestion_tasks import (
+    process_suggest_field as _service_process_suggest_field,
+)
+from app.services.pipeline.worker_suggestion_tasks import (
+    process_suggestions_paperless as _service_process_suggestions_paperless,
+)
+from app.services.pipeline.worker_suggestion_tasks import (
+    process_suggestions_vision as _service_process_suggestions_vision,
+)
 from app.services.runtime.logging_setup import (
     bind_log_context,
     configure_logging,
@@ -116,8 +130,6 @@ from app.services.runtime.logging_setup import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -171,28 +183,6 @@ def _embedding_checkpoint_batch_size(
     return configured_batch_size
 
 
-def _join_page_texts_limited(pages: Iterable[object], max_chars: int) -> str:
-    if max_chars <= 0:
-        return "\n\n".join(_page_text_value(page) for page in pages).strip()
-    parts: list[str] = []
-    total = 0
-    for page in pages:
-        text = _page_text_value(page).strip()
-        if not text:
-            continue
-        sep_len = 2 if parts else 0
-        remaining = max_chars - total - sep_len
-        if remaining <= 0:
-            break
-        if len(text) > remaining:
-            parts.append(text[:remaining])
-            total = max_chars
-            break
-        parts.append(text)
-        total += sep_len + len(text)
-    return "\n\n".join(parts).strip()
-
-
 def _is_large_doc(settings, doc: Document) -> bool:
     return is_large_document(
         page_count=doc.page_count,
@@ -216,152 +206,6 @@ def _ensure_paperless_page_texts(settings, db: Session, doc: Document) -> None:
             source_filter="paperless_ocr",
             replace_pages=[page.page for page in baseline_pages],
         )
-
-
-def _build_distilled_context_from_page_notes(
-    db: Session,
-    *,
-    doc_id: int,
-    source: str,
-    max_chars: int,
-) -> str:
-    if max_chars <= 0:
-        max_chars = 12000
-    rows = (
-        db.query(DocumentPageNote)
-        .filter(
-            DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.source == source,
-            DocumentPageNote.status == "ok",
-        )
-        .order_by(DocumentPageNote.page.asc())
-        .all()
-    )
-    if not rows:
-        return ""
-    parts: list[str] = []
-    used = 0
-    for row in rows:
-        raw = (row.notes_text or "").strip()
-        if not raw:
-            continue
-        text = raw
-        try:
-            payload_obj = json.loads(raw)
-            if isinstance(payload_obj, dict):
-                direct = str(payload_obj.get("text") or "").strip()
-                if direct:
-                    text = direct
-                else:
-                    parts_list: list[str] = []
-                    for key in ("facts", "entities", "references", "key_numbers", "uncertainties"):
-                        values = payload_obj.get(key)
-                        if isinstance(values, list):
-                            cleaned = [str(v).strip() for v in values if str(v).strip()]
-                            if cleaned:
-                                parts_list.append(f"{key}: " + "; ".join(cleaned[:12]))
-                    text = "\n".join(parts_list).strip() or raw
-        except JSONDecodeError:
-            text = raw
-        if not text:
-            continue
-        block = f"Page {row.page}: {text}"
-        sep = "\n\n" if parts else ""
-        remaining = max_chars - used - len(sep)
-        if remaining <= 0:
-            break
-        if len(block) > remaining:
-            parts.append(block[:remaining])
-            break
-        parts.append(block)
-        used += len(sep) + len(block)
-    return "\n\n".join(parts).strip()
-
-
-def _build_distilled_context_from_hier_summary(
-    db: Session,
-    *,
-    doc_id: int,
-    source: str,
-    max_chars: int,
-) -> str:
-    if max_chars <= 0:
-        max_chars = 12000
-    row = (
-        db.query(DocumentSuggestion)
-        .filter(
-            DocumentSuggestion.doc_id == doc_id,
-            DocumentSuggestion.source == "hier_summary",
-        )
-        .first()
-    )
-    if not row or not row.payload:
-        return ""
-    try:
-        payload = json.loads(row.payload)
-    except JSONDecodeError:
-        return ""
-    if not isinstance(payload, dict):
-        return ""
-    payload_source = str(payload.get("source") or "").strip()
-    if payload_source and payload_source != source:
-        return ""
-
-    summary = str(payload.get("summary") or "").strip()
-    executive = str(payload.get("executive_summary") or "").strip()
-    key_facts = payload.get("key_facts") if isinstance(payload.get("key_facts"), list) else []
-    key_entities = (
-        payload.get("key_entities") if isinstance(payload.get("key_entities"), list) else []
-    )
-    key_numbers = payload.get("key_numbers") if isinstance(payload.get("key_numbers"), list) else []
-    key_dates = payload.get("key_dates") if isinstance(payload.get("key_dates"), list) else []
-    has_signal = bool(summary or executive or key_facts or key_entities or key_numbers or key_dates)
-    if not has_signal:
-        notes_raw = payload.get("confidence_notes")
-        notes_list = notes_raw if isinstance(notes_raw, list) else []
-        note_text = " ".join(str(item).strip() for item in notes_list if str(item).strip()).lower()
-        if "global_summary_error" in note_text or "fallback_due_to_json_parse_error" in note_text:
-            return ""
-
-    blocks: list[str] = []
-    if executive:
-        blocks.append(f"Executive summary: {executive}")
-    if summary:
-        blocks.append(f"Summary: {summary}")
-
-    key_mappings = (
-        ("key_facts", "Key facts"),
-        ("key_dates", "Key dates"),
-        ("key_entities", "Key entities"),
-        ("key_numbers", "Key numbers"),
-        ("open_questions", "Open questions"),
-        ("confidence_notes", "Confidence notes"),
-    )
-    for key, label in key_mappings:
-        values = payload.get(key)
-        if not isinstance(values, list):
-            continue
-        cleaned = [str(item).strip() for item in values if str(item).strip()]
-        if not cleaned:
-            continue
-        blocks.append(f"{label}: " + "; ".join(cleaned[:20]))
-
-    if not blocks:
-        return ""
-
-    parts: list[str] = []
-    used = 0
-    for block in blocks:
-        sep = "\n\n" if parts else ""
-        remaining = max_chars - used - len(sep)
-        if remaining <= 0:
-            break
-        if len(block) > remaining:
-            parts.append(block[:remaining])
-            break
-        parts.append(block)
-        used += len(sep) + len(block)
-    return "\n\n".join(parts).strip()
 
 
 def _embed_with_pages(
@@ -440,14 +284,14 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
     correspondents = get_cached_correspondents(settings)
     baseline_text = doc.content or ""
     if _is_large_doc(settings, doc):
-        distilled = _build_distilled_context_from_hier_summary(
+        distilled = _service_build_distilled_context_from_hier_summary(
             db,
             doc_id=doc_id,
             source="paperless_ocr",
             max_chars=settings.worker_suggestions_max_chars,
         )
         if not distilled:
-            distilled = _build_distilled_context_from_page_notes(
+            distilled = _service_build_distilled_context_from_page_notes(
                 db,
                 doc_id=doc_id,
                 source="paperless_ocr",
@@ -472,21 +316,21 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
     if vision_pages:
         vision_text = ""
         if _is_large_doc(settings, doc):
-            vision_text = _build_distilled_context_from_hier_summary(
+            vision_text = _service_build_distilled_context_from_hier_summary(
                 db,
                 doc_id=doc_id,
                 source="vision_ocr",
                 max_chars=settings.worker_suggestions_max_chars,
             )
         if not vision_text:
-            vision_text = _build_distilled_context_from_page_notes(
+            vision_text = _service_build_distilled_context_from_page_notes(
                 db,
                 doc_id=doc_id,
                 source="vision_ocr",
                 max_chars=settings.worker_suggestions_max_chars,
             )
         if not vision_text:
-            vision_text = _join_page_texts_limited(
+            vision_text = _service_join_page_texts_limited(
                 vision_pages,
                 max_chars=settings.worker_suggestions_max_chars,
             )
@@ -853,181 +697,46 @@ def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
 
 
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort suggestions doc=%s", doc_id)
-        return
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    tags = get_cached_tags(settings)
-    correspondents = get_cached_correspondents(settings)
-    raw = paperless.get_document(settings, doc_id)
-    baseline_text = clean_ocr_text(doc.content or "")
-    if _is_large_doc(settings, doc):
-        distilled = _build_distilled_context_from_hier_summary(
-            db,
-            doc_id=doc_id,
-            source="paperless_ocr",
-            max_chars=settings.worker_suggestions_max_chars,
-        )
-        if not distilled:
-            distilled = _build_distilled_context_from_page_notes(
-                db,
-                doc_id=doc_id,
-                source="paperless_ocr",
-                max_chars=settings.worker_suggestions_max_chars,
-            )
-        if distilled:
-            baseline_text = distilled
-    baseline_suggestions = generate_normalized_suggestions(
+    _service_process_suggestions_paperless(
         settings,
-        raw,
-        baseline_text,
-        tags=tags,
-        correspondents=correspondents,
-    )
-    persist_suggestions(
         db,
         doc_id,
-        "paperless_ocr",
-        baseline_suggestions,
-        model_name=settings.text_model,
+        is_cancel_requested_fn=is_cancel_requested,
+        get_tags_fn=get_cached_tags,
+        get_correspondents_fn=get_cached_correspondents,
+        get_document_fn=paperless.get_document,
+        generate_suggestions_fn=generate_normalized_suggestions,
+        persist_suggestions_fn=persist_suggestions,
     )
 
 
 def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort vision suggestions doc=%s", doc_id)
-        return
-    tags = get_cached_tags(settings)
-    correspondents = get_cached_correspondents(settings)
-    raw = paperless.get_document(settings, doc_id)
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    vision_pages = (
-        db.query(DocumentPageText)
-        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-        .order_by(DocumentPageText.page.asc())
-        .all()
-    )
-    expected_pages = int(doc.page_count or 0)
-    bounded_pages = {int(page.page) for page in vision_pages if int(page.page) > 0}
-    has_complete_vision = (
-        bool(vision_pages) if expected_pages <= 0 else len(bounded_pages) >= expected_pages
-    )
-    if settings.enable_vision_ocr and not has_complete_vision:
-        logger.info(
-            "Vision suggestions requested without complete vision OCR; backfilling doc=%s expected_pages=%s have=%s",
-            doc_id,
-            expected_pages if expected_pages > 0 else "unknown",
-            len(bounded_pages),
-        )
-        _process_vision_ocr_only(settings, db, doc_id, force=False)
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-    if not vision_pages:
-        raise RuntimeError(f"vision_suggestions_missing_pages doc_id={doc_id}")
-
-    vision_text = ""
-    if _is_large_doc(settings, doc):
-        vision_text = _build_distilled_context_from_hier_summary(
-            db,
-            doc_id=doc_id,
-            source="vision_ocr",
-            max_chars=settings.worker_suggestions_max_chars,
-        )
-    if not vision_text:
-        vision_text = _build_distilled_context_from_page_notes(
-            db,
-            doc_id=doc_id,
-            source="vision_ocr",
-            max_chars=settings.worker_suggestions_max_chars,
-        )
-    if not vision_text:
-        vision_text = _join_page_texts_limited(
-            vision_pages,
-            max_chars=settings.worker_suggestions_max_chars,
-        )
-    if not vision_text:
-        raise RuntimeError(f"vision_suggestions_empty_text doc_id={doc_id}")
-
-    vision_suggestions = generate_normalized_suggestions(
+    _service_process_suggestions_vision(
         settings,
-        raw,
-        vision_text,
-        tags=tags,
-        correspondents=correspondents,
-    )
-    persist_suggestions(
         db,
         doc_id,
-        "vision_ocr",
-        vision_suggestions,
-        model_name=settings.text_model,
+        is_cancel_requested_fn=is_cancel_requested,
+        get_tags_fn=get_cached_tags,
+        get_correspondents_fn=get_cached_correspondents,
+        get_document_fn=paperless.get_document,
+        generate_suggestions_fn=generate_normalized_suggestions,
+        persist_suggestions_fn=persist_suggestions,
+        process_vision_ocr_only_fn=_process_vision_ocr_only,
     )
 
 
 def _process_suggest_field(settings, db: Session, task: dict) -> None:
-    raw_doc_id = task.get("doc_id")
-    if not isinstance(raw_doc_id, int):
-        return
-    doc_id = int(raw_doc_id)
-    source = str(task.get("source") or "paperless_ocr")
-    field = str(task.get("field") or "")
-    count = int(task.get("count") or 3)
-    current = task.get("current")
-    if source not in ("paperless_ocr", "vision_ocr") or field not in (
-        "title",
-        "date",
-        "correspondent",
-        "tags",
-    ):
-        return
-    raw = paperless.get_document(settings, doc_id)
-    tags = get_cached_tags(settings)
-    correspondents = get_cached_correspondents(settings)
-    if source == "vision_ocr":
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        text = _join_page_texts_limited(
-            vision_pages, max_chars=settings.worker_suggestions_max_chars
-        )
-    else:
-        doc = get_document_or_none(db, doc_id)
-        text = clean_ocr_text(doc.content) if doc and doc.content else ""
-    variants = generate_field_variants(
+    _service_process_suggest_field(
         settings,
-        raw,
-        text or "",
-        tags=tags,
-        correspondents=correspondents,
-        field=field,
-        count=max(1, min(count, 5)),
-        current_value=current,
-    )
-    variant_source = ("pvar" if source == "paperless_ocr" else "vvar") + f":{field}"
-    upsert_suggestion(
         db,
-        doc_id,
-        variant_source,
-        json.dumps(
-            {"variants": variants.get("variants") if isinstance(variants, dict) else variants},
-            ensure_ascii=False,
-        ),
-        model_name=settings.text_model,
-        commit=False,
+        task,
+        get_document_fn=paperless.get_document,
+        get_tags_fn=get_cached_tags,
+        get_correspondents_fn=get_cached_correspondents,
+        generate_field_variants_fn=generate_field_variants,
+        upsert_suggestion_fn=upsert_suggestion,
+        audit_suggestion_run_fn=audit_suggestion_run,
     )
-    audit_suggestion_run(db, doc_id, source, f"field_variants:{field}", commit=False)
-    db.commit()
 
 
 def _build_dispatch_handler(

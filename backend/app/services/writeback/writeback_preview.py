@@ -216,9 +216,14 @@ def preview_for_doc_ids(
         local_doc = local_by_id.get(doc_id)
         if not local_doc:
             continue
-        remote_doc = remote_docs.get(int(doc_id))
-        if not remote_doc:
-            remote_doc = paperless.get_document_cached(settings, doc_id)
+        remote_doc_raw = remote_docs.get(int(doc_id))
+        if remote_doc_raw is None:
+            fallback_doc = paperless.get_document_cached(settings, doc_id)
+            if fallback_doc is None:
+                continue
+            remote_doc = fallback_doc
+        else:
+            remote_doc = remote_doc_raw
         items.append(
             build_writeback_item(
                 local_doc=local_doc,

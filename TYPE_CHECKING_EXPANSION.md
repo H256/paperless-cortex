@@ -408,3 +408,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py`
   - `cd backend && uv run pytest tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py tests/test_writeback_jobs_routes.py`
+
+## Latest worker suggestion-task extraction
+
+- Added `backend/app/services/pipeline/worker_suggestion_tasks.py` and `backend/tests/test_worker_suggest_field.py` to the strict mypy allowlist.
+- Extracted worker suggestion-generation, vision-suggestion recovery, and field-variant handling out of `backend/app/worker.py` into the new service module while preserving the worker wrapper seams used by existing tests.
+- The strict mypy allowlist count is now `153`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_suggestion_tasks.py app/services/writeback/writeback_preview.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`
