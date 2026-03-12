@@ -3,6 +3,26 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-config-validation)
+
+### Configuration management
+- `uncommitted` refactor(config): split [`backend/app/config.py`](E:/workspace/python/paperless-intelligence/backend/app/config.py) into validated domain config views (`logging`, `api`, `worker`, `paperless`, `database`, `qdrant`, `queue`, `llm`, `embeddings`, `chunking`, `vision`, `suggestions`, `summary`, `http`, `ocr_score`, `evidence`, `writeback`) while preserving the existing flat `Settings` fields for compatibility.
+- `uncommitted` refactor(config): added explicit environment parsing helpers in [`backend/app/config.py`](E:/workspace/python/paperless-intelligence/backend/app/config.py) for booleans, ints, floats, optional strings, and database URL normalization, plus strict validation for malformed booleans, malformed integers, and invalid `CHUNK_MODE` values.
+- `uncommitted` test(config): added [`backend/tests/test_config.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_config.py) to verify the new domain config views and invalid environment-value validation paths.
+- `uncommitted` chore(mypy): added [`backend/tests/test_config.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `142` configured source files.
+- `uncommitted` test(config): verified `uv run ruff check app/config.py tests/test_config.py`, `uv run mypy --config-file pyproject.toml app/config.py tests/test_config.py`, `uv run pytest tests/test_config.py tests/test_status_routes.py tests/test_request_logging.py tests/test_qdrant_service.py` (`11 passed`), and `uv run mypy --config-file pyproject.toml` (`142` files).
+
+## 2026-03-12 (branch: feat/backend-structured-logging)
+
+### Structured logging foundation
+- `uncommitted` feat(logging): added contextvar-backed structured log context in [`backend/app/services/runtime/logging_setup.py`](E:/workspace/python/paperless-intelligence/backend/app/services/runtime/logging_setup.py) so request/task context is injected into JSON and non-JSON log records consistently.
+- `uncommitted` feat(api): added request-id and correlation-id propagation in [`backend/app/main.py`](E:/workspace/python/paperless-intelligence/backend/app/main.py), including `X-Request-ID` / `X-Correlation-ID` response headers and structured slow-request logging.
+- `uncommitted` feat(worker): bound worker/task/run context in [`backend/app/worker.py`](E:/workspace/python/paperless-intelligence/backend/app/worker.py) and normalized high-value worker lifecycle, retry, and failure logs onto the structured `log_event()` path.
+- `uncommitted` feat(chat): converted the high-value chat route logs in [`backend/app/routes/chat.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/chat.py) to structured logging with stable request fields.
+- `uncommitted` test(logging): added [`backend/tests/test_logging_setup.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_logging_setup.py) and [`backend/tests/test_request_logging.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_request_logging.py) to verify context merging, JSON log shaping, request-id headers, and slow-request logging context.
+- `uncommitted` test(logging): verified `uv run ruff check app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run mypy --config-file pyproject.toml app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run pytest tests/test_logging_setup.py tests/test_request_logging.py tests/test_status_routes.py tests/test_chat_routes.py tests/test_worker_error_types.py` (`12 passed`), plus `uv run mypy --config-file pyproject.toml` and `uv run ruff check app`.
+- uncommitted test(coverage): widened `2.1` again on top of the logging branch by adding [`backend/tests/test_process_missing_route.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_process_missing_route.py) for direct `/documents/process-missing` route coverage, and by bringing [`backend/tests/test_logging_setup.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_logging_setup.py) plus [`backend/tests/test_request_logging.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_request_logging.py) into the strict mypy allowlist.
+- `uncommitted` test(coverage): verified the follow-up slice with `uv run ruff check tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run mypy --config-file pyproject.toml tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run pytest tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py tests/test_documents_actions_routes.py` (`8 passed`), and `uv run mypy --config-file pyproject.toml` (`141` files).
 ## 2026-03-11 (branch: feat/backend-test-coverage-expansion)
 
 ### Test coverage follow-through before structured logging
@@ -464,3 +484,7 @@ All granular implementation slices and refactors are tracked here.
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
 - For full historical record prior to this restructure, use git history (`git log --oneline` / `git log --stat`).
+
+
+
+

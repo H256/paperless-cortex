@@ -449,6 +449,31 @@
   - aggregate preview/missing counters for paperless-embedding gaps
   - enqueue-task sequencing when dry-run is disabled
 
+### 37. Configuration domain split and validation
+
+- Refactored `backend/app/config.py` into validated domain config views while preserving the existing flat `Settings` surface for compatibility with current callers.
+- Added focused parsing helpers for booleans, integers, floats, optional strings, and database URL normalization so malformed environment values fail early with clear `ValueError`s.
+- Added explicit domain views for:
+  - `logging`
+  - `api`
+  - `worker`
+  - `paperless`
+  - `database`
+  - `qdrant`
+  - `queue`
+  - `llm`
+  - `embeddings`
+  - `chunking`
+  - `vision`
+  - `suggestions`
+  - `summary`
+  - `http`
+  - `ocr_score`
+  - `evidence`
+  - `writeback`
+- Added `backend/tests/test_config.py` to verify the new config views and invalid environment-value validation paths.
+- Added the new config regression test to the strict mypy allowlist and kept the compatibility-preserving config refactor fully typed.
+
 ## Verified commands
 
 ```bash
@@ -526,11 +551,19 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded `mypy` allowlist is passing for **136 source files**.
 - The expanded `mypy` allowlist is passing for **137 source files**.
 - The expanded `mypy` allowlist is passing for **138 source files**.
+- The expanded mypy allowlist is passing for **141 source files**.
+- The expanded mypy allowlist is passing for **142 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`138 / 138` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`142 / 142` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
 - The remaining broad catch is the intentional outer worker dispatch boundary, now normalized through `WorkerError` with preserved original error context.
 - The last meaningful pre-`2.3` test-coverage slice is now in: thinner route/service wrappers plus deeper sync-documents and process-missing execution paths are covered.
-- The next major review item is `2.3 Add Structured Logging`.
+- `2.3 Add Structured Logging` is now implemented in the current branch and verified with focused API/worker logging tests.
+- Wider `2.1` coverage is now moving again on top of the structured logging foundation, including direct `process-missing` route coverage and the logging regression tests in the strict mypy set.
+- `3.1 Configuration Management` is now in progress with validated domain config views in `backend/app/config.py` and dedicated regression coverage in `backend/tests/test_config.py`.
+
+
+
+

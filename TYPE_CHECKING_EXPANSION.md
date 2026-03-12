@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **138 source files**
+- Current configured `mypy` coverage: **142 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 138 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 138 files**
+- Net change in the latest follow-up slices: **46 -> 142 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 142 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`138 / 138`)
+- Current strict-checked share of backend Python files: **100%** (`142 / 142`)
 
 ## Files added in this slice
 
@@ -226,3 +226,34 @@ uv run pytest tests/test_process_missing_service.py
 uv run mypy --config-file pyproject.toml
 uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.py tests/test_process_missing_service.py
 ```
+
+## Latest adjacent structured logging validation
+
+- Structured request and worker logging foundation completed in the current branch without changing the strict mypy count.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`
+  - `cd backend && uv run pytest tests/test_logging_setup.py tests/test_request_logging.py tests/test_status_routes.py tests/test_chat_routes.py tests/test_worker_error_types.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run ruff check app`
+
+## Latest coverage follow-through after structured logging
+
+- Added `backend/tests/test_process_missing_route.py` for direct `documents_actions` process-missing route coverage.
+- Added `backend/tests/test_logging_setup.py` and `backend/tests/test_request_logging.py` to the strict mypy allowlist.
+- Verified with:
+  - `cd backend && uv run ruff check tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`
+  - `cd backend && uv run pytest tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py tests/test_documents_actions_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest configuration-management expansion
+
+- Added `backend/tests/test_config.py` to the strict mypy allowlist.
+- Refactored `backend/app/config.py` to expose validated domain config views while preserving the existing flat `Settings` field API for downstream compatibility.
+- Added explicit parsing/validation helpers for booleans, integers, floats, optional strings, database URLs, and `CHUNK_MODE`.
+- Verified with:
+  - `cd backend && uv run ruff check app/config.py tests/test_config.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/config.py tests/test_config.py`
+  - `cd backend && uv run pytest tests/test_config.py tests/test_status_routes.py tests/test_request_logging.py tests/test_qdrant_service.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
