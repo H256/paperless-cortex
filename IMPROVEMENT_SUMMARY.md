@@ -533,4 +533,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - Remaining `except Exception` sites: **1**.
 - The remaining broad catch is the intentional outer worker dispatch boundary, now normalized through `WorkerError` with preserved original error context.
 - The last meaningful pre-`2.3` test-coverage slice is now in: thinner route/service wrappers plus deeper sync-documents and process-missing execution paths are covered.
-- The next major review item is `2.3 Add Structured Logging`.
+- `2.3 Add Structured Logging` is now implemented in the current branch and verified with focused API/worker logging tests.
+- The next branch-local task is to widen 2.1 coverage further on top of the structured logging foundation.
+
+

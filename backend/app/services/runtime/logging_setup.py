@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextvars import ContextVar, Token
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +35,46 @@ _RESERVED = {
     "context",
 }
 
+_LOG_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar("log_context", default=None)
+
+
+def get_log_context() -> dict[str, Any]:
+    current = _LOG_CONTEXT.get()
+    return dict(current) if isinstance(current, dict) else {}
+
+
+def bind_log_context(**context: Any) -> Token[dict[str, Any] | None]:
+    merged = get_log_context()
+    for key, value in context.items():
+        if value is not None:
+            merged[key] = value
+    return _LOG_CONTEXT.set(merged)
+
+
+def reset_log_context(token: Token[dict[str, Any] | None]) -> None:
+    _LOG_CONTEXT.reset(token)
+
+
+def clear_log_context() -> None:
+    _LOG_CONTEXT.set(None)
+
+
+class ContextFilter(logging.Filter):
+    def __init__(self, *, service: str) -> None:
+        super().__init__()
+        self.service = service
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        context: dict[str, Any] = {"service": self.service}
+        current = get_log_context()
+        if current:
+            context.update(current)
+        record_context = getattr(record, "context", None)
+        if isinstance(record_context, dict):
+            context.update(record_context)
+        record.context = context
+        return True
+
 
 class JsonLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -64,6 +105,7 @@ def configure_logging(settings: Settings, *, service: str) -> None:
     for handler in list(root.handlers):
         root.removeHandler(handler)
     handler = logging.StreamHandler()
+    handler.addFilter(ContextFilter(service=service))
     if settings.log_json:
         handler.setFormatter(JsonLogFormatter())
     else:
@@ -71,9 +113,16 @@ def configure_logging(settings: Settings, *, service: str) -> None:
     root.addHandler(handler)
     logging.getLogger(__name__).info(
         "Logging configured",
-        extra={"context": {"service": service, "json": settings.log_json, "level": level_name.upper()}},
+        extra={"context": {"json": settings.log_json, "level": level_name.upper()}},
     )
 
 
-def log_event(logger: logging.Logger, level: int, message: str, **context: Any) -> None:
-    logger.log(level, message, extra={"context": context})
+def log_event(
+    logger: logging.Logger,
+    level: int,
+    message: str,
+    *,
+    exc_info: Any = None,
+    **context: Any,
+) -> None:
+    logger.log(level, message, extra={"context": context}, exc_info=exc_info)

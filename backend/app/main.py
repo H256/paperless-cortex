@@ -6,6 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI
@@ -32,40 +33,77 @@ from app.routes import (
 )
 from app.services.integrations.meta_cache import refresh_cache
 from app.services.integrations.meta_sync import sync_correspondents_all, sync_tags_all
-from app.services.runtime.logging_setup import configure_logging
+from app.services.runtime.logging_setup import (
+    bind_log_context,
+    configure_logging,
+    log_event,
+    reset_log_context,
+)
 from app.version import API_VERSION
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 SETTINGS = load_settings()
+logger = logging.getLogger(__name__)
+slow_request_logger = logging.getLogger("app.slow_requests")
+
+
+def _request_id_from_headers(request: Any) -> tuple[str, str]:
+    request_id = str(request.headers.get("x-request-id") or "").strip() or str(uuid4())
+    correlation_id = str(request.headers.get("x-correlation-id") or "").strip() or request_id
+    return request_id, correlation_id
+
 
 def _run_startup_sync() -> None:
+    startup_token = bind_log_context(startup_phase="bootstrap")
     try:
-        refresh_cache(SETTINGS)
-    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-        logging.getLogger(__name__).warning("Meta cache preload failed: %s", exc, exc_info=True)
-
-    with SessionLocal() as db:
         try:
-            total, upserted = sync_tags_all(SETTINGS, db)
-            logging.getLogger(__name__).info(
-                "Startup sync tags total=%s upserted=%s", total, upserted
-            )
-        except (httpx.HTTPError, RuntimeError, ValueError, SQLAlchemyError) as exc:
-            logging.getLogger(__name__).warning(
-                "Startup sync tags failed: %s", exc, exc_info=True
+            refresh_cache(SETTINGS)
+        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "Startup meta cache preload failed",
+                exc_info=exc,
+                error_class=exc.__class__.__name__,
+                error_message=str(exc),
             )
 
-        try:
-            total, upserted = sync_correspondents_all(SETTINGS, db)
-            logging.getLogger(__name__).info(
-                "Startup sync correspondents total=%s upserted=%s", total, upserted
-            )
-        except (httpx.HTTPError, RuntimeError, ValueError, SQLAlchemyError) as exc:
-            logging.getLogger(__name__).warning(
-                "Startup sync correspondents failed: %s", exc, exc_info=True
-            )
+        with SessionLocal() as db:
+            try:
+                total, upserted = sync_tags_all(SETTINGS, db)
+                log_event(logger, logging.INFO, "Startup sync tags completed", total=total, upserted=upserted)
+            except (httpx.HTTPError, RuntimeError, ValueError, SQLAlchemyError) as exc:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "Startup sync tags failed",
+                    exc_info=exc,
+                    error_class=exc.__class__.__name__,
+                    error_message=str(exc),
+                )
+
+            try:
+                total, upserted = sync_correspondents_all(SETTINGS, db)
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "Startup sync correspondents completed",
+                    total=total,
+                    upserted=upserted,
+                )
+            except (httpx.HTTPError, RuntimeError, ValueError, SQLAlchemyError) as exc:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "Startup sync correspondents failed",
+                    exc_info=exc,
+                    error_class=exc.__class__.__name__,
+                    error_message=str(exc),
+                )
+    finally:
+        reset_log_context(startup_token)
 
 
 @asynccontextmanager
@@ -86,32 +124,40 @@ app.add_middleware(
 )
 
 api = FastAPI(title="Paperless-NGX Cortex API", version=API_VERSION)
-slow_request_logger = logging.getLogger("app.slow_requests")
 
 
 @api.middleware("http")
-async def log_slow_requests(request: Any, call_next: Any) -> Any:
+async def bind_request_logging_context(request: Any, call_next: Any) -> Any:
+    request_id, correlation_id = _request_id_from_headers(request)
+    token = bind_log_context(
+        request_id=request_id,
+        correlation_id=correlation_id,
+        http_method=request.method,
+        http_path=request.url.path,
+    )
     threshold_ms = SETTINGS.api_slow_request_log_ms
-    if threshold_ms <= 0:
-        return await call_next(request)
-
     started = time.perf_counter()
     status_code = 500
+    response: Any | None = None
     try:
         response = await call_next(request)
-        status_code = response.status_code
+        status_code = int(response.status_code)
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Correlation-ID"] = correlation_id
         return response
     finally:
         elapsed_ms = (time.perf_counter() - started) * 1000.0
-        if elapsed_ms >= threshold_ms:
-            slow_request_logger.warning(
-                "Slow request method=%s path=%s status=%s duration_ms=%.1f threshold_ms=%s",
-                request.method,
-                request.url.path,
-                status_code,
-                elapsed_ms,
-                threshold_ms,
+        if threshold_ms > 0 and elapsed_ms >= threshold_ms:
+            log_event(
+                slow_request_logger,
+                logging.WARNING,
+                "Slow request",
+                status_code=status_code,
+                duration_ms=round(elapsed_ms, 1),
+                threshold_ms=threshold_ms,
             )
+        reset_log_context(token)
+
 
 api.include_router(documents.router)
 api.include_router(documents_actions.router)

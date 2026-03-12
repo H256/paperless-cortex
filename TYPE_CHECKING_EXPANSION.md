@@ -226,3 +226,13 @@ uv run pytest tests/test_process_missing_service.py
 uv run mypy --config-file pyproject.toml
 uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.py tests/test_process_missing_service.py
 ```
+
+## Latest adjacent structured logging validation
+
+- Structured request and worker logging foundation completed in the current branch without changing the strict mypy count.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`
+  - `cd backend && uv run pytest tests/test_logging_setup.py tests/test_request_logging.py tests/test_status_routes.py tests/test_chat_routes.py tests/test_worker_error_types.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run ruff check app`

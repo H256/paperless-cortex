@@ -16,6 +16,7 @@ from app.api_models import (
 from app.db import get_db
 from app.deps import get_settings
 from app.services.ai.chat import answer_question, generate_followups
+from app.services.runtime.logging_setup import log_event
 from app.services.search.evidence import resolve_evidence_matches
 
 if TYPE_CHECKING:
@@ -33,12 +34,15 @@ def chat(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> Any:
-    logger.info(
-        "Chat request question_len=%s top_k=%s source=%s conversation_id=%s",
-        len(payload.question),
-        payload.top_k,
-        payload.source or "all",
-        (payload.conversation_id or "new"),
+    log_event(
+        logger,
+        logging.INFO,
+        "Chat request received",
+        question_len=len(payload.question),
+        top_k=payload.top_k,
+        source=payload.source or "all",
+        conversation_id=payload.conversation_id or "new",
+        stream=False,
     )
     return answer_question(
         settings,
@@ -60,12 +64,15 @@ def chat_stream(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> Any:
-    logger.info(
-        "Chat stream request question_len=%s top_k=%s source=%s conversation_id=%s",
-        len(payload.question),
-        payload.top_k,
-        payload.source or "all",
-        (payload.conversation_id or "new"),
+    log_event(
+        logger,
+        logging.INFO,
+        "Chat request received",
+        question_len=len(payload.question),
+        top_k=payload.top_k,
+        source=payload.source or "all",
+        conversation_id=payload.conversation_id or "new",
+        stream=True,
     )
     return answer_question(
         settings,
@@ -87,7 +94,13 @@ def chat_followups(
     payload: ChatFollowupsRequest,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, list[str]]:
-    logger.info("Chat followups question_len=%s", len(payload.question))
+    log_event(
+        logger,
+        logging.INFO,
+        "Chat followups requested",
+        question_len=len(payload.question),
+        citation_count=len(payload.citations or []),
+    )
     questions = generate_followups(
         settings,
         question=payload.question,
@@ -105,6 +118,13 @@ def resolve_evidence(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    log_event(
+        logger,
+        logging.INFO,
+        "Resolve evidence requested",
+        citation_count=len(payload.citations),
+        max_pages=payload.max_pages,
+    )
     matches = resolve_evidence_matches(
         [
             {

@@ -91,7 +91,12 @@ from app.services.pipeline.worker_checkpoint import (
 from app.services.pipeline.worker_checkpoint import (
     set_task_checkpoint as _set_task_checkpoint,
 )
-from app.services.runtime.logging_setup import configure_logging, log_event
+from app.services.runtime.logging_setup import (
+    bind_log_context,
+    configure_logging,
+    log_event,
+    reset_log_context,
+)
 from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
     average_vectors,
@@ -1289,7 +1294,7 @@ def _dispatch_task(
 def _handle_worker_cancel_request(settings) -> bool:
     if not is_cancel_requested(settings):
         return False
-    logger.info("Worker cancel requested; clearing queue")
+    log_event(logger, logging.INFO, "Worker cancel requested; clearing queue")
     clear_queue(settings)
     reset_stats(settings)
     clear_cancel(settings)
@@ -1306,17 +1311,25 @@ def main() -> None:
         raise SystemExit("Redis not configured")
     worker_token = f"{socket.gethostname()}:{os.getpid()}:{int(time.time())}"
     while not acquire_worker_lock(settings, worker_token):
-        logger.warning("Worker lock unavailable or Redis not ready; retrying in 5s")
+        log_event(
+            logger,
+            logging.WARNING,
+            "Worker lock unavailable; retrying",
+            worker_id=worker_token,
+            queue=QUEUE_KEY,
+            retry_after_seconds=5,
+        )
         time.sleep(5)
     clear_running_task(settings)
-    logger.info("Worker started queue=%s", QUEUE_KEY)
+    worker_token_ctx = bind_log_context(worker_id=worker_token, queue=QUEUE_KEY)
+    log_event(logger, logging.INFO, "Worker started")
     stop_event = threading.Event()
     lock_lost = threading.Event()
 
     def _lock_refresher() -> None:
         while not stop_event.is_set():
             if not refresh_worker_lock(settings, worker_token):
-                logger.error("Worker lock refresh failed; exiting soon")
+                log_event(logger, logging.ERROR, "Worker lock refresh failed")
                 lock_lost.set()
                 return
             stop_event.wait(30)
@@ -1326,7 +1339,12 @@ def main() -> None:
             try:
                 mark_worker_heartbeat(settings)
             except (RedisError, RuntimeError):
-                logger.warning("Worker heartbeat update failed", exc_info=True)
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "Worker heartbeat update failed",
+                    exc_info=True,
+                )
             stop_event.wait(HEARTBEAT_INTERVAL_SECONDS)
 
     lock_refresher = threading.Thread(
@@ -1363,7 +1381,12 @@ def main() -> None:
             if isinstance(task, dict) and "doc_id" in task:
                 raw_task_doc_id = task.get("doc_id")
                 if not isinstance(raw_task_doc_id, int):
-                    logger.warning("Invalid task doc_id in queue payload: %s", task)
+                    log_event(
+                        logger,
+                        logging.WARNING,
+                        "Invalid task doc_id in queue payload",
+                        payload=task,
+                    )
                     continue
                 doc_id = int(raw_task_doc_id)
                 task_type = str(task.get("task") or "full")
@@ -1371,11 +1394,22 @@ def main() -> None:
                 try:
                     doc_id = int(doc_id_str)
                 except (TypeError, ValueError):
-                    logger.warning("Invalid doc_id in queue: %s", doc_id_str)
+                    log_event(
+                        logger,
+                        logging.WARNING,
+                        "Invalid doc_id in queue",
+                        payload=doc_id_str,
+                    )
                     continue
                 task_type = "full"
             if _handle_worker_cancel_request(settings):
-                logger.info("Worker cancel requested; skipping doc=%s", doc_id)
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "Worker cancel requested; skipping task",
+                    doc_id=doc_id,
+                    task=task_type,
+                )
                 time.sleep(0.5)
                 continue
             running_task = task if isinstance(task, dict) else {"doc_id": doc_id, "task": "full"}
@@ -1395,11 +1429,14 @@ def main() -> None:
                     retry_attempt = int(task.get("retry_count") or 0)
                 except (TypeError, ValueError):
                     retry_attempt = 0
+            task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
+            task_context_token = bind_log_context(
+                doc_id=doc_id,
+                task=task_type,
+                retry_attempt=retry_attempt + 1,
+            )
             try:
                 with SessionLocal() as db:
-                    task_payload = (
-                        task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
-                    )
                     source = task_source_from_payload(task if isinstance(task, dict) else None)
                     run_row = create_task_run(
                         db,
@@ -1411,21 +1448,22 @@ def main() -> None:
                         attempt=retry_attempt + 1,
                     )
                     run_id = int(run_row.id)
-                    if retry_attempt > 0:
-                        previous_checkpoint = find_latest_checkpoint(
-                            db,
-                            doc_id=doc_id,
-                            task=task_type,
-                            source=source,
-                        )
-                        if previous_checkpoint:
-                            _set_task_checkpoint(
-                                db,
-                                run_id=run_id,
-                                stage="resume",
-                                extra={"resume_from": previous_checkpoint},
-                            )
+                    run_context_token = bind_log_context(task_run_id=run_id, task_source=source)
                     try:
+                        if retry_attempt > 0:
+                            previous_checkpoint = find_latest_checkpoint(
+                                db,
+                                doc_id=doc_id,
+                                task=task_type,
+                                source=source,
+                            )
+                            if previous_checkpoint:
+                                _set_task_checkpoint(
+                                    db,
+                                    run_id=run_id,
+                                    stage="resume",
+                                    extra={"resume_from": previous_checkpoint},
+                                )
                         _dispatch_task(
                             settings,
                             db,
@@ -1453,15 +1491,13 @@ def main() -> None:
                             logger,
                             logging.ERROR,
                             "Worker task failed",
-                            doc_id=doc_id,
-                            task=task_type,
-                            retry_attempt=retry_attempt + 1,
                             error_type=run_error_type,
                             error_message=run_error_message,
                             error_class=worker_error.original_type or worker_error.__class__.__name__,
                         )
                         logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
                     finally:
+                        reset_log_context(run_context_token)
                         duration_ms = int(max(0.0, (time.time() - run_started) * 1000))
                         should_retry = bool(
                             run_status == "failed"
@@ -1480,11 +1516,9 @@ def main() -> None:
                                 logger,
                                 logging.WARNING,
                                 "Worker task requeued",
-                                doc_id=doc_id,
-                                task=task_type,
-                                retry_attempt=retry_attempt + 1,
                                 max_retries=settings.worker_max_retries,
                                 error_type=run_error_type,
+                                retry_after_seconds=pending_retry_delay_seconds,
                             )
                         elif run_status == "failed":
                             pending_dead_letter = {
@@ -1510,13 +1544,12 @@ def main() -> None:
                     logger,
                     logging.ERROR,
                     "Worker loop task bookkeeping failed",
-                    doc_id=doc_id,
-                    task=task_type,
                     error_type=classify_worker_error(exc),
                     error_message=str(exc),
                 )
                 logger.exception("Worker bookkeeping failed doc=%s task=%s", doc_id, task_type)
             finally:
+                reset_log_context(task_context_token)
                 clear_running_task(settings)
                 mark_done(settings)
                 record_last_run(settings, time.time() - run_started)
@@ -1541,7 +1574,12 @@ def main() -> None:
         stop_event.set()
         clear_running_task(settings)
         release_worker_lock(settings, worker_token)
-
+        reset_log_context(worker_token_ctx)
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
