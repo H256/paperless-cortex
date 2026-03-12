@@ -22,14 +22,30 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 
-def metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:
-    correspondents_by_id = {
-        int(corr_id): str(name or "")
-        for corr_id, name in db.query(Correspondent.id, Correspondent.name).all()
+def metadata_maps(
+    db: Session,
+    *,
+    correspondent_ids: set[int] | None = None,
+    tag_ids: set[int] | None = None,
+) -> tuple[dict[int, str], dict[int, str]]:
+    correspondent_query = db.query(Correspondent.id, Correspondent.name)
+    normalized_correspondent_ids = {
+        int(corr_id) for corr_id in (correspondent_ids or set()) if int(corr_id) > 0
     }
+    if normalized_correspondent_ids:
+        correspondent_query = correspondent_query.filter(
+            Correspondent.id.in_(normalized_correspondent_ids)
+        )
+    correspondents_by_id = {
+        int(corr_id): str(name or "") for corr_id, name in correspondent_query.all()
+    }
+
+    tag_query = db.query(Tag.id, Tag.name)
+    normalized_tag_ids = {int(tag_id) for tag_id in (tag_ids or set()) if int(tag_id) > 0}
+    if normalized_tag_ids:
+        tag_query = tag_query.filter(Tag.id.in_(normalized_tag_ids))
     tags_by_id = {
-        int(tag_id): str(name or "")
-        for tag_id, name in db.query(Tag.id, Tag.name).all()
+        int(tag_id): str(name or "") for tag_id, name in tag_query.all()
     }
     return correspondents_by_id, tags_by_id
 
@@ -150,7 +166,6 @@ def preview_for_doc_ids(
     if not local_by_id:
         return []
 
-    correspondents_by_id, tags_by_id = metadata_maps(db)
     pending_rows = (
         db.query(DocumentPendingTag)
         .filter(DocumentPendingTag.doc_id.in_(list(local_by_id.keys())))
@@ -171,6 +186,31 @@ def preview_for_doc_ids(
     }
 
     remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
+    correspondent_ids = {
+        int(doc.correspondent_id)
+        for doc in local_docs
+        if doc.correspondent_id is not None and int(doc.correspondent_id) > 0
+    }
+    tag_ids = {
+        int(tag.id)
+        for doc in local_docs
+        for tag in (doc.tags or [])
+        if int(tag.id) > 0
+    }
+    for remote_doc in remote_docs.values():
+        remote_correspondent_id = remote_doc.get("correspondent")
+        if isinstance(remote_correspondent_id, int) and remote_correspondent_id > 0:
+            correspondent_ids.add(remote_correspondent_id)
+        remote_tags = remote_doc.get("tags")
+        if isinstance(remote_tags, list):
+            for tag_id in remote_tags:
+                if isinstance(tag_id, int) and tag_id > 0:
+                    tag_ids.add(tag_id)
+    correspondents_by_id, tags_by_id = metadata_maps(
+        db,
+        correspondent_ids=correspondent_ids,
+        tag_ids=tag_ids,
+    )
     items: list[WritebackDryRunItem] = []
     for doc_id in doc_ids:
         local_doc = local_by_id.get(doc_id)

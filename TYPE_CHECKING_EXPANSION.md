@@ -398,3 +398,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
   - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest writeback preview metadata-scope reduction
+
+- Simplified `backend/app/services/writeback/writeback_preview.py` by narrowing correspondent/tag metadata queries to only the IDs referenced by the current preview batch.
+- Strengthened `backend/tests/test_writeback_preview_service.py` to keep remote/local name resolution stable under the scoped metadata path.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py`
+  - `cd backend && uv run pytest tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py tests/test_writeback_jobs_routes.py`

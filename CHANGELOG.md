@@ -560,6 +560,7 @@ All granular implementation slices and refactors are tracked here.
 - `005a7ad` perf(db): simplified `task_runs` pagination by fetching the page first, inferring totals on short first pages, and only running a separate count query when the total cannot be derived cheaply.
 - `d4f1aff` perf(db): removed an extra local-document analysis lookup in `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document fetch used for derived document lists.
 - `1b05473` perf(db): reduced derived document-list query overhead in `backend/app/services/documents/read_models.py` by avoiding unnecessary suggestion-row ordering when previews are off and by fetching `vision_ocr` doc IDs distinctly for the list-level boolean flag.
+- `pending` perf(db): narrowed `backend/app/services/writeback/writeback_preview.py` metadata lookups to only the correspondent and tag IDs referenced by the current preview batch instead of loading the full metadata tables on every preview request.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.

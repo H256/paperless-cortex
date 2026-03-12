@@ -4,6 +4,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from app.models import (
+    Correspondent,
     Document,
     DocumentPendingCorrespondent,
     DocumentPendingTag,
@@ -26,10 +27,16 @@ def test_preview_for_doc_ids_builds_changed_item_with_pending_values(
     from app.services.integrations import paperless
 
     with session_factory() as db:
+        local_corr = Correspondent(id=8801, name="Local Corr")
         local_tag = Tag(id=9901, name="LocalTag")
-        doc = Document(id=901, title="Local title")
+        remote_tag = Tag(id=9902, name="RemoteTag")
+        remote_corr = Correspondent(id=8802, name="Remote Corr")
+        doc = Document(id=901, title="Local title", correspondent_id=8801)
         doc.tags = [local_tag]
+        db.add(local_corr)
         db.add(local_tag)
+        db.add(remote_tag)
+        db.add(remote_corr)
         db.add(doc)
         db.add(
             DocumentPendingTag(
@@ -55,8 +62,8 @@ def test_preview_for_doc_ids_builds_changed_item_with_pending_values(
                     "id": 901,
                     "title": "Remote title",
                     "created": None,
-                    "correspondent": None,
-                    "tags": [],
+                    "correspondent": 8802,
+                    "tags": [9902],
                     "notes": [],
                 }
             },
@@ -70,7 +77,10 @@ def test_preview_for_doc_ids_builds_changed_item_with_pending_values(
         assert item.title.changed is True
         assert isinstance(item.tags.proposed, dict)
         assert item.tags.proposed.get("pending_names") == ["PendingTag"]
+        assert item.tags.original == {"ids": [9902], "names": ["RemoteTag"]}
         assert isinstance(item.correspondent.proposed, dict)
+        assert item.correspondent.original == {"id": 8802, "name": "Remote Corr"}
+        assert item.correspondent.proposed.get("name") == "Local Corr"
         assert item.correspondent.proposed.get("pending_name") == "Pending Corr"
 
 
