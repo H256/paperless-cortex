@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-03-12 (branch: feat/backend-service-srp-extract)
+
+### Service-layer complexity reduction
+- `uncommitted` refactor(documents): extracted pipeline orchestration and cleanup-text execution out of [`backend/app/routes/documents_actions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_actions.py) into the new service module [`backend/app/services/documents/operations.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/operations.py).
+- `uncommitted` refactor(documents): centralized pipeline option construction, sync freshness checks, pipeline status payload building, fanout payload building, continue-pipeline enqueue planning, and cleanup-text execution in the new service so the route module can stay as the HTTP boundary.
+- `uncommitted` refactor(documents): reduced [`backend/app/routes/documents_actions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_actions.py) from `622` lines to `445` lines without changing route contracts.
+- `uncommitted` chore(mypy): added [`backend/app/services/documents/operations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `143` configured source files.
+- `uncommitted` test(documents): verified `uv run ruff check app/routes/documents_actions.py app/services/documents/operations.py`, `uv run mypy --config-file pyproject.toml app/routes/documents_actions.py app/services/documents/operations.py`, `uv run pytest tests/test_documents_actions_routes.py tests/test_process_missing_route.py tests/test_documents_routes.py` (`34 passed`), and `uv run mypy --config-file pyproject.toml` (`143` files).
+
 ## 2026-03-12 (branch: feat/backend-config-validation)
 
 ### Configuration management
