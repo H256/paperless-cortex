@@ -495,3 +495,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app tests scripts alembic`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest`
+
+## Weaviate adapter baseline re-verification
+
+- Added the Weaviate helper/adapter plus the new status/config test coverage to the strict mypy allowlist, raising the strict backend baseline from `159` to `161` files.
+- Re-verified the backend CI equivalent after the official `weaviate-client` integration, HTTP/gRPC config split, separate centroid collection routing, and status/config surface updates landed.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`

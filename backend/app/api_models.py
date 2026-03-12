@@ -75,6 +75,8 @@ class StatusResponse(BaseModel):
     paperless_base_url: str | None = None
     llm_base_url: str | None = None
     qdrant_url: str | None = None
+    vector_store_provider: str | None = None
+    vector_store_url: str | None = None
     redis_host: str | None = None
     text_model: str | None = None
     chat_model: str | None = None

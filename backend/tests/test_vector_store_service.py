@@ -16,9 +16,18 @@ def test_vector_store_defaults_to_qdrant_provider(monkeypatch: Any) -> None:
     assert vector_store.display_name(settings) == "Qdrant"
 
 
-def test_vector_store_rejects_unsupported_provider(monkeypatch: Any) -> None:
+def test_vector_store_selects_weaviate_provider(monkeypatch: Any) -> None:
     monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate")
     settings = load_settings()
 
-    with pytest.raises(RuntimeError, match="Unsupported vector store provider: weaviate"):
+    assert vector_store.provider_name(settings) == "weaviate"
+    assert vector_store.display_name(settings) == "Weaviate"
+
+
+def test_vector_store_rejects_unknown_provider(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "unknown-store")
+    settings = load_settings()
+
+    with pytest.raises(RuntimeError, match="Unsupported vector store provider: unknown-store"):
         vector_store.get_vector_store_adapter(settings)

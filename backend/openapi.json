@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.4.12"
+    "version": "0.5.0"
   },
   "paths": {
     "/documents/": {
@@ -8385,6 +8385,28 @@
               }
             ],
             "title": "Qdrant Url"
+          },
+          "vector_store_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Store Provider"
+          },
+          "vector_store_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Store Url"
           },
           "redis_host": {
             "anyOf": [

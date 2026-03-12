@@ -100,6 +100,8 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
         "paperless_base_url": paperless_base,
         "llm_base_url": settings.llm_base_url,
         "qdrant_url": settings.qdrant_url,
+        "vector_store_provider": settings.vector_store.provider,
+        "vector_store_url": settings.vector_store.url,
         "redis_host": settings.redis_host,
         "text_model": settings.text_model,
         "chat_model": resolve_chat_model(settings),

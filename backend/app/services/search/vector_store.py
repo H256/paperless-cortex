@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from app.services.search.vector_backends import qdrant_adapter
+from app.services.search.vector_backends import qdrant_adapter, weaviate_adapter
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -54,6 +54,8 @@ def get_vector_store_adapter(settings: Settings) -> VectorStoreAdapter:
     provider = str(settings.vector_store.provider or "qdrant").strip().lower()
     if provider == "qdrant":
         return cast("VectorStoreAdapter", qdrant_adapter)
+    if provider == "weaviate":
+        return cast("VectorStoreAdapter", weaviate_adapter)
     raise RuntimeError(f"Unsupported vector store provider: {provider}")
 
 

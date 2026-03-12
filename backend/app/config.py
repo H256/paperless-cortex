@@ -54,6 +54,7 @@ class VectorStoreConfig:
     url: str | None
     api_key: str | None
     collection: str | None
+    centroid_collection: str | None
 
 
 @dataclass(frozen=True)
@@ -171,6 +172,16 @@ class Settings:
     vector_store_url: str | None
     vector_store_api_key: str | None
     vector_store_collection: str | None
+    vector_store_centroid_collection: str | None
+    weaviate_http_host: str | None
+    weaviate_http_port: int
+    weaviate_http_secure: bool
+    weaviate_grpc_host: str | None
+    weaviate_grpc_port: int
+    weaviate_grpc_secure: bool
+    weaviate_api_key: str | None
+    weaviate_collection: str | None
+    weaviate_centroid_collection: str | None
     redis_host: str | None
     queue_enabled: bool
     llm_base_url: str | None
@@ -274,6 +285,7 @@ class Settings:
             url=self.vector_store_url,
             api_key=self.vector_store_api_key,
             collection=self.vector_store_collection,
+            centroid_collection=self.vector_store_centroid_collection,
         )
 
     @property
@@ -442,9 +454,42 @@ def load_settings() -> Settings:
     qdrant_url = _env_optional_str("QDRANT_URL")
     qdrant_api_key = _env_optional_str("QDRANT_API_KEY")
     qdrant_collection = _env_str("QDRANT_COLLECTION", "paperless_chunks")
-    vector_store_url = _env_optional_str("VECTOR_STORE_URL") or qdrant_url
-    vector_store_api_key = _env_optional_str("VECTOR_STORE_API_KEY") or qdrant_api_key
-    vector_store_collection = _env_optional_str("VECTOR_STORE_COLLECTION") or qdrant_collection
+    weaviate_http_host = _env_optional_str("WEAVIATE_HTTP_HOST")
+    weaviate_http_port = _env_int("WEAVIATE_HTTP_PORT", 8080, min_value=1)
+    weaviate_http_secure = _env_bool("WEAVIATE_HTTP_SECURE", False)
+    weaviate_grpc_host = _env_optional_str("WEAVIATE_GRPC_HOST") or weaviate_http_host
+    weaviate_grpc_port = _env_int("WEAVIATE_GRPC_PORT", 50051, min_value=1)
+    weaviate_grpc_secure = _env_bool("WEAVIATE_GRPC_SECURE", False)
+    weaviate_api_key = _env_optional_str("WEAVIATE_API_KEY")
+    weaviate_collection = _env_optional_str("WEAVIATE_COLLECTION") or _env_optional_str(
+        "VECTOR_STORE_COLLECTION"
+    ) or qdrant_collection
+    weaviate_centroid_collection = _env_optional_str(
+        "WEAVIATE_CENTROID_COLLECTION"
+    ) or _env_optional_str("VECTOR_STORE_CENTROID_COLLECTION")
+    default_vector_store_url = qdrant_url
+    default_vector_store_api_key = qdrant_api_key
+    default_vector_store_collection = qdrant_collection
+    default_vector_store_centroid_collection = (
+        f"{qdrant_collection}_centroids" if qdrant_collection else None
+    )
+    if vector_store_provider == "weaviate":
+        protocol = "https" if weaviate_http_secure else "http"
+        default_vector_store_url = (
+            f"{protocol}://{weaviate_http_host}:{weaviate_http_port}" if weaviate_http_host else None
+        )
+        default_vector_store_api_key = weaviate_api_key
+        default_vector_store_collection = weaviate_collection
+        default_vector_store_centroid_collection = (
+            weaviate_centroid_collection
+            or (f"{weaviate_collection}_centroids" if weaviate_collection else None)
+        )
+    vector_store_url = _env_optional_str("VECTOR_STORE_URL") or default_vector_store_url
+    vector_store_api_key = _env_optional_str("VECTOR_STORE_API_KEY") or default_vector_store_api_key
+    vector_store_collection = _env_optional_str("VECTOR_STORE_COLLECTION") or default_vector_store_collection
+    vector_store_centroid_collection = _env_optional_str(
+        "VECTOR_STORE_CENTROID_COLLECTION"
+    ) or default_vector_store_centroid_collection
     return Settings(
         log_level=(_env_str("LOG_LEVEL", "INFO") or "INFO").upper(),
         log_json=_env_bool("LOG_JSON", False),
@@ -459,6 +504,17 @@ def load_settings() -> Settings:
         vector_store_url=vector_store_url,
         vector_store_api_key=vector_store_api_key,
         vector_store_collection=vector_store_collection,
+        vector_store_centroid_collection=vector_store_centroid_collection,
+        weaviate_http_host=weaviate_http_host,
+        weaviate_http_port=weaviate_http_port,
+        weaviate_http_secure=weaviate_http_secure,
+        weaviate_grpc_host=weaviate_grpc_host,
+        weaviate_grpc_port=weaviate_grpc_port,
+        weaviate_grpc_secure=weaviate_grpc_secure,
+        weaviate_api_key=weaviate_api_key,
+        weaviate_collection=weaviate_collection,
+        weaviate_centroid_collection=weaviate_centroid_collection
+        or (f"{weaviate_collection}_centroids" if weaviate_collection else None),
         redis_host=_env_optional_str("REDIS_HOST"),
         queue_enabled=_env_bool("QUEUE_ENABLED", False),
         llm_base_url=_env_optional_str("LLM_BASE_URL"),

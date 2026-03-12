@@ -65,6 +65,26 @@ def test_vector_store_config_prefers_generic_over_legacy_env(monkeypatch: Any) -
     assert settings.qdrant.collection == "legacy_docs"
 
 
+def test_weaviate_vector_store_settings_build_http_grpc_split(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate-http")
+    monkeypatch.setenv("WEAVIATE_HTTP_PORT", "8081")
+    monkeypatch.setenv("WEAVIATE_GRPC_HOST", "weaviate-grpc")
+    monkeypatch.setenv("WEAVIATE_GRPC_PORT", "50052")
+    monkeypatch.setenv("WEAVIATE_COLLECTION", "paperless_chunks_v2")
+
+    settings = load_settings()
+
+    assert settings.vector_store.provider == "weaviate"
+    assert settings.vector_store.url == "http://weaviate-http:8081"
+    assert settings.vector_store.collection == "paperless_chunks_v2"
+    assert settings.vector_store.centroid_collection == "paperless_chunks_v2_centroids"
+    assert settings.weaviate_http_host == "weaviate-http"
+    assert settings.weaviate_http_port == 8081
+    assert settings.weaviate_grpc_host == "weaviate-grpc"
+    assert settings.weaviate_grpc_port == 50052
+
+
 @pytest.mark.parametrize(
     ("name", "value", "message"),
     [
