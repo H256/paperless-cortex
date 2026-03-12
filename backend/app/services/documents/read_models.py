@@ -391,46 +391,89 @@ def build_local_document_payload(
 
     preferred_processing_source = "vision_ocr" if settings.enable_vision_ocr else "paperless_ocr"
     expected_embedding_source = "vision" if preferred_processing_source == "vision_ocr" else "paperless"
-    embedding_row = db.get(DocumentEmbedding, doc_id)
-    has_embeddings = embedding_row is not None
-    embedding_source = embedding_row.embedding_source if embedding_row else None
-    embedding_chunk_count = int(embedding_row.chunk_count or 0) if embedding_row else 0
+    detail_status_row = (
+        db.query(
+            func.max(DocumentEmbedding.embedding_source).label("embedding_source"),
+            func.max(DocumentEmbedding.chunk_count).label("embedding_chunk_count"),
+            func.max(case((DocumentSuggestion.source == "paperless_ocr", 1), else_=0)).label(
+                "has_suggestions_paperless"
+            ),
+            func.max(case((DocumentSuggestion.source == "vision_ocr", 1), else_=0)).label(
+                "has_suggestions_vision"
+            ),
+            func.max(case((DocumentSuggestion.source == "hier_summary", 1), else_=0)).label(
+                "has_hierarchical_summary"
+            ),
+            func.count(
+                func.distinct(
+                    case(
+                        (DocumentPageText.source == "vision_ocr", DocumentPageText.page),
+                        else_=None,
+                    )
+                )
+            ).label("vision_done_pages"),
+            func.count(
+                func.distinct(
+                    case(
+                        (
+                            and_(
+                                DocumentPageNote.source == "paperless_ocr",
+                                DocumentPageNote.status == "ok",
+                            ),
+                            DocumentPageNote.page,
+                        ),
+                        else_=None,
+                    )
+                )
+            ).label("page_notes_paperless_done"),
+            func.count(
+                func.distinct(
+                    case(
+                        (
+                            and_(
+                                DocumentPageNote.source == "vision_ocr",
+                                DocumentPageNote.status == "ok",
+                            ),
+                            DocumentPageNote.page,
+                        ),
+                        else_=None,
+                    )
+                )
+            ).label("page_notes_vision_done"),
+            func.max(SuggestionAudit.created_at).label("reviewed_at"),
+        )
+        .select_from(Document)
+        .outerjoin(DocumentEmbedding, DocumentEmbedding.doc_id == Document.id)
+        .outerjoin(DocumentSuggestion, DocumentSuggestion.doc_id == Document.id)
+        .outerjoin(DocumentPageText, DocumentPageText.doc_id == Document.id)
+        .outerjoin(DocumentPageNote, DocumentPageNote.doc_id == Document.id)
+        .outerjoin(
+            SuggestionAudit,
+            and_(
+                SuggestionAudit.doc_id == Document.id,
+                reviewed_audit_filter(),
+            ),
+        )
+        .filter(Document.id == doc_id)
+        .one()
+    )
+    embedding_source = detail_status_row.embedding_source
+    embedding_chunk_count = int(detail_status_row.embedding_chunk_count or 0)
+    has_embeddings = embedding_source is not None
     has_embedding_for_preferred_source = bool(
         has_embeddings
         and embedding_chunk_count > 0
         and embedding_source in {expected_embedding_source, "both"}
     )
-    suggestion_sources = {
-        str(row.source)
-        for row in db.query(DocumentSuggestion.source).filter(DocumentSuggestion.doc_id == doc_id).all()
-    }
-    has_suggestions_paperless = "paperless_ocr" in suggestion_sources
-    has_suggestions_vision = "vision_ocr" in suggestion_sources
-    has_hierarchical_summary = "hier_summary" in suggestion_sources
+    has_suggestions_paperless = bool(detail_status_row.has_suggestions_paperless)
+    has_suggestions_vision = bool(detail_status_row.has_suggestions_vision)
+    has_hierarchical_summary = bool(detail_status_row.has_hierarchical_summary)
     expected_pages = int(doc.page_count or 0) if int(doc.page_count or 0) > 0 else None
-    vision_done_pages = (
-        db.query(func.count(func.distinct(DocumentPageText.page)))
-        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-        .scalar()
-    ) or 0
+    vision_done_pages = int(detail_status_row.vision_done_pages or 0)
     has_vision_pages = vision_done_pages > 0
     has_complete_vision_pages = vision_done_pages >= expected_pages if expected_pages else has_vision_pages
-    page_notes_counts = (
-        db.query(
-            DocumentPageNote.source,
-            func.count(func.distinct(DocumentPageNote.page)).label("count"),
-        )
-        .filter(
-            DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.status == "ok",
-            DocumentPageNote.source.in_(("paperless_ocr", "vision_ocr")),
-        )
-        .group_by(DocumentPageNote.source)
-        .all()
-    )
-    page_notes_by_source = {str(source): int(count or 0) for source, count in page_notes_counts}
-    page_notes_paperless_done = page_notes_by_source.get("paperless_ocr", 0)
-    page_notes_vision_done = page_notes_by_source.get("vision_ocr", 0)
+    page_notes_paperless_done = int(detail_status_row.page_notes_paperless_done or 0)
+    page_notes_vision_done = int(detail_status_row.page_notes_vision_done or 0)
     has_page_notes_paperless = page_notes_paperless_done > 0
     has_page_notes_vision = page_notes_vision_done > 0
     has_complete_page_notes_paperless = (
@@ -495,11 +538,7 @@ def build_local_document_payload(
         local_modified=doc.modified,
         remote_modified=str(remote_modified_raw) if remote_modified_raw else None,
     )
-    reviewed_at_raw = (
-        db.query(func.max(SuggestionAudit.created_at))
-        .filter(SuggestionAudit.doc_id == doc_id, reviewed_audit_filter())
-        .scalar()
-    )
+    reviewed_at_raw = detail_status_row.reviewed_at
     review_status = derive_review_status(
         local_overrides=local_overrides,
         reviewed_at=reviewed_at_raw,

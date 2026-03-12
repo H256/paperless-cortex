@@ -13,6 +13,7 @@ from app.models import (
     DocumentEmbedding,
     DocumentNote,
     DocumentPageAnchor,
+    DocumentPageNote,
     DocumentPageText,
     DocumentPendingTag,
     DocumentSuggestion,
@@ -106,6 +107,21 @@ def _insert_page_text(doc_id: int, page: int, source: str, text: str) -> None:
                 text=text,
                 raw_text=text,
                 clean_text=text,
+            )
+        )
+        db.commit()
+
+
+def _insert_page_note(doc_id: int, page: int, source: str, status: str) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentPageNote(
+                doc_id=doc_id,
+                page=page,
+                source=source,
+                status=status,
+                notes_text=f"note-{page}-{source}",
             )
         )
         db.commit()
@@ -929,6 +945,63 @@ def test_get_local_document_detects_empty_title_as_override(
     payload = response.json()
     assert payload["local_overrides"] is True
     assert payload["review_status"] == "needs_review"
+
+
+def test_get_local_document_includes_derived_processing_flags(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=46, title="Doc 46", created="2026-02-10T10:00:00+00:00")
+    _insert_suggestion(doc_id=46, source="paperless_ocr", payload='{"title":"Doc 46"}')
+    _insert_suggestion(doc_id=46, source="vision_ocr", payload='{"title":"Doc 46"}')
+    _insert_suggestion(doc_id=46, source="hier_summary", payload='{"summary":"Kurz"}')
+    _insert_page_text(doc_id=46, page=1, source="vision_ocr", text="eins")
+    _insert_page_text(doc_id=46, page=2, source="vision_ocr", text="zwei")
+    _insert_page_note(doc_id=46, page=1, source="paperless_ocr", status="ok")
+    _insert_page_note(doc_id=46, page=2, source="vision_ocr", status="ok")
+    _insert_suggestion_audit(doc_id=46, created_at="2026-02-10T10:05:00+00:00")
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=46, embedding_source="vision", chunk_count=3))
+        local_doc = db.get(Document, 46)
+        assert local_doc is not None
+        local_doc.page_count = 2
+        db.commit()
+
+    monkeypatch.setenv("ENABLE_VISION_OCR", "1")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {
+            "id": 46,
+            "title": "Doc 46",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    response = api_client.get("/documents/46/local")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["has_embeddings"] is True
+    assert payload["embedding_source"] == "vision"
+    assert payload["embedding_chunk_count"] == 3
+    assert payload["has_embedding_for_preferred_source"] is True
+    assert payload["has_suggestions_paperless"] is True
+    assert payload["has_suggestions_vision"] is True
+    assert payload["has_hierarchical_summary"] is True
+    assert payload["vision_pages_done"] == 2
+    assert payload["has_complete_vision_pages"] is True
+    assert payload["page_notes_paperless_done"] == 1
+    assert payload["page_notes_vision_done"] == 1
+    assert payload["has_page_notes_paperless"] is True
+    assert payload["has_page_notes_vision"] is True
+    assert payload["review_status"] == "reviewed"
 
 
 def test_list_documents_summary_preview_only_when_requested(
