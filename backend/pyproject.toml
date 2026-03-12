@@ -46,6 +46,8 @@ files = [
     "app/services/pipeline/worker_checkpoint.py",
     "app/services/pipeline/worker_runtime.py",
     "app/services/pipeline/worker_document_tasks.py",
+    "app/services/pipeline/worker_content_tasks.py",
+    "app/services/pipeline/worker_suggestion_tasks.py",
     "app/routes/writeback_dryrun.py",
     "app/worker.py",
     # Runtime utilities (well-typed)
@@ -164,7 +166,9 @@ files = [
     "tests/test_queue_routes_basic.py",
     "tests/test_queue_stats_self_heal.py",
     "tests/test_pipeline_similarity_index.py",
+    "tests/test_worker_doc_orchestration.py",
     "tests/test_worker_vision_suggestions.py",
+    "tests/test_worker_suggest_field.py",
     "tests/test_writeback_apply_service.py",
     "tests/test_embedding_chunk_budget.py",
     "tests/test_hierarchical_summary_parsing.py",

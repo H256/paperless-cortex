@@ -561,6 +561,9 @@ All granular implementation slices and refactors are tracked here.
 - `d4f1aff` perf(db): removed an extra local-document analysis lookup in `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document fetch used for derived document lists.
 - `1b05473` perf(db): reduced derived document-list query overhead in `backend/app/services/documents/read_models.py` by avoiding unnecessary suggestion-row ordering when previews are off and by fetching `vision_ocr` doc IDs distinctly for the list-level boolean flag.
 - `774edb0` perf(db): narrowed `backend/app/services/writeback/writeback_preview.py` metadata lookups to only the correspondent and tag IDs referenced by the current preview batch instead of loading the full metadata tables on every preview request.
+- `ad48610` refactor(worker): extracted suggestion-generation and field-variant worker tasks from `backend/app/worker.py` into `backend/app/services/pipeline/worker_suggestion_tasks.py` while keeping worker wrappers stable and adding direct `suggest_field` worker regression coverage.
+- `1a0158c` test(worker): added direct `_process_doc` orchestration coverage for the large-document vision path and cancel short-circuit path in `backend/tests/test_worker_doc_orchestration.py` to stabilize the next worker split.
+- `b85023b` refactor(worker): extracted vision OCR, page-notes, and hierarchical-summary worker tasks from `backend/app/worker.py` into `backend/app/services/pipeline/worker_content_tasks.py`, leaving `worker.py` primarily as orchestration and wrapper glue.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
