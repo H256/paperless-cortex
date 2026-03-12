@@ -474,6 +474,19 @@
 - Added `backend/tests/test_config.py` to verify the new config views and invalid environment-value validation paths.
 - Added the new config regression test to the strict mypy allowlist and kept the compatibility-preserving config refactor fully typed.
 
+### 38. Documents-actions service extraction
+
+- Extracted the pipeline orchestration and cleanup-text execution logic from `backend/app/routes/documents_actions.py` into the new service module `backend/app/services/documents/operations.py`.
+- Centralized:
+  - pipeline option construction
+  - sync freshness checks
+  - pipeline status payload building
+  - pipeline fanout payload building
+  - continue-pipeline enqueue planning
+  - cleanup-text execution and queue-path task building
+- Reduced `backend/app/routes/documents_actions.py` from `622` lines to `445` lines while keeping the route contracts and existing regression coverage intact.
+- Added `backend/app/services/documents/operations.py` to the strict mypy allowlist and kept the extracted service fully typed.
+
 ## Verified commands
 
 ```bash
@@ -553,8 +566,9 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded `mypy` allowlist is passing for **138 source files**.
 - The expanded mypy allowlist is passing for **141 source files**.
 - The expanded mypy allowlist is passing for **142 source files**.
+- The expanded mypy allowlist is passing for **143 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`142 / 142` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`143 / 143` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
@@ -563,6 +577,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `2.3 Add Structured Logging` is now implemented in the current branch and verified with focused API/worker logging tests.
 - Wider `2.1` coverage is now moving again on top of the structured logging foundation, including direct `process-missing` route coverage and the logging regression tests in the strict mypy set.
 - `3.1 Configuration Management` is now in progress with validated domain config views in `backend/app/config.py` and dedicated regression coverage in `backend/tests/test_config.py`.
+- `3.3 Service Layer Complexity` is now in progress with the first documents-actions orchestration slice extracted into `backend/app/services/documents/operations.py`.
 
 
 

@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **142 source files**
+- Current configured `mypy` coverage: **143 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 142 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 142 files**
+- Net change in the latest follow-up slices: **46 -> 143 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 143 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`142 / 142`)
+- Current strict-checked share of backend Python files: **100%** (`143 / 143`)
 
 ## Files added in this slice
 
@@ -256,4 +256,14 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/config.py tests/test_config.py`
   - `cd backend && uv run mypy --config-file pyproject.toml app/config.py tests/test_config.py`
   - `cd backend && uv run pytest tests/test_config.py tests/test_status_routes.py tests/test_request_logging.py tests/test_qdrant_service.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest service-layer extraction expansion
+
+- Added `backend/app/services/documents/operations.py` to the strict mypy allowlist.
+- Extracted the `documents_actions` pipeline orchestration and cleanup-text execution logic into the new service module while preserving route-level behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/documents_actions.py app/services/documents/operations.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_actions.py app/services/documents/operations.py`
+  - `cd backend && uv run pytest tests/test_documents_actions_routes.py tests/test_process_missing_route.py tests/test_documents_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
