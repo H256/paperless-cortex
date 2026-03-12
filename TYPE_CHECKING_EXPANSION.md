@@ -366,3 +366,13 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run pytest tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
 - Migration note:
   - `cd backend && uv run alembic upgrade head` against a throwaway SQLite database still stops on the older `6d3183eda0be_add_core_metadata_tables.py` foreign-key alteration, which is a pre-existing SQLite limitation in the migration chain rather than a regression from the new index migration.
+
+## Latest task-runs pagination-query optimization
+
+- Simplified `backend/app/services/pipeline/task_runs.py` so `list_task_runs()` fetches rows first, infers totals on short first pages, and only performs a separate count query when the exact total cannot be derived cheaply.
+- Added a regression in `backend/tests/test_task_runs_service.py` for the short-first-page total inference path.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/pipeline/task_runs.py tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/pipeline/task_runs.py tests/test_task_runs_service.py`
+  - `cd backend && uv run pytest tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
