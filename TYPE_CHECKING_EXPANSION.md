@@ -513,3 +513,12 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app tests scripts alembic`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest`
+
+## Dashboard cache invalidation baseline re-verification
+
+- Added [`backend/app/services/documents/dashboard_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/dashboard_cache.py) to the strict mypy allowlist, raising the strict backend baseline from `162` to `163` files.
+- Re-verified the backend CI equivalent after extracting the dashboard cache seam and wiring explicit invalidation into the sync and document-mutation routes.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -27,6 +26,10 @@ from app.models import (
 from app.routes.queue_guard import require_queue_enabled
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.documents.dashboard import build_dashboard_payload
+from app.services.documents.dashboard_cache import (
+    get_cached_dashboard_payload,
+    invalidate_dashboard_cache,
+)
 from app.services.documents.document_stats import compute_document_stats
 from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.documents.read_models import (
@@ -47,8 +50,6 @@ if TYPE_CHECKING:
     from app.config import Settings
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
-_DASHBOARD_CACHE: dict[str, object] = {"ts": 0.0, "data": None}
-_DASHBOARD_CACHE_TTL_SECONDS = 15
 
 
 @router.get("/", response_model=DocumentsPageResponse)
@@ -159,16 +160,7 @@ def get_document_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
 def get_dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
     """Return the cached dashboard payload used by the operations views."""
-    now = time.time()
-    cached_ts_raw = _DASHBOARD_CACHE.get("ts")
-    cached_ts = float(cached_ts_raw) if isinstance(cached_ts_raw, int | float) else 0.0
-    cached_data = _DASHBOARD_CACHE.get("data")
-    if isinstance(cached_data, dict) and (now - cached_ts) < _DASHBOARD_CACHE_TTL_SECONDS:
-        return cached_data
-    payload = build_dashboard_payload(db)
-    _DASHBOARD_CACHE["ts"] = now
-    _DASHBOARD_CACHE["data"] = payload
-    return payload
+    return get_cached_dashboard_payload(db, build_payload=build_dashboard_payload)
 
 
 @router.get("/{doc_id}", response_model=PaperlessDocument)
@@ -204,6 +196,7 @@ def mark_document_reviewed(
         )
     )
     db.commit()
+    invalidate_dashboard_cache()
     return {"status": "ok", "doc_id": int(doc_id), "reviewed_at": reviewed_at}
 
 

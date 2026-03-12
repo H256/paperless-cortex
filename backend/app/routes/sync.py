@@ -14,6 +14,7 @@ from app.api_models import (
 )
 from app.db import get_db
 from app.deps import get_settings
+from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.sync_operations import (
     build_sync_status_payload,
     cancel_documents_sync,
@@ -61,7 +62,7 @@ def sync_documents(
     """Synchronize Paperless documents into the local cache and optionally queue embeddings."""
     if embed is None:
         embed = settings.embed_on_sync
-    return run_documents_sync(
+    payload = run_documents_sync(
         db=db,
         settings=settings,
         page_size=page_size,
@@ -76,6 +77,8 @@ def sync_documents(
         build_task_sequence_fn=build_task_sequence,
         enqueue_task_sequence_fn=enqueue_task_sequence,
     )
+    invalidate_dashboard_cache()
+    return payload
 
 
 @router.get("/documents", response_model=SyncStatusResponse)
@@ -102,7 +105,7 @@ def sync_document(
     """Refresh one Paperless document locally and optionally enqueue or run embeddings."""
     if embed is None:
         embed = settings.embed_on_sync
-    return run_single_document_sync(
+    payload = run_single_document_sync(
         doc_id=doc_id,
         db=db,
         settings=settings,
@@ -116,6 +119,8 @@ def sync_document(
             active_settings, tasks, force=True
         ),
     )
+    invalidate_dashboard_cache()
+    return payload
 
 
 @router.post("/tags", response_model=SyncSimpleResponse)

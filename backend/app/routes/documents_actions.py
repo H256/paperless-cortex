@@ -40,6 +40,7 @@ from app.models import (
     TaskRun,
 )
 from app.routes.queue_guard import require_queue_enabled
+from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.operations import (
     build_document_pipeline_fanout_payload,
     build_document_pipeline_status_payload,
@@ -165,6 +166,7 @@ def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentSectionSummary))
     db.execute(delete(DocumentPageAnchor))
     db.commit()
+    invalidate_dashboard_cache()
 
 
 def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
@@ -192,6 +194,7 @@ def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
     # Reset should not keep stale per-doc pipeline history; it confuses fan-out/status views.
     db.query(TaskRun).filter(TaskRun.doc_id == doc_id).delete(synchronize_session=False)
     db.commit()
+    invalidate_dashboard_cache()
 
 
 @router.post("/process-missing", response_model=ProcessMissingResponse)
@@ -398,6 +401,7 @@ def delete_vision_ocr(
         score_query = score_query.filter(DocumentOcrScore.doc_id == doc_id)
     score_query.delete(synchronize_session=False)
     db.commit()
+    invalidate_dashboard_cache()
     return {"deleted": count}
 
 
@@ -411,6 +415,7 @@ def delete_suggestions(
         query = query.filter(DocumentSuggestion.doc_id == doc_id)
     count = int(query.delete(synchronize_session=False) or 0)
     db.commit()
+    invalidate_dashboard_cache()
     return {"deleted": count}
 
 
@@ -426,9 +431,11 @@ def delete_embeddings(
         if row:
             db.delete(row)
             db.commit()
+            invalidate_dashboard_cache()
         return {"deleted": 1}
     db.query(DocumentEmbedding).delete(synchronize_session=False)
     db.commit()
+    invalidate_dashboard_cache()
     return {"deleted": 1}
 
 

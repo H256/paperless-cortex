@@ -135,10 +135,9 @@ def test_get_local_document_missing(api_client: Any) -> None:
 
 
 def test_dashboard_uses_grouped_correspondent_counts(api_client: Any) -> None:
-    import app.routes.documents as documents_routes
+    from app.services.documents import dashboard_cache
 
-    documents_routes._DASHBOARD_CACHE["ts"] = 0.0
-    documents_routes._DASHBOARD_CACHE["data"] = None
+    dashboard_cache.invalidate_dashboard_cache()
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
@@ -196,6 +195,36 @@ def test_dashboard_uses_grouped_correspondent_counts(api_client: Any) -> None:
     assert "Beta" not in unprocessed
     page_counts = {row["label"]: row["count"] for row in payload["page_counts"]}
     assert page_counts["Unknown"] == 4
+
+
+def test_dashboard_cache_invalidates_after_suggestion_delete(api_client: Any) -> None:
+    from app.services.documents import dashboard_cache
+
+    dashboard_cache.invalidate_dashboard_cache()
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7201, title="Cached Dashboard Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7201,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    first = api_client.get("/documents/dashboard")
+    assert first.status_code == 200
+    assert first.json()["stats"]["suggestions"] == 1
+
+    deleted = api_client.post("/documents/delete/suggestions", params={"doc_id": 7201})
+    assert deleted.status_code == 200
+
+    second = api_client.get("/documents/dashboard")
+    assert second.status_code == 200
+    assert second.json()["stats"]["suggestions"] == 0
 
 
 def test_process_missing_queue_disabled(api_client: Any) -> None:
