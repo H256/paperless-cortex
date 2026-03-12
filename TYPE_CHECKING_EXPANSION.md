@@ -355,3 +355,14 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/services/integrations/paperless.py app/services/search/qdrant.py app/services/ai/llm_client.py tests/test_http_client_pooling.py app/services/integrations/connections.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_http_client_pooling.py tests/test_connections_service.py tests/test_qdrant_service.py tests/test_status_routes.py`
+
+## Latest task-runs SQL optimization verification
+
+- Added composite `task_runs` indexes in `backend/app/models.py` plus the matching Alembic migration `backend/alembic/versions/b7c4d8e9f1a2_add_task_run_composite_indexes.py`.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/models.py alembic/versions/b7c4d8e9f1a2_add_task_run_composite_indexes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
+- Migration note:
+  - `cd backend && uv run alembic upgrade head` against a throwaway SQLite database still stops on the older `6d3183eda0be_add_core_metadata_tables.py` foreign-key alteration, which is a pre-existing SQLite limitation in the migration chain rather than a regression from the new index migration.

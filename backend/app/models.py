@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Index, Integer, String, Table, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -219,6 +219,10 @@ class WritebackJob(Base):
 
 class TaskRun(Base):
     __tablename__ = "task_runs"
+    __table_args__ = (
+        Index("ix_task_runs_doc_task_source_id", "doc_id", "task", "source", "id"),
+        Index("ix_task_runs_status_task_id", "status", "task", "id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
     doc_id: Mapped[int | None] = mapped_column(Integer, index=True)

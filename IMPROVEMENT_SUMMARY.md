@@ -700,6 +700,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `5.3 Error Messages & Observability` is now in progress with stable API error codes and request/correlation context in error responses.
 - `6.x Performance & Optimization` is now in progress with a first connection-reuse/client-pooling pass across Paperless, Qdrant, and LLM HTTP clients.
 - `3.3 Service Layer Complexity` moved further with a second worker extraction: sync/embedding/evidence/similarity task helpers now live in `backend/app/services/pipeline/worker_document_tasks.py`, leaving `backend/app/worker.py` as a thinner orchestration boundary around the remaining OCR/page-note/suggestion flows.
+- `3.2 Database Query Optimization` moved further with composite `task_runs` indexes aligned to the queue history and checkpoint lookup filters (`doc_id`/`task`/`source`/`id`, `status`/`task`/`id`), which is the first DB-focused follow-up after the route/worker SRP cleanup.
 
 
 
