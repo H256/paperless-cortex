@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import load_only, selectinload
 
 from app.models import (
@@ -199,10 +199,38 @@ def apply_derived_fields_and_review_status(
         .all()
     )
     local_by_id = {int(doc.id): doc for doc in local_docs}
-    embed_ids = {
-        int(row[0])
-        for row in db.query(DocumentEmbedding.doc_id).filter(DocumentEmbedding.doc_id.in_(doc_ids)).all()
+    local_status_rows = (
+        db.query(
+            Document.id,
+            func.max(case((DocumentEmbedding.doc_id.is_not(None), 1), else_=0)).label("has_embeddings"),
+            func.max(case((DocumentPageText.doc_id.is_not(None), 1), else_=0)).label("has_vision_pages"),
+        )
+        .outerjoin(DocumentEmbedding, DocumentEmbedding.doc_id == Document.id)
+        .outerjoin(
+            DocumentPageText,
+            and_(
+                DocumentPageText.doc_id == Document.id,
+                DocumentPageText.source == "vision_ocr",
+            ),
+        )
+        .filter(Document.id.in_(doc_ids))
+        .group_by(Document.id)
+        .all()
+    )
+    local_status_by_doc = {
+        int(row.id): {
+            "has_embeddings": bool(row.has_embeddings),
+            "has_vision_pages": bool(row.has_vision_pages),
+        }
+        for row in local_status_rows
     }
+    reviewed_rows = (
+        db.query(SuggestionAudit.doc_id, func.max(SuggestionAudit.created_at).label("reviewed_at"))
+        .filter(SuggestionAudit.doc_id.in_(doc_ids), reviewed_audit_filter())
+        .group_by(SuggestionAudit.doc_id)
+        .all()
+    )
+    reviewed_at_by_doc = {int(row.doc_id): row.reviewed_at for row in reviewed_rows}
     if include_summary_preview:
         suggestion_rows = (
             db.query(
@@ -241,20 +269,6 @@ def apply_derived_fields_and_review_status(
             if not preview:
                 continue
             summary_preview_by_doc[normalized_doc_id] = preview[:240]
-    vision_pages = {
-        int(row[0])
-        for row in db.query(DocumentPageText.doc_id)
-        .filter(DocumentPageText.doc_id.in_(doc_ids), DocumentPageText.source == "vision_ocr")
-        .distinct()
-        .all()
-    }
-    reviewed_rows = (
-        db.query(SuggestionAudit.doc_id, func.max(SuggestionAudit.created_at).label("reviewed_at"))
-        .filter(SuggestionAudit.doc_id.in_(doc_ids), reviewed_audit_filter())
-        .group_by(SuggestionAudit.doc_id)
-        .all()
-    )
-    reviewed_at_by_doc = {int(row.doc_id): row.reviewed_at for row in reviewed_rows}
     pending_tag_rows = (
         db.query(DocumentPendingTag.doc_id, DocumentPendingTag.names_json)
         .filter(DocumentPendingTag.doc_id.in_(doc_ids))
@@ -326,7 +340,11 @@ def apply_derived_fields_and_review_status(
         doc["pending_tag_names"] = pending_tag_names
         doc["pending_correspondent_name"] = pending_correspondent_name or None
         doc["local_overrides"] = local_overrides
-        doc["has_embeddings"] = doc_id in embed_ids
+        local_status = local_status_by_doc.get(
+            doc_id,
+            {"has_embeddings": False, "has_vision_pages": False},
+        )
+        doc["has_embeddings"] = bool(local_status["has_embeddings"])
         doc["analysis_model"] = local_doc.analysis_model if local_doc else None
         doc["analysis_processed_at"] = local_doc.analysis_processed_at if local_doc else None
         sources = suggestions_by_doc.get(doc_id, set())
@@ -334,7 +352,7 @@ def apply_derived_fields_and_review_status(
         doc["has_suggestions_paperless"] = "paperless_ocr" in sources
         doc["has_suggestions_vision"] = "vision_ocr" in sources
         doc["ai_summary_preview"] = summary_preview_by_doc.get(doc_id)
-        doc["has_vision_pages"] = doc_id in vision_pages
+        doc["has_vision_pages"] = bool(local_status["has_vision_pages"])
 
         reviewed_at_raw = reviewed_at_by_doc.get(doc_id)
         derived = derive_review_status(
