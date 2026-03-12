@@ -166,6 +166,9 @@ def test_dashboard_uses_grouped_correspondent_counts(api_client: Any) -> None:
     payload = response.json()
 
     assert payload["stats"]["total"] == 4
+    assert payload["stats"]["embeddings"] == 2
+    assert payload["stats"]["fully_processed"] == 2
+    assert payload["stats"]["unprocessed"] == 2
     correspondents = {row["name"]: row["count"] for row in payload["correspondents"]}
     assert correspondents["Alpha"] == 2
     assert correspondents["Beta"] == 1
@@ -175,6 +178,8 @@ def test_dashboard_uses_grouped_correspondent_counts(api_client: Any) -> None:
     assert unprocessed["Alpha"] == 1
     assert unprocessed["Unassigned correspondent"] == 1
     assert "Beta" not in unprocessed
+    page_counts = {row["label"]: row["count"] for row in payload["page_counts"]}
+    assert page_counts["Unknown"] == 4
 
 
 def test_process_missing_queue_disabled(api_client: Any) -> None:
