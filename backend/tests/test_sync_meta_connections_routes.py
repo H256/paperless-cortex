@@ -38,6 +38,7 @@ def test_sync_document_types_route(api_client: Any, monkeypatch: Any) -> None:
 
 def test_sync_embed_documents_uses_embed_text(session_factory: Any, monkeypatch: Any) -> None:
     import app.routes.sync as sync_routes
+    import app.services.documents.sync_operations as sync_operations
 
     monkeypatch.setenv("EMBEDDING_MODEL", "test-embed-model")
 
@@ -49,22 +50,22 @@ def test_sync_embed_documents_uses_embed_text(session_factory: Any, monkeypatch:
         db.commit()
         db.refresh(doc)
 
-        monkeypatch.setattr(sync_routes, "ensure_embedding_collection", lambda *_args, **_kwargs: None)
-        monkeypatch.setattr(sync_routes, "collect_page_texts", lambda *_args, **_kwargs: ([], [], []))
+        monkeypatch.setattr(sync_operations, "ensure_embedding_collection", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(sync_operations, "collect_page_texts", lambda *_args, **_kwargs: ([], [], []))
         monkeypatch.setattr(
-            sync_routes,
+            sync_operations,
             "chunk_document_with_pages",
             lambda *_args, **_kwargs: [{"text": "hello chunk", "page": None, "source": "paperless_ocr"}],
         )
-        monkeypatch.setattr(sync_routes, "delete_points_for_doc", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(sync_operations, "delete_points_for_doc", lambda *_args, **_kwargs: None)
 
         embed_inputs: list[str] = []
         def _embed_text(_settings: Any, text: str) -> list[float]:
             embed_inputs.append(text)
             return [0.1, 0.2, 0.3]
 
-        monkeypatch.setattr(sync_routes, "embed_text", _embed_text)
-        monkeypatch.setattr(sync_routes, "upsert_points", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(sync_operations, "embed_text", _embed_text)
+        monkeypatch.setattr(sync_operations, "upsert_points", lambda *_args, **_kwargs: None)
 
         embedded = sync_routes._embed_documents(db, settings, [doc], force_embed=False)
 

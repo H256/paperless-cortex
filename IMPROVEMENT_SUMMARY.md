@@ -524,6 +524,26 @@
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
 
+### 42. Sync service extraction
+
+- Extracted document-sync orchestration out of `backend/app/routes/sync.py` into the new service module:
+  - `backend/app/services/documents/sync_operations.py`
+- Centralized:
+  - sync-status payload shaping
+  - sync cancellation handling
+  - document note merge behavior
+  - document upsert behavior
+  - multi-document sync execution
+  - single-document sync execution
+  - embedding execution for synced documents
+- Kept route contracts unchanged and preserved the task builder/enqueue injection seam at the route boundary.
+- Updated `backend/tests/test_sync_meta_connections_routes.py` so the embedding regression test patches the extracted service seam directly.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+
 ## Verified commands
 
 ```bash
@@ -605,8 +625,9 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **142 source files**.
 - The expanded mypy allowlist is passing for **143 source files**.
 - The expanded mypy allowlist is passing for **144 source files**.
+- The expanded mypy allowlist is passing for **145 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`144 / 144` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`145 / 145` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
