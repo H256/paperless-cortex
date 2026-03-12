@@ -58,6 +58,8 @@ files = [
     "app/services/documents/note_ids.py",
     "app/services/documents/operations.py",
     "app/services/documents/pagination.py",
+    "app/services/documents/read_models.py",
+    "app/services/documents/sync_operations.py",
     "app/services/documents/text_cleaning.py",
     "app/services/documents/text_pages.py",
     "app/services/documents/document_stats.py",

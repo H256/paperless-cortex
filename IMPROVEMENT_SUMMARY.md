@@ -506,7 +506,44 @@
 - Migrated backend dev tooling dependencies in `backend/pyproject.toml` from deprecated `tool.uv.dev-dependencies` to `dependency-groups.dev`.
 - Verified the new tooling baseline with backend Ruff, strict mypy, full backend pytest (`221 passed`), pre-commit config validation, YAML validation for the workflow/config files, and a Windows-safe `npx --prefix frontend oxlint --version` sanity check.
 
-### 41. Stable API error codes and request-context responses
+### 41. Documents read-model service extraction
+
+- Extracted document list/local-read model shaping out of `backend/app/routes/documents.py` into the new service module:
+  - `backend/app/services/documents/read_models.py`
+- Centralized:
+  - review-status normalization
+  - Paperless list pagination/filtering for route consumers
+  - derived-field enrichment and summary-preview shaping
+  - local override detection
+  - local document payload assembly
+- Rewired `backend/app/routes/documents_similarity.py` to consume the extracted service helper directly instead of importing a private route helper from `documents.py`.
+- Added `backend/app/services/documents/read_models.py` to the strict mypy allowlist and kept the extracted service fully typed.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+### 42. Sync service extraction
+
+- Extracted document-sync orchestration out of `backend/app/routes/sync.py` into the new service module:
+  - `backend/app/services/documents/sync_operations.py`
+- Centralized:
+  - sync-status payload shaping
+  - sync cancellation handling
+  - document note merge behavior
+  - document upsert behavior
+  - multi-document sync execution
+  - single-document sync execution
+  - embedding execution for synced documents
+- Kept route contracts unchanged and preserved the task builder/enqueue injection seam at the route boundary.
+- Updated `backend/tests/test_sync_meta_connections_routes.py` so the embedding regression test patches the extracted service seam directly.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+### 43. Stable API error codes and request-context responses
 
 - Added centralized exception handlers in `backend/app/main.py` for:
   - domain errors (`PaperlessIntelligenceError`)
@@ -521,7 +558,7 @@
 - Routed those failures through the structured logging foundation so error responses emit stable status/error-code context in logs.
 - Added `backend/tests/test_api_error_responses.py` and brought it into the strict mypy allowlist.
 
-### 42. HTTP client pooling and connection reuse
+### 44. HTTP client pooling and connection reuse
 
 - Added keyed pooled `httpx.Client` reuse for:
   - `backend/app/services/integrations/paperless.py`
@@ -611,8 +648,10 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **141 source files**.
 - The expanded mypy allowlist is passing for **142 source files**.
 - The expanded mypy allowlist is passing for **143 source files**.
+- The expanded mypy allowlist is passing for **144 source files**.
+- The expanded mypy allowlist is passing for **145 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`143 / 143` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`145 / 145` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
