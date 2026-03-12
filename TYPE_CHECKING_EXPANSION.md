@@ -418,3 +418,15 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_suggestion_tasks.py app/services/writeback/writeback_preview.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`
+
+## Latest worker orchestration stabilization
+
+- Added `backend/tests/test_worker_doc_orchestration.py` to the strict mypy allowlist.
+- Added direct coverage for `_process_doc` orchestration across:
+  - the large-document vision path
+  - the early cancel short-circuit path
+- The strict mypy allowlist count is now `154`.
+- Verified with:
+  - `cd backend && uv run ruff check tests/test_worker_doc_orchestration.py tests/test_worker_suggest_field.py tests/test_worker_vision_suggestions.py app/worker.py app/services/pipeline/worker_suggestion_tasks.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`

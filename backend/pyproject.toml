@@ -165,6 +165,7 @@ files = [
     "tests/test_queue_routes_basic.py",
     "tests/test_queue_stats_self_heal.py",
     "tests/test_pipeline_similarity_index.py",
+    "tests/test_worker_doc_orchestration.py",
     "tests/test_worker_vision_suggestions.py",
     "tests/test_worker_suggest_field.py",
     "tests/test_writeback_apply_service.py",

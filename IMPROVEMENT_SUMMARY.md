@@ -707,6 +707,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `3.2 Database Query Optimization` moved into the writeback-preview path: preview assembly now scopes metadata lookups to the correspondent/tag IDs actually referenced by the current preview batch instead of loading the full metadata tables every time.
 - `3.3 Service Layer Complexity` moved further again: worker suggestion-generation, vision-suggestion recovery, and field-variant task handling now live in `backend/app/services/pipeline/worker_suggestion_tasks.py`, with `backend/app/worker.py` reduced to stable wrappers plus the remaining OCR/page-note orchestration.
 - `2.1 Increase Test Coverage` also moved with that worker slice: direct worker coverage now includes the `suggest_field` task path in `backend/tests/test_worker_suggest_field.py`.
+- `2.1 Increase Test Coverage` moved again to stabilize the remaining inline worker orchestration: `backend/tests/test_worker_doc_orchestration.py` now covers the large-document vision flow inside `_process_doc` plus the early cancel path.
 
 
 
