@@ -723,6 +723,8 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent also passes locally (`lint`, `type-check`, `test:coverage`, `build`), `backend/scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.4.8`.
 - `5.1 API Documentation` is now in progress: the public document and writeback route/service seams have focused docstrings covering review-status filtering, derived local payload assembly, dashboard aggregation, and writeback preview/job behavior.
 - CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `backend/scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.4.9`.
+- `5.1 API Documentation` moved further: the public sync, embeddings, and worker orchestration/runtime seams now also have focused docstrings covering sync-state semantics, queue-vs-inline embedding behavior, and the worker dispatch/orchestration contract.
+- CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `backend/scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.4.10`.
 
 
 

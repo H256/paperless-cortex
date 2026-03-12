@@ -51,6 +51,7 @@ def ingest_embeddings(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    """Ingest embeddings for a filtered document set, either inline or through the queue."""
     query = db.query(Document)
     if doc_id is not None:
         query = query.filter(Document.id == doc_id)
@@ -85,6 +86,7 @@ def ingest_documents(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    """Ingest embeddings for an explicit list of local document IDs."""
     documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
     if settings.queue_enabled:
         return enqueue_embedding_tasks(
@@ -121,6 +123,7 @@ def search(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    """Search embedding chunks and optionally attach local document context to matches."""
     return build_embedding_search_response(
         q=q,
         top_k=top_k,
@@ -140,9 +143,11 @@ def search(
 def embedding_status(
     db: Session = Depends(get_db), settings: Settings = Depends(get_settings)
 ) -> dict[str, object]:
+    """Return current embedding-ingest progress from sync state or queue statistics."""
     return build_embedding_status_response(db=db, settings=settings, queue_stats_fn=queue_stats)
 
 
 @router.post("/cancel", response_model=SyncCancelResponse)
 def cancel_embeddings(db: Session = Depends(get_db)) -> dict[str, object]:
+    """Request cancellation of the current embedding ingest run, if one exists."""
     return cancel_embeddings_ingest(db)

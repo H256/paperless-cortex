@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_sync_status_payload(db: Session) -> ResponseDict:
+    """Build the route-facing sync status payload from persisted sync state."""
     state = db.get(SyncState, "documents")
     if not state:
         return {"last_synced_at": None, "status": "idle", "processed": 0, "total": 0}
@@ -62,6 +63,7 @@ def build_sync_status_payload(db: Session) -> ResponseDict:
 
 
 def cancel_documents_sync(db: Session) -> ResponseDict:
+    """Mark the document-sync state as cancelling without clearing existing progress."""
     state = db.get(SyncState, "documents")
     if not state:
         return {"status": "idle"}
@@ -82,6 +84,7 @@ def apply_note_fields(
 
 
 def merge_document_notes(db: Session, doc: Document, incoming_notes: Sequence[object]) -> None:
+    """Merge Paperless note payloads into the local document note collection in place."""
     existing_by_id: dict[int, DocumentNote] = {int(note.id): note for note in (doc.notes or [])}
     incoming_ids: set[int] = set()
     saw_malformed_id = False
@@ -148,6 +151,7 @@ def upsert_document(
     data: DocumentIn,
     cache: ReferenceCache,
 ) -> None:
+    """Insert or update one local document row and its referenced metadata records."""
     doc = db.get(Document, data.id)
     if not doc:
         doc = Document(id=data.id)
@@ -232,6 +236,7 @@ def embed_documents(
     documents: list[Document],
     force_embed: bool = False,
 ) -> int:
+    """Embed a batch of local documents inline and persist sync progress while it runs."""
     if not documents:
         return 0
     if not settings.embedding_model:
@@ -349,6 +354,7 @@ def run_documents_sync(
     build_task_sequence_fn: TaskBuilder,
     enqueue_task_sequence_fn: TaskEnqueuer,
 ) -> ResponseDict:
+    """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
     modified_since: str | None = None
     if incremental:
         state = db.get(SyncState, "documents")
@@ -468,6 +474,7 @@ def run_single_document_sync(
     enqueue_task_sequence_fn: TaskEnqueuer,
     enqueue_task_sequence_front_fn: TaskFrontEnqueuer,
 ) -> ResponseDict:
+    """Synchronize one Paperless document and optionally enqueue its downstream processing."""
     logger.info("Sync doc=%s embed=%s force_embed=%s", doc_id, embed, force_embed)
     raw = get_document_fn(settings, doc_id)
     data = DocumentIn.model_validate(raw)

@@ -58,6 +58,7 @@ def sync_documents(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
+    """Synchronize Paperless documents into the local cache and optionally queue embeddings."""
     if embed is None:
         embed = settings.embed_on_sync
     return run_documents_sync(
@@ -79,11 +80,13 @@ def sync_documents(
 
 @router.get("/documents", response_model=SyncStatusResponse)
 def sync_status(db: Session = Depends(get_db)) -> ResponseDict:
+    """Return the current document-sync progress snapshot from local sync state."""
     return build_sync_status_payload(db)
 
 
 @router.post("/documents/cancel", response_model=SyncCancelResponse)
 def cancel_sync(db: Session = Depends(get_db)) -> ResponseDict:
+    """Request cancellation of the running document-sync job, if any."""
     return cancel_documents_sync(db)
 
 
@@ -96,6 +99,7 @@ def sync_document(
     force_embed: bool = False,
     priority: bool = False,
 ) -> ResponseDict:
+    """Refresh one Paperless document locally and optionally enqueue or run embeddings."""
     if embed is None:
         embed = settings.embed_on_sync
     return run_single_document_sync(
@@ -121,6 +125,7 @@ def sync_tags(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
+    """Upsert one page of Paperless tags into the local metadata cache."""
     count, upserted = sync_tags_page(settings, db, page=page, page_size=page_size)
     return {"count": count, "upserted": upserted}
 
@@ -132,6 +137,7 @@ def sync_correspondents(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
+    """Upsert one page of Paperless correspondents into the local metadata cache."""
     count, upserted = sync_correspondents_page(settings, db, page=page, page_size=page_size)
     return {"count": count, "upserted": upserted}
 
@@ -143,6 +149,7 @@ def sync_document_types(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
+    """Upsert one page of Paperless document types into the local metadata cache."""
     count, upserted = sync_document_types_page(settings, db, page=page, page_size=page_size)
     return {"count": count, "upserted": upserted}
 

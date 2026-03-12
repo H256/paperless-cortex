@@ -32,6 +32,7 @@ def handle_worker_cancel_request[SettingsT](
     log_fn: LogFn,
     logger: logging.Logger,
 ) -> bool:
+    """Honor a queued worker-cancel request by clearing the queue and resetting counters."""
     if not is_cancel_requested_fn(settings):
         return False
     log_fn(logger, logging.INFO, "Worker cancel requested; clearing queue")
@@ -47,6 +48,7 @@ def parse_worker_queue_item(
     log_fn: LogFn,
     logger: logging.Logger,
 ) -> ParsedWorkerTask | None:
+    """Normalize raw queue payloads into the worker's typed dispatch format."""
     task: dict[str, object] | None = None
     try:
         candidate = json.loads(raw_item)
@@ -110,6 +112,7 @@ def dispatch_worker_task(
     process_vision_ocr_force_fn: Callable[[object, Session, int, bool, int | None], None],
     process_full_doc_fn: Callable[[object, Session, int, int | None], None],
 ) -> None:
+    """Dispatch one normalized worker task to a specific handler or the full-doc fallback."""
     if task_type == "vision_ocr":
         force = bool(task.get("force")) if isinstance(task, dict) else False
         process_vision_ocr_force_fn(settings, db, doc_id, force, run_id)

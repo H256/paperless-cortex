@@ -52,6 +52,7 @@ def enqueue_embedding_tasks(
     *,
     enqueue_task_fn: QueueEnqueuer,
 ) -> ResponseDict:
+    """Queue embedding work for documents and mark the embedding sync state as running."""
     task_type = "embeddings_vision" if settings.enable_vision_ocr else "embeddings_paperless"
     for doc in documents:
         enqueue_task_fn(settings, {"doc_id": doc.id, "task": task_type})
@@ -70,6 +71,7 @@ def build_queue_status_response(
     *,
     queue_stats_fn: QueueStatsFn,
 ) -> ResponseDict:
+    """Translate queue statistics into the public embedding-status response shape."""
     stats = queue_stats_fn(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
     status = "running" if (stats["length"] > 0 or stats["in_progress"] > 0) else "idle"
     if status == "running" and state and not state.started_at:
@@ -104,6 +106,7 @@ def ingest_embeddings_for_documents(
     make_doc_point_id_fn: MakeDocPointIdFn,
     upsert_points_fn: UpsertPointsFn,
 ) -> ResponseDict:
+    """Run inline embedding ingest for a document batch and persist progress state."""
     if not documents:
         state = get_or_create_state(db, "embeddings")
         state.status = "idle"
@@ -252,6 +255,7 @@ def build_embedding_search_response(
     embed_text_fn: EmbedTextFn,
     search_points_fn: SearchPointsFn,
 ) -> ResponseDict:
+    """Build the public embedding-search response from vector hits and local metadata."""
     logger.info(
         "Search q=%s top_k=%s dedupe=%s rerank=%s source=%s include_doc=%s",
         q,
@@ -367,6 +371,7 @@ def build_embedding_status_response(
     settings: Settings,
     queue_stats_fn: QueueStatsFn,
 ) -> ResponseDict:
+    """Return embedding progress either from queue stats or persisted sync state."""
     state = db.get(SyncState, "embeddings")
     if settings.queue_enabled:
         return build_queue_status_response(settings, db, state, queue_stats_fn=queue_stats_fn)
@@ -385,6 +390,7 @@ def build_embedding_status_response(
 
 
 def cancel_embeddings_ingest(db: Session) -> ResponseDict:
+    """Request cancellation of the active embedding ingest state, if present."""
     state = db.get(SyncState, "embeddings")
     if not state:
         return {"status": "idle"}

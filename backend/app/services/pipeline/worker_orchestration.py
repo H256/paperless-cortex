@@ -100,6 +100,7 @@ def process_full_document(
     generate_suggestions_fn: Callable[..., dict[str, Any]],
     persist_suggestions_fn: Callable[..., None],
 ) -> None:
+    """Run the full worker document pipeline from sync through embeddings and suggestions."""
     if is_cancel_requested_fn(settings):
         return
 

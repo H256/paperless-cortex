@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.4.9"
+    "version": "0.4.10"
   },
   "paths": {
     "/documents/": {
@@ -2191,6 +2191,7 @@
           "sync"
         ],
         "summary": "Sync Documents",
+        "description": "Synchronize Paperless documents into the local cache and optionally queue embeddings.",
         "operationId": "sync_documents_sync_documents_post",
         "parameters": [
           {
@@ -2308,6 +2309,7 @@
           "sync"
         ],
         "summary": "Sync Status",
+        "description": "Return the current document-sync progress snapshot from local sync state.",
         "operationId": "sync_status_sync_documents_get",
         "responses": {
           "200": {
@@ -2329,6 +2331,7 @@
           "sync"
         ],
         "summary": "Cancel Sync",
+        "description": "Request cancellation of the running document-sync job, if any.",
         "operationId": "cancel_sync_sync_documents_cancel_post",
         "responses": {
           "200": {
@@ -2350,6 +2353,7 @@
           "sync"
         ],
         "summary": "Sync Document",
+        "description": "Refresh one Paperless document locally and optionally enqueue or run embeddings.",
         "operationId": "sync_document_sync_documents__doc_id__post",
         "parameters": [
           {
@@ -2428,6 +2432,7 @@
           "sync"
         ],
         "summary": "Sync Tags",
+        "description": "Upsert one page of Paperless tags into the local metadata cache.",
         "operationId": "sync_tags_sync_tags_post",
         "parameters": [
           {
@@ -2481,6 +2486,7 @@
           "sync"
         ],
         "summary": "Sync Correspondents",
+        "description": "Upsert one page of Paperless correspondents into the local metadata cache.",
         "operationId": "sync_correspondents_sync_correspondents_post",
         "parameters": [
           {
@@ -2534,6 +2540,7 @@
           "sync"
         ],
         "summary": "Sync Document Types",
+        "description": "Upsert one page of Paperless document types into the local metadata cache.",
         "operationId": "sync_document_types_sync_document_types_post",
         "parameters": [
           {
@@ -2587,6 +2594,7 @@
           "embeddings"
         ],
         "summary": "Ingest Embeddings",
+        "description": "Ingest embeddings for a filtered document set, either inline or through the queue.",
         "operationId": "ingest_embeddings_embeddings_ingest_post",
         "parameters": [
           {
@@ -2656,6 +2664,7 @@
           "embeddings"
         ],
         "summary": "Ingest Documents",
+        "description": "Ingest embeddings for an explicit list of local document IDs.",
         "operationId": "ingest_documents_embeddings_ingest_docs_post",
         "parameters": [
           {
@@ -2713,6 +2722,7 @@
           "embeddings"
         ],
         "summary": "Search",
+        "description": "Search embedding chunks and optionally attach local document context to matches.",
         "operationId": "search_embeddings_search_get",
         "parameters": [
           {
@@ -2827,6 +2837,7 @@
           "embeddings"
         ],
         "summary": "Embedding Status",
+        "description": "Return current embedding-ingest progress from sync state or queue statistics.",
         "operationId": "embedding_status_embeddings_status_get",
         "responses": {
           "200": {
@@ -2848,6 +2859,7 @@
           "embeddings"
         ],
         "summary": "Cancel Embeddings",
+        "description": "Request cancellation of the current embedding ingest run, if one exists.",
         "operationId": "cancel_embeddings_embeddings_cancel_post",
         "responses": {
           "200": {
