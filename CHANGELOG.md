@@ -12,6 +12,8 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` feat(chat): converted the high-value chat route logs in [`backend/app/routes/chat.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/chat.py) to structured logging with stable request fields.
 - `uncommitted` test(logging): added [`backend/tests/test_logging_setup.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_logging_setup.py) and [`backend/tests/test_request_logging.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_request_logging.py) to verify context merging, JSON log shaping, request-id headers, and slow-request logging context.
 - `uncommitted` test(logging): verified `uv run ruff check app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run mypy --config-file pyproject.toml app/services/runtime/logging_setup.py app/main.py app/routes/chat.py app/worker.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run pytest tests/test_logging_setup.py tests/test_request_logging.py tests/test_status_routes.py tests/test_chat_routes.py tests/test_worker_error_types.py` (`12 passed`), plus `uv run mypy --config-file pyproject.toml` and `uv run ruff check app`.
+- uncommitted test(coverage): widened `2.1` again on top of the logging branch by adding [`backend/tests/test_process_missing_route.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_process_missing_route.py) for direct `/documents/process-missing` route coverage, and by bringing [`backend/tests/test_logging_setup.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_logging_setup.py) plus [`backend/tests/test_request_logging.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_request_logging.py) into the strict mypy allowlist.
+- `uncommitted` test(coverage): verified the follow-up slice with `uv run ruff check tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run mypy --config-file pyproject.toml tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`, `uv run pytest tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py tests/test_documents_actions_routes.py` (`8 passed`), and `uv run mypy --config-file pyproject.toml` (`141` files).
 ## 2026-03-11 (branch: feat/backend-test-coverage-expansion)
 
 ### Test coverage follow-through before structured logging
@@ -473,4 +475,7 @@ All granular implementation slices and refactors are tracked here.
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
 - For full historical record prior to this restructure, use git history (`git log --oneline` / `git log --stat`).
+
+
+
 

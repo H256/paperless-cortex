@@ -526,14 +526,17 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded `mypy` allowlist is passing for **136 source files**.
 - The expanded `mypy` allowlist is passing for **137 source files**.
 - The expanded `mypy` allowlist is passing for **138 source files**.
+- The expanded mypy allowlist is passing for **141 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`138 / 138` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`141 / 141` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
 - The remaining broad catch is the intentional outer worker dispatch boundary, now normalized through `WorkerError` with preserved original error context.
 - The last meaningful pre-`2.3` test-coverage slice is now in: thinner route/service wrappers plus deeper sync-documents and process-missing execution paths are covered.
 - `2.3 Add Structured Logging` is now implemented in the current branch and verified with focused API/worker logging tests.
-- The next branch-local task is to widen 2.1 coverage further on top of the structured logging foundation.
+- Wider `2.1` coverage is now moving again on top of the structured logging foundation, including direct `process-missing` route coverage and the logging regression tests in the strict mypy set.
+
+
 
 
