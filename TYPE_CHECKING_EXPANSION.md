@@ -2,12 +2,12 @@
 
 ## Verified state
 
-- Current configured `mypy` coverage: **145 source files**
+- Current configured `mypy` coverage: **151 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 145 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 145 files**
+- Net change in the latest follow-up slices: **46 -> 151 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 151 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`145 / 145`)
+- Current strict-checked share of backend Python files: **100%** (`151 / 151`)
 
 ## Files added in this slice
 
@@ -288,6 +288,35 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
 
+## Latest embeddings extraction expansion
+
+- Added `backend/app/services/documents/embedding_operations.py` to the strict mypy allowlist.
+- Extracted the `embeddings.py` ingest/search/status/cancel orchestration into the new service module while preserving route-level behavior and the current embeddings route test seams.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest worker runtime extraction expansion
+
+- Added `backend/app/services/pipeline/worker_runtime.py` and `backend/tests/test_worker_runtime.py` to the strict mypy allowlist.
+- Extracted the `worker.py` queue-payload parsing, cancel-path handling, and task-dispatch selection into the new service module while preserving the existing worker task implementations and regression behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py`
+
+## Latest worker document-task extraction expansion
+
+- Added `backend/app/services/pipeline/worker_document_tasks.py` to the strict mypy allowlist.
+- Extracted the sync/embedding/evidence/similarity task helpers out of `backend/app/worker.py` into the new service module while keeping the worker entry points stable as thin wrappers.
+- The strict mypy allowlist count is now `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_document_tasks.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py tests/test_pipeline_similarity_index.py tests/test_documents_routes.py`
+
 ## Latest query-optimization verification
 
 - The strict mypy allowlist count remains `143` after the low-risk eager-loading optimization pass.
@@ -326,3 +355,14 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run ruff check app/services/integrations/paperless.py app/services/search/qdrant.py app/services/ai/llm_client.py tests/test_http_client_pooling.py app/services/integrations/connections.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
   - `cd backend && uv run pytest tests/test_http_client_pooling.py tests/test_connections_service.py tests/test_qdrant_service.py tests/test_status_routes.py`
+
+## Latest task-runs SQL optimization verification
+
+- Added composite `task_runs` indexes in `backend/app/models.py` plus the matching Alembic migration `backend/alembic/versions/b7c4d8e9f1a2_add_task_run_composite_indexes.py`.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/models.py alembic/versions/b7c4d8e9f1a2_add_task_run_composite_indexes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
+- Migration note:
+  - `cd backend && uv run alembic upgrade head` against a throwaway SQLite database still stops on the older `6d3183eda0be_add_core_metadata_tables.py` foreign-key alteration, which is a pre-existing SQLite limitation in the migration chain rather than a regression from the new index migration.

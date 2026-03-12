@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
 import socket
 import threading
 import time
-from datetime import UTC, datetime
 from json import JSONDecodeError
 from typing import TYPE_CHECKING
 
@@ -15,18 +13,15 @@ import httpx
 from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api_models import DocumentIn
 from app.config import load_settings
 from app.db import SessionLocal
 from app.exceptions import WorkerError
 from app.models import (
     Document,
-    DocumentEmbedding,
     DocumentPageNote,
     DocumentPageText,
     DocumentSuggestion,
 )
-from app.routes.sync import _upsert_document
 from app.services.ai import vision_ocr
 from app.services.ai.hierarchical_summary import (
     generate_page_notes,
@@ -44,7 +39,6 @@ from app.services.ai.suggestions import generate_field_variants, generate_normal
 from app.services.documents.documents import fetch_pdf_bytes_for_doc, get_document_or_none
 from app.services.documents.page_text_store import reclean_page_texts, upsert_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
-from app.services.documents.page_types import PageText
 from app.services.documents.text_cleaning import clean_ocr_text
 from app.services.documents.text_pages import get_baseline_page_texts
 from app.services.integrations import paperless
@@ -91,26 +85,35 @@ from app.services.pipeline.worker_checkpoint import (
 from app.services.pipeline.worker_checkpoint import (
     set_task_checkpoint as _set_task_checkpoint,
 )
+from app.services.pipeline.worker_document_tasks import (
+    embed_with_pages as _service_embed_with_pages,
+)
+from app.services.pipeline.worker_document_tasks import (
+    process_embeddings_paperless as _service_process_embeddings_paperless,
+)
+from app.services.pipeline.worker_document_tasks import (
+    process_embeddings_vision as _service_process_embeddings_vision,
+)
+from app.services.pipeline.worker_document_tasks import (
+    process_evidence_index as _service_process_evidence_index,
+)
+from app.services.pipeline.worker_document_tasks import (
+    process_similarity_index as _service_process_similarity_index,
+)
+from app.services.pipeline.worker_document_tasks import (
+    process_sync_only as _service_process_sync_only,
+)
+from app.services.pipeline.worker_runtime import (
+    dispatch_worker_task,
+    handle_worker_cancel_request,
+    parse_worker_queue_item,
+)
 from app.services.runtime.logging_setup import (
     bind_log_context,
     configure_logging,
     log_event,
     reset_log_context,
 )
-from app.services.search.embedding_init import ensure_embedding_collection
-from app.services.search.embeddings import (
-    average_vectors,
-    chunk_document_with_pages,
-    delete_points_for_doc,
-    embed_texts,
-    enforce_embedding_chunk_budget,
-    make_doc_point_id,
-    make_point_id,
-    rebuild_doc_point_from_chunks,
-    summarize_chunk_split_telemetry,
-    upsert_points,
-)
-from app.services.search.evidence_index import extract_pdf_page_anchors, upsert_page_anchors
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -370,202 +373,32 @@ def _embed_with_pages(
     embedding_source: str,
     run_id: int | None = None,
 ) -> None:
-    content_value = clean_ocr_text(doc.content or "")
-    page_texts = (baseline_pages or []) + (vision_pages or [])
-    hash_source = (
-        "\f".join(f"{page.source}:{_page_text_value(page)}" for page in page_texts)
-        if page_texts
-        else content_value
-    )
-    content_hash = hashlib.sha256((hash_source or "").encode("utf-8")).hexdigest()
-
-    ensure_embedding_collection(settings)
-    normalized_baseline_pages = []
-    for page in baseline_pages or []:
-        normalized_baseline_pages.append(
-            PageText(
-                page=page.page,
-                text=_page_text_value(page),
-                source=page.source,
-                quality_score=getattr(page, "quality_score", None),
-                words=getattr(page, "words", None),
-            )
-        )
-    normalized_vision_pages = []
-    for page in vision_pages or []:
-        normalized_vision_pages.append(
-            PageText(
-                page=page.page,
-                text=_page_text_value(page),
-                source=page.source,
-                quality_score=getattr(page, "quality_score", None),
-                words=getattr(page, "words", None),
-            )
-        )
-    baseline_chunks = chunk_document_with_pages(
-        settings, content_value, normalized_baseline_pages or None
-    )
-    vision_chunks = (
-        chunk_document_with_pages(settings, content_value, normalized_vision_pages or None)
-        if normalized_vision_pages
-        else []
-    )
-    chunks = enforce_embedding_chunk_budget(settings, baseline_chunks + vision_chunks)
-    telemetry: dict[str, int] = summarize_chunk_split_telemetry(chunks)
-    max_chunks = max(0, int(settings.embedding_max_chunks_per_doc))
-    if max_chunks > 0 and len(chunks) > max_chunks:
-        logger.warning(
-            "Embedding chunks capped doc=%s chunks=%s cap=%s",
-            doc.id,
-            len(chunks),
-            max_chunks,
-        )
-        chunks = chunks[:max_chunks]
-
-    configured_batch_size = max(1, int(settings.embedding_batch_size))
-    batch_size = _embedding_checkpoint_batch_size(
-        total_chunks=len(chunks),
-        configured_batch_size=configured_batch_size,
-    )
-    checkpoint = _get_task_run_checkpoint(db, run_id=run_id)
-    resume_current = _resume_stage_current(
-        checkpoint,
-        stage="embedding_chunks",
-        source=embedding_source,
-        total=len(chunks),
-    )
-    start_index = max(0, min(resume_current, len(chunks)))
-    if start_index <= 0:
-        delete_points_for_doc(settings, doc.id, source=embedding_source)
-    else:
-        logger.info(
-            "Embedding resume doc=%s source=%s start_chunk=%s total=%s",
-            doc.id,
-            embedding_source,
-            start_index,
-            len(chunks),
-        )
-
-    _set_task_checkpoint(
+    _service_embed_with_pages(
+        settings,
         db,
+        doc,
+        baseline_pages,
+        vision_pages,
+        embedding_source,
         run_id=run_id,
-        stage="embedding_chunks",
-        current=start_index,
-        total=len(chunks),
-        extra={
-            "source": embedding_source,
-            "batch_size": batch_size,
-            "resumed": start_index > 0,
-            **telemetry,
-        },
     )
-    doc_vectors: list[list[float]] = []
-    for start in range(start_index, len(chunks), batch_size):
-        chunk_batch = chunks[start : start + batch_size]
-        texts = [str(chunk["text"]) for chunk in chunk_batch]
-        vectors = embed_texts(settings, texts, telemetry=telemetry)
-        doc_vectors.extend(vectors)
-        points = []
-        for offset, (chunk, vector) in enumerate(zip(chunk_batch, vectors, strict=False)):
-            chunk_idx = start + offset
-            chunk_text_value = texts[offset]
-            points.append(
-                {
-                    "id": make_point_id(doc.id, chunk_idx, embedding_source),
-                    "vector": vector,
-                    "payload": {
-                        "doc_id": doc.id,
-                        "chunk": chunk_idx,
-                        "text": chunk_text_value,
-                        "page": chunk.get("page"),
-                        "source": chunk.get("source"),
-                        "quality_score": chunk.get("quality_score"),
-                        "bbox": chunk.get("bbox"),
-                    },
-                }
-            )
-        if points:
-            upsert_points(settings, points)
-        logger.info(
-            "Embedding progress doc=%s chunks=%s/%s",
-            doc.id,
-            min(start + len(chunk_batch), len(chunks)),
-            len(chunks),
-        )
-        _set_task_checkpoint(
-            db,
-            run_id=run_id,
-            stage="embedding_chunks",
-            current=min(start + len(chunk_batch), len(chunks)),
-            total=len(chunks),
-            extra={"source": embedding_source, "batch_size": batch_size, **telemetry},
-        )
-
-    if start_index > 0:
-        rebuild_doc_point_from_chunks(
-            settings,
-            doc_id=int(doc.id),
-            chunk_count=len(chunks),
-            source_hint=embedding_source,
-        )
-    elif doc_vectors:
-        doc_vector = average_vectors(doc_vectors)
-        if doc_vector:
-            upsert_points(
-                settings,
-                [
-                    {
-                        "id": make_doc_point_id(doc.id),
-                        "vector": doc_vector,
-                        "payload": {
-                            "doc_id": doc.id,
-                            "chunk": -1,
-                            "type": "doc",
-                            "source": embedding_source,
-                        },
-                    }
-                ],
-            )
-
-    existing = db.get(DocumentEmbedding, doc.id)
-    if not existing:
-        existing = DocumentEmbedding(doc_id=doc.id)
-        db.add(existing)
-    existing.content_hash = content_hash
-    existing.embedding_model = settings.embedding_model
-    existing.embedded_at = datetime.now(UTC).isoformat()
-    previous_source = str(existing.embedding_source or "").strip().lower()
-    if previous_source == "both" or (previous_source and previous_source != embedding_source):
-        existing.embedding_source = "both"
-    else:
-        existing.embedding_source = embedding_source
-    existing.chunk_count = len(chunks)
-    db.commit()
 
 
 def _process_sync_only(settings, db: Session, doc_id: int) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort sync doc=%s", doc_id)
-        return
-    raw = paperless.get_document(settings, doc_id)
-    data = DocumentIn.model_validate(raw)
-    cache: dict[str, set[int]] = {"correspondents": set(), "document_types": set(), "tags": set()}
-    _upsert_document(db, settings, data, cache)
-    db.commit()
-    doc = get_document_or_none(db, doc_id)
-    if doc:
-        ensure_document_ocr_score(settings, db, doc, "paperless_ocr")
+    _service_process_sync_only(
+        settings,
+        db,
+        doc_id,
+        is_cancel_requested_fn=is_cancel_requested,
+    )
 
 
 def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
     if is_cancel_requested(settings):
         logger.info("Worker cancel requested; abort doc=%s", doc_id)
         return
+    _process_sync_only(settings, db, doc_id)
     raw = paperless.get_document(settings, doc_id)
-    data = DocumentIn.model_validate(raw)
-    cache: dict[str, set[int]] = {"correspondents": set(), "document_types": set(), "tags": set()}
-    _upsert_document(db, settings, data, cache)
-    db.commit()
 
     doc = get_document_or_none(db, doc_id)
     if not doc:
@@ -971,18 +804,13 @@ def _process_summary_hierarchical(
 def _process_embeddings_paperless(
     settings, db: Session, doc_id: int, run_id: int | None = None
 ) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
-        return
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    baseline_pages = get_baseline_page_texts(
+    _service_process_embeddings_paperless(
         settings,
-        doc.content,
-        fetch_pdf_bytes=lambda: fetch_pdf_bytes_for_doc(settings, doc),
+        db,
+        doc_id,
+        is_cancel_requested_fn=is_cancel_requested,
+        run_id=run_id,
     )
-    _embed_with_pages(settings, db, doc, baseline_pages, [], "paperless", run_id=run_id)
 
 
 def _process_evidence_index(
@@ -993,64 +821,35 @@ def _process_evidence_index(
     source: str = "paperless_pdf",
     run_id: int | None = None,
 ) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort evidence index doc=%s", doc_id)
-        return
-    if source != "paperless_pdf":
-        logger.info("Evidence index source unsupported doc=%s source=%s", doc_id, source)
-        return
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    pdf_bytes = fetch_pdf_bytes_for_doc(settings, doc)
-    rows = extract_pdf_page_anchors(pdf_bytes)
-    _set_task_checkpoint(
+    _service_process_evidence_index(
+        settings,
         db,
+        doc_id,
+        source=source,
+        is_cancel_requested_fn=is_cancel_requested,
         run_id=run_id,
-        stage="evidence_index",
-        current=len(rows),
-        total=len(rows),
-        extra={"source": source},
     )
-    upsert_page_anchors(db, doc_id=doc_id, source=source, rows=rows)
 
 
 def _process_embeddings_vision(
     settings, db: Session, doc_id: int, run_id: int | None = None
 ) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
-        return
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return
-    baseline_pages, vision_pages, _ = collect_page_texts(
+    _service_process_embeddings_vision(
         settings,
         db,
-        doc,
-        force_vision=False,
+        doc_id,
+        is_cancel_requested_fn=is_cancel_requested,
+        run_id=run_id,
     )
-    _embed_with_pages(settings, db, doc, baseline_pages, vision_pages, "vision", run_id=run_id)
 
 
 def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort similarity index doc=%s", doc_id)
-        return
-    embedding = db.get(DocumentEmbedding, int(doc_id))
-    if not embedding or int(embedding.chunk_count or 0) <= 0:
-        return
-    ok = rebuild_doc_point_from_chunks(
+    _service_process_similarity_index(
         settings,
-        doc_id=int(doc_id),
-        chunk_count=int(embedding.chunk_count or 0),
-        source_hint=str(embedding.embedding_source or ""),
+        db,
+        doc_id,
+        is_cancel_requested_fn=is_cancel_requested,
     )
-    if not ok:
-        raise RuntimeError(
-            f"similarity_index_rebuild_failed doc_id={int(doc_id)} "
-            f"chunk_count={int(embedding.chunk_count or 0)} source={embedding.embedding_source or ''!s}"
-        )
 
 
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
@@ -1231,15 +1030,14 @@ def _process_suggest_field(settings, db: Session, task: dict) -> None:
     db.commit()
 
 
-def _dispatch_task(
+def _build_dispatch_handler(
     settings,
     db: Session,
     task_type: str,
     doc_id: int,
     task: dict | None,
-    *,
-    run_id: int | None = None,
-) -> None:
+    run_id: int | None,
+):
     handlers = {
         "sync": lambda: _process_sync_only(settings, db, doc_id),
         "evidence_index": lambda: _process_evidence_index(
@@ -1280,25 +1078,7 @@ def _dispatch_task(
         "suggestions_vision": lambda: _process_suggestions_vision(settings, db, doc_id),
         "suggest_field": lambda: _process_suggest_field(settings, db, task or {}),
     }
-    if task_type == "vision_ocr":
-        force = bool(task.get("force")) if isinstance(task, dict) else False
-        _process_vision_ocr_only(settings, db, doc_id, force=force, run_id=run_id)
-        return
-    handler = handlers.get(task_type)
-    if handler:
-        handler()
-        return
-    _process_doc(settings, db, doc_id, run_id=run_id)
-
-
-def _handle_worker_cancel_request(settings) -> bool:
-    if not is_cancel_requested(settings):
-        return False
-    log_event(logger, logging.INFO, "Worker cancel requested; clearing queue")
-    clear_queue(settings)
-    reset_stats(settings)
-    clear_cancel(settings)
-    return True
+    return handlers.get(task_type)
 
 
 def main() -> None:
@@ -1365,7 +1145,15 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             move_due_delayed_tasks(settings, limit=100)
-            if _handle_worker_cancel_request(settings):
+            if handle_worker_cancel_request(
+                settings,
+                is_cancel_requested_fn=is_cancel_requested,
+                clear_queue_fn=clear_queue,
+                reset_stats_fn=reset_stats,
+                clear_cancel_fn=clear_cancel,
+                log_fn=log_event,
+                logger=logger,
+            ):
                 time.sleep(0.5)
                 continue
             item = client.blpop(QUEUE_KEY, timeout=5)
@@ -1373,36 +1161,21 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             _, doc_id_str = item
-            task = None
-            try:
-                task = json.loads(doc_id_str)
-            except JSONDecodeError:
-                task = None
-            if isinstance(task, dict) and "doc_id" in task:
-                raw_task_doc_id = task.get("doc_id")
-                if not isinstance(raw_task_doc_id, int):
-                    log_event(
-                        logger,
-                        logging.WARNING,
-                        "Invalid task doc_id in queue payload",
-                        payload=task,
-                    )
-                    continue
-                doc_id = int(raw_task_doc_id)
-                task_type = str(task.get("task") or "full")
-            else:
-                try:
-                    doc_id = int(doc_id_str)
-                except (TypeError, ValueError):
-                    log_event(
-                        logger,
-                        logging.WARNING,
-                        "Invalid doc_id in queue",
-                        payload=doc_id_str,
-                    )
-                    continue
-                task_type = "full"
-            if _handle_worker_cancel_request(settings):
+            parsed = parse_worker_queue_item(doc_id_str, log_fn=log_event, logger=logger)
+            if parsed is None:
+                continue
+            doc_id = parsed["doc_id"]
+            task_type = parsed["task_type"]
+            task = parsed["task_payload"]
+            if handle_worker_cancel_request(
+                settings,
+                is_cancel_requested_fn=is_cancel_requested,
+                clear_queue_fn=clear_queue,
+                reset_stats_fn=reset_stats,
+                clear_cancel_fn=clear_cancel,
+                log_fn=log_event,
+                logger=logger,
+            ):
                 log_event(
                     logger,
                     logging.INFO,
@@ -1423,12 +1196,7 @@ def main() -> None:
             pending_retry_payload: dict | None = None
             pending_retry_delay_seconds: int | None = None
             pending_dead_letter: dict | None = None
-            retry_attempt = 0
-            if isinstance(task, dict):
-                try:
-                    retry_attempt = int(task.get("retry_count") or 0)
-                except (TypeError, ValueError):
-                    retry_attempt = 0
+            retry_attempt = parsed["retry_attempt"]
             task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
             task_context_token = bind_log_context(
                 doc_id=doc_id,
@@ -1464,13 +1232,34 @@ def main() -> None:
                                     stage="resume",
                                     extra={"resume_from": previous_checkpoint},
                                 )
-                        _dispatch_task(
-                            settings,
-                            db,
-                            task_type,
-                            doc_id,
-                            task if isinstance(task, dict) else None,
+                        dispatch_worker_task(
+                            settings=settings,
+                            db=db,
+                            task_type=task_type,
+                            doc_id=doc_id,
+                            task=task if isinstance(task, dict) else None,
                             run_id=run_id,
+                            build_handler_fn=lambda current_task_type, current_doc_id, current_task, current_run_id: _build_dispatch_handler(
+                                settings,
+                                db,
+                                current_task_type,
+                                current_doc_id,
+                                current_task if isinstance(current_task, dict) else None,
+                                current_run_id,
+                            ),
+                            process_vision_ocr_force_fn=lambda active_settings, active_db, active_doc_id, force, active_run_id: _process_vision_ocr_only(
+                                active_settings,
+                                active_db,
+                                active_doc_id,
+                                force=force,
+                                run_id=active_run_id,
+                            ),
+                            process_full_doc_fn=lambda active_settings, active_db, active_doc_id, active_run_id: _process_doc(
+                                active_settings,
+                                active_db,
+                                active_doc_id,
+                                run_id=active_run_id,
+                            ),
                         )
                     except Exception as exc:
                         worker_error = (

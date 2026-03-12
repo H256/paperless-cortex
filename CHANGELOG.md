@@ -36,6 +36,20 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` chore(mypy): added [`backend/app/services/documents/sync_operations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `145` configured source files.
 - `uncommitted` test(sync): verified `uv run ruff check app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`, `uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py` (`17 passed`).
 
+## 2026-03-12 (branch: feat/backend-embeddings-route-srp)
+
+### Service-layer complexity reduction
+- `uncommitted` refactor(embeddings): extracted embeddings ingest/search/status/cancel orchestration out of [`backend/app/routes/embeddings.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/embeddings.py) into the new service module [`backend/app/services/documents/embedding_operations.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/embedding_operations.py).
+- `uncommitted` refactor(embeddings): centralized queue-backed embeddings enqueue behavior, non-queue embeddings ingest execution, vector-search result shaping, queue-status payload shaping, and cancel handling in the service layer while keeping the route as the HTTP boundary.
+- `uncommitted` refactor(embeddings): preserved the existing route test patch points by injecting the embedding/search helper functions from the route module into the new service module instead of hard-coding the dependencies at the service layer.
+- `uncommitted` chore(mypy): added [`backend/app/services/documents/embedding_operations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `148` configured source files.
+- `uncommitted` test(embeddings): verified `uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`, `uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py` (`14 passed`).
+- `uncommitted` refactor(worker): extracted worker queue-payload parsing, cancel-path handling, and task dispatch selection out of [`backend/app/worker.py`](E:/workspace/python/paperless-intelligence/backend/app/worker.py) into the new service module [`backend/app/services/pipeline/worker_runtime.py`](E:/workspace/python/paperless-intelligence/backend/app/services/pipeline/worker_runtime.py).
+- `uncommitted` refactor(worker): kept the actual OCR/embedding/suggestion task implementations in `worker.py` for now, but moved the queue/runtime orchestration seam into the service layer so the main loop no longer owns raw payload parsing and task-selection branching directly.
+- `uncommitted` test(worker): added [`backend/tests/test_worker_runtime.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_worker_runtime.py) to pin worker queue-payload parsing, cancel handling, and task-dispatch routing behavior.
+- `uncommitted` chore(mypy): added [`backend/app/services/pipeline/worker_runtime.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) and [`backend/tests/test_worker_runtime.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist; `uv run mypy --config-file pyproject.toml` now passes on `150` configured source files.
+- `uncommitted` test(worker): verified `uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`, `uv run mypy --config-file pyproject.toml`, and `uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py` (`17 passed`).
+
 ## 2026-03-12 (branch: feat/backend-tooling-enforcement)
 
 ### Developer tooling
@@ -539,6 +553,10 @@ All granular implementation slices and refactors are tracked here.
 - `2282b03` feat(chat): added `Ctrl+Shift+Enter` shortcut to open first citation from the latest answer for faster source navigation.
 - `41af567` refactor(ui): introduced `useInputCommandHotkeys` to centralize shared slash-focus and Ctrl+Enter submit keyboard behavior for input-driven views.
 - `9c23250` refactor(ui): added generic `useRouteQuerySync` composable to centralize query read/write/watch synchronization across route-driven views.
+- `31cf6e3` refactor(worker): extracted queue payload parsing, cancel handling, and task dispatch selection from `backend/app/worker.py` into `backend/app/services/pipeline/worker_runtime.py`.
+- `774cbb0` refactor(embeddings): extracted embeddings route orchestration from `backend/app/routes/embeddings.py` into `backend/app/services/documents/embedding_operations.py`.
+- `899bb3a` refactor(worker): extracted sync/embedding/evidence/similarity task helpers from `backend/app/worker.py` into `backend/app/services/pipeline/worker_document_tasks.py` and left thin worker wrappers in place.
+- `07c20cc` perf(db): added composite `task_runs` indexes for the worker/queue list and checkpoint lookup paths to reduce filtered pagination cost on larger histories.
 
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.

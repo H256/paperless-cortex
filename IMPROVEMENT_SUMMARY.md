@@ -568,6 +568,38 @@
 - Added explicit pool-clear and `atexit` cleanup hooks so long-lived processes reuse connections while tests and shutdown stay predictable.
 - Added `backend/tests/test_http_client_pooling.py` and brought it into the strict mypy allowlist.
 
+### 45. Embeddings route service extraction
+
+- Extracted embeddings route orchestration out of `backend/app/routes/embeddings.py` into the new service module:
+  - `backend/app/services/documents/embedding_operations.py`
+- Centralized:
+  - queue-backed embeddings enqueue behavior
+  - non-queue embeddings ingest execution
+  - vector-search result shaping
+  - embeddings queue-status payload shaping
+  - embeddings cancellation handling
+- Kept the route contracts unchanged and preserved the existing route-test monkeypatch seams by injecting the route-level helper functions into the service layer.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+### 46. Worker runtime service extraction
+
+- Extracted worker runtime orchestration out of `backend/app/worker.py` into the new service module:
+  - `backend/app/services/pipeline/worker_runtime.py`
+- Centralized:
+  - queue-payload parsing
+  - worker cancel-path handling
+  - task dispatch selection
+- Kept the actual per-task OCR/embedding/suggestion implementations in `worker.py` for this slice, while moving the queue/runtime control flow into the service layer.
+- Added `backend/tests/test_worker_runtime.py` to pin queue-payload parsing, cancel handling, and dispatch routing behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py`
+
 ## Verified commands
 
 ```bash
@@ -650,8 +682,10 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - The expanded mypy allowlist is passing for **143 source files**.
 - The expanded mypy allowlist is passing for **144 source files**.
 - The expanded mypy allowlist is passing for **145 source files**.
+- The expanded mypy allowlist is passing for **148 source files**.
+- The expanded mypy allowlist is passing for **151 source files**.
 - Backend Python files currently present: **129**.
-- Strict mypy coverage of backend Python files: **100%** (`145 / 145` configured/tested backend files in the current tree).
+- Strict mypy coverage of backend Python files: **100%** (`151 / 151` configured/tested backend files in the current tree).
 - The touched files in this session are Ruff-clean.
 - Repo-wide Ruff findings remaining: **0**.
 - Remaining `except Exception` sites: **1**.
@@ -665,6 +699,8 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `5.2 Developer Tooling` is now in progress with backend CI, uv-backed pre-commit enforcement, and Windows-safe frontend lint-hook execution.
 - `5.3 Error Messages & Observability` is now in progress with stable API error codes and request/correlation context in error responses.
 - `6.x Performance & Optimization` is now in progress with a first connection-reuse/client-pooling pass across Paperless, Qdrant, and LLM HTTP clients.
+- `3.3 Service Layer Complexity` moved further with a second worker extraction: sync/embedding/evidence/similarity task helpers now live in `backend/app/services/pipeline/worker_document_tasks.py`, leaving `backend/app/worker.py` as a thinner orchestration boundary around the remaining OCR/page-note/suggestion flows.
+- `3.2 Database Query Optimization` moved further with composite `task_runs` indexes aligned to the queue history and checkpoint lookup filters (`doc_id`/`task`/`source`/`id`, `status`/`task`/`id`), which is the first DB-focused follow-up after the route/worker SRP cleanup.
 
 
 
