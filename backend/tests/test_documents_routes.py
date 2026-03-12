@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.models import (
+    Correspondent,
     Document,
     DocumentEmbedding,
     DocumentNote,
@@ -115,6 +116,65 @@ def test_get_local_document_missing(api_client: Any) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "missing"
+
+
+def test_dashboard_uses_grouped_correspondent_counts(api_client: Any) -> None:
+    import app.routes.documents as documents_routes
+
+    documents_routes._DASHBOARD_CACHE["ts"] = 0.0
+    documents_routes._DASHBOARD_CACHE["data"] = None
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        alpha = Correspondent(id=7001, name="Alpha")
+        beta = Correspondent(id=7002, name="Beta")
+        db.add_all([alpha, beta])
+        db.add_all(
+            [
+                Document(id=7101, title="Processed A", created="2026-02-01T00:00:00+00:00", correspondent_id=7001),
+                Document(id=7102, title="Pending A", created="2026-02-02T00:00:00+00:00", correspondent_id=7001),
+                Document(id=7103, title="Processed B", created="2026-02-03T00:00:00+00:00", correspondent_id=7002),
+                Document(id=7104, title="Unassigned pending", created="2026-02-04T00:00:00+00:00"),
+            ]
+        )
+        db.add_all(
+            [
+                DocumentEmbedding(doc_id=7101, embedding_source="paperless", chunk_count=1),
+                DocumentEmbedding(doc_id=7103, embedding_source="paperless", chunk_count=1),
+                DocumentPageText(doc_id=7101, page=1, source="vision_ocr", text="a", raw_text="a", clean_text="a"),
+                DocumentPageText(doc_id=7103, page=1, source="vision_ocr", text="b", raw_text="b", clean_text="b"),
+                DocumentSuggestion(
+                    doc_id=7101,
+                    source="paperless_ocr",
+                    payload="{}",
+                    created_at="2026-02-01T00:00:00+00:00",
+                    processed_at="2026-02-01T00:00:00+00:00",
+                ),
+                DocumentSuggestion(
+                    doc_id=7103,
+                    source="paperless_ocr",
+                    payload="{}",
+                    created_at="2026-02-03T00:00:00+00:00",
+                    processed_at="2026-02-03T00:00:00+00:00",
+                ),
+            ]
+        )
+        db.commit()
+
+    response = api_client.get("/documents/dashboard")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["stats"]["total"] == 4
+    correspondents = {row["name"]: row["count"] for row in payload["correspondents"]}
+    assert correspondents["Alpha"] == 2
+    assert correspondents["Beta"] == 1
+    assert correspondents["Unassigned correspondent"] == 1
+
+    unprocessed = {row["name"]: row["count"] for row in payload["unprocessed_by_correspondent"]}
+    assert unprocessed["Alpha"] == 1
+    assert unprocessed["Unassigned correspondent"] == 1
+    assert "Beta" not in unprocessed
 
 
 def test_process_missing_queue_disabled(api_client: Any) -> None:
