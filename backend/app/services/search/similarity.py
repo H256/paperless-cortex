@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from app.models import Correspondent, Document, DocumentType, Tag
 from app.services.search import qdrant
@@ -78,9 +78,9 @@ def aggregate_similar_metadata(
     docs = (
         db.query(Document)
         .options(
-            joinedload(Document.tags).load_only(Tag.name),
-            joinedload(Document.correspondent).load_only(Correspondent.name),
-            joinedload(Document.document_type).load_only(DocumentType.name),
+            selectinload(Document.tags).load_only(Tag.name),
+            selectinload(Document.correspondent).load_only(Correspondent.name),
+            selectinload(Document.document_type).load_only(DocumentType.name),
         )
         .filter(Document.id.in_(doc_ids))
         .all()

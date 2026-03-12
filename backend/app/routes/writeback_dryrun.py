@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError, ProgrammingError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from app.api_models import (
     WritebackDirectExecuteRequest,
@@ -193,7 +193,7 @@ def execute_writeback_direct_for_document(
         )
     local_doc = (
         db.query(Document)
-        .options(joinedload(Document.tags), joinedload(Document.notes))
+        .options(selectinload(Document.tags), selectinload(Document.notes))
         .filter(Document.id == doc_id)
         .first()
     )
