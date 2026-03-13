@@ -37,6 +37,11 @@
 - `6.2 Caching Strategy` moved again: `/documents/{doc_id}/page-texts` now goes through `backend/app/services/documents/page_texts_cache.py`, so repeated page-text detail reads reuse the cached baseline/vision aggregation instead of reparsing that payload every time.
 - The page-text cache is now invalidated from the direct text/vision stale paths, and the focused document/sync regressions still pass with the strict backend mypy baseline green on `182` configured files.
 
+### Cache regression coverage
+
+- `2.1 Increase Test Coverage` moved again: the document route regressions now explicitly pin both cache-heavy detail seams, covering stale page-text invalidation after `delete/vision-ocr` and stale local embedding flags after `delete/embeddings`.
+- The focused documents/documents-actions regression set still passes after the new cache tests, so the recent `6.2` cache slices now have direct route-level protection instead of only relying on implementation reasoning.
+
 ### Frontend component organization
 
 - Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.

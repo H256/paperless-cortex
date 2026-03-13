@@ -523,6 +523,47 @@ def test_delete_vision_ocr_invalidates_page_text_cache(api_client: Any, monkeypa
     assert after.json()["pages"] == []
 
 
+def test_delete_embeddings_invalidates_local_document_cache(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=48, title="Doc 48", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=48, embedding_source="paperless", chunk_count=2))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document_cached",
+        lambda *_args, **_kwargs: {
+            "id": 48,
+            "title": "Doc 48",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(documents_actions, "delete_points_for_doc", lambda *_args, **_kwargs: None)
+
+    before = api_client.get("/documents/48/local")
+    assert before.status_code == 200
+    assert before.json()["has_embeddings"] is True
+    assert before.json()["embedding_chunk_count"] == 2
+
+    deleted = api_client.post("/documents/delete/embeddings", params={"doc_id": 48})
+    assert deleted.status_code == 200
+
+    after = api_client.get("/documents/48/local")
+    assert after.status_code == 200
+    assert after.json()["has_embeddings"] is False
+    assert after.json()["embedding_chunk_count"] == 0
+
+
 def test_mark_reviewed_returns_missing_when_document_not_local(api_client: Any) -> None:
     response = api_client.post("/documents/9999/review/mark")
     assert response.status_code == 200

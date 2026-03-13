@@ -2,6 +2,10 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the cache-regression test slice.
+- Verified additional typed changes in:
+  - `backend/tests/test_documents_routes.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `182` source files.
 - Strict mypy remains green after the page-texts cache slice.
 - Verified additional typed changes in:
   - `backend/app/routes/documents.py`
