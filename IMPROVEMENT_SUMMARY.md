@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Continue-processing diagnostics extraction
+
+- `4.1 Component Organization` moved again: the diagnostics-heavy portion of the continue-processing UI is no longer embedded directly in `frontend/src/components/ContinueProcessingPanel.vue`, and now lives behind the dedicated `frontend/src/components/ContinueProcessingDiagnosticsSection.vue` seam.
+- `4.2 Frontend Testing` moved with it: the extracted diagnostics section now has direct integration coverage, while the surrounding continue-processing panel/view regressions remain green.
+
 ### Documents mutation extraction
 
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns the route-local vision-OCR and suggestion deletion mutation blocks, and now delegates those DB cleanup plus cache-invalidation flows through `backend/app/services/documents/document_mutations.py`.

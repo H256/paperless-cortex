@@ -5,6 +5,10 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Continue-processing diagnostics extraction
+- `uncommitted` refactor(frontend): extracted the diagnostics-heavy preview/coverage/runtime block out of [`frontend/src/components/ContinueProcessingPanel.vue`](E:/workspace/python/paperless-intelligence/frontend/src/components/ContinueProcessingPanel.vue) into [`frontend/src/components/ContinueProcessingDiagnosticsSection.vue`](E:/workspace/python/paperless-intelligence/frontend/src/components/ContinueProcessingDiagnosticsSection.vue), so the panel is now more clearly option editing plus start/result controls.
+- `uncommitted` test(frontend): added direct seam coverage in [`frontend/src/components/ContinueProcessingDiagnosticsSection.integration.test.ts`](E:/workspace/python/paperless-intelligence/frontend/src/components/ContinueProcessingDiagnosticsSection.integration.test.ts) and re-verified the continue-processing panel/view integration path with `cd frontend && npx vitest run src/components/ContinueProcessingPanel.integration.test.ts src/components/ContinueProcessingDiagnosticsSection.integration.test.ts src/views/ContinueProcessingView.integration.test.ts`.
+
 ### Documents mutation extraction
 - `uncommitted` refactor(documents): extracted the route-owned vision-OCR and suggestion deletion mutation flows out of [`backend/app/routes/documents_actions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_actions.py) into [`backend/app/services/documents/document_mutations.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/document_mutations.py), so the route no longer owns those DB cleanup and cache-invalidation blocks directly.
 - `uncommitted` chore(mypy): added [`backend/app/services/documents/document_mutations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict backend mypy allowlist.
