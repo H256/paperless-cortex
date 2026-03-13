@@ -39,8 +39,9 @@ from app.models import (
     DocumentSuggestion,
     TaskRun,
 )
-from app.routes.queue_guard import require_queue_enabled
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
+from app.services.documents.document_stats_cache import invalidate_document_stats_cache
+from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.documents.operations import (
     build_document_pipeline_fanout_payload,
     build_document_pipeline_status_payload,
@@ -56,13 +57,20 @@ from app.services.pipeline.queue import (
     enqueue_task_sequence,
     enqueue_task_sequence_front,
 )
+from app.services.pipeline.queue_access import is_queue_enabled
 from app.services.pipeline.queue_tasks import build_task_sequence
-from app.services.search.embeddings import delete_points_for_doc, delete_similarity_points
+from app.services.search.embeddings import (
+    delete_all_chunk_points,
+    delete_points_for_doc,
+    delete_similarity_points,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from app.config import Settings
+
+require_queue_enabled = is_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
@@ -167,6 +175,8 @@ def _clear_intelligence_tables(db: Session) -> None:
     db.execute(delete(DocumentPageAnchor))
     db.commit()
     invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
 
 
 def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
@@ -195,6 +205,8 @@ def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
     db.query(TaskRun).filter(TaskRun.doc_id == doc_id).delete(synchronize_session=False)
     db.commit()
     invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
 
 
 @router.post("/process-missing", response_model=ProcessMissingResponse)
@@ -402,6 +414,8 @@ def delete_vision_ocr(
     score_query.delete(synchronize_session=False)
     db.commit()
     invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
     return {"deleted": count}
 
 
@@ -416,6 +430,8 @@ def delete_suggestions(
     count = int(query.delete(synchronize_session=False) or 0)
     db.commit()
     invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
     return {"deleted": count}
 
 
@@ -425,18 +441,35 @@ def delete_embeddings(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
+    qdrant_deleted = 0
+    qdrant_errors = 0
     if doc_id is not None:
-        delete_points_for_doc(settings, doc_id)
+        try:
+            delete_points_for_doc(settings, doc_id)
+            qdrant_deleted = 1
+        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+            qdrant_errors = 1
+            logger.warning("Failed to delete embedding points doc_id=%s: %s", doc_id, exc)
         row = db.get(DocumentEmbedding, doc_id)
         if row:
             db.delete(row)
             db.commit()
             invalidate_dashboard_cache()
-        return {"deleted": 1}
+            invalidate_document_stats_cache()
+            invalidate_documents_list_cache()
+        return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
     db.query(DocumentEmbedding).delete(synchronize_session=False)
     db.commit()
     invalidate_dashboard_cache()
-    return {"deleted": 1}
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
+    try:
+        delete_all_chunk_points(settings)
+        qdrant_deleted = 1
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+        qdrant_errors = 1
+        logger.warning("Failed to delete all embedding points: %s", exc)
+    return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
 
 
 @router.post("/delete/similarity-index", response_model=DeleteSimilarityIndexResponse)
@@ -459,6 +492,8 @@ def delete_similarity_index(
         query = query.filter(TaskRun.doc_id == int(doc_id))
     deleted = int(query.delete(synchronize_session=False) or 0)
     db.commit()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
     return {"deleted": deleted, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
 
 
@@ -521,6 +556,7 @@ def reset_and_reprocess_document(
     cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
     upsert_document(db, settings, data, cache)
     db.commit()
+    invalidate_documents_list_cache()
 
     enqueued = 0
     if enqueue and require_queue_enabled(settings):

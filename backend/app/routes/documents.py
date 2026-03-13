@@ -23,7 +23,6 @@ from app.models import (
     DocumentPageText,
     SuggestionAudit,
 )
-from app.routes.queue_guard import require_queue_enabled
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.documents.dashboard import build_dashboard_payload
 from app.services.documents.dashboard_cache import (
@@ -31,7 +30,15 @@ from app.services.documents.dashboard_cache import (
     invalidate_dashboard_cache,
 )
 from app.services.documents.document_stats import compute_document_stats
+from app.services.documents.document_stats_cache import (
+    get_cached_document_stats,
+    invalidate_document_stats_cache,
+)
 from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
+from app.services.documents.documents_list_cache import (
+    get_cached_documents_page,
+    invalidate_documents_list_cache,
+)
 from app.services.documents.read_models import (
     REVIEW_ACTION_MANUAL,
     apply_derived_fields_and_review_status,
@@ -42,14 +49,44 @@ from app.services.documents.read_models import (
 from app.services.documents.text_pages import get_baseline_page_texts, score_text_quality
 from app.services.integrations import paperless
 from app.services.pipeline.queue import enqueue_docs_front
+from app.services.pipeline.queue_access import is_queue_enabled
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from app.config import Settings
+
+require_queue_enabled = is_queue_enabled
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
+
+
+def _documents_list_cache_key(
+    *,
+    page: int,
+    page_size: int,
+    ordering: str | None,
+    correspondent_id: int | None,
+    tags_id: int | None,
+    document_date_gte: str | None,
+    document_date_lte: str | None,
+    include_derived: bool,
+    include_summary_preview: bool,
+    review_status: str,
+) -> tuple[int, int, str | None, int | None, int | None, str | None, str | None, bool, bool, str]:
+    return (
+        int(page),
+        int(page_size),
+        ordering,
+        correspondent_id,
+        tags_id,
+        document_date_gte,
+        document_date_lte,
+        include_derived,
+        include_summary_preview,
+        review_status,
+    )
 
 
 @router.get("/", response_model=DocumentsPageResponse)
@@ -74,87 +111,108 @@ def list_documents(
     semantics require derived state from the local cache.
     """
     normalized_review_status = normalize_review_status(review_status)
-    missing_correspondent_only = correspondent__id == -1
-    effective_correspondent = None if missing_correspondent_only else correspondent__id
-    if normalized_review_status != "all":
-        current_page = 1
-        fetch_size = max(page_size, 200)
-        start = max(0, (max(1, page) - 1) * max(1, page_size))
-        end = start + max(1, page_size)
-        filtered_total = 0
-        selected_results: list[dict] = []
-        while True:
-            batch_payload = paperless.list_documents_cached(
-                settings,
-                page=current_page,
-                page_size=fetch_size,
-                ordering=ordering,
-                correspondent__id=effective_correspondent,
-                tags__id=tags__id,
-                document_date__gte=document_date__gte,
-                document_date__lte=document_date__lte,
-            )
-            enriched_payload = apply_derived_fields_and_review_status(
-                payload={"results": batch_payload.get("results", []) or []},
-                db=db,
-                include_derived=True,
-                include_summary_preview=include_summary_preview,
-                review_status="all",
-                page=1,
-                page_size=fetch_size,
-            )
-            enriched_results = enriched_payload.get("results", [])
-            batch_results = [
-                row for row in enriched_results if isinstance(row, dict)
-            ] if isinstance(enriched_results, list) else []
-            if missing_correspondent_only:
-                batch_results = [row for row in batch_results if row.get("correspondent") is None]
-            matching = [
-                row for row in batch_results if row.get("review_status") == normalized_review_status
-            ]
-            batch_count = len(matching)
-            if batch_count > 0 and len(selected_results) < max(1, page_size):
-                batch_start = max(0, start - filtered_total)
-                batch_end = max(0, end - filtered_total)
-                if batch_start < batch_count:
-                    selected_results.extend(matching[batch_start:batch_end])
-            filtered_total += batch_count
-            if not batch_payload.get("next"):
-                break
-            current_page += 1
-        return {
-            "count": filtered_total,
-            "next": None if end >= filtered_total else "filtered",
-            "previous": None if start <= 0 else "filtered",
-            "results": selected_results[: max(1, page_size)],
-        }
 
-    payload = list_documents_from_paperless(
-        settings,
-        page=page,
-        page_size=page_size,
-        ordering=ordering,
-        correspondent__id=correspondent__id,
-        tags__id=tags__id,
-        document_date__gte=document_date__gte,
-        document_date__lte=document_date__lte,
-        review_status=normalized_review_status,
-    )
-    return apply_derived_fields_and_review_status(
-        payload=payload,
-        db=db,
-        include_derived=include_derived,
-        include_summary_preview=include_summary_preview,
-        review_status=normalized_review_status,
-        page=page,
-        page_size=page_size,
+    def _build_payload() -> dict[str, object]:
+        missing_correspondent_only = correspondent__id == -1
+        effective_correspondent = None if missing_correspondent_only else correspondent__id
+        if normalized_review_status != "all":
+            current_page = 1
+            fetch_size = max(page_size, 200)
+            start = max(0, (max(1, page) - 1) * max(1, page_size))
+            end = start + max(1, page_size)
+            filtered_total = 0
+            selected_results: list[dict] = []
+            while True:
+                batch_payload = paperless.list_documents_cached(
+                    settings,
+                    page=current_page,
+                    page_size=fetch_size,
+                    ordering=ordering,
+                    correspondent__id=effective_correspondent,
+                    tags__id=tags__id,
+                    document_date__gte=document_date__gte,
+                    document_date__lte=document_date__lte,
+                )
+                enriched_payload = apply_derived_fields_and_review_status(
+                    payload={"results": batch_payload.get("results", []) or []},
+                    db=db,
+                    include_derived=True,
+                    include_summary_preview=include_summary_preview,
+                    review_status="all",
+                    page=1,
+                    page_size=fetch_size,
+                )
+                enriched_results = enriched_payload.get("results", [])
+                batch_results = [
+                    row for row in enriched_results if isinstance(row, dict)
+                ] if isinstance(enriched_results, list) else []
+                if missing_correspondent_only:
+                    batch_results = [row for row in batch_results if row.get("correspondent") is None]
+                matching = [
+                    row for row in batch_results if row.get("review_status") == normalized_review_status
+                ]
+                batch_count = len(matching)
+                if batch_count > 0 and len(selected_results) < max(1, page_size):
+                    batch_start = max(0, start - filtered_total)
+                    batch_end = max(0, end - filtered_total)
+                    if batch_start < batch_count:
+                        selected_results.extend(matching[batch_start:batch_end])
+                filtered_total += batch_count
+                if not batch_payload.get("next"):
+                    break
+                current_page += 1
+            return {
+                "count": filtered_total,
+                "next": None if end >= filtered_total else "filtered",
+                "previous": None if start <= 0 else "filtered",
+                "results": selected_results[: max(1, page_size)],
+            }
+
+        payload = list_documents_from_paperless(
+            settings,
+            page=page,
+            page_size=page_size,
+            ordering=ordering,
+            correspondent__id=correspondent__id,
+            tags__id=tags__id,
+            document_date__gte=document_date__gte,
+            document_date__lte=document_date__lte,
+            review_status=normalized_review_status,
+        )
+        return apply_derived_fields_and_review_status(
+            payload=payload,
+            db=db,
+            include_derived=include_derived,
+            include_summary_preview=include_summary_preview,
+            review_status=normalized_review_status,
+            page=page,
+            page_size=page_size,
+        )
+
+    if not include_derived and normalized_review_status == "all":
+        return _build_payload()
+
+    return get_cached_documents_page(
+        cache_key=_documents_list_cache_key(
+            page=page,
+            page_size=page_size,
+            ordering=ordering,
+            correspondent_id=correspondent__id,
+            tags_id=tags__id,
+            document_date_gte=document_date__gte,
+            document_date_lte=document_date__lte,
+            include_derived=include_derived,
+            include_summary_preview=include_summary_preview,
+            review_status=normalized_review_status,
+        ),
+        build_payload=_build_payload,
     )
 
 
 @router.get("/stats", response_model=DocumentStatsResponse)
 def get_document_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Return aggregate processing counters for the local document cache."""
-    return compute_document_stats(db)
+    return get_cached_document_stats(db, build_payload=compute_document_stats)
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
@@ -197,6 +255,8 @@ def mark_document_reviewed(
     )
     db.commit()
     invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
     return {"status": "ok", "doc_id": int(doc_id), "reviewed_at": reviewed_at}
 
 

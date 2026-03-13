@@ -23,6 +23,16 @@ def test_non_retryable_unknown_error() -> None:
     assert is_retryable_error_type(error_type) is False
 
 
+def test_classify_missing_vector_chunks_error() -> None:
+    err = RuntimeError(
+        "similarity_index_rebuild_failed doc_id=5 chunk_count=3 "
+        "source=paperless provider=weaviate chunk vectors missing in active vector store"
+    )
+    error_type = classify_worker_error(err)
+    assert error_type == "VECTOR_CHUNKS_MISSING"
+    assert is_retryable_error_type(error_type) is False
+
+
 def test_classify_wrapped_worker_error_uses_original_exception() -> None:
     err = WorkerError(
         "task failed",

@@ -6,5 +6,5 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 
-def require_queue_enabled(settings: Settings) -> bool:
+def is_queue_enabled(settings: Settings) -> bool:
     return bool(settings.queue_enabled)

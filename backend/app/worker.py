@@ -622,7 +622,10 @@ def main() -> None:
                             error_message=run_error_message,
                             error_class=worker_error.original_type or worker_error.__class__.__name__,
                         )
-                        logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
+                        if run_error_type == "VECTOR_CHUNKS_MISSING":
+                            logger.warning("Worker failed doc=%s error=%s", doc_id, exc)
+                        else:
+                            logger.exception("Worker failed doc=%s error=%s", doc_id, exc)
                     finally:
                         reset_log_context(run_context_token)
                         duration_ms = int(max(0.0, (time.time() - run_started) * 1000))

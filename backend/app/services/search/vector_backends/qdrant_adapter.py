@@ -87,6 +87,23 @@ class QdrantVectorStoreAdapter:
                     raise RuntimeError(f"Qdrant upsert failed: {detail}") from exc
         logger.info("Vector upsert provider=qdrant ok")
 
+    def delete_all_chunk_points(self, settings: Settings) -> None:
+        base = qdrant.base_url(settings)
+        collection = qdrant.collection_name(settings)
+        headers = qdrant.headers(settings)
+        with qdrant.client(settings, timeout=30) as client:
+            response = client.post(
+                f"{base}/collections/{collection}/points/delete",
+                headers=headers,
+                json={"filter": {"must_not": [{"key": "type", "match": {"value": "doc"}}]}},
+            )
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    return
+                raise
+
     def delete_points_for_doc(
         self, settings: Settings, *, doc_id: int, source: str | None = None
     ) -> None:
@@ -102,7 +119,12 @@ class QdrantVectorStoreAdapter:
                 headers=headers,
                 json={"filter": {"must": must_filters}},
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    return
+                raise
 
     def delete_similarity_points(self, settings: Settings, *, doc_id: int | None = None) -> None:
         base = qdrant.base_url(settings)
@@ -117,7 +139,12 @@ class QdrantVectorStoreAdapter:
                 headers=headers,
                 json={"filter": {"must": must_filters}},
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    return
+                raise
 
     def search_points(
         self,

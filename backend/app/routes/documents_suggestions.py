@@ -26,11 +26,10 @@ from app.models import (
     DocumentSuggestion,
     Tag,
 )
-from app.routes.documents_common import load_suggestions_map
-from app.routes.queue_guard import require_queue_enabled
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestion_store import (
     audit_suggestion_run,
+    load_suggestions_map,
     persist_suggestions,
     update_suggestion_field,
 )
@@ -43,6 +42,7 @@ from app.services.documents.text_pages import get_page_text_layers
 from app.services.integrations import paperless
 from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.pipeline.queue import enqueue_task_front, enqueue_task_sequence_front
+from app.services.pipeline.queue_access import is_queue_enabled
 from app.services.runtime.json_utils import parse_json_object
 from app.services.runtime.string_list_json import (
     dumps_normalized_string_list,
@@ -55,6 +55,8 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from app.config import Settings
+
+require_queue_enabled = is_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 

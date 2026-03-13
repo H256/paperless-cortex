@@ -227,6 +227,36 @@ def test_dashboard_cache_invalidates_after_suggestion_delete(api_client: Any) ->
     assert second.json()["stats"]["suggestions"] == 0
 
 
+def test_document_stats_cache_invalidates_after_suggestion_delete(api_client: Any) -> None:
+    from app.services.documents import document_stats_cache
+
+    document_stats_cache.invalidate_document_stats_cache()
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7202, title="Cached Stats Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7202,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    first = api_client.get("/documents/stats")
+    assert first.status_code == 200
+    assert first.json()["suggestions"] == 1
+
+    deleted = api_client.post("/documents/delete/suggestions", params={"doc_id": 7202})
+    assert deleted.status_code == 200
+
+    second = api_client.get("/documents/stats")
+    assert second.status_code == 200
+    assert second.json()["suggestions"] == 0
+
+
 def test_process_missing_queue_disabled(api_client: Any) -> None:
     response = api_client.post("/documents/process-missing", params={"dry_run": True})
     assert response.status_code == 200
@@ -372,6 +402,53 @@ def test_mark_reviewed_moves_document_out_of_unreviewed(api_client: Any, monkeyp
     after = api_client.get("/documents", params={"include_derived": True, "review_status": "unreviewed"})
     assert after.status_code == 200
     assert after.json()["count"] == 0
+
+
+def test_documents_list_cache_invalidates_after_mark_reviewed(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import documents_list_cache
+    from app.services.integrations import paperless
+
+    documents_list_cache.invalidate_documents_list_cache()
+    _insert_local_document(doc_id=47, title="Doc 47", created="2026-02-10T10:00:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents_cached",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 47,
+                    "title": "Doc 47",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    first = api_client.get(
+        "/documents",
+        params={"include_derived": True, "review_status": "unreviewed"},
+    )
+    assert first.status_code == 200
+    assert first.json()["count"] == 1
+
+    marked = api_client.post("/documents/47/review/mark")
+    assert marked.status_code == 200
+    assert marked.json()["status"] == "ok"
+
+    second = api_client.get(
+        "/documents",
+        params={"include_derived": True, "review_status": "unreviewed"},
+    )
+    assert second.status_code == 200
+    assert second.json()["count"] == 0
 
 
 def test_mark_reviewed_updates_local_review_status(api_client: Any, monkeypatch: Any) -> None:
@@ -875,6 +952,21 @@ def test_delete_similarity_index_clears_similarity_task_runs(
     with Session(engine) as db:
         assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "similarity_index").count() == 0
         assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
+
+
+def test_delete_embeddings_returns_success_when_vector_backend_is_empty(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    monkeypatch.setattr(documents_actions, "delete_all_chunk_points", lambda *_args, **_kwargs: None)
+
+    response = api_client.post("/documents/delete/embeddings")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deleted"] == 1
+    assert payload["qdrant_deleted"] == 1
+    assert payload["qdrant_errors"] == 0
 
 
 def test_get_local_document_note_override_sets_needs_review(

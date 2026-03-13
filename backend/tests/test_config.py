@@ -8,6 +8,14 @@ from app.config import load_settings
 
 
 def test_settings_exposes_domain_config_views(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "qdrant")
+    monkeypatch.setenv("VECTOR_STORE_URL", "")
+    monkeypatch.setenv("VECTOR_STORE_COLLECTION", "")
+    monkeypatch.setenv("VECTOR_STORE_CENTROID_COLLECTION", "")
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "")
+    monkeypatch.setenv("WEAVIATE_HTTP_PORT", "")
+    monkeypatch.setenv("WEAVIATE_COLLECTION", "")
+    monkeypatch.setenv("WEAVIATE_CENTROID_COLLECTION", "")
     monkeypatch.setenv("LOG_LEVEL", "debug")
     monkeypatch.setenv("LOG_JSON", "1")
     monkeypatch.setenv("PAPERLESS_BASE_URL", "http://paperless.local/")
@@ -67,11 +75,15 @@ def test_vector_store_config_prefers_generic_over_legacy_env(monkeypatch: Any) -
 
 def test_weaviate_vector_store_settings_build_http_grpc_split(monkeypatch: Any) -> None:
     monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.setenv("VECTOR_STORE_URL", "")
+    monkeypatch.setenv("VECTOR_STORE_COLLECTION", "")
+    monkeypatch.setenv("VECTOR_STORE_CENTROID_COLLECTION", "")
     monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate-http")
     monkeypatch.setenv("WEAVIATE_HTTP_PORT", "8081")
     monkeypatch.setenv("WEAVIATE_GRPC_HOST", "weaviate-grpc")
     monkeypatch.setenv("WEAVIATE_GRPC_PORT", "50052")
     monkeypatch.setenv("WEAVIATE_COLLECTION", "paperless_chunks_v2")
+    monkeypatch.setenv("WEAVIATE_CENTROID_COLLECTION", "")
 
     settings = load_settings()
 

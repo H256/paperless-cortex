@@ -502,6 +502,10 @@ def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:
     vector_store.upsert_points(settings, points)
 
 
+def delete_all_chunk_points(settings: Settings) -> None:
+    vector_store.delete_all_chunk_points(settings)
+
+
 def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = None) -> None:
     normalized_source = _normalize_embedding_source(source)
     vector_store.delete_points_for_doc(settings, doc_id=doc_id, source=normalized_source)
@@ -517,7 +521,7 @@ def _vector_from_point(point: dict[str, Any]) -> list[float] | None:
         vector = vector.get("default")
     if not isinstance(vector, list):
         return None
-    normalized = [float(value) for value in vector if isinstance(value, (int, float))]
+    normalized = [float(value) for value in vector if isinstance(value, int | float)]
     return normalized if normalized else None
 
 

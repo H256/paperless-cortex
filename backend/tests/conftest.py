@@ -33,6 +33,15 @@ def session_factory() -> Any:
     )
     testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
+    from app.services.documents.dashboard_cache import invalidate_dashboard_cache
+    from app.services.documents.document_stats_cache import invalidate_document_stats_cache
+    from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+    from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
+
+    invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
+    invalidate_writeback_preview_cache()
     return testing_session_local
 
 
@@ -45,6 +54,15 @@ def api_client(monkeypatch: Any) -> Any:
     import app.main as main
 
     importlib.reload(main)
+    from app.services.documents.dashboard_cache import invalidate_dashboard_cache
+    from app.services.documents.document_stats_cache import invalidate_document_stats_cache
+    from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+    from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
+
+    invalidate_dashboard_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
+    invalidate_writeback_preview_cache()
 
     engine = create_engine(
         os.environ["DATABASE_URL"],

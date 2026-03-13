@@ -39,6 +39,7 @@ from app.models import (
     SuggestionAudit,
     WritebackJob,
 )
+from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.integrations import paperless
 from app.services.runtime.json_utils import parse_json_list
 from app.services.runtime.string_list_json import parse_string_list_json
@@ -73,6 +74,11 @@ from app.services.writeback.writeback_preview import (
 )
 from app.services.writeback.writeback_preview import (
     preview_for_doc_ids as _preview_for_doc_ids,
+)
+from app.services.writeback.writeback_preview_cache import (
+    get_cached_writeback_candidate_doc_ids,
+    get_cached_writeback_preview,
+    invalidate_writeback_preview_cache,
 )
 from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item
 
@@ -118,6 +124,9 @@ def _cleanup_pending_rows_after_patch(
         )
         if pending_corr_row:
             db.delete(pending_corr_row)
+    if "tags" in patch_payload or "correspondent" in patch_payload:
+        invalidate_writeback_preview_cache()
+        invalidate_documents_list_cache()
 
 
 def _job_summary(job: WritebackJob) -> WritebackJobSummary:
@@ -241,6 +250,8 @@ def execute_writeback_direct_for_document(
             )
         )
         db.commit()
+        invalidate_writeback_preview_cache()
+        invalidate_documents_list_cache()
         return WritebackDirectExecuteResponse(
             status="no_changes",
             docs_changed=0,
@@ -309,6 +320,8 @@ def execute_writeback_direct_for_document(
             )
         )
     db.commit()
+    invalidate_writeback_preview_cache()
+    invalidate_documents_list_cache()
     return WritebackDirectExecuteResponse(
         status="completed",
         docs_changed=len(item.changed_fields),
@@ -334,7 +347,10 @@ def execute_writeback_now(
     if not doc_ids:
         raise HTTPException(status_code=400, detail="No valid doc_ids provided")
 
-    preview_items = _preview_for_doc_ids(settings, db, doc_ids)
+    preview_items = get_cached_writeback_preview(
+        doc_ids=doc_ids,
+        build_preview=lambda: _preview_for_doc_ids(settings, db, doc_ids),
+    )
     docs_changed, calls = collect_changed_calls(
         preview_items=preview_items,
         build_calls_for_item=_build_calls_for_item,
@@ -350,6 +366,8 @@ def execute_writeback_now(
         logger=logger,
     )
     db.commit()
+    invalidate_writeback_preview_cache()
+    invalidate_documents_list_cache()
 
     return WritebackExecuteNowResponse(
         docs_selected=len(doc_ids),
@@ -374,7 +392,9 @@ def dry_run_preview(
         doc_ids = [int(doc_id)]
         total_count = 1
     elif only_changed:
-        candidate_ids = _local_writeback_candidate_doc_ids(db)
+        candidate_ids = get_cached_writeback_candidate_doc_ids(
+            build_candidates=lambda: _local_writeback_candidate_doc_ids(db)
+        )
         total_count = len(candidate_ids)
         start = max(0, (max(1, page) - 1) * max(1, page_size))
         end = start + max(1, page_size)
@@ -385,7 +405,10 @@ def dry_run_preview(
         doc_ids = [int(doc["id"]) for doc in results if isinstance(doc.get("id"), int)]
         total_count = int(payload.get("count") or 0)
 
-    items = _preview_for_doc_ids(settings, db, doc_ids)
+    items = get_cached_writeback_preview(
+        doc_ids=doc_ids,
+        build_preview=lambda: _preview_for_doc_ids(settings, db, doc_ids),
+    )
     if only_changed:
         items = [item for item in items if item.changed]
     return WritebackDryRunPreviewResponse(
@@ -402,7 +425,11 @@ def dry_run_execute(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
-    preview_items = _preview_for_doc_ids(settings, db, [int(doc_id) for doc_id in request.doc_ids])
+    doc_ids = [int(doc_id) for doc_id in request.doc_ids]
+    preview_items = get_cached_writeback_preview(
+        doc_ids=doc_ids,
+        build_preview=lambda: _preview_for_doc_ids(settings, db, doc_ids),
+    )
     calls: list[WritebackDryRunCall] = []
     docs_changed = 0
 
@@ -452,7 +479,10 @@ def create_writeback_job(
     if existing:
         return _job_detail(existing)
 
-    preview_items = _preview_for_doc_ids(settings, db, doc_ids)
+    preview_items = get_cached_writeback_preview(
+        doc_ids=doc_ids,
+        build_preview=lambda: _preview_for_doc_ids(settings, db, doc_ids),
+    )
     calls: list[WritebackDryRunCall] = []
     docs_changed = 0
     for item in preview_items:
@@ -569,6 +599,8 @@ def execute_writeback_job(
         raise_missing_table_message=_raise_missing_table_message,
         logger=logger,
     )
+    invalidate_writeback_preview_cache()
+    invalidate_documents_list_cache()
     return _job_detail(job)
 
 
@@ -651,6 +683,9 @@ def execute_pending_writeback_jobs(
             completed += 1
         else:
             failed += 1
+    if processed_ids:
+        invalidate_writeback_preview_cache()
+        invalidate_documents_list_cache()
 
     return WritebackExecutePendingResponse(
         processed=len(processed_ids),

@@ -80,10 +80,12 @@ class FakeClient:
 
 def _settings(monkeypatch: Any) -> Settings:
     monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.delenv("VECTOR_STORE_COLLECTION", raising=False)
+    monkeypatch.delenv("VECTOR_STORE_CENTROID_COLLECTION", raising=False)
     monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate-http")
     monkeypatch.setenv("WEAVIATE_GRPC_HOST", "weaviate-grpc")
     monkeypatch.setenv("WEAVIATE_COLLECTION", "paperless_chunks_v2")
-    monkeypatch.delenv("WEAVIATE_CENTROID_COLLECTION", raising=False)
+    monkeypatch.setenv("WEAVIATE_CENTROID_COLLECTION", "paperless_chunks_v2_centroids")
     return load_settings()
 
 
@@ -206,4 +208,3 @@ def test_weaviate_adapter_retrieve_points_falls_back_to_centroids(
     assert len(chunk_collection.query.fetch_calls) == 1
     assert len(centroid_collection.query.fetch_calls) == 1
     assert [item["id"] for item in result["result"]] == ["1", "2"]
-

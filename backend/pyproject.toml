@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.3"
+version = "0.5.16"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -44,6 +44,7 @@ files = [
     "app/services/writeback/writeback_selection.py",
     "app/services/writeback/writeback_direct.py",
     "app/services/writeback/writeback_preview.py",
+    "app/services/writeback/writeback_preview_cache.py",
     "app/services/pipeline/worker_checkpoint.py",
     "app/services/pipeline/worker_runtime.py",
     "app/services/pipeline/worker_document_tasks.py",
@@ -65,6 +66,7 @@ files = [
     "app/services/documents/note_ids.py",
     "app/services/documents/operations.py",
     "app/services/documents/pagination.py",
+    "app/services/documents/documents_list_cache.py",
     "app/services/documents/read_models.py",
     "app/services/documents/sync_operations.py",
     "app/services/documents/embedding_operations.py",
@@ -128,12 +130,11 @@ files = [
     "app/routes/chat.py",
     "app/routes/__init__.py",
     "app/routes/connections.py",
-    "app/routes/documents_common.py",
     "app/routes/documents_similarity.py",
     "app/routes/meta.py",
     "app/routes/queue.py",
     "app/routes/queue_helpers.py",
-    "app/routes/queue_guard.py",
+    "app/services/pipeline/queue_access.py",
     "app/routes/status.py",
     "app/routes/sync.py",
     "app/routes/documents_actions.py",

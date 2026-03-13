@@ -1,5 +1,43 @@
 # Review Progress Summary
 
+## Latest block
+
+### Frontend component organization
+
+- Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.
+- Reduced `DocumentDetailView.vue` template sprawl without changing tab routing, back navigation, review, writeback, or reload behavior.
+- Verified targeted frontend linting, typing, detail-view integration coverage, and production build output.
+- Extracted the documents list title/overview/processing-toolbar cluster into `frontend/src/components/DocumentsHeaderSection.vue`.
+- Added direct integration coverage for the new documents header seam and kept targeted frontend verification green.
+- Added `frontend/src/views/DocumentsView.integration.test.ts` to cover page-level navigation wiring for processing actions, document detail links, operations/suggestions deep links, and empty-state processing CTA behavior.
+- Frontend page-level coverage now explicitly protects the main document views touched by the refactor.
+- Extracted the worker-lock and runtime-configuration cluster into `frontend/src/components/MaintenanceRuntimeSection.vue`, reducing `MaintenanceView.vue` to clearer page composition and dialog orchestration.
+- Added direct integration coverage for the new maintenance runtime seam and kept the existing maintenance-view copy/runtime regression green.
+- Extracted the queue header, control bar, status cards, running-task summary, and recent-run timeline into `frontend/src/components/QueueOverviewSection.vue`, reducing `QueueView.vue` to clearer queue-management page composition.
+- Added direct integration coverage for the new queue overview seam and kept the broader frontend coverage run green at `77` passing tests.
+- Added direct view-level integration coverage for `frontend/src/views/QueueView.vue`, so queue filtering, movement/removal actions, failed-run retry, and document navigation are pinned at the page boundary rather than only through section tests.
+- Added direct view-level integration coverage for `frontend/src/views/ContinueProcessingView.vue`, so preview hydration and queue/log/document/back routing are now pinned at the page boundary too.
+- Frontend coverage now passes with `79` tests after the new queue and continue-processing view regressions.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_suggestions.py` no longer imports shared suggestion-loading logic from another route module, and the old `backend/app/routes/documents_common.py` helper file has been deleted after that logic was absorbed into `backend/app/services/ai/suggestion_store.py`.
+- The strict backend mypy baseline remains green after the cleanup on `164` configured files, and the affected document suggestion/document route regressions still pass.
+- `3.4 Reduce Import Complexity` moved again: the queue-enabled guard now lives in `backend/app/services/pipeline/queue_access.py`, so `documents.py`, `documents_actions.py`, and `documents_suggestions.py` no longer depend on the deleted route-local helper `backend/app/routes/queue_guard.py`.
+- The affected queue-enabled document route regressions still pass after the cleanup, and the strict backend mypy baseline remains green on `164` configured files.
+
+### Weaviate migration hardening
+
+- Added documented Weaviate/vector-store settings to `.env.example`, including separate HTTP and gRPC endpoints plus a dedicated centroid collection.
+- Hardened `/api/documents/delete/embeddings` so empty vector backends are treated as a successful no-op and the route always returns the full response-model shape.
+- Added provider-level full chunk-vector deletion through the vector-store adapter boundary for both Qdrant and Weaviate.
+- Hardened stale `similarity_index` worker jobs so missing chunk vectors in the active backend are classified as stable non-retryable `VECTOR_CHUNKS_MISSING` failures instead of noisy traceback/retry behavior.
+- Added regression coverage for empty-backend deletes, Weaviate config defaults, and the new worker error classification.
+- Verified full backend and frontend CI-equivalent commands.
+
+### Async route hardening
+
+- `GET /status/stream` now moves blocking status-payload work off the event loop via `asyncio.to_thread(...)`.
+- Added explicit async coverage for the status stream offload path.
+- Hardened chat-evidence route tests so they no longer depend on live PDF download behavior during full-suite runs.
+
 ## Completed in this session
 
 ### 1. API model consolidation
@@ -740,6 +778,19 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `6.2 Caching Strategy` is now in progress: the document dashboard cache has been extracted into [`backend/app/services/documents/dashboard_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/dashboard_cache.py) and is now explicitly invalidated by sync and document-mutation routes instead of relying only on the short TTL window.
 - `2.1 Increase Test Coverage` moved again alongside that cache work: [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) now pins that a cached dashboard payload is invalidated after suggestion deletion, so the operations view sees fresh aggregate counts immediately after a mutating action.
 - CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `cd backend && uv run python scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.5.3`.
+- `6.1 Async/Await Optimization` is now effectively complete for the low-risk backend pass: the blocking `/status/stream` payload build in [`backend/app/routes/status.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/status.py) now runs through `asyncio.to_thread(...)`, so the SSE loop no longer performs DB/HTTP work directly on the event loop.
+- `2.1 Increase Test Coverage` moved again alongside that async fix: [`backend/tests/test_status_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_status_routes.py) now directly asserts that `/status/stream` offloads the blocking payload build, and [`backend/tests/test_chat_evidence_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_chat_evidence_routes.py) was hardened to stop depending on real PDF/network behavior during route tests.
+- `6.2 Caching Strategy` moved further: [`backend/app/services/documents/document_stats_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/document_stats_cache.py) now caches the `/documents/stats` aggregate payload, [`backend/app/routes/status.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/status.py) reuses that cached stats snapshot inside `/status/stream`, and the document-stats cache is now explicitly invalidated by sync and document-mutation routes alongside the existing dashboard cache.
+- `2.1 Increase Test Coverage` moved again with that cache follow-up: [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) now pins that `/documents/stats` invalidates immediately after suggestion deletion instead of serving stale counts until TTL expiry.
+- CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `cd backend && uv run python scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.5.9`.
+- `6.2 Caching Strategy` moved further again: [`backend/app/services/writeback/writeback_preview_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/writeback/writeback_preview_cache.py) now caches `only_changed` writeback candidate discovery and preview payloads by doc-id selection, and [`backend/app/routes/writeback_dryrun.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/writeback_dryrun.py) now reuses those cached payloads across preview, execute-now, dry-run-execute, and writeback-job creation paths.
+- `6.2 Caching Strategy` also now has explicit writeback invalidation: the preview cache is cleared when direct writeback, execute-now, queued job execution, or execute-pending flows mutate pending rows or writeback audit state, so the cache reduces repeated preview work without serving stale writeback candidates after execution.
+- `2.1 Increase Test Coverage` moved again with that cache slice: [`backend/tests/test_writeback_preview_service.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_writeback_preview_service.py) now directly proves cached candidate/preview payloads remain hot until invalidated and then refresh to the new writeback state.
+- CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `cd backend && uv run python scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.5.10`.
+- `6.2 Caching Strategy` moved further again: [`backend/app/services/documents/documents_list_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/documents_list_cache.py) now caches the expensive locally-enriched `/documents` pages by request parameters whenever derived state or review-status filtering is involved, instead of rebuilding those overlays on every identical view refresh.
+- `6.2 Caching Strategy` now also has explicit derived-list invalidation: document review, sync, document mutation, and writeback execution paths clear the documents-list cache so derived pages refresh immediately after local review status, pending metadata, or writeback state changes.
+- `2.1 Increase Test Coverage` moved again with that cache slice: [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) now proves the cached unreviewed documents page invalidates after `POST /documents/{id}/review/mark`, and [`backend/tests/conftest.py`](E:/workspace/python/paperless-intelligence/backend/tests/conftest.py) now resets the in-memory caches between tests so the new cache layers stay isolated in the backend suite.
+- CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `cd backend && uv run python scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.5.11`.
 
 
 

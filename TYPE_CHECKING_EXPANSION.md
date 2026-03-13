@@ -1,5 +1,25 @@
 # Type Checking Expansion Progress
 
+## Latest verified follow-up
+
+- Strict mypy remains green after the Weaviate migration hardening block.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/pipeline/error_types.py`
+  - `backend/app/services/pipeline/worker_document_tasks.py`
+  - `backend/app/worker.py`
+  - `backend/app/services/search/embeddings.py`
+  - `backend/app/services/search/vector_store.py`
+  - `backend/app/services/search/vector_backends/qdrant_adapter.py`
+  - `backend/app/services/search/vector_backends/weaviate_adapter.py`
+  - `backend/tests/test_config.py`
+  - `backend/tests/test_documents_routes.py`
+  - `backend/tests/test_status_routes.py`
+  - `backend/tests/test_vector_store_service.py`
+  - `backend/tests/test_weaviate_adapter.py`
+  - `backend/tests/test_worker_error_types.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `163` source files.
+
 ## Verified state
 
 - Current configured `mypy` coverage: **151 source files**

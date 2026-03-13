@@ -31,6 +31,11 @@ ERROR_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "category": "vector_store",
         "description": "Qdrant rejected or failed vector upsert.",
     },
+    "VECTOR_CHUNKS_MISSING": {
+        "retryable": False,
+        "category": "vector_store",
+        "description": "Similarity index rebuild could not find required chunk vectors.",
+    },
     "NETWORK_CONNECTION_ERROR": {
         "retryable": True,
         "category": "network",
@@ -63,6 +68,8 @@ def classify_worker_error(exc: Exception) -> str:
         return "LLM_RATE_LIMIT"
     if "qdrant" in message and ("upsert failed" in message or "status error" in message):
         return "QDRANT_UPSERT_FAIL"
+    if "similarity_index_rebuild_failed" in message or "chunk vectors missing" in message:
+        return "VECTOR_CHUNKS_MISSING"
     if "connection" in message or "connect" in message:
         return "NETWORK_CONNECTION_ERROR"
     if "json" in message and "parse" in message:

@@ -400,5 +400,6 @@ def process_similarity_index(
     if not ok:
         raise RuntimeError(
             f"similarity_index_rebuild_failed doc_id={int(doc_id)} "
-            f"chunk_count={int(embedding.chunk_count or 0)} source={embedding.embedding_source or ''!s}"
+            f"chunk_count={int(embedding.chunk_count or 0)} source={embedding.embedding_source or ''!s} "
+            f"provider={settings.vector_store_provider} chunk vectors missing in active vector store"
         )

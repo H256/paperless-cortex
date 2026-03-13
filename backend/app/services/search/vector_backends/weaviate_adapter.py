@@ -153,7 +153,7 @@ def _result_object(raw: Any, *, include_vector: bool = False) -> dict[str, Any]:
         for key in ("doc_id", "chunk", "text", "page", "source", "quality_score", "bbox", "type")
         if key in properties
     }
-    score = 1.0 / (1.0 + float(distance)) if isinstance(distance, (int, float)) else None
+    score = 1.0 / (1.0 + float(distance)) if isinstance(distance, int | float) else None
     result: dict[str, Any] = {
         "id": properties.get("point_id") or str(getattr(raw, "uuid", "")),
         "payload": payload,
@@ -231,6 +231,15 @@ class WeaviateVectorStoreAdapter:
                     [_to_data_object(point) for point in centroid_points]
                 )
 
+    def delete_all_chunk_points(self, settings: Settings) -> None:
+        self.ensure_ready(settings)
+        with weaviate.client(settings) as client:
+            if not client.collections.exists(weaviate.chunk_collection_name(settings)):
+                return
+            _chunk_collection(client, settings).data.delete_many(
+                Filter.by_property("type").not_equal("doc")
+            )
+
     def delete_points_for_doc(
         self, settings: Settings, *, doc_id: int, source: str | None = None
     ) -> None:
@@ -242,6 +251,8 @@ class WeaviateVectorStoreAdapter:
         if where is None:
             return
         with weaviate.client(settings) as client:
+            if not client.collections.exists(weaviate.chunk_collection_name(settings)):
+                return
             _chunk_collection(client, settings).data.delete_many(where)
 
     def delete_similarity_points(self, settings: Settings, *, doc_id: int | None = None) -> None:
@@ -251,6 +262,8 @@ class WeaviateVectorStoreAdapter:
             filters.append(Filter.by_property("doc_id").equal(int(doc_id)))
         where = _combine_and(filters)
         with weaviate.client(settings) as client:
+            if not client.collections.exists(weaviate.centroid_collection_name(settings)):
+                return
             collection = _centroid_collection(client, settings)
             if where is None:
                 collection.data.delete_many(Filter.by_property("type").equal("doc"))

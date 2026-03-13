@@ -9,7 +9,17 @@ from app.services.search import vector_store
 
 
 def test_vector_store_defaults_to_qdrant_provider(monkeypatch: Any) -> None:
-    monkeypatch.delenv("VECTOR_STORE_PROVIDER", raising=False)
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "qdrant")
+    monkeypatch.delenv("VECTOR_STORE_URL", raising=False)
+    monkeypatch.delenv("VECTOR_STORE_COLLECTION", raising=False)
+    monkeypatch.delenv("VECTOR_STORE_CENTROID_COLLECTION", raising=False)
+    monkeypatch.delenv("WEAVIATE_HTTP_HOST", raising=False)
+    monkeypatch.delenv("WEAVIATE_HTTP_PORT", raising=False)
+    monkeypatch.delenv("WEAVIATE_GRPC_HOST", raising=False)
+    monkeypatch.delenv("WEAVIATE_GRPC_PORT", raising=False)
+    monkeypatch.delenv("WEAVIATE_COLLECTION", raising=False)
+    monkeypatch.delenv("WEAVIATE_CENTROID_COLLECTION", raising=False)
+    monkeypatch.setenv("QDRANT_COLLECTION", "paperless_chunks")
     settings = load_settings()
 
     assert vector_store.provider_name(settings) == "qdrant"
