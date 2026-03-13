@@ -48,6 +48,7 @@ from app.services.documents.intelligence_cleanup import (
 from app.services.documents.intelligence_cleanup import (
     clear_document_intelligence as _clear_document_intelligence,
 )
+from app.services.documents.local_document_cache import invalidate_local_document_cache
 from app.services.documents.operations import (
     build_document_pipeline_fanout_payload,
     build_document_pipeline_status_payload,
@@ -372,6 +373,7 @@ def delete_vision_ocr(
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache(doc_id)
     return {"deleted": count}
 
 
@@ -388,6 +390,7 @@ def delete_suggestions(
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache(doc_id)
     return {"deleted": count}
 
 

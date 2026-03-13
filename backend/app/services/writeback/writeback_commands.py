@@ -16,6 +16,7 @@ from app.api_models import (
 )
 from app.models import WritebackJob
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+from app.services.documents.local_document_cache import invalidate_local_document_cache
 from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_execution import (
     collect_changed_calls,
@@ -76,6 +77,8 @@ def execute_now_response(
     db.commit()
     invalidate_writeback_preview_cache()
     invalidate_documents_list_cache()
+    for doc_id in executed_doc_ids:
+        invalidate_local_document_cache(int(doc_id))
     return WritebackExecuteNowResponse(
         docs_selected=len(doc_ids),
         docs_changed=docs_changed,
@@ -240,6 +243,8 @@ def execute_pending_jobs_response(
     if processed_ids:
         invalidate_writeback_preview_cache()
         invalidate_documents_list_cache()
+        for doc_id in processed_doc_ids:
+            invalidate_local_document_cache(int(doc_id))
 
     return WritebackExecutePendingResponse(
         processed=len(processed_ids),

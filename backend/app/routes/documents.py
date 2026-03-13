@@ -39,6 +39,10 @@ from app.services.documents.documents_list_cache import (
     get_cached_documents_page,
     invalidate_documents_list_cache,
 )
+from app.services.documents.local_document_cache import (
+    get_cached_local_document_payload,
+    invalidate_local_document_cache,
+)
 from app.services.documents.read_models import (
     REVIEW_ACTION_MANUAL,
     apply_derived_fields_and_review_status,
@@ -233,7 +237,10 @@ def get_local_document(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     """Return the local document view with derived processing and review state."""
-    return build_local_document_payload(doc_id=doc_id, settings=settings, db=db)
+    return get_cached_local_document_payload(
+        doc_id=doc_id,
+        build_payload=lambda: build_local_document_payload(doc_id=doc_id, settings=settings, db=db),
+    )
 
 
 @router.post("/{doc_id}/review/mark", response_model=DocumentMarkReviewedResponse)
@@ -257,6 +264,7 @@ def mark_document_reviewed(
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache(int(doc_id))
     return {"status": "ok", "doc_id": int(doc_id), "reviewed_at": reviewed_at}
 
 

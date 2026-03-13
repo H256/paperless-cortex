@@ -8,6 +8,7 @@ from app.models import DocumentEmbedding, TaskRun
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+from app.services.documents.local_document_cache import invalidate_local_document_cache
 from app.services.search.embeddings import (
     delete_all_chunk_points as _delete_all_chunk_points,
 )
@@ -64,6 +65,7 @@ def delete_embeddings_payload(
             invalidate_dashboard_cache()
             invalidate_document_stats_cache()
             invalidate_documents_list_cache()
+            invalidate_local_document_cache(doc_id)
         return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
 
     db.query(DocumentEmbedding).delete(synchronize_session=False)
@@ -71,6 +73,7 @@ def delete_embeddings_payload(
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache()
     try:
         delete_all_points(settings)
         qdrant_deleted = 1
@@ -105,6 +108,7 @@ def delete_similarity_index_payload(
     db.commit()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache(doc_id)
     return {"deleted": deleted, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
 
 

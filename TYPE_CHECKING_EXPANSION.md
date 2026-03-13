@@ -2,6 +2,20 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the local-document cache slice.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents.py`
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/routes/sync.py`
+  - `backend/app/services/documents/local_document_cache.py`
+  - `backend/app/services/documents/intelligence_cleanup.py`
+  - `backend/app/services/search/vector_maintenance.py`
+  - `backend/app/services/writeback/writeback_effects.py`
+  - `backend/app/services/writeback/writeback_job_ops.py`
+  - `backend/app/services/writeback/writeback_commands.py`
+  - `backend/app/services/writeback/writeback_direct_execute.py`
+  - `backend/tests/conftest.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `181` source files.
 - Strict mypy remains green after the worker task-execution extraction.
 - Verified additional typed changes in:
   - `backend/app/worker.py`

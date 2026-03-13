@@ -17,6 +17,7 @@ from app.deps import get_settings
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+from app.services.documents.local_document_cache import invalidate_local_document_cache
 from app.services.documents.sync_operations import (
     build_sync_status_payload,
     cancel_documents_sync,
@@ -82,6 +83,7 @@ def sync_documents(
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache()
     return payload
 
 
@@ -126,6 +128,7 @@ def sync_document(
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
+    invalidate_local_document_cache(int(doc_id))
     return payload
 
 

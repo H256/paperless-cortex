@@ -27,6 +27,11 @@
 - `3.4 Reduce Import Complexity` moved again: `backend/app/worker.py` no longer owns task-run bookkeeping, retry/dead-letter handling, or failure classification directly, and now delegates that execution block through `backend/app/services/pipeline/worker_task_execution.py`.
 - The focused worker runtime/retry/orchestration regressions still pass after that extraction, and the strict backend mypy baseline remains green on `180` configured files.
 
+### Local document cache
+
+- `6.2 Caching Strategy` moved again: `/documents/{doc_id}/local` now goes through `backend/app/services/documents/local_document_cache.py`, so repeated local detail payload reads reuse cached aggregations instead of rebuilding the full local status view every time.
+- The local-document cache is now invalidated from the existing document mutation, sync, vector-maintenance, and writeback paths, and the focused document/sync/writeback regressions still pass with the strict backend mypy baseline green on `181` configured files.
+
 ### Frontend component organization
 
 - Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.
