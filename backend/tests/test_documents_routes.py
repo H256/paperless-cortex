@@ -487,6 +487,42 @@ def test_mark_reviewed_updates_local_review_status(api_client: Any, monkeypatch:
     assert after_payload["reviewed_at"]
 
 
+def test_delete_vision_ocr_invalidates_page_text_cache(api_client: Any, monkeypatch: Any) -> None:
+    from app.models import DocumentPageText
+    from app.routes import documents as documents_routes
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=47, title="Doc 47", created="2026-02-10T10:00:00+00:00")
+    _insert_page_text(doc_id=47, page=1, source="vision_ocr", text="vision page")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        row = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == 47, DocumentPageText.source == "vision_ocr")
+            .one()
+        )
+        row.quality_score = 0.9
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document_cached",
+        lambda *_args, **_kwargs: {"id": 47, "content": "", "page_count": 1},
+    )
+    monkeypatch.setattr(documents_routes, "get_baseline_page_texts", lambda *_args, **_kwargs: [])
+
+    before = api_client.get("/documents/47/page-texts")
+    assert before.status_code == 200
+    assert len(before.json()["pages"]) == 1
+
+    deleted = api_client.post("/documents/delete/vision-ocr", params={"doc_id": 47})
+    assert deleted.status_code == 200
+
+    after = api_client.get("/documents/47/page-texts")
+    assert after.status_code == 200
+    assert after.json()["pages"] == []
+
+
 def test_mark_reviewed_returns_missing_when_document_not_local(api_client: Any) -> None:
     response = api_client.post("/documents/9999/review/mark")
     assert response.status_code == 200

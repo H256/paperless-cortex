@@ -37,10 +37,12 @@ def session_factory() -> Any:
     from app.services.documents.document_stats_cache import invalidate_document_stats_cache
     from app.services.documents.documents_list_cache import invalidate_documents_list_cache
     from app.services.documents.local_document_cache import invalidate_local_document_cache
+    from app.services.documents.page_texts_cache import invalidate_page_texts_cache
     from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
 
     invalidate_dashboard_cache()
     invalidate_local_document_cache()
+    invalidate_page_texts_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_writeback_preview_cache()
@@ -60,10 +62,12 @@ def api_client(monkeypatch: Any) -> Any:
     from app.services.documents.document_stats_cache import invalidate_document_stats_cache
     from app.services.documents.documents_list_cache import invalidate_documents_list_cache
     from app.services.documents.local_document_cache import invalidate_local_document_cache
+    from app.services.documents.page_texts_cache import invalidate_page_texts_cache
     from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
 
     invalidate_dashboard_cache()
     invalidate_local_document_cache()
+    invalidate_page_texts_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_writeback_preview_cache()

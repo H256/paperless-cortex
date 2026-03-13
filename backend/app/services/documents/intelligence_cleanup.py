@@ -18,6 +18,7 @@ from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.documents.local_document_cache import invalidate_local_document_cache
+from app.services.documents.page_texts_cache import invalidate_page_texts_cache
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -36,6 +37,7 @@ def clear_all_intelligence(db: Session) -> None:
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_local_document_cache()
+    invalidate_page_texts_cache()
 
 
 def clear_document_intelligence(db: Session, doc_id: int) -> None:
@@ -66,3 +68,4 @@ def clear_document_intelligence(db: Session, doc_id: int) -> None:
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_local_document_cache(doc_id)
+    invalidate_page_texts_cache(doc_id)

@@ -56,6 +56,7 @@ from app.services.documents.operations import (
     continue_document_pipeline_payload,
     run_cleanup_texts,
 )
+from app.services.documents.page_texts_cache import invalidate_page_texts_cache
 from app.services.documents.process_missing_request import (
     build_process_missing_disabled_payload,
     build_process_missing_options,
@@ -374,6 +375,7 @@ def delete_vision_ocr(
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_local_document_cache(doc_id)
+    invalidate_page_texts_cache(doc_id)
     return {"deleted": count}
 
 

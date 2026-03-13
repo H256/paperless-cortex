@@ -32,6 +32,11 @@
 - `6.2 Caching Strategy` moved again: `/documents/{doc_id}/local` now goes through `backend/app/services/documents/local_document_cache.py`, so repeated local detail payload reads reuse cached aggregations instead of rebuilding the full local status view every time.
 - The local-document cache is now invalidated from the existing document mutation, sync, vector-maintenance, and writeback paths, and the focused document/sync/writeback regressions still pass with the strict backend mypy baseline green on `181` configured files.
 
+### Page-texts cache
+
+- `6.2 Caching Strategy` moved again: `/documents/{doc_id}/page-texts` now goes through `backend/app/services/documents/page_texts_cache.py`, so repeated page-text detail reads reuse the cached baseline/vision aggregation instead of reparsing that payload every time.
+- The page-text cache is now invalidated from the direct text/vision stale paths, and the focused document/sync regressions still pass with the strict backend mypy baseline green on `182` configured files.
+
 ### Frontend component organization
 
 - Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.
