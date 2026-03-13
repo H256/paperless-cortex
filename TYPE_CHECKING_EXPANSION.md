@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the vector-maintenance extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/search/vector_maintenance.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `167` source files.
 - Strict mypy remains green after the direct-writeback context extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/writeback_dryrun.py`

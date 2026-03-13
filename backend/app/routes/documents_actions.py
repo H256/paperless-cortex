@@ -59,9 +59,11 @@ from app.services.pipeline.queue import (
 )
 from app.services.pipeline.queue_access import is_queue_enabled
 from app.services.pipeline.queue_tasks import build_task_sequence
-from app.services.search.embeddings import (
+from app.services.search.vector_maintenance import (
     delete_all_chunk_points,
+    delete_embeddings_payload,
     delete_points_for_doc,
+    delete_similarity_index_payload,
     delete_similarity_points,
 )
 
@@ -441,35 +443,14 @@ def delete_embeddings(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    qdrant_deleted = 0
-    qdrant_errors = 0
-    if doc_id is not None:
-        try:
-            delete_points_for_doc(settings, doc_id)
-            qdrant_deleted = 1
-        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-            qdrant_errors = 1
-            logger.warning("Failed to delete embedding points doc_id=%s: %s", doc_id, exc)
-        row = db.get(DocumentEmbedding, doc_id)
-        if row:
-            db.delete(row)
-            db.commit()
-            invalidate_dashboard_cache()
-            invalidate_document_stats_cache()
-            invalidate_documents_list_cache()
-        return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
-    db.query(DocumentEmbedding).delete(synchronize_session=False)
-    db.commit()
-    invalidate_dashboard_cache()
-    invalidate_document_stats_cache()
-    invalidate_documents_list_cache()
-    try:
-        delete_all_chunk_points(settings)
-        qdrant_deleted = 1
-    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-        qdrant_errors = 1
-        logger.warning("Failed to delete all embedding points: %s", exc)
-    return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
+    return delete_embeddings_payload(
+        settings,
+        db,
+        doc_id=doc_id,
+        logger=logger,
+        delete_points_for_doc_fn=delete_points_for_doc,
+        delete_all_chunk_points_fn=delete_all_chunk_points,
+    )
 
 
 @router.post("/delete/similarity-index", response_model=DeleteSimilarityIndexResponse)
@@ -478,23 +459,13 @@ def delete_similarity_index(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    qdrant_deleted = 0
-    qdrant_errors = 0
-    try:
-        delete_similarity_points(settings, doc_id=doc_id)
-        qdrant_deleted = 1
-    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-        qdrant_errors = 1
-        logger.warning("Failed to delete similarity index points doc_id=%s: %s", doc_id, exc)
-
-    query = db.query(TaskRun).filter(TaskRun.task == "similarity_index")
-    if doc_id is not None:
-        query = query.filter(TaskRun.doc_id == int(doc_id))
-    deleted = int(query.delete(synchronize_session=False) or 0)
-    db.commit()
-    invalidate_document_stats_cache()
-    invalidate_documents_list_cache()
-    return {"deleted": deleted, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
+    return delete_similarity_index_payload(
+        settings,
+        db,
+        doc_id=doc_id,
+        logger=logger,
+        delete_similarity_points_fn=delete_similarity_points,
+    )
 
 
 @router.post("/cleanup-texts", response_model=CleanupTextsResponse)
