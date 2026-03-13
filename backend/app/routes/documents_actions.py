@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api_models import (
@@ -30,18 +29,19 @@ from app.deps import get_settings
 from app.exceptions import DocumentNotFoundError
 from app.models import (
     Document,
-    DocumentEmbedding,
     DocumentOcrScore,
-    DocumentPageAnchor,
-    DocumentPageNote,
     DocumentPageText,
-    DocumentSectionSummary,
     DocumentSuggestion,
-    TaskRun,
 )
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+from app.services.documents.intelligence_cleanup import (
+    clear_all_intelligence as _clear_all_intelligence,
+)
+from app.services.documents.intelligence_cleanup import (
+    clear_document_intelligence as _clear_document_intelligence,
+)
 from app.services.documents.operations import (
     build_document_pipeline_fanout_payload,
     build_document_pipeline_status_payload,
@@ -165,50 +165,6 @@ class CleanupTextsRequest(BaseModel):
     source: str | None = None
     clear_first: bool = False
     enqueue: bool = True
-
-
-def _clear_intelligence_tables(db: Session) -> None:
-    db.execute(delete(DocumentSuggestion))
-    db.execute(delete(DocumentPageText))
-    db.execute(delete(DocumentEmbedding))
-    db.execute(delete(DocumentOcrScore))
-    db.execute(delete(DocumentPageNote))
-    db.execute(delete(DocumentSectionSummary))
-    db.execute(delete(DocumentPageAnchor))
-    db.commit()
-    invalidate_dashboard_cache()
-    invalidate_document_stats_cache()
-    invalidate_documents_list_cache()
-
-
-def _clear_doc_intelligence(db: Session, doc_id: int) -> None:
-    db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    db.query(DocumentPageText).filter(DocumentPageText.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    db.query(DocumentEmbedding).filter(DocumentEmbedding.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    db.query(DocumentOcrScore).filter(DocumentOcrScore.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    db.query(DocumentPageNote).filter(DocumentPageNote.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    db.query(DocumentSectionSummary).filter(DocumentSectionSummary.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    db.query(DocumentPageAnchor).filter(DocumentPageAnchor.doc_id == doc_id).delete(
-        synchronize_session=False
-    )
-    # Reset should not keep stale per-doc pipeline history; it confuses fan-out/status views.
-    db.query(TaskRun).filter(TaskRun.doc_id == doc_id).delete(synchronize_session=False)
-    db.commit()
-    invalidate_dashboard_cache()
-    invalidate_document_stats_cache()
-    invalidate_documents_list_cache()
 
 
 @router.post("/process-missing", response_model=ProcessMissingResponse)
@@ -386,7 +342,7 @@ def reset_intelligence(
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    _clear_intelligence_tables(db)
+    _clear_all_intelligence(db)
     return {"enabled": True}
 
 
@@ -397,7 +353,7 @@ def clear_intelligence(
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    _clear_intelligence_tables(db)
+    _clear_all_intelligence(db)
     return {"enabled": True}
 
 
@@ -519,7 +475,7 @@ def reset_and_reprocess_document(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    _clear_doc_intelligence(db, doc_id)
+    _clear_document_intelligence(db, doc_id)
     delete_points_for_doc(settings, doc_id)
 
     raw = paperless.get_document(settings, doc_id)

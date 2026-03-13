@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the intelligence cleanup extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/intelligence_cleanup.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `172` source files.
 - Strict mypy remains green after the writeback route completion slice.
 - Verified additional typed changes in:
   - `backend/app/routes/writeback_dryrun.py`
