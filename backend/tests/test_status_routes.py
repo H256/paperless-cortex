@@ -8,6 +8,7 @@ import pytest
 from app.config import load_settings
 from app.routes import status as status_routes
 from app.routes.status import _status_payload
+from app.services.runtime.metrics import snapshot_metrics
 
 
 def test_status_includes_evidence_runtime_config(api_client: Any) -> None:
@@ -67,3 +68,28 @@ async def test_status_stream_offloads_blocking_payload_build(monkeypatch: Any) -
 
     assert payload == 'data: {"status": "ok", "timestamp": 1}\n\n'
     assert calls == [((settings,), {"interval_seconds": 1})]
+
+
+def test_status_metrics_endpoint_exposes_request_metrics(api_client: Any) -> None:
+    response = api_client.get("/status")
+    assert response.status_code == 200
+
+    metrics_response = api_client.get("/status/metrics")
+    assert metrics_response.status_code == 200
+    payload = metrics_response.json()
+
+    counters = payload["counters"]
+    assert any(
+        item["name"] == "api_requests_total"
+        and item["labels"].get("path") == "/status"
+        and item["labels"].get("status") == "200"
+        for item in counters
+    )
+    assert any(item["name"] == "api_request_duration_ms" for item in payload["timers"])
+
+
+def test_status_metrics_snapshot_is_json_serializable() -> None:
+    payload = snapshot_metrics()
+
+    assert isinstance(payload["counters"], list)
+    assert isinstance(payload["timers"], list)

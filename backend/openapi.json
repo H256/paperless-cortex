@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.5.39"
+    "version": "0.5.40"
   },
   "paths": {
     "/documents/": {
@@ -3697,6 +3697,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status/metrics": {
+      "get": {
+        "tags": [
+          "status"
+        ],
+        "summary": "Metrics",
+        "description": "Return in-memory backend counters and timing aggregates for observability.",
+        "operationId": "metrics_status_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object",
+                  "title": "Response Metrics Status Metrics Get"
                 }
               }
             }

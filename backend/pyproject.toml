@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.39"
+version = "0.5.40"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -67,6 +67,7 @@ files = [
     "app/services/runtime/json_utils.py",
     "app/services/runtime/string_list_json.py",
     "app/services/runtime/logging_setup.py",
+    "app/services/runtime/metrics.py",
     # Documents utilities (simple, well-typed)
     "app/services/documents/documents.py",
     "app/services/documents/dashboard.py",
@@ -184,6 +185,7 @@ files = [
     "tests/test_writeback_selection_service.py",
     "tests/test_chat_routes.py",
     "tests/test_status_routes.py",
+    "tests/test_ocr_scoring_client_pool.py",
     "tests/test_meta_sync.py",
     "tests/test_sync_upsert_notes.py",
     "tests/test_documents_suggestions_routes.py",
@@ -227,7 +229,6 @@ files = [
     "tests/test_request_logging.py",
     "tests/test_vector_store_service.py",
     "tests/test_weaviate_adapter.py",
-    "tests/test_ocr_scoring_client_pool.py",
     "tests/conftest.py",
 ]
 

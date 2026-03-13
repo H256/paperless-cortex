@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Runtime metrics and telemetry
+
+- `5.3 Error Messages & Observability` is now effectively complete for this phase: backend observability no longer stops at structured logs and stable API error codes, and now includes a queryable runtime metrics surface.
+- The API now emits route-aware request counters, request timings, and slow-request counters, and the worker now emits success/retry/dead-letter/duration telemetry through the same in-memory metrics registry exposed at `/api/status/metrics`.
+
 ### LLM SDK client pooling
 
 - `6.3 Connection Pooling` moved again: the OpenAI SDK client in `backend/app/services/ai/llm_client.py` is now pooled by base URL, API key, and timeout instead of being rebuilt for every chat or embedding call.

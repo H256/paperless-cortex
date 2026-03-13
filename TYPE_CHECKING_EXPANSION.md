@@ -2,6 +2,16 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the runtime metrics slice.
+- Verified additional typed changes in:
+  - `backend/app/main.py`
+  - `backend/app/routes/status.py`
+  - `backend/app/services/runtime/metrics.py`
+  - `backend/app/services/pipeline/worker_task_execution.py`
+  - `backend/tests/conftest.py`
+  - `backend/tests/test_status_routes.py`
+  - `backend/tests/test_worker_task_execution.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `185` source files.
 - Strict mypy remains green after the LLM SDK client-pool slice.
 - Verified additional typed changes in:
   - `backend/app/services/ai/llm_client.py`

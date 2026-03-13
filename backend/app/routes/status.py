@@ -21,6 +21,7 @@ from app.services.documents.document_stats_cache import get_cached_document_stat
 from app.services.integrations import paperless
 from app.services.pipeline.queue import is_paused, queue_stats, worker_status
 from app.services.runtime.guard import resolve_chat_model
+from app.services.runtime.metrics import snapshot_metrics
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.version import API_VERSION, APP_VERSION
 
@@ -121,6 +122,12 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
 def status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     """Return the consolidated application health/config snapshot."""
     return _status_payload(settings)
+
+
+@router.get("/metrics")
+def metrics() -> dict[str, list[dict[str, Any]]]:
+    """Return in-memory backend counters and timing aggregates for observability."""
+    return snapshot_metrics()
 
 
 def _sync_state_payload(db: Session, key: str) -> dict[str, Any]:

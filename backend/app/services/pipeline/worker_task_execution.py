@@ -18,6 +18,7 @@ from app.services.pipeline.task_runs import (
     finish_task_run,
 )
 from app.services.runtime.logging_setup import bind_log_context, log_event, reset_log_context
+from app.services.runtime.metrics import increment_counter, observe_duration
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -153,6 +154,12 @@ def execute_worker_task(
                 pending_retry_payload = retry_payload
                 pending_retry_delay_seconds = min(300, 5 * (2**retry_attempt))
                 run_status = "retrying"
+                increment_counter(
+                    "worker_task_retries_total",
+                    task=task_type,
+                    source=source or "unknown",
+                    error_type=run_error_type or "unknown",
+                )
                 log_event(
                     logger,
                     logging.WARNING,
@@ -168,6 +175,25 @@ def execute_worker_task(
                     "error_message": run_error_message or "unknown error",
                     "attempt": retry_attempt + 1,
                 }
+                increment_counter(
+                    "worker_task_dead_letters_total",
+                    task=task_type,
+                    source=source or "unknown",
+                    error_type=run_error_type or "unknown",
+                )
+            else:
+                increment_counter(
+                    "worker_task_success_total",
+                    task=task_type,
+                    source=source or "unknown",
+                )
+            observe_duration(
+                "worker_task_duration_ms",
+                duration_ms,
+                task=task_type,
+                source=source or "unknown",
+                outcome=run_status,
+            )
             if run_id is not None:
                 safe_rollback(db, logger=logger, context="before_finish_task_run")
                 finish_task_run(

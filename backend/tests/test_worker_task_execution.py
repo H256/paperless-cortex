@@ -7,6 +7,7 @@ from app.config import load_settings
 from app.exceptions import WorkerError
 from app.models import TaskRun
 from app.services.pipeline.worker_task_execution import execute_worker_task
+from app.services.runtime.metrics import snapshot_metrics
 
 
 def test_execute_worker_task_requeues_retryable_failure(
@@ -47,6 +48,19 @@ def test_execute_worker_task_requeues_retryable_failure(
         assert row.status == "retrying"
         assert row.error_type == "LLM_TIMEOUT"
         assert row.error_message == "timed out"
+        metrics = snapshot_metrics()
+        assert any(
+            item["name"] == "worker_task_retries_total"
+            and item["labels"].get("task") == "sync"
+            and item["labels"].get("error_type") == "LLM_TIMEOUT"
+            for item in metrics["counters"]
+        )
+        assert any(
+            item["name"] == "worker_task_duration_ms"
+            and item["labels"].get("task") == "sync"
+            and item["labels"].get("outcome") == "retrying"
+            for item in metrics["timers"]
+        )
 
 
 def test_execute_worker_task_dead_letters_non_retryable_vector_failure(
@@ -87,3 +101,16 @@ def test_execute_worker_task_dead_letters_non_retryable_vector_failure(
         assert row.status == "failed"
         assert row.error_type == "VECTOR_CHUNKS_MISSING"
         assert row.error_message == "chunk vectors missing in active vector store"
+        metrics = snapshot_metrics()
+        assert any(
+            item["name"] == "worker_task_dead_letters_total"
+            and item["labels"].get("task") == "similarity_index"
+            and item["labels"].get("error_type") == "VECTOR_CHUNKS_MISSING"
+            for item in metrics["counters"]
+        )
+        assert any(
+            item["name"] == "worker_task_duration_ms"
+            and item["labels"].get("task") == "similarity_index"
+            and item["labels"].get("outcome") == "failed"
+            for item in metrics["timers"]
+        )

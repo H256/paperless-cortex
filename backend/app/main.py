@@ -43,6 +43,7 @@ from app.services.runtime.logging_setup import (
     log_event,
     reset_log_context,
 )
+from app.services.runtime.metrics import increment_counter, observe_duration
 from app.version import API_VERSION
 
 if TYPE_CHECKING:
@@ -112,6 +113,14 @@ def _error_response(
     if isinstance(correlation_id, str) and correlation_id:
         response.headers["X-Correlation-ID"] = correlation_id
     return response
+
+
+def _request_metric_path(request: Request) -> str:
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", None)
+    if isinstance(route_path, str) and route_path:
+        return route_path
+    return request.url.path
 
 
 def _run_startup_sync() -> None:
@@ -206,7 +215,28 @@ async def bind_request_logging_context(request: Any, call_next: Any) -> Any:
         return response
     finally:
         elapsed_ms = (time.perf_counter() - started) * 1000.0
+        metric_path = _request_metric_path(request)
+        status_family = f"{int(status_code) // 100}xx"
+        increment_counter(
+            "api_requests_total",
+            method=request.method,
+            path=metric_path,
+            status=str(status_code),
+            status_family=status_family,
+        )
+        observe_duration(
+            "api_request_duration_ms",
+            elapsed_ms,
+            method=request.method,
+            path=metric_path,
+            status_family=status_family,
+        )
         if threshold_ms > 0 and elapsed_ms >= threshold_ms:
+            increment_counter(
+                "api_slow_requests_total",
+                method=request.method,
+                path=metric_path,
+            )
             log_event(
                 slow_request_logger,
                 logging.WARNING,
