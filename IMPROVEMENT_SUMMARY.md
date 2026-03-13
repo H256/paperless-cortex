@@ -42,6 +42,11 @@
 - `2.1 Increase Test Coverage` moved again: the document route regressions now explicitly pin both cache-heavy detail seams, covering stale page-text invalidation after `delete/vision-ocr` and stale local embedding flags after `delete/embeddings`.
 - The focused documents/documents-actions regression set still passes after the new cache tests, so the recent `6.2` cache slices now have direct route-level protection instead of only relying on implementation reasoning.
 
+### Worker execution coverage
+
+- `2.1 Increase Test Coverage` moved again: the extracted worker execution bookkeeping seam is now directly covered in `backend/tests/test_worker_task_execution.py`, including retryable requeue behavior and non-retryable `VECTOR_CHUNKS_MISSING` dead-letter behavior.
+- The focused worker execution/runtime/error-type regressions still pass after the new test file, so the recent `3.4` worker extraction now has direct behavioral coverage instead of only indirect route/loop coverage.
+
 ### Frontend component organization
 
 - Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.

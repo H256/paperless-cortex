@@ -2,6 +2,10 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the worker execution coverage slice.
+- Verified additional typed changes in:
+  - `backend/tests/test_worker_task_execution.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `183` source files.
 - Strict mypy remains green after the cache-regression test slice.
 - Verified additional typed changes in:
   - `backend/tests/test_documents_routes.py`
