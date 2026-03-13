@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the LLM SDK client-pool slice.
+- Verified additional typed changes in:
+  - `backend/app/services/ai/llm_client.py`
+  - `backend/tests/test_http_client_pooling.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `184` source files.
 - Strict mypy remains green after the OCR scoring client-pool slice.
 - Verified additional typed changes in:
   - `backend/app/services/ai/ocr_scoring.py`

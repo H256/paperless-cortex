@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### LLM SDK client pooling
+
+- `6.3 Connection Pooling` moved again: the OpenAI SDK client in `backend/app/services/ai/llm_client.py` is now pooled by base URL, API key, and timeout instead of being rebuilt for every chat or embedding call.
+- With pooled Paperless, Qdrant, Weaviate, OCR-scoring, raw LLM `httpx`, and now SDK-level LLM clients in place, the obvious per-request integration client creation hotspots are closed for this phase.
+
 ### OCR scoring client pooling
 
 - `6.3 Connection Pooling` is moving again: the OCR scoring path no longer creates a fresh `httpx.Client` for every prompt-logprob request, and now reuses a pooled client keyed by endpoint, timeout, and TLS settings.

@@ -5,6 +5,12 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### LLM SDK client pooling
+- `uncommitted` perf(http): changed [`backend/app/services/ai/llm_client.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/llm_client.py) to reuse pooled `OpenAI` SDK clients per base URL, API key, and timeout instead of constructing a fresh SDK client for every chat or embedding request.
+- `uncommitted` test(backend): extended [`backend/tests/test_http_client_pooling.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_http_client_pooling.py) to pin SDK-client reuse and pool cleanup for the LLM path.
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_http_client_pooling.py` (`4 passed`), `cd backend && uv run ruff check app/services/ai/llm_client.py tests/test_http_client_pooling.py`, and `cd backend && uv run mypy --config-file pyproject.toml app/services/ai/llm_client.py tests/test_http_client_pooling.py`.
+- `uncommitted` chore(version): bumped the project version from `0.5.38` to `0.5.39` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### OCR scoring client pooling
 - `uncommitted` perf(http): changed [`backend/app/services/ai/ocr_scoring.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/ocr_scoring.py) to reuse pooled `httpx.Client` instances per OCR-scoring endpoint/timeout/TLS tuple instead of creating a new client for every prompt-logprob request.
 - `uncommitted` test(backend): added [`backend/tests/test_ocr_scoring_client_pool.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_ocr_scoring_client_pool.py) to pin client reuse and explicit pool cleanup for the OCR scoring path, and added it to [`backend/pyproject.toml`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml).

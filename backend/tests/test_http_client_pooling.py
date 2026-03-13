@@ -48,3 +48,31 @@ def test_llm_client_pool_reuses_client(monkeypatch: Any) -> None:
         assert first is second
 
     llm_client.clear_client_pool()
+
+
+def test_llm_sdk_client_pool_reuses_sdk_client(monkeypatch: Any) -> None:
+    monkeypatch.setenv("LLM_BASE_URL", "http://llm.local")
+    monkeypatch.setenv("HTTPX_VERIFY_TLS", "1")
+    settings = load_settings()
+    created: list[object] = []
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            self.kwargs = kwargs
+            self.closed = False
+            created.append(self)
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr(llm_client, "OpenAI", FakeOpenAI)
+    llm_client.clear_client_pool()
+
+    first = llm_client._sdk_client(settings, timeout=10, purpose="text")
+    second = llm_client._sdk_client(settings, timeout=10, purpose="text")
+
+    assert first is second
+    assert len(created) == 1
+
+    llm_client.clear_client_pool()
+    assert first.closed is True

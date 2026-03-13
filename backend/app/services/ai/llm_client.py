@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _CLIENT_LOCK = threading.Lock()
 _CLIENTS: dict[tuple[float | None, bool], httpx.Client] = {}
+_SDK_CLIENTS: dict[tuple[str, str, float | None], OpenAI] = {}
 
 
 def _llm_debug_enabled() -> bool:
@@ -115,8 +116,12 @@ def clear_client_pool() -> None:
     with _CLIENT_LOCK:
         clients = list(_CLIENTS.values())
         _CLIENTS.clear()
+        sdk_clients = list(_SDK_CLIENTS.values())
+        _SDK_CLIENTS.clear()
     for pooled_client in clients:
         pooled_client.close()
+    for sdk_client in sdk_clients:
+        sdk_client.close()
 
 
 @atexit.register
@@ -155,12 +160,19 @@ def _sdk_client(
     timeout: float | None,
     purpose: Literal["text", "vision", "embedding"] = "text",
 ) -> OpenAI:
+    base = sdk_base_url(settings, purpose=purpose)
     api_key = settings.llm_api_key or "no-key"
-    return OpenAI(
-        base_url=sdk_base_url(settings, purpose=purpose),
-        api_key=api_key,
-        timeout=timeout,
-    )
+    key = (base, api_key, float(timeout) if timeout is not None else None)
+    with _CLIENT_LOCK:
+        pooled_client = _SDK_CLIENTS.get(key)
+        if pooled_client is None:
+            pooled_client = OpenAI(
+                base_url=base,
+                api_key=api_key,
+                timeout=timeout,
+            )
+            _SDK_CLIENTS[key] = pooled_client
+        return pooled_client
 
 
 def chat_completion(
