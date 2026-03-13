@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Documents mutation extraction
+
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns the route-local vision-OCR and suggestion deletion mutation blocks, and now delegates those DB cleanup plus cache-invalidation flows through `backend/app/services/documents/document_mutations.py`.
+- With those delete-path helpers extracted, the remaining import/coupling payoff in `documents_actions.py` is now small enough that `3.4` is close to done for this phase.
+
 ### Config redesign completion
 
 - `3.1 Configuration Management` is now effectively complete for this phase: `backend/app/config.py` is no longer just a flat environment dump with helper properties layered on top, and now exposes real nested domain configs as the primary settings surface.

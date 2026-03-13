@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.45"
+version = "0.5.46"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -88,6 +88,7 @@ files = [
     "app/services/documents/document_review.py",
     "app/services/documents/local_document_cache.py",
     "app/services/documents/document_loader.py",
+    "app/services/documents/document_mutations.py",
     "app/services/documents/page_texts_cache.py",
     "app/services/documents/document_task_request.py",
     "app/services/documents/process_missing_request.py",

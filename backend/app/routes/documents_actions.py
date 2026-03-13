@@ -24,16 +24,14 @@ from app.api_models import (
 from app.db import get_db
 from app.deps import get_settings
 from app.exceptions import DocumentNotFoundError
-from app.models import (
-    Document,
-    DocumentOcrScore,
-    DocumentPageText,
-    DocumentSuggestion,
-)
 from app.services.documents.cleanup_text_request import build_cleanup_text_request_payload
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.document_loader import (
     get_or_sync_local_document as _get_or_sync_local_document_impl,
+)
+from app.services.documents.document_mutations import (
+    delete_suggestions_payload,
+    delete_vision_ocr_payload,
 )
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
 from app.services.documents.document_task_request import (
@@ -84,6 +82,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from app.config import Settings
+    from app.models import Document
 
 require_queue_enabled = is_queue_enabled
 
@@ -362,21 +361,15 @@ def delete_vision_ocr(
     doc_id: int | None = None,
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    query = db.query(DocumentPageText).filter(DocumentPageText.source == "vision_ocr")
-    if doc_id is not None:
-        query = query.filter(DocumentPageText.doc_id == doc_id)
-    count = int(query.delete(synchronize_session=False) or 0)
-    score_query = db.query(DocumentOcrScore).filter(DocumentOcrScore.source == "vision_ocr")
-    if doc_id is not None:
-        score_query = score_query.filter(DocumentOcrScore.doc_id == doc_id)
-    score_query.delete(synchronize_session=False)
-    db.commit()
-    invalidate_dashboard_cache()
-    invalidate_document_stats_cache()
-    invalidate_documents_list_cache()
-    invalidate_local_document_cache(doc_id)
-    invalidate_page_texts_cache(doc_id)
-    return {"deleted": count}
+    return delete_vision_ocr_payload(
+        db=db,
+        doc_id=doc_id,
+        invalidate_dashboard_cache_fn=invalidate_dashboard_cache,
+        invalidate_document_stats_cache_fn=invalidate_document_stats_cache,
+        invalidate_documents_list_cache_fn=invalidate_documents_list_cache,
+        invalidate_local_document_cache_fn=invalidate_local_document_cache,
+        invalidate_page_texts_cache_fn=invalidate_page_texts_cache,
+    )
 
 
 @router.post("/delete/suggestions", response_model=DeleteSuggestionsResponse)
@@ -384,16 +377,14 @@ def delete_suggestions(
     doc_id: int | None = None,
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    query = db.query(DocumentSuggestion)
-    if doc_id is not None:
-        query = query.filter(DocumentSuggestion.doc_id == doc_id)
-    count = int(query.delete(synchronize_session=False) or 0)
-    db.commit()
-    invalidate_dashboard_cache()
-    invalidate_document_stats_cache()
-    invalidate_documents_list_cache()
-    invalidate_local_document_cache(doc_id)
-    return {"deleted": count}
+    return delete_suggestions_payload(
+        db=db,
+        doc_id=doc_id,
+        invalidate_dashboard_cache_fn=invalidate_dashboard_cache,
+        invalidate_document_stats_cache_fn=invalidate_document_stats_cache,
+        invalidate_documents_list_cache_fn=invalidate_documents_list_cache,
+        invalidate_local_document_cache_fn=invalidate_local_document_cache,
+    )
 
 
 @router.post("/delete/embeddings", response_model=DeleteEmbeddingsResponse)

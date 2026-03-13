@@ -5,6 +5,11 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Documents mutation extraction
+- `uncommitted` refactor(documents): extracted the route-owned vision-OCR and suggestion deletion mutation flows out of [`backend/app/routes/documents_actions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_actions.py) into [`backend/app/services/documents/document_mutations.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/document_mutations.py), so the route no longer owns those DB cleanup and cache-invalidation blocks directly.
+- `uncommitted` chore(mypy): added [`backend/app/services/documents/document_mutations.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict backend mypy allowlist.
+- `uncommitted` test(backend): verified `cd backend && uv run ruff check app/routes/documents_actions.py app/services/documents/document_mutations.py`, `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_actions.py app/services/documents/document_mutations.py`, and `cd backend && uv run pytest tests/test_documents_routes.py tests/test_documents_actions_routes.py` (`41 passed`).
+
 ### Config redesign completion
 - `uncommitted` refactor(config): replaced the giant flat settings dataclass in [`backend/app/config.py`](E:/workspace/python/paperless-intelligence/backend/app/config.py) with real nested domain configs for logging, API, worker, Paperless, vector stores, queue, LLM, embeddings, chunking, vision, suggestions, summary, HTTP, OCR scoring, evidence, writeback, frontend, and debug settings.
 - `uncommitted` refactor(config): kept backward compatibility for the existing codebase through a flat-attribute compatibility layer on `Settings`, so legacy `settings.foo_bar` callers still work while `settings.domain.field` is now the real source of truth.

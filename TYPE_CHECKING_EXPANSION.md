@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the documents mutation extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/document_mutations.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `189` source files.
 - Strict mypy remains green after the configuration redesign completion.
 - Verified additional typed changes in:
   - `backend/app/config.py`
