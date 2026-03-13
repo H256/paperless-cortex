@@ -38,6 +38,8 @@
 - `backend/app/routes/writeback_dryrun.py` is now effectively a thin route wrapper module, and the focused writeback preview/dry-run/job regressions still pass with the strict backend mypy baseline green on `171` configured files.
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns the bulk intelligence reset/clear DB cleanup logic, and now delegates that behavior through `backend/app/services/documents/intelligence_cleanup.py`.
 - The focused documents-actions/documents regressions still pass after that extraction, and the strict backend mypy baseline remains green on `172` configured files.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/worker.py` no longer owns the queue lifecycle plumbing, and now delegates worker client/lock/heartbeat/queue-maintenance/task-finalize behavior through `backend/app/services/pipeline/worker_queue_runtime.py`.
+- The focused worker runtime/retry/orchestration regressions still pass after that extraction, and the strict backend mypy baseline remains green on `172` configured files.
 
 ### Weaviate migration hardening
 

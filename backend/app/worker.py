@@ -3,11 +3,9 @@ from __future__ import annotations
 import logging
 import os
 import socket
-import threading
 import time
 from typing import TYPE_CHECKING
 
-from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import load_settings
@@ -33,26 +31,11 @@ from app.services.pipeline.error_types import (
 )
 from app.services.pipeline.queue import (
     QUEUE_KEY,
-    QUEUE_SET,
-    _get_client,
-    acquire_worker_lock,
-    add_dead_letter,
     clear_cancel,
     clear_queue,
-    clear_running_task,
-    enqueue_task_delayed,
     is_cancel_requested,
     is_paused,
-    mark_done,
-    mark_in_progress,
-    mark_worker_heartbeat,
-    move_due_delayed_tasks,
-    record_last_run,
-    refresh_worker_lock,
-    release_worker_lock,
     reset_stats,
-    set_running_task,
-    task_key,
 )
 from app.services.pipeline.task_runs import (
     create_task_run,
@@ -89,6 +72,13 @@ from app.services.pipeline.worker_document_tasks import (
 )
 from app.services.pipeline.worker_orchestration import (
     process_full_document as _service_process_full_document,
+)
+from app.services.pipeline.worker_queue_runtime import (
+    acquire_worker_runtime,
+    finalize_worker_task,
+    mark_worker_task_start,
+    run_worker_queue_maintenance,
+    shutdown_worker_runtime,
 )
 from app.services.pipeline.worker_runtime import (
     dispatch_worker_task,
@@ -424,57 +414,13 @@ def main() -> None:
     configure_logging(settings, service="worker")
     if not settings.queue_enabled:
         raise SystemExit("QUEUE_ENABLED is not set")
-    client = _get_client(settings)
-    if not client:
-        raise SystemExit("Redis not configured")
     worker_token = f"{socket.gethostname()}:{os.getpid()}:{int(time.time())}"
-    while not acquire_worker_lock(settings, worker_token):
-        log_event(
-            logger,
-            logging.WARNING,
-            "Worker lock unavailable; retrying",
-            worker_id=worker_token,
-            queue=QUEUE_KEY,
-            retry_after_seconds=5,
-        )
-        time.sleep(5)
-    clear_running_task(settings)
-    worker_token_ctx = bind_log_context(worker_id=worker_token, queue=QUEUE_KEY)
-    log_event(logger, logging.INFO, "Worker started")
-    stop_event = threading.Event()
-    lock_lost = threading.Event()
-
-    def _lock_refresher() -> None:
-        while not stop_event.is_set():
-            if not refresh_worker_lock(settings, worker_token):
-                log_event(logger, logging.ERROR, "Worker lock refresh failed")
-                lock_lost.set()
-                return
-            stop_event.wait(30)
-
-    def _heartbeat_refresher() -> None:
-        while not stop_event.is_set():
-            try:
-                mark_worker_heartbeat(settings)
-            except (RedisError, RuntimeError):
-                log_event(
-                    logger,
-                    logging.WARNING,
-                    "Worker heartbeat update failed",
-                    exc_info=True,
-                )
-            stop_event.wait(HEARTBEAT_INTERVAL_SECONDS)
-
-    lock_refresher = threading.Thread(
-        target=_lock_refresher, name="worker-lock-refresher", daemon=True
+    client, worker_token_ctx, stop_event, lock_lost = acquire_worker_runtime(
+        settings,
+        worker_token=worker_token,
+        heartbeat_interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
+        logger=logger,
     )
-    heartbeat_refresher = threading.Thread(
-        target=_heartbeat_refresher,
-        name="worker-heartbeat-refresher",
-        daemon=True,
-    )
-    lock_refresher.start()
-    heartbeat_refresher.start()
     try:
         while True:
             if lock_lost.is_set():
@@ -482,7 +428,7 @@ def main() -> None:
             if is_paused(settings):
                 time.sleep(0.5)
                 continue
-            move_due_delayed_tasks(settings, limit=100)
+            run_worker_queue_maintenance(settings)
             if handle_worker_cancel_request(
                 settings,
                 is_cancel_requested_fn=is_cancel_requested,
@@ -524,8 +470,7 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             running_task = task if isinstance(task, dict) else {"doc_id": doc_id, "task": "full"}
-            set_running_task(settings, running_task)
-            mark_in_progress(settings)
+            mark_worker_task_start(settings, running_task)
             run_started = time.time()
             run_id: int | None = None
             run_status = "completed"
@@ -680,31 +625,19 @@ def main() -> None:
                 logger.exception("Worker bookkeeping failed doc=%s task=%s", doc_id, task_type)
             finally:
                 reset_log_context(task_context_token)
-                clear_running_task(settings)
-                mark_done(settings)
-                record_last_run(settings, time.time() - run_started)
-                if client:
-                    if isinstance(task, dict):
-                        client.srem(QUEUE_SET, task_key(task))
-                    else:
-                        client.srem(QUEUE_SET, str(doc_id))
-                if pending_retry_payload is not None:
-                    enqueue_task_delayed(
-                        settings, pending_retry_payload, pending_retry_delay_seconds or 5
-                    )
-                elif pending_dead_letter is not None:
-                    add_dead_letter(
-                        settings,
-                        task=pending_dead_letter["task"],
-                        error_type=str(pending_dead_letter["error_type"]),
-                        error_message=str(pending_dead_letter["error_message"]),
-                        attempt=int(pending_dead_letter["attempt"]),
-                    )
+                finalize_worker_task(
+                    settings,
+                    client=client,
+                    task=task if isinstance(task, dict) else None,
+                    doc_id=doc_id,
+                    run_started=run_started,
+                    pending_retry_payload=pending_retry_payload,
+                    pending_retry_delay_seconds=pending_retry_delay_seconds,
+                    pending_dead_letter=pending_dead_letter,
+                )
     finally:
         stop_event.set()
-        clear_running_task(settings)
-        release_worker_lock(settings, worker_token)
-        reset_log_context(worker_token_ctx)
+        shutdown_worker_runtime(settings, worker_token=worker_token, worker_token_ctx=worker_token_ctx)
 
 if __name__ == "__main__":
     main()
