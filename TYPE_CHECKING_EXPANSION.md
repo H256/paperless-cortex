@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the worker task-execution extraction.
+- Verified additional typed changes in:
+  - `backend/app/worker.py`
+  - `backend/app/services/pipeline/worker_task_execution.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `180` source files.
 - Strict mypy remains green after the cleanup-text request extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/documents_actions.py`

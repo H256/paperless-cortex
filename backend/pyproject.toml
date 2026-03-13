@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.31"
+version = "0.5.32"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -55,6 +55,7 @@ files = [
     "app/services/pipeline/worker_runtime.py",
     "app/services/pipeline/worker_queue_runtime.py",
     "app/services/pipeline/worker_dispatch.py",
+    "app/services/pipeline/worker_task_execution.py",
     "app/services/pipeline/worker_document_tasks.py",
     "app/services/pipeline/worker_content_tasks.py",
     "app/services/pipeline/worker_orchestration.py",
