@@ -21,7 +21,7 @@ def check_paperless(settings: Settings) -> tuple[bool, str]:
         return False, exc.__class__.__name__
 
 
-def check_qdrant(settings: Settings) -> tuple[bool, str]:
+def check_vector_store_health(settings: Settings) -> tuple[bool, str]:
     return vector_store.check_health(settings)
 
 
@@ -43,7 +43,7 @@ def check_llm(settings: Settings) -> tuple[bool, str]:
 def run_all(settings: Settings) -> list[dict[str, Any]]:
     checks = [
         ("Paperless", check_paperless),
-        (vector_store.display_name(settings), check_qdrant),
+        (vector_store.display_name(settings), check_vector_store_health),
         ("LLM", check_llm),
     ]
     results: list[dict[str, Any]] = []

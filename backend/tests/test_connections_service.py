@@ -13,7 +13,7 @@ def test_check_qdrant_reports_missing_config() -> None:
         vector_store=SimpleNamespace(provider="qdrant", url=None, api_key=None, collection=None),
         llm_base_url=None,
     )
-    ok, detail = connections.check_qdrant(cast("Any", settings))
+    ok, detail = connections.check_vector_store_health(cast("Any", settings))
     assert ok is False
     assert detail == "VECTOR_STORE_URL not set"
 
