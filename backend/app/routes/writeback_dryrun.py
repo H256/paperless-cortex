@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, selectinload
@@ -54,6 +53,12 @@ from app.services.writeback.writeback_direct import (
 from app.services.writeback.writeback_direct import (
     sync_local_field_from_paperless as _sync_local_field_from_paperless,
 )
+from app.services.writeback.writeback_effects import (
+    cleanup_pending_rows_after_patch as _cleanup_pending_rows_after_patch,
+)
+from app.services.writeback.writeback_effects import (
+    reviewed_timestamp_for_doc as _reviewed_timestamp_for_doc_impl,
+)
 from app.services.writeback.writeback_execution import (
     collect_changed_calls,
     execute_calls_with_audit,
@@ -102,40 +107,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/writeback", tags=["writeback"])
-def _cleanup_pending_rows_after_patch(
-    db: Session, doc_id: int, patch_payload: dict[str, Any]
-) -> None:
-    if "tags" in patch_payload:
-        pending_row = (
-            db.query(DocumentPendingTag)
-            .filter(DocumentPendingTag.doc_id == int(doc_id))
-            .one_or_none()
-        )
-        if pending_row:
-            db.delete(pending_row)
-    if "correspondent" in patch_payload:
-        pending_corr_row = (
-            db.query(DocumentPendingCorrespondent)
-            .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
-            .one_or_none()
-        )
-        if pending_corr_row:
-            db.delete(pending_corr_row)
-    if "tags" in patch_payload or "correspondent" in patch_payload:
-        invalidate_writeback_preview_cache()
-        invalidate_documents_list_cache()
+
+
 def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) -> str:
-    try:
-        remote_doc = paperless.get_document(settings, int(doc_id))
-        modified = str(remote_doc.get("modified") or "").strip()
-        if modified:
-            local_doc = db.get(Document, int(doc_id))
-            if local_doc:
-                local_doc.modified = modified
-            return modified
-    except (httpx.HTTPError, RuntimeError, ValueError):
-        logger.warning("Failed to fetch paperless modified for reviewed_at doc=%s", doc_id)
-    return utc_now_iso()
+    return _reviewed_timestamp_for_doc_impl(settings, db, doc_id)
 
 
 @router.post("/documents/{doc_id}/execute-direct", response_model=WritebackDirectExecuteResponse)
