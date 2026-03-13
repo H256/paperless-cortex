@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Config redesign completion
+
+- `3.1 Configuration Management` is now effectively complete for this phase: `backend/app/config.py` is no longer just a flat environment dump with helper properties layered on top, and now exposes real nested domain configs as the primary settings surface.
+- The remaining app-level env toggles for frontend/static path and LLM debug behavior are now settings-backed instead of being re-read ad hoc in runtime modules, and startup validation now fails fast on invalid vector-store provider and queue/weaviate combinations.
+
 ### Page-text payload extraction
 
 - `3.3 Service Layer Complexity` moved again: `backend/app/routes/documents.py` no longer owns the page-text payload aggregation and coverage calculation flow, and now delegates that read-model assembly through `backend/app/services/documents/page_texts_payload.py`.

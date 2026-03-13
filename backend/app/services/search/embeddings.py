@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -218,7 +217,7 @@ def embed_text(
             ) + len(fallback_parts)
         vectors = [embed_text(settings, part, telemetry=telemetry) for part in fallback_parts]
         embedding = _average_vectors(vectors)
-    if settings.llm_base_url and settings.embedding_model and os.getenv("LLM_DEBUG") == "1":
+    if settings.llm_base_url and settings.embedding_model and settings.debug.llm:
         sample = embedding[:5]
         logger.info(
             "LLM embed model=%s len=%s sample=%s",

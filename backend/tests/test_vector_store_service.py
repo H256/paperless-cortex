@@ -38,10 +38,8 @@ def test_vector_store_selects_weaviate_provider(monkeypatch: Any) -> None:
 
 def test_vector_store_rejects_unknown_provider(monkeypatch: Any) -> None:
     monkeypatch.setenv("VECTOR_STORE_PROVIDER", "unknown-store")
-    settings = load_settings()
-
-    with pytest.raises(RuntimeError, match="Unsupported vector store provider: unknown-store"):
-        vector_store.get_vector_store_adapter(settings)
+    with pytest.raises(ValueError, match="Invalid VECTOR_STORE_PROVIDER: unknown-store"):
+        load_settings()
 
 
 @contextmanager

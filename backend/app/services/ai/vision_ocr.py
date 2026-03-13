@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import logging
 import math
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -182,7 +181,7 @@ def _vision_generate(
         len(prompt),
         len(image_bytes),
     )
-    if os.getenv("LLM_DEBUG") == "1":
+    if settings.debug.llm:
         logger.info("Vision OCR prompt:\n%s", prompt)
     content: list[dict[str, object]] = [
         {"type": "text", "text": prompt},
@@ -195,7 +194,7 @@ def _vision_generate(
         timeout=settings.vision_ocr_timeout_seconds,
         purpose="vision",
     )
-    if os.getenv("LLM_DEBUG") == "1":
+    if settings.debug.llm:
         sample = text[:300]
         logger.info("Vision OCR response len=%s sample=%s", len(text), sample)
     else:

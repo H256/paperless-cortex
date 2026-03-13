@@ -2,6 +2,17 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the configuration redesign completion.
+- Verified additional typed changes in:
+  - `backend/app/config.py`
+  - `backend/app/main.py`
+  - `backend/app/services/ai/llm_client.py`
+  - `backend/app/services/ai/suggestions.py`
+  - `backend/app/services/ai/vision_ocr.py`
+  - `backend/app/services/search/embeddings.py`
+  - `backend/tests/test_config.py`
+  - `backend/tests/test_vector_store_service.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `188` source files.
 - Strict mypy remains green after the page-text payload extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/documents.py`

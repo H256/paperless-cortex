@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import logging
-import os
 import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Literal
@@ -19,14 +18,6 @@ logger = logging.getLogger(__name__)
 _CLIENT_LOCK = threading.Lock()
 _CLIENTS: dict[tuple[float | None, bool], httpx.Client] = {}
 _SDK_CLIENTS: dict[tuple[str, str, float | None], OpenAI] = {}
-
-
-def _llm_debug_enabled() -> bool:
-    return os.getenv("LLM_DEBUG", "0") == "1"
-
-
-def _llm_debug_full_response_enabled() -> bool:
-    return os.getenv("LLM_DEBUG_FULL_RESPONSE", "0") == "1"
 
 
 def _snippet(value: object, max_len: int = 500) -> str:
@@ -218,8 +209,8 @@ def chat_completion(
         ... )
     """
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    debug_enabled = _llm_debug_enabled()
-    debug_full_response = _llm_debug_full_response_enabled()
+    debug_enabled = bool(settings.debug.llm)
+    debug_full_response = bool(settings.debug.llm_full_response)
     if debug_enabled:
         logger.info(
             "LLM chat request model=%s purpose=%s timeout=%s max_tokens=%s msg_count=%s",

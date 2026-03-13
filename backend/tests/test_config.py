@@ -29,6 +29,9 @@ def test_settings_exposes_domain_config_views(monkeypatch: Any) -> None:
     monkeypatch.setenv("CHUNK_MODE", "semantic")
     monkeypatch.setenv("HTTPX_VERIFY_TLS", "0")
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+    monkeypatch.setenv("FRONTEND_DIST", "frontend/dist")
+    monkeypatch.setenv("LLM_DEBUG", "1")
+    monkeypatch.setenv("LLM_DEBUG_FULL_RESPONSE", "1")
 
     settings = load_settings()
 
@@ -48,11 +51,16 @@ def test_settings_exposes_domain_config_views(monkeypatch: Any) -> None:
     assert settings.chunking.mode == "semantic"
     assert settings.http.verify_tls is False
     assert settings.writeback.execute_enabled is True
+    assert settings.frontend.dist_path == "frontend/dist"
+    assert settings.debug.llm is True
+    assert settings.debug.llm_full_response is True
 
     # Flat compatibility remains for the rest of the codebase.
     assert settings.paperless_base_url == settings.paperless.base_url
     assert settings.queue_enabled == settings.queue.enabled
     assert settings.embedding_batch_size == settings.embeddings.batch_size
+    assert settings.frontend_dist == settings.frontend.dist_path
+    assert settings.llm_debug == settings.debug.llm
 
 
 def test_vector_store_config_prefers_generic_over_legacy_env(monkeypatch: Any) -> None:
@@ -103,6 +111,7 @@ def test_weaviate_vector_store_settings_build_http_grpc_split(monkeypatch: Any) 
         ("LOG_JSON", "maybe", "Invalid boolean for LOG_JSON"),
         ("CHUNK_MODE", "weird", "Invalid CHUNK_MODE"),
         ("EMBEDDING_BATCH_SIZE", "abc", "invalid literal"),
+        ("VECTOR_STORE_PROVIDER", "unknown", "Invalid VECTOR_STORE_PROVIDER"),
     ],
 )
 def test_load_settings_validates_invalid_values(
@@ -114,4 +123,12 @@ def test_load_settings_validates_invalid_values(
     monkeypatch.setenv(name, value)
 
     with pytest.raises(ValueError, match=message):
+        load_settings()
+
+
+def test_load_settings_requires_redis_when_queue_enabled(monkeypatch: Any) -> None:
+    monkeypatch.setenv("REDIS_HOST", "")
+    monkeypatch.setenv("QUEUE_ENABLED", "1")
+
+    with pytest.raises(ValueError, match="REDIS_HOST must be set"):
         load_settings()

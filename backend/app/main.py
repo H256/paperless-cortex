@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -329,7 +328,7 @@ class SPAStaticFiles(StaticFiles):
             raise
 
 
-static_dir_env = os.getenv("FRONTEND_DIST", "")
+static_dir_env = SETTINGS.frontend.dist_path or ""
 static_dir = Path(static_dir_env) if static_dir_env else Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if static_dir.is_dir():
     app.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="static")
