@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=ChatResponse)
-def chat(
+async def chat(
     payload: ChatRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
@@ -45,7 +46,8 @@ def chat(
         conversation_id=payload.conversation_id or "new",
         stream=False,
     )
-    return answer_question(
+    return await asyncio.to_thread(
+        answer_question,
         settings,
         question=payload.question,
         top_k=max(1, min(payload.top_k, 20)),
@@ -60,7 +62,7 @@ def chat(
 
 
 @router.post("/stream")
-def chat_stream(
+async def chat_stream(
     payload: ChatRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
@@ -76,7 +78,8 @@ def chat_stream(
         conversation_id=payload.conversation_id or "new",
         stream=True,
     )
-    return answer_question(
+    return await asyncio.to_thread(
+        answer_question,
         settings,
         question=payload.question,
         top_k=max(1, min(payload.top_k, 20)),
@@ -92,7 +95,7 @@ def chat_stream(
 
 
 @router.post("/followups", response_model=ChatFollowupsResponse)
-def chat_followups(
+async def chat_followups(
     payload: ChatFollowupsRequest,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, list[str]]:
@@ -104,7 +107,8 @@ def chat_followups(
         question_len=len(payload.question),
         citation_count=len(payload.citations or []),
     )
-    questions = generate_followups(
+    questions = await asyncio.to_thread(
+        generate_followups,
         settings,
         question=payload.question,
         answer=payload.answer,
@@ -116,7 +120,7 @@ def chat_followups(
 
 
 @router.post("/resolve-evidence", response_model=EvidenceResolveResponse)
-def resolve_evidence(
+async def resolve_evidence(
     payload: EvidenceResolveRequest,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
@@ -129,7 +133,8 @@ def resolve_evidence(
         citation_count=len(payload.citations),
         max_pages=payload.max_pages,
     )
-    matches = resolve_evidence_matches(
+    matches = await asyncio.to_thread(
+        resolve_evidence_matches,
         [
             {
                 "doc_id": item.doc_id,

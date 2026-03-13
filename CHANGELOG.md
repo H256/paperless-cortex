@@ -5,6 +5,10 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Chat async offload completion
+- `uncommitted` perf(async): finished the low-risk async pass by making [`backend/app/routes/chat.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/chat.py) offload synchronous answer generation, streaming setup, follow-up generation, and evidence resolution through `asyncio.to_thread(...)` instead of doing that blocking work directly on async request handlers.
+- `uncommitted` test(backend): added route regressions in [`backend/tests/test_chat_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_chat_routes.py) and [`backend/tests/test_chat_evidence_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_chat_evidence_routes.py) to pin the async offload behavior, then re-verified the full backend/frontend suites.
+
 ### Continue-processing diagnostics extraction
 - `uncommitted` refactor(frontend): extracted the diagnostics-heavy preview/coverage/runtime block out of [`frontend/src/components/ContinueProcessingPanel.vue`](E:/workspace/python/paperless-intelligence/frontend/src/components/ContinueProcessingPanel.vue) into [`frontend/src/components/ContinueProcessingDiagnosticsSection.vue`](E:/workspace/python/paperless-intelligence/frontend/src/components/ContinueProcessingDiagnosticsSection.vue), so the panel is now more clearly option editing plus start/result controls.
 - `uncommitted` test(frontend): added direct seam coverage in [`frontend/src/components/ContinueProcessingDiagnosticsSection.integration.test.ts`](E:/workspace/python/paperless-intelligence/frontend/src/components/ContinueProcessingDiagnosticsSection.integration.test.ts) and re-verified the continue-processing panel/view integration path with `cd frontend && npx vitest run src/components/ContinueProcessingPanel.integration.test.ts src/components/ContinueProcessingDiagnosticsSection.integration.test.ts src/views/ContinueProcessingView.integration.test.ts`.

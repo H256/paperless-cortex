@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Chat async offload completion
+
+- `6.1 Async/Await Optimization` is now effectively complete for this phase: the remaining low-risk async route hotspot in the chat surface no longer performs synchronous answer generation, follow-up generation, or evidence resolution directly on the async handler path.
+- With `status` streaming already offloaded and the chat routes now offloading their synchronous retrieval/generation work through `asyncio.to_thread(...)`, the obvious request-path event-loop blockers from Claude’s review are closed for this phase.
+
 ### Continue-processing diagnostics extraction
 
 - `4.1 Component Organization` moved again: the diagnostics-heavy portion of the continue-processing UI is no longer embedded directly in `frontend/src/components/ContinueProcessingPanel.vue`, and now lives behind the dedicated `frontend/src/components/ContinueProcessingDiagnosticsSection.vue` seam.

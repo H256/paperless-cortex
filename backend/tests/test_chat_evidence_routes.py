@@ -135,3 +135,38 @@ def test_resolve_evidence_marks_invalid_bbox(api_client: Any, monkeypatch: Any) 
     assert data["count"] == 1
     assert data["matches"][0]["status"] == "error"
     assert data["matches"][0]["error"] == "invalid_bbox"
+
+
+def test_resolve_evidence_offloads_match_resolution(api_client: Any, monkeypatch: Any) -> None:
+    from app.routes import chat as chat_routes
+
+    called: dict[str, object] = {}
+
+    async def fake_to_thread(func: Any, *args: Any, **kwargs: Any) -> list[dict[str, object]]:
+        called["func"] = func
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(chat_routes.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(
+        chat_routes,
+        "resolve_evidence_matches",
+        lambda *_args, **_kwargs: [
+            {
+                "doc_id": 1,
+                "page": 1,
+                "snippet": "x",
+                "bbox": None,
+                "confidence": 0.0,
+                "status": "ok",
+                "error": None,
+            }
+        ],
+    )
+
+    response = api_client.post(
+        "/chat/resolve-evidence",
+        json={"citations": [{"doc_id": 1, "page": 1, "snippet": "x"}], "max_pages": 2},
+    )
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert called["func"] is chat_routes.resolve_evidence_matches

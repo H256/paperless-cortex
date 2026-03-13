@@ -2,6 +2,12 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the chat async offload completion.
+- Verified additional typed changes in:
+  - `backend/app/routes/chat.py`
+  - `backend/tests/test_chat_routes.py`
+  - `backend/tests/test_chat_evidence_routes.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `189` source files.
 - Strict mypy remains green after the documents mutation extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/documents_actions.py`
