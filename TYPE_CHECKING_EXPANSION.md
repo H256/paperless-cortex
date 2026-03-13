@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the reset-and-reprocess extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/reprocess_request.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `177` source files.
 - Strict mypy remains green after the process-missing request extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/documents_actions.py`

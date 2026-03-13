@@ -13,7 +13,6 @@ from app.api_models import (
     DeleteSimilarityIndexResponse,
     DeleteSuggestionsResponse,
     DeleteVisionOcrResponse,
-    DocumentIn,
     DocumentOperationEnqueueResponse,
     DocumentPipelineContinueResponse,
     DocumentPipelineFanoutResponse,
@@ -54,6 +53,7 @@ from app.services.documents.process_missing_request import (
     build_process_missing_disabled_payload,
     build_process_missing_options,
 )
+from app.services.documents.reprocess_request import reset_and_reprocess_payload
 from app.services.documents.sync_operations import run_documents_sync, upsert_document
 from app.services.integrations import paperless
 from app.services.pipeline.process_missing import process_missing_documents
@@ -467,18 +467,28 @@ def reset_and_reprocess_document(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    _clear_document_intelligence(db, doc_id)
-    delete_points_for_doc(settings, doc_id)
-
-    raw = paperless.get_document(settings, doc_id)
-    data = DocumentIn.model_validate(raw)
-    cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
-    upsert_document(db, settings, data, cache)
-    db.commit()
-    invalidate_documents_list_cache()
-
-    enqueued = 0
-    if enqueue and require_queue_enabled(settings):
-        tasks = build_task_sequence(settings, doc_id, include_sync=False, force=True)
-        enqueued = enqueue_task_sequence_front(settings, tasks, force=True)
-    return {"doc_id": doc_id, "synced": True, "reset": True, "enqueued": enqueued}
+    return reset_and_reprocess_payload(
+        db=db,
+        settings=settings,
+        doc_id=doc_id,
+        enqueue=enqueue,
+        queue_enabled=require_queue_enabled(settings),
+        clear_document_intelligence_fn=_clear_document_intelligence,
+        delete_points_for_doc_fn=delete_points_for_doc,
+        get_document_fn=paperless.get_document,
+        upsert_document_fn=upsert_document,
+        invalidate_documents_list_cache_fn=invalidate_documents_list_cache,
+        build_task_sequence_fn=lambda current_settings, current_doc_id, include_sync, force: (
+            build_task_sequence(
+                current_settings,
+                current_doc_id,
+                include_sync=include_sync,
+                force=force,
+            )
+        ),
+        enqueue_task_sequence_front_fn=lambda current_settings, tasks: enqueue_task_sequence_front(
+            current_settings,
+            tasks,
+            force=True,
+        ),
+    )
