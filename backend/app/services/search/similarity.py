@@ -36,7 +36,7 @@ def fetch_doc_point_vector(settings: Settings, doc_id: int) -> list[float] | Non
         vector = vector.get("default")
     if not isinstance(vector, list):
         return None
-    return [float(value) for value in vector if isinstance(value, (int, float))]
+    return [float(value) for value in vector if isinstance(value, int | float)]
 
 
 def search_similar_doc_points(

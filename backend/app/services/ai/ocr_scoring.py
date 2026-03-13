@@ -64,7 +64,9 @@ def _shared_client(settings: Settings, url: str, timeout: int) -> httpx.Client:
         return pooled_client
 
 
-def _post_json(settings: Settings, url: str, payload: dict[str, Any], timeout: int) -> tuple[int, Any]:
+def _post_json(
+    settings: Settings, url: str, payload: dict[str, Any], timeout: int
+) -> tuple[int, Any]:
     response = _shared_client(settings, url, timeout).post(url, json=payload)
     try:
         return response.status_code, response.json()
@@ -201,7 +203,7 @@ def try_prompt_logprob_ppl(settings: Settings, text: str, model: str | None) -> 
         if not (isinstance(token_logprobs, list) and token_logprobs):
             return {"supported": False, "reason": "logprobs not provided by server"}
 
-        values = [val for val in token_logprobs if isinstance(val, (int, float))]
+        values = [val for val in token_logprobs if isinstance(val, int | float)]
         if not values:
             return {"supported": False, "reason": "token_logprobs empty"}
 

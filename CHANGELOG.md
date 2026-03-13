@@ -5,6 +5,13 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Tooling enforcement cleanup
+- `uncommitted` chore(tooling): aligned [`.pre-commit-config.yaml`](E:/workspace/python/paperless-intelligence/.pre-commit-config.yaml) with the actual frontend CI scripts by replacing the old `oxlint`-only hook with `frontend lint` and `frontend type-check`, and fixed the backend mypy hook to run from the backend working directory so it resolves `pyproject.toml` and relative paths correctly.
+- `uncommitted` ci(tooling): added [`.github/workflows/quality-gates.yml`](E:/workspace/python/paperless-intelligence/.github/workflows/quality-gates.yml) to enforce the hook-equivalent backend/frontend gate set in CI (`backend mypy`, `frontend lint`, `frontend type-check`) after installing backend/frontend dependencies.
+- `uncommitted` ci(tooling): narrowed [`.github/workflows/frontend-ci.yml`](E:/workspace/python/paperless-intelligence/.github/workflows/frontend-ci.yml) to frontend-only path triggers, so backend-only pushes no longer fan out into the frontend workflow unnecessarily.
+- `uncommitted` test(tooling): verified the hook-equivalent commands locally: `cd backend && uv run mypy --config-file pyproject.toml`, `cd frontend && npm run lint`, and `cd frontend && npm run type-check`, plus the full backend/frontend CI-equivalent suites.
+- `uncommitted` chore(version): bumped the project version from `0.5.40` to `0.5.41` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### Runtime metrics and telemetry
 - `uncommitted` feat(observability): added the in-memory metrics registry [`backend/app/services/runtime/metrics.py`](E:/workspace/python/paperless-intelligence/backend/app/services/runtime/metrics.py) and exposed it through [`GET /api/status/metrics`](E:/workspace/python/paperless-intelligence/backend/app/routes/status.py) for structured counter/timer snapshots.
 - `uncommitted` feat(observability): instrumented API request counts, request latencies, and slow-request counts in [`backend/app/main.py`](E:/workspace/python/paperless-intelligence/backend/app/main.py), using route-aware metric labels instead of only log output.
@@ -824,7 +831,3 @@ All granular implementation slices and refactors are tracked here.
 ## Historical note
 - Detailed older session bullets previously in `agents.md` are now expected in this changelog format going forward.
 - For full historical record prior to this restructure, use git history (`git log --oneline` / `git log --stat`).
-
-
-
-

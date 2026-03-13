@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Tooling enforcement cleanup
+
+- `5.2 Developer Tooling` is now effectively complete for this phase: local hooks and CI are aligned around the same backend/frontend quality gates instead of partially overlapping checks.
+- The noisy frontend-on-backend CI trigger is gone, and pre-commit now enforces both frontend linting and frontend type-checking alongside backend mypy and formatting checks.
+
 ### Runtime metrics and telemetry
 
 - `5.3 Error Messages & Observability` is now effectively complete for this phase: backend observability no longer stops at structured logs and stable API error codes, and now includes a queryable runtime metrics surface.
@@ -878,7 +883,3 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 - `6.2 Caching Strategy` now also has explicit derived-list invalidation: document review, sync, document mutation, and writeback execution paths clear the documents-list cache so derived pages refresh immediately after local review status, pending metadata, or writeback state changes.
 - `2.1 Increase Test Coverage` moved again with that cache slice: [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) now proves the cached unreviewed documents page invalidates after `POST /documents/{id}/review/mark`, and [`backend/tests/conftest.py`](E:/workspace/python/paperless-intelligence/backend/tests/conftest.py) now resets the in-memory caches between tests so the new cache layers stay isolated in the backend suite.
 - CI and release hygiene were re-verified again on top of current `develop`: the full backend CI equivalent still passes locally (`ruff`, `mypy`, `pytest`), the frontend CI equivalent still passes locally (`lint`, `type-check`, `test:coverage`, `build`), `cd backend && uv run python scripts/export_openapi.py` still exports successfully, and the scripted version bump path has now advanced the repo to `0.5.11`.
-
-
-
-

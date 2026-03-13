@@ -24,13 +24,19 @@ repos:
     hooks:
       - id: backend-mypy
         name: backend mypy
-        entry: uv run --project backend mypy --config-file backend/pyproject.toml
+        entry: uv run --directory backend mypy --config-file pyproject.toml
         language: system
         files: ^backend/
         pass_filenames: false
-      - id: oxlint
-        name: oxlint
-        entry: npx --prefix frontend oxlint . --fix
+      - id: frontend-lint
+        name: frontend lint
+        entry: npm --prefix frontend run lint
         language: system
-        files: ^frontend/.*\.(ts|vue)$
+        files: ^frontend/
+        pass_filenames: false
+      - id: frontend-type-check
+        name: frontend type-check
+        entry: npm --prefix frontend run type-check
+        language: system
+        files: ^frontend/
         pass_filenames: false

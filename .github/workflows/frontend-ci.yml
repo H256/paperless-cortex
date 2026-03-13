@@ -4,13 +4,13 @@ on:
   push:
     paths:
       - 'frontend/**'
-      - 'backend/**'
       - '.github/workflows/frontend-ci.yml'
+      - 'frontend/package-lock.json'
   pull_request:
     paths:
       - 'frontend/**'
-      - 'backend/**'
       - '.github/workflows/frontend-ci.yml'
+      - 'frontend/package-lock.json'
 
 jobs:
   frontend:
