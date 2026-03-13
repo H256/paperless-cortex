@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.services.pipeline.worker_dispatch import build_dispatch_handler
 from app.services.pipeline.worker_runtime import (
     dispatch_worker_task,
     handle_worker_cancel_request,
@@ -114,3 +115,33 @@ def test_dispatch_worker_task_uses_handler_before_full_fallback() -> None:
     )
 
     assert calls == ["handler"]
+
+
+def test_build_dispatch_handler_routes_cleanup_texts_options() -> None:
+    calls: list[dict[str, Any]] = []
+
+    handler = build_dispatch_handler(
+        settings=object(),
+        db=object(),
+        task_type="cleanup_texts",
+        doc_id=41,
+        task={"source": "vision_ocr", "clear_first": True},
+        run_id=9,
+        process_sync_only_fn=lambda *_args: None,
+        process_evidence_index_fn=lambda *_args, **_kwargs: None,
+        process_embeddings_paperless_fn=lambda *_args, **_kwargs: None,
+        process_embeddings_vision_fn=lambda *_args, **_kwargs: None,
+        process_similarity_index_fn=lambda *_args: None,
+        process_cleanup_texts_fn=lambda _settings, _db, doc_id, **kwargs: calls.append(
+            {"doc_id": doc_id, **kwargs}
+        ),
+        process_page_notes_fn=lambda *_args, **_kwargs: None,
+        process_summary_hierarchical_fn=lambda *_args, **_kwargs: None,
+        process_suggestions_paperless_fn=lambda *_args: None,
+        process_suggestions_vision_fn=lambda *_args: None,
+        process_suggest_field_fn=lambda *_args: None,
+    )
+
+    assert handler is not None
+    handler()
+    assert calls == [{"doc_id": 41, "source": "vision_ocr", "clear_first": True}]

@@ -40,6 +40,8 @@
 - The focused documents-actions/documents regressions still pass after that extraction, and the strict backend mypy baseline remains green on `172` configured files.
 - `3.4 Reduce Import Complexity` moved again: `backend/app/worker.py` no longer owns the queue lifecycle plumbing, and now delegates worker client/lock/heartbeat/queue-maintenance/task-finalize behavior through `backend/app/services/pipeline/worker_queue_runtime.py`.
 - The focused worker runtime/retry/orchestration regressions still pass after that extraction, and the strict backend mypy baseline remains green on `172` configured files.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/worker.py` no longer owns the dispatch-map table directly, and now delegates task-type to handler selection through `backend/app/services/pipeline/worker_dispatch.py`.
+- The focused worker runtime/retry/orchestration regressions still pass after that extraction, and the strict backend mypy baseline remains green on `174` configured files.
 
 ### Weaviate migration hardening
 

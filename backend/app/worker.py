@@ -52,6 +52,9 @@ from app.services.pipeline.worker_content_tasks import (
 from app.services.pipeline.worker_content_tasks import (
     process_vision_ocr_only as _service_process_vision_ocr_only,
 )
+from app.services.pipeline.worker_dispatch import (
+    build_dispatch_handler as _service_build_dispatch_handler,
+)
 from app.services.pipeline.worker_document_tasks import (
     embed_with_pages as _service_embed_with_pages,
 )
@@ -366,47 +369,25 @@ def _build_dispatch_handler(
     task: dict | None,
     run_id: int | None,
 ):
-    handlers = {
-        "sync": lambda: _process_sync_only(settings, db, doc_id),
-        "evidence_index": lambda: _process_evidence_index(
-            settings,
-            db,
-            doc_id,
-            source=str((task or {}).get("source") or "paperless_pdf"),
-            run_id=run_id,
-        ),
-        "embeddings_paperless": lambda: _process_embeddings_paperless(
-            settings, db, doc_id, run_id=run_id
-        ),
-        "embeddings_vision": lambda: _process_embeddings_vision(
-            settings, db, doc_id, run_id=run_id
-        ),
-        "similarity_index": lambda: _process_similarity_index(settings, db, doc_id),
-        "cleanup_texts": lambda: _process_cleanup_texts(
-            settings,
-            db,
-            doc_id,
-            source=str((task or {}).get("source")) if (task or {}).get("source") else None,
-            clear_first=bool((task or {}).get("clear_first")),
-        ),
-        "page_notes_paperless": lambda: _process_page_notes(
-            settings, db, doc_id, "paperless_ocr", run_id=run_id
-        ),
-        "page_notes_vision": lambda: _process_page_notes(
-            settings, db, doc_id, "vision_ocr", run_id=run_id
-        ),
-        "summary_hierarchical": lambda: _process_summary_hierarchical(
-            settings,
-            db,
-            doc_id,
-            str((task or {}).get("source") or "vision_ocr"),
-            run_id=run_id,
-        ),
-        "suggestions_paperless": lambda: _process_suggestions_paperless(settings, db, doc_id),
-        "suggestions_vision": lambda: _process_suggestions_vision(settings, db, doc_id),
-        "suggest_field": lambda: _process_suggest_field(settings, db, task or {}),
-    }
-    return handlers.get(task_type)
+    return _service_build_dispatch_handler(
+        settings=settings,
+        db=db,
+        task_type=task_type,
+        doc_id=doc_id,
+        task=task,
+        run_id=run_id,
+        process_sync_only_fn=_process_sync_only,
+        process_evidence_index_fn=_process_evidence_index,
+        process_embeddings_paperless_fn=_process_embeddings_paperless,
+        process_embeddings_vision_fn=_process_embeddings_vision,
+        process_similarity_index_fn=_process_similarity_index,
+        process_cleanup_texts_fn=_process_cleanup_texts,
+        process_page_notes_fn=_process_page_notes,
+        process_summary_hierarchical_fn=_process_summary_hierarchical,
+        process_suggestions_paperless_fn=_process_suggestions_paperless,
+        process_suggestions_vision_fn=_process_suggestions_vision,
+        process_suggest_field_fn=_process_suggest_field,
+    )
 
 
 def main() -> None:
