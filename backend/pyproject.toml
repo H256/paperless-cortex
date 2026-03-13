@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.42"
+version = "0.5.43"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -97,6 +97,8 @@ files = [
     "app/services/ai/ocr_scoring.py",
     "app/services/ai/chat.py",
     "app/services/ai/hierarchical_helpers.py",
+    "app/services/ai/suggestion_apply.py",
+    "app/services/ai/suggestion_operations.py",
     "app/services/ai/suggestions.py",
     "app/services/ai/vision_ocr.py",
     "app/services/ai/hierarchical_generation.py",

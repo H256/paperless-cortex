@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Suggestions route orchestration extraction
+
+- `3.3 Service Layer Complexity` moved again: `backend/app/routes/documents_suggestions.py` no longer owns suggestion refresh orchestration, variant generation orchestration, similar-document enrichment, or apply-to-document mutation handling directly, and now delegates those flows through `backend/app/services/ai/suggestion_operations.py` and `backend/app/services/ai/suggestion_apply.py`.
+- With the suggestions route now reduced to request validation plus HTTP response shaping, the remaining route-layer orchestration hotspots are much smaller and `3.3` is close to its credible finish line for this phase.
+
 ### Local document detail eager-loading
 
 - `3.2 Database Query Optimization` is now effectively complete for this phase: the remaining local document detail hotspot no longer pays relationship lazy-load queries for tags, notes, correspondent, and document type after the prior aggregate-query reductions.

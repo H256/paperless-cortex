@@ -2,6 +2,12 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the suggestions route orchestration extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_suggestions.py`
+  - `backend/app/services/ai/suggestion_operations.py`
+  - `backend/app/services/ai/suggestion_apply.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `187` source files.
 - Strict mypy remains green after the local document detail eager-loading slice.
 - Verified additional typed changes in:
   - `backend/app/services/documents/documents.py`
