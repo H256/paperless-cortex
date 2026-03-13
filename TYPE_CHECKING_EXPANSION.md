@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the local document detail eager-loading slice.
+- Verified additional typed changes in:
+  - `backend/app/services/documents/documents.py`
+  - `backend/app/services/documents/read_models.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `185` source files.
 - Strict mypy remains green after the runtime metrics slice.
 - Verified additional typed changes in:
   - `backend/app/main.py`

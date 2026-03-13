@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Local document detail eager-loading
+
+- `3.2 Database Query Optimization` is now effectively complete for this phase: the remaining local document detail hotspot no longer pays relationship lazy-load queries for tags, notes, correspondent, and document type after the prior aggregate-query reductions.
+- At this point the major low-risk backend query wins from Claude’s review are in: task-run pagination, document list/detail aggregation, dashboard aggregation, writeback preview scoping, and local detail eager-loading.
+
 ### Tooling enforcement cleanup
 
 - `5.2 Developer Tooling` is now effectively complete for this phase: local hooks and CI are aligned around the same backend/frontend quality gates instead of partially overlapping checks.

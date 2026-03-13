@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.models import Document
+from sqlalchemy.orm import load_only, selectinload
+
+from app.models import Correspondent, Document, DocumentNote, DocumentType, Tag
 from app.services.integrations import paperless
 
 if TYPE_CHECKING:
@@ -58,3 +60,35 @@ def get_document_or_none(db: Session, doc_id: int) -> Document | None:
         ...     print(doc.title)
     """
     return db.get(Document, doc_id)
+
+
+def get_document_detail_or_none(db: Session, doc_id: int) -> Document | None:
+    """Retrieve a document with the local-detail relationships eagerly loaded.
+
+    This is the optimized read path for `/documents/{id}/local`, where the
+    response needs tags, notes, correspondent, and document type in addition to
+    the base document row.
+    """
+    return (
+        db.query(Document)
+        .options(
+            load_only(
+                Document.id,
+                Document.title,
+                Document.content,
+                Document.document_date,
+                Document.created,
+                Document.modified,
+                Document.correspondent_id,
+                Document.document_type_id,
+                Document.original_file_name,
+                Document.page_count,
+            ),
+            selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.notes).load_only(DocumentNote.id, DocumentNote.note),
+            selectinload(Document.correspondent).load_only(Correspondent.id, Correspondent.name),
+            selectinload(Document.document_type).load_only(DocumentType.id, DocumentType.name),
+        )
+        .filter(Document.id == int(doc_id))
+        .one_or_none()
+    )

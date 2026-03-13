@@ -5,6 +5,12 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Local document detail eager-loading
+- `uncommitted` perf(db): added the eager-loaded local-detail read seam [`backend/app/services/documents/documents.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/documents.py) `get_document_detail_or_none(...)` so `/documents/{id}/local` stops lazy-loading tags, notes, correspondent, and document type on top of the existing aggregate status query.
+- `uncommitted` perf(db): switched [`backend/app/services/documents/read_models.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/read_models.py) `build_local_document_payload(...)` to use that eager-loaded detail seam.
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_documents_routes.py` (`39 passed`), `cd backend && uv run ruff check app/services/documents/documents.py app/services/documents/read_models.py tests/test_documents_routes.py`, and `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/documents.py app/services/documents/read_models.py tests/test_documents_routes.py`.
+- `uncommitted` chore(version): bumped the project version from `0.5.41` to `0.5.42` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### Tooling enforcement cleanup
 - `uncommitted` chore(tooling): aligned [`.pre-commit-config.yaml`](E:/workspace/python/paperless-intelligence/.pre-commit-config.yaml) with the actual frontend CI scripts by replacing the old `oxlint`-only hook with `frontend lint` and `frontend type-check`, and fixed the backend mypy hook to run from the backend working directory so it resolves `pyproject.toml` and relative paths correctly.
 - `uncommitted` ci(tooling): added [`.github/workflows/quality-gates.yml`](E:/workspace/python/paperless-intelligence/.github/workflows/quality-gates.yml) to enforce the hook-equivalent backend/frontend gate set in CI (`backend mypy`, `frontend lint`, `frontend type-check`) after installing backend/frontend dependencies.

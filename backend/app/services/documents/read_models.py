@@ -19,7 +19,7 @@ from app.models import (
 )
 from app.services.ai.hierarchical_summary import is_large_document
 from app.services.documents.document_review import derive_review_status, derive_sync_status
-from app.services.documents.documents import get_document_or_none
+from app.services.documents.documents import get_document_detail_or_none
 from app.services.integrations import paperless
 from app.services.runtime.json_utils import parse_json_object
 from app.services.runtime.string_list_json import parse_string_list_json
@@ -392,7 +392,7 @@ def build_local_document_payload(
     db: Session,
 ) -> dict[str, object]:
     """Build the local document detail payload with processing/review signals."""
-    doc = get_document_or_none(db, doc_id)
+    doc = get_document_detail_or_none(db, doc_id)
     if not doc:
         return {"status": "missing"}
 
