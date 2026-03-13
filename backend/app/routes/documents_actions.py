@@ -3,10 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ValidationError
-from sqlalchemy.exc import SQLAlchemyError
+from pydantic import BaseModel
 
 from app.api_models import (
     CleanupTextsResponse,
@@ -34,6 +32,9 @@ from app.models import (
     DocumentSuggestion,
 )
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
+from app.services.documents.document_loader import (
+    get_or_sync_local_document as _get_or_sync_local_document_impl,
+)
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.documents.intelligence_cleanup import (
@@ -133,24 +134,12 @@ def _get_or_sync_local_document(
     settings: Settings,
     doc_id: int,
 ) -> Document:
-    doc = db.get(Document, int(doc_id))
-    if doc:
-        return doc
-    try:
-        raw = paperless.get_document(settings, int(doc_id))
-        data = DocumentIn.model_validate(raw)
-        cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
-        upsert_document(db, settings, data, cache)
-        db.commit()
-        doc = db.get(Document, int(doc_id))
-        if doc:
-            logger.info("Auto-synced missing local document doc_id=%s", doc_id)
-            return doc
-    except (httpx.HTTPError, RuntimeError, ValidationError, SQLAlchemyError, ValueError):
-        logger.warning(
-            "Failed to auto-sync missing local document doc_id=%s", doc_id, exc_info=True
-        )
-    raise DocumentNotFoundError(int(doc_id))
+    return _get_or_sync_local_document_impl(
+        db=db,
+        settings=settings,
+        doc_id=doc_id,
+        logger=logger,
+    )
 
 
 class DocumentTaskRequest(BaseModel):

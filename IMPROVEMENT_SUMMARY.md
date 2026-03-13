@@ -42,6 +42,8 @@
 - The focused worker runtime/retry/orchestration regressions still pass after that extraction, and the strict backend mypy baseline remains green on `172` configured files.
 - `3.4 Reduce Import Complexity` moved again: `backend/app/worker.py` no longer owns the dispatch-map table directly, and now delegates task-type to handler selection through `backend/app/services/pipeline/worker_dispatch.py`.
 - The focused worker runtime/retry/orchestration regressions still pass after that extraction, and the strict backend mypy baseline remains green on `174` configured files.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns the local-document auto-sync/load fallback and now delegates that Paperless fetch/validate/upsert path through `backend/app/services/documents/document_loader.py`.
+- The focused documents-actions/documents regressions still pass after that extraction, and the strict backend mypy baseline remains green on `175` configured files.
 
 ### Weaviate migration hardening
 
