@@ -50,9 +50,13 @@ from app.services.documents.operations import (
     continue_document_pipeline_payload,
     run_cleanup_texts,
 )
+from app.services.documents.process_missing_request import (
+    build_process_missing_disabled_payload,
+    build_process_missing_options,
+)
 from app.services.documents.sync_operations import run_documents_sync, upsert_document
 from app.services.integrations import paperless
-from app.services.pipeline.process_missing import ProcessMissingOptions, process_missing_documents
+from app.services.pipeline.process_missing import process_missing_documents
 from app.services.pipeline.queue import (
     enqueue_task,
     enqueue_task_sequence,
@@ -176,27 +180,26 @@ def process_missing(
     db: Session = Depends(get_db),
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
-        return {"enabled": False, "docs": 0, "enqueued": 0, "tasks": 0, "dry_run": dry_run}
-    if embeddings_mode not in ("auto", "paperless", "vision", "both"):
-        raise HTTPException(status_code=400, detail="Invalid embeddings_mode")
-    if limit is not None and limit < 1:
-        raise HTTPException(status_code=400, detail="limit must be >= 1")
-    options = ProcessMissingOptions(
-        dry_run=dry_run,
-        include_sync=include_sync,
-        include_evidence_index=include_evidence_index,
-        include_vision_ocr=include_vision_ocr,
-        include_embeddings=include_embeddings,
-        include_embeddings_paperless=include_embeddings_paperless,
-        include_embeddings_vision=include_embeddings_vision,
-        include_doc_similarity_index=include_doc_similarity_index,
-        include_page_notes=include_page_notes,
-        include_summary_hierarchical=include_summary_hierarchical,
-        include_suggestions_paperless=include_suggestions_paperless,
-        include_suggestions_vision=include_suggestions_vision,
-        embeddings_mode=embeddings_mode,
-        limit=limit,
-    )
+        return build_process_missing_disabled_payload(dry_run=dry_run)
+    try:
+        options = build_process_missing_options(
+            dry_run=dry_run,
+            include_sync=include_sync,
+            include_evidence_index=include_evidence_index,
+            include_vision_ocr=include_vision_ocr,
+            include_embeddings=include_embeddings,
+            include_embeddings_paperless=include_embeddings_paperless,
+            include_embeddings_vision=include_embeddings_vision,
+            include_doc_similarity_index=include_doc_similarity_index,
+            include_page_notes=include_page_notes,
+            include_summary_hierarchical=include_summary_hierarchical,
+            include_suggestions_paperless=include_suggestions_paperless,
+            include_suggestions_vision=include_suggestions_vision,
+            embeddings_mode=embeddings_mode,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return process_missing_documents(
         settings=settings,
         db=db,
