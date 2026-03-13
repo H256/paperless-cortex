@@ -34,6 +34,8 @@
 - The focused document-actions/documents/vector-store regressions still pass after that extraction, and the strict backend mypy baseline remains green on `167` configured files with the new service added to the allowlist.
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/writeback_dryrun.py` no longer owns writeback preview page-selection and cached item-loading orchestration, and now delegates that flow through `backend/app/services/writeback/writeback_queries.py`.
 - The focused writeback preview/dry-run/job regressions still pass after that extraction, and the strict backend mypy baseline remains green on `168` configured files with the new service added to the allowlist.
+- `3.4 Reduce Import Complexity` moved again: the remaining writeback command flows in `backend/app/routes/writeback_dryrun.py` now delegate through `backend/app/services/writeback/writeback_commands.py`, `backend/app/services/writeback/writeback_job_ops.py`, and `backend/app/services/writeback/writeback_direct_execute.py`.
+- `backend/app/routes/writeback_dryrun.py` is now effectively a thin route wrapper module, and the focused writeback preview/dry-run/job regressions still pass with the strict backend mypy baseline green on `171` configured files.
 
 ### Weaviate migration hardening
 
