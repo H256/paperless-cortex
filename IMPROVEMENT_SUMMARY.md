@@ -17,6 +17,11 @@
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns single-document enqueue-task validation or payload/response shaping, and now delegates that request logic through `backend/app/services/documents/document_task_request.py`.
 - The focused documents/documents-actions regressions still pass after that extraction, and the strict backend mypy baseline remains green on `178` configured files.
 
+### Cleanup-text route cleanup
+
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns cleanup-text source validation or doc-id normalization, and now delegates that request shaping through `backend/app/services/documents/cleanup_text_request.py`.
+- The focused documents-actions/documents regressions still pass after that extraction, and the strict backend mypy baseline remains green on `179` configured files.
+
 ### Frontend component organization
 
 - Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.

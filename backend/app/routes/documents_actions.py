@@ -30,6 +30,7 @@ from app.models import (
     DocumentPageText,
     DocumentSuggestion,
 )
+from app.services.documents.cleanup_text_request import build_cleanup_text_request_payload
 from app.services.documents.dashboard_cache import invalidate_dashboard_cache
 from app.services.documents.document_loader import (
     get_or_sync_local_document as _get_or_sync_local_document_impl,
@@ -427,16 +428,22 @@ def cleanup_texts(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> ResponseDict:
-    if payload.source and payload.source not in ("paperless_ocr", "vision_ocr", "pdf_text"):
-        raise HTTPException(status_code=400, detail="Invalid source")
-    doc_ids = [int(doc_id) for doc_id in (payload.doc_ids or []) if int(doc_id) > 0]
+    try:
+        request_payload = build_cleanup_text_request_payload(
+            doc_ids=payload.doc_ids,
+            source=payload.source,
+            clear_first=payload.clear_first,
+            enqueue=payload.enqueue,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return run_cleanup_texts(
         db=db,
         settings=settings,
-        doc_ids=doc_ids,
-        source=payload.source,
-        clear_first=payload.clear_first,
-        enqueue=payload.enqueue,
+        doc_ids=request_payload["doc_ids"],
+        source=request_payload["source"],
+        clear_first=request_payload["clear_first"],
+        enqueue=request_payload["enqueue"],
         queue_enabled=require_queue_enabled(settings),
         enqueue_task_sequence=enqueue_task_sequence,
     )
