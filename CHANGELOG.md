@@ -5,6 +5,18 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### OCR scoring client pooling
+- `uncommitted` perf(http): changed [`backend/app/services/ai/ocr_scoring.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/ocr_scoring.py) to reuse pooled `httpx.Client` instances per OCR-scoring endpoint/timeout/TLS tuple instead of creating a new client for every prompt-logprob request.
+- `uncommitted` test(backend): added [`backend/tests/test_ocr_scoring_client_pool.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_ocr_scoring_client_pool.py) to pin client reuse and explicit pool cleanup for the OCR scoring path, and added it to [`backend/pyproject.toml`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml).
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_ocr_scoring_client_pool.py` (`2 passed`), `cd backend && uv run ruff check app/services/ai/ocr_scoring.py tests/test_ocr_scoring_client_pool.py`, and `cd backend && uv run mypy --config-file pyproject.toml app/services/ai/ocr_scoring.py tests/test_ocr_scoring_client_pool.py`.
+- `uncommitted` chore(version): bumped the project version from `0.5.37` to `0.5.38` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
+### Vector-store deletion coverage
+- `uncommitted` test(search): extended [`backend/tests/test_vector_store_service.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_vector_store_service.py) to pin provider routing for chunk-vector deletion and similarity-vector deletion across the vector-store adapter seam.
+- `uncommitted` test(search): extended [`backend/tests/test_weaviate_adapter.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_weaviate_adapter.py) to cover chunk-vs-centroid delete behavior and no-op deletes against missing Weaviate collections.
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_vector_store_service.py tests/test_weaviate_adapter.py` (`12 passed`), `cd backend && uv run ruff check tests/test_vector_store_service.py tests/test_weaviate_adapter.py`, and `cd backend && uv run mypy --config-file pyproject.toml tests/test_vector_store_service.py tests/test_weaviate_adapter.py`.
+- `uncommitted` chore(version): bumped the project version from `0.5.36` to `0.5.37` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### Process-missing route cleanup
 - `uncommitted` refactor(imports): extracted `process-missing` request validation and option-building out of [`backend/app/routes/documents_actions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_actions.py) into [`backend/app/services/documents/process_missing_request.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/process_missing_request.py), so the route no longer owns queue-disabled payload shaping or `ProcessMissingOptions` construction directly.
 - `uncommitted` chore(mypy): added [`backend/app/services/documents/process_missing_request.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict mypy allowlist.

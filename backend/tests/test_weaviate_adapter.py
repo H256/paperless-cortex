@@ -208,3 +208,52 @@ def test_weaviate_adapter_retrieve_points_falls_back_to_centroids(
     assert len(chunk_collection.query.fetch_calls) == 1
     assert len(centroid_collection.query.fetch_calls) == 1
     assert [item["id"] for item in result["result"]] == ["1", "2"]
+
+
+def test_weaviate_adapter_delete_all_chunk_points_uses_chunk_collection(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.delete_all_chunk_points(settings)
+
+    assert len(chunk_collection.data.deleted_filters) == 1
+    assert centroid_collection.data.deleted_filters == []
+
+
+def test_weaviate_adapter_delete_similarity_points_targets_centroid_collection(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2_centroids")
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.delete_similarity_points(settings, doc_id=9)
+
+    assert chunk_collection.data.deleted_filters == []
+    assert len(centroid_collection.data.deleted_filters) == 1
+
+
+def test_weaviate_adapter_delete_operations_ignore_missing_collections(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.delete_all_chunk_points(settings)
+    adapter.delete_similarity_points(settings, doc_id=11)

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import atexit
 import json
 import math
 import re
+import threading
 import time
 from hashlib import sha256
 from json import JSONDecodeError
@@ -23,6 +25,8 @@ _MULTI_SPACE_RE = re.compile(r"[ \t]{3,}")
 _REPEAT_RE = re.compile(r"(.)\1{6,}")
 _LINE_RE = re.compile(r"\r\n|\r|\n")
 _WORD_RE = re.compile(r"\b[^\W\d_]{2,}\b", re.UNICODE)
+_CLIENT_LOCK = threading.Lock()
+_CLIENTS: dict[tuple[str, bool, int], httpx.Client] = {}
 
 
 def _safe_div(a: float, b: float) -> float:
@@ -33,16 +37,39 @@ def _hash_text(text: str) -> str:
     return sha256((text or "").encode("utf-8")).hexdigest()
 
 
+def clear_client_pool() -> None:
+    with _CLIENT_LOCK:
+        clients = list(_CLIENTS.values())
+        _CLIENTS.clear()
+    for pooled_client in clients:
+        pooled_client.close()
+
+
+@atexit.register
+def _close_pooled_clients() -> None:
+    clear_client_pool()
+
+
+def _client_key(settings: Settings, url: str, timeout: int) -> tuple[str, bool, int]:
+    return (str(url).rstrip("/"), bool(settings.httpx_verify_tls), int(timeout))
+
+
+def _shared_client(settings: Settings, url: str, timeout: int) -> httpx.Client:
+    key = _client_key(settings, url, timeout)
+    with _CLIENT_LOCK:
+        pooled_client = _CLIENTS.get(key)
+        if pooled_client is None or pooled_client.is_closed:
+            pooled_client = httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
+            _CLIENTS[key] = pooled_client
+        return pooled_client
+
+
 def _post_json(settings: Settings, url: str, payload: dict[str, Any], timeout: int) -> tuple[int, Any]:
-    client = httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
+    response = _shared_client(settings, url, timeout).post(url, json=payload)
     try:
-        response = client.post(url, json=payload)
-        try:
-            return response.status_code, response.json()
-        except (JSONDecodeError, ValueError):
-            return response.status_code, response.text
-    finally:
-        client.close()
+        return response.status_code, response.json()
+    except (JSONDecodeError, ValueError):
+        return response.status_code, response.text
 
 
 def ocr_noise_metrics(text: str) -> dict[str, float]:

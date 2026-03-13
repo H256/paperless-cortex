@@ -2,6 +2,16 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the OCR scoring client-pool slice.
+- Verified additional typed changes in:
+  - `backend/app/services/ai/ocr_scoring.py`
+  - `backend/tests/test_ocr_scoring_client_pool.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `184` source files.
+- Strict mypy remains green after the vector-store deletion coverage slice.
+- Verified additional typed changes in:
+  - `backend/tests/test_vector_store_service.py`
+  - `backend/tests/test_weaviate_adapter.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `183` source files.
 - Strict mypy remains green after the worker execution coverage slice.
 - Verified additional typed changes in:
   - `backend/tests/test_worker_task_execution.py`

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any
 
 import pytest
@@ -41,3 +42,42 @@ def test_vector_store_rejects_unknown_provider(monkeypatch: Any) -> None:
 
     with pytest.raises(RuntimeError, match="Unsupported vector store provider: unknown-store"):
         vector_store.get_vector_store_adapter(settings)
+
+
+@contextmanager
+def _noop_context() -> Any:
+    yield None
+
+
+def test_vector_store_delegates_chunk_delete_to_weaviate(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate")
+    settings = load_settings()
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        vector_store.weaviate_adapter,
+        "delete_all_chunk_points",
+        lambda _settings: calls.append("weaviate"),
+    )
+
+    vector_store.delete_all_chunk_points(settings)
+
+    assert calls == ["weaviate"]
+
+
+def test_vector_store_delegates_similarity_delete_to_qdrant(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "qdrant")
+    monkeypatch.setenv("QDRANT_COLLECTION", "paperless_chunks")
+    settings = load_settings()
+    calls: list[tuple[int | None, str]] = []
+
+    monkeypatch.setattr(
+        vector_store.qdrant_adapter,
+        "delete_similarity_points",
+        lambda _settings, *, doc_id=None: calls.append((doc_id, "qdrant")),
+    )
+
+    vector_store.delete_similarity_points(settings, doc_id=7)
+
+    assert calls == [(7, "qdrant")]

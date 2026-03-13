@@ -2,6 +2,16 @@
 
 ## Latest block
 
+### OCR scoring client pooling
+
+- `6.3 Connection Pooling` is moving again: the OCR scoring path no longer creates a fresh `httpx.Client` for every prompt-logprob request, and now reuses a pooled client keyed by endpoint, timeout, and TLS settings.
+- The new OCR scoring client-pool regression closes the obvious remaining per-request HTTP client hotspot in that AI helper path, so `6.3` has concrete progress again instead of only the earlier integration-client pooling slices.
+
+### Vector-store deletion coverage
+
+- `2.1 Increase Test Coverage` is now effectively complete for the highest-value backend refactor seams in this phase: the vector-store provider boundary now has direct regression coverage for provider routing and delete behavior instead of relying on indirect route tests.
+- The Weaviate adapter now has direct deletion-path coverage for chunk collections, centroid collections, and missing-collection no-op behavior, which closes the remaining obvious backend gap introduced by the vector-store abstraction and Weaviate support.
+
 ### Process-missing route cleanup
 
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns queue-disabled response shaping or `ProcessMissingOptions` construction for `/documents/process-missing`, and now delegates that request validation/building through `backend/app/services/documents/process_missing_request.py`.
