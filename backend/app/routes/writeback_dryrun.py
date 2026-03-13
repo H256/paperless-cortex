@@ -33,7 +33,6 @@ from app.models import (
     WritebackJob,
 )
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
-from app.services.integrations import paperless
 from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_apply import execute_writeback_call as _execute_call
 from app.services.writeback.writeback_context import (
@@ -82,15 +81,14 @@ from app.services.writeback.writeback_jobs import (
 )
 from app.services.writeback.writeback_plan import extract_ai_summary_note
 from app.services.writeback.writeback_preview import (
-    local_writeback_candidate_doc_ids as _local_writeback_candidate_doc_ids,
-)
-from app.services.writeback.writeback_preview import (
     preview_for_doc_ids as _preview_for_doc_ids,
 )
 from app.services.writeback.writeback_preview_cache import (
-    get_cached_writeback_candidate_doc_ids,
     get_cached_writeback_preview,
     invalidate_writeback_preview_cache,
+)
+from app.services.writeback.writeback_queries import (
+    preview_response_for_selection as _preview_response_for_selection,
 )
 from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item
 
@@ -275,34 +273,13 @@ def dry_run_preview(
     db: Session = Depends(get_db),
 ):
     """Preview pending writeback changes for one document or a paged selection."""
-    if doc_id is not None and doc_id > 0:
-        doc_ids = [int(doc_id)]
-        total_count = 1
-    elif only_changed:
-        candidate_ids = get_cached_writeback_candidate_doc_ids(
-            build_candidates=lambda: _local_writeback_candidate_doc_ids(db)
-        )
-        total_count = len(candidate_ids)
-        start = max(0, (max(1, page) - 1) * max(1, page_size))
-        end = start + max(1, page_size)
-        doc_ids = candidate_ids[start:end]
-    else:
-        payload = paperless.list_documents_cached(settings, page=page, page_size=page_size)
-        results = payload.get("results") or []
-        doc_ids = [int(doc["id"]) for doc in results if isinstance(doc.get("id"), int)]
-        total_count = int(payload.get("count") or 0)
-
-    items = get_cached_writeback_preview(
-        doc_ids=doc_ids,
-        build_preview=lambda: _preview_for_doc_ids(settings, db, doc_ids),
-    )
-    if only_changed:
-        items = [item for item in items if item.changed]
-    return WritebackDryRunPreviewResponse(
-        count=total_count,
+    return _preview_response_for_selection(
+        settings,
+        db,
         page=page,
         page_size=page_size,
-        items=items,
+        only_changed=only_changed,
+        doc_id=doc_id,
     )
 
 
