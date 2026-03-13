@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the enqueue-task extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/document_task_request.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `178` source files.
 - Strict mypy remains green after the reset-and-reprocess extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/documents_actions.py`

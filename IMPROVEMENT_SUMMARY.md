@@ -12,6 +12,11 @@
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns the reset-and-reprocess clear/sync/requeue flow directly, and now delegates that orchestration through `backend/app/services/documents/reprocess_request.py`.
 - The focused documents-actions/documents regressions still pass after that extraction, and the strict backend mypy baseline remains green on `177` configured files.
 
+### Enqueue-task route cleanup
+
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/documents_actions.py` no longer owns single-document enqueue-task validation or payload/response shaping, and now delegates that request logic through `backend/app/services/documents/document_task_request.py`.
+- The focused documents/documents-actions regressions still pass after that extraction, and the strict backend mypy baseline remains green on `178` configured files.
+
 ### Frontend component organization
 
 - Extracted the document-detail header and action bar into `frontend/src/components/DocumentDetailHeader.vue`.

@@ -35,6 +35,11 @@ from app.services.documents.document_loader import (
     get_or_sync_local_document as _get_or_sync_local_document_impl,
 )
 from app.services.documents.document_stats_cache import invalidate_document_stats_cache
+from app.services.documents.document_task_request import (
+    build_enqueue_document_task_disabled_payload,
+    build_enqueue_document_task_payload,
+    build_enqueue_document_task_response,
+)
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.documents.intelligence_cleanup import (
     clear_all_intelligence as _clear_all_intelligence,
@@ -443,19 +448,25 @@ def enqueue_document_task(
     payload: DocumentTaskRequest,
     settings: Settings = Depends(get_settings),
 ) -> ResponseDict:
-    if payload.task not in ALLOWED_DOC_TASKS:
-        raise HTTPException(status_code=400, detail="Invalid task")
+    try:
+        task = build_enqueue_document_task_payload(
+            doc_id=int(doc_id),
+            task=payload.task,
+            source=payload.source,
+            force=payload.force,
+            clear_first=payload.clear_first,
+            allowed_tasks=ALLOWED_DOC_TASKS,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not require_queue_enabled(settings):
-        return {"enabled": False, "enqueued": 0, "task": payload.task, "doc_id": doc_id}
-    task: dict[str, object] = {"doc_id": int(doc_id), "task": payload.task}
-    if payload.source:
-        task["source"] = payload.source
-    if payload.force:
-        task["force"] = True
-    if payload.clear_first:
-        task["clear_first"] = True
+        return build_enqueue_document_task_disabled_payload(doc_id=int(doc_id), task=payload.task)
     enqueued = enqueue_task(settings, task)
-    return {"enabled": True, "enqueued": enqueued, "task": payload.task, "doc_id": doc_id}
+    return build_enqueue_document_task_response(
+        doc_id=int(doc_id),
+        task=payload.task,
+        enqueued=enqueued,
+    )
 
 
 @router.post(
