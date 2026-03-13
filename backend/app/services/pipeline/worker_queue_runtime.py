@@ -44,7 +44,7 @@ def acquire_worker_runtime(
     worker_token: str,
     heartbeat_interval_seconds: int,
     logger: logging.Logger,
-) -> tuple[Any, object, threading.Event, threading.Event]:
+) -> tuple[Any, Any, threading.Event, threading.Event]:
     client = require_worker_client(settings)
     while not acquire_worker_lock(settings, worker_token):
         log_event(
@@ -125,16 +125,17 @@ def finalize_worker_task(
     if pending_retry_payload is not None:
         enqueue_task_delayed(settings, pending_retry_payload, pending_retry_delay_seconds or 5)
     elif pending_dead_letter is not None:
+        dead_letter_task = pending_dead_letter["task"]
         add_dead_letter(
             settings,
-            task=pending_dead_letter["task"],
+            task=dead_letter_task if isinstance(dead_letter_task, dict) else {"doc_id": doc_id},
             error_type=str(pending_dead_letter["error_type"]),
             error_message=str(pending_dead_letter["error_message"]),
             attempt=int(str(pending_dead_letter["attempt"])),
         )
 
 
-def shutdown_worker_runtime(settings: Settings, *, worker_token: str, worker_token_ctx: object) -> None:
+def shutdown_worker_runtime(settings: Settings, *, worker_token: str, worker_token_ctx: Any) -> None:
     clear_running_task(settings)
     release_worker_lock(settings, worker_token)
     reset_log_context(worker_token_ctx)
