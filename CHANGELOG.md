@@ -5,6 +5,12 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Page-text payload extraction
+- `uncommitted` refactor(services): extracted the page-text payload builder out of [`backend/app/routes/documents.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents.py) into [`backend/app/services/documents/page_texts_payload.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/page_texts_payload.py), so the route no longer owns baseline/vision page aggregation and coverage calculation directly.
+- `uncommitted` chore(mypy): added [`backend/app/services/documents/page_texts_payload.py`](E:/workspace/python/paperless-intelligence/backend/pyproject.toml) to the strict backend mypy allowlist.
+- `uncommitted` test(backend): verified `cd backend && uv run ruff check app/routes/documents.py app/services/documents/page_texts_payload.py tests/test_documents_routes.py`, `cd backend && uv run mypy --config-file pyproject.toml` (`188` files), and `cd backend && uv run pytest tests/test_documents_routes.py tests/test_documents_suggestions_routes.py` (`41 passed`).
+- `uncommitted` chore(version): bumped the project version from `0.5.43` to `0.5.44` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### Suggestions route orchestration extraction
 - `uncommitted` refactor(services): extracted the suggestions refresh/variant/similar-doc orchestration out of [`backend/app/routes/documents_suggestions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_suggestions.py) into [`backend/app/services/ai/suggestion_operations.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/suggestion_operations.py), so the route no longer owns baseline-vs-vision suggestion generation, queued refresh handling, field-variant generation, or similar-doc enrichment directly.
 - `uncommitted` refactor(services): extracted document suggestion application logic out of [`backend/app/routes/documents_suggestions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_suggestions.py) into [`backend/app/services/ai/suggestion_apply.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/suggestion_apply.py), so the route no longer owns correspondent/tag/note mutation orchestration directly.

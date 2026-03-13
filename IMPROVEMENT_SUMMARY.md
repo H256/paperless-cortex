@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Page-text payload extraction
+
+- `3.3 Service Layer Complexity` moved again: `backend/app/routes/documents.py` no longer owns the page-text payload aggregation and coverage calculation flow, and now delegates that read-model assembly through `backend/app/services/documents/page_texts_payload.py`.
+- With both the suggestions route and the document page-text payload extracted, the remaining route/worker modules are now mostly thin wrappers or stable orchestration seams, so `3.3` is effectively complete for this phase.
+
 ### Suggestions route orchestration extraction
 
 - `3.3 Service Layer Complexity` moved again: `backend/app/routes/documents_suggestions.py` no longer owns suggestion refresh orchestration, variant generation orchestration, similar-document enrichment, or apply-to-document mutation handling directly, and now delegates those flows through `backend/app/services/ai/suggestion_operations.py` and `backend/app/services/ai/suggestion_apply.py`.

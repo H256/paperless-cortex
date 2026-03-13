@@ -19,10 +19,7 @@ from app.api_models import (
 )
 from app.db import get_db
 from app.deps import get_settings
-from app.models import (
-    DocumentPageText,
-    SuggestionAudit,
-)
+from app.models import SuggestionAudit
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.documents.dashboard import build_dashboard_payload
 from app.services.documents.dashboard_cache import (
@@ -44,6 +41,7 @@ from app.services.documents.local_document_cache import (
     invalidate_local_document_cache,
 )
 from app.services.documents.page_texts_cache import get_cached_page_texts_payload
+from app.services.documents.page_texts_payload import build_page_texts_payload
 from app.services.documents.read_models import (
     REVIEW_ACTION_MANUAL,
     apply_derived_fields_and_review_status,
@@ -51,7 +49,7 @@ from app.services.documents.read_models import (
     list_documents_from_paperless,
     normalize_review_status,
 )
-from app.services.documents.text_pages import get_baseline_page_texts, score_text_quality
+from app.services.documents.text_pages import score_text_quality
 from app.services.integrations import paperless
 from app.services.pipeline.queue import enqueue_docs_front
 from app.services.pipeline.queue_access import is_queue_enabled
@@ -92,105 +90,6 @@ def _documents_list_cache_key(
         include_summary_preview,
         review_status,
     )
-
-
-def _build_page_texts_payload(
-    *,
-    doc_id: int,
-    settings: Settings,
-    db: Session,
-    logger: logging.Logger,
-) -> dict[str, object]:
-    raw = paperless.get_document_cached(settings, doc_id)
-    content = raw.get("content")
-    baseline_pages = get_baseline_page_texts(
-        settings,
-        content,
-        fetch_pdf_bytes=lambda: fetch_pdf_bytes(settings, doc_id),
-    )
-    vision_pages = (
-        db.query(DocumentPageText)
-        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-        .order_by(DocumentPageText.page.asc())
-        .all()
-    )
-    pages: list[dict[str, object]] = []
-    for page in baseline_pages:
-        quality = score_text_quality(page.text, settings)
-        pages.append(
-            {
-                "page": page.page,
-                "source": page.source,
-                "text": page.text,
-                "quality": {
-                    "score": quality.score,
-                    "reasons": quality.reasons,
-                    "metrics": quality.metrics,
-                },
-            }
-        )
-    for page in vision_pages:
-        vision_text = (
-            page.clean_text
-            if isinstance(page.clean_text, str) and page.clean_text.strip()
-            else page.text
-        )
-        pages.append(
-            {
-                "page": page.page,
-                "source": page.source,
-                "text": vision_text,
-                "quality": {
-                    "score": page.quality_score,
-                    "reasons": [],
-                    "metrics": {},
-                },
-            }
-        )
-    pages.sort(
-        key=lambda current_page: (
-            current_page.get("page") or 0,
-            str(current_page.get("source") or ""),
-        )
-    )
-    expected_pages_raw = raw.get("page_count")
-    expected_pages = (
-        int(expected_pages_raw)
-        if isinstance(expected_pages_raw, int) and expected_pages_raw > 0
-        else None
-    )
-    vision_page_numbers = {
-        int(page.page)
-        for page in vision_pages
-        if getattr(page, "page", None) is not None and int(page.page) > 0
-    }
-    if expected_pages is not None:
-        bounded_done = {page for page in vision_page_numbers if 1 <= page <= expected_pages}
-        done_pages = len(bounded_done)
-        missing_pages = max(0, expected_pages - done_pages)
-        is_complete = done_pages >= expected_pages
-        coverage_percent = (
-            round((done_pages / expected_pages) * 100.0, 2) if expected_pages > 0 else None
-        )
-    else:
-        done_pages = len(vision_page_numbers)
-        missing_pages = None
-        is_complete = False
-        coverage_percent = None
-    max_page = max(vision_page_numbers) if vision_page_numbers else None
-    logger.info("Page texts doc=%s pages=%s", doc_id, len(pages))
-    return {
-        "doc_id": doc_id,
-        "pages": pages,
-        "vision_progress": {
-            "expected_pages": expected_pages,
-            "done_pages": done_pages,
-            "missing_pages": missing_pages,
-            "max_page": max_page,
-            "is_complete": is_complete,
-            "coverage_percent": coverage_percent,
-        },
-    }
 
 
 @router.get("/", response_model=DocumentsPageResponse)
@@ -443,7 +342,7 @@ def get_document_page_texts(
         enqueue_docs_front(settings, [doc_id])
     return get_cached_page_texts_payload(
         doc_id=doc_id,
-        build_payload=lambda: _build_page_texts_payload(
+        build_payload=lambda: build_page_texts_payload(
             doc_id=doc_id,
             settings=settings,
             db=db,

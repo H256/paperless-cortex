@@ -489,7 +489,7 @@ def test_mark_reviewed_updates_local_review_status(api_client: Any, monkeypatch:
 
 def test_delete_vision_ocr_invalidates_page_text_cache(api_client: Any, monkeypatch: Any) -> None:
     from app.models import DocumentPageText
-    from app.routes import documents as documents_routes
+    from app.services.documents import page_texts_payload
     from app.services.integrations import paperless
 
     _insert_local_document(doc_id=47, title="Doc 47", created="2026-02-10T10:00:00+00:00")
@@ -509,7 +509,11 @@ def test_delete_vision_ocr_invalidates_page_text_cache(api_client: Any, monkeypa
         "get_document_cached",
         lambda *_args, **_kwargs: {"id": 47, "content": "", "page_count": 1},
     )
-    monkeypatch.setattr(documents_routes, "get_baseline_page_texts", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        page_texts_payload,
+        "get_baseline_page_texts",
+        lambda *_args, **_kwargs: [],
+    )
 
     before = api_client.get("/documents/47/page-texts")
     assert before.status_code == 200

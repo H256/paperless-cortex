@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the page-text payload extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents.py`
+  - `backend/app/services/documents/page_texts_payload.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `188` source files.
 - Strict mypy remains green after the suggestions route orchestration extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/documents_suggestions.py`

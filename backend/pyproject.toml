@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.43"
+version = "0.5.44"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -131,6 +131,7 @@ files = [
     # Additional well-typed services
     "app/services/documents/page_texts_merge.py",
     "app/services/documents/page_text_store.py",
+    "app/services/documents/page_texts_payload.py",
     "app/services/ai/suggestion_store.py",
     "app/services/ai/hierarchical_storage.py",
     "app/services/integrations/meta_sync.py",
