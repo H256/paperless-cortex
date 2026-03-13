@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import OperationalError, ProgrammingError
-from sqlalchemy.orm import Session, selectinload
 
 from app.api_models import (
     WritebackDirectExecuteRequest,
@@ -30,17 +29,16 @@ from app.api_models import (
 from app.db import get_db
 from app.deps import get_settings
 from app.models import (
-    Document,
-    DocumentPendingCorrespondent,
-    DocumentPendingTag,
     SuggestionAudit,
     WritebackJob,
 )
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.integrations import paperless
-from app.services.runtime.string_list_json import parse_string_list_json
 from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_apply import execute_writeback_call as _execute_call
+from app.services.writeback.writeback_context import (
+    load_direct_writeback_context as _load_direct_writeback_context,
+)
 from app.services.writeback.writeback_direct import (
     build_writeback_conflicts as _build_writeback_conflicts,
 )
@@ -84,13 +82,7 @@ from app.services.writeback.writeback_jobs import (
 )
 from app.services.writeback.writeback_plan import extract_ai_summary_note
 from app.services.writeback.writeback_preview import (
-    build_writeback_item as _build_item,
-)
-from app.services.writeback.writeback_preview import (
     local_writeback_candidate_doc_ids as _local_writeback_candidate_doc_ids,
-)
-from app.services.writeback.writeback_preview import (
-    metadata_maps as _metadata_maps,
 )
 from app.services.writeback.writeback_preview import (
     preview_for_doc_ids as _preview_for_doc_ids,
@@ -103,6 +95,8 @@ from app.services.writeback.writeback_preview_cache import (
 from app.services.writeback.writeback_selection import build_calls_for_item as _build_calls_for_item
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from app.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -125,42 +119,10 @@ def execute_writeback_direct_for_document(
             status_code=400,
             detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
         )
-    local_doc = (
-        db.query(Document)
-        .options(selectinload(Document.tags), selectinload(Document.notes))
-        .filter(Document.id == doc_id)
-        .first()
-    )
-    if not local_doc:
+    context = _load_direct_writeback_context(settings, db, doc_id)
+    if context is None:
         raise HTTPException(status_code=404, detail="Local document not found")
-    correspondents_by_id, tags_by_id = _metadata_maps(db)
-    pending_row = (
-        db.query(DocumentPendingTag)
-        .filter(DocumentPendingTag.doc_id == int(doc_id))
-        .one_or_none()
-    )
-    pending_tag_names: list[str] = []
-    if pending_row and pending_row.names_json:
-        pending_tag_names = parse_string_list_json(pending_row.names_json)
-    pending_correspondent_row = (
-        db.query(DocumentPendingCorrespondent)
-        .filter(DocumentPendingCorrespondent.doc_id == int(doc_id))
-        .one_or_none()
-    )
-    pending_correspondent_name = (
-        str(pending_correspondent_row.name or "").strip()
-        if pending_correspondent_row
-        else ""
-    )
-    remote_doc = paperless.get_document_cached(settings, doc_id)
-    item = _build_item(
-        local_doc=local_doc,
-        remote_doc=remote_doc,
-        correspondents_by_id=correspondents_by_id,
-        tags_by_id=tags_by_id,
-        pending_tag_names=pending_tag_names,
-        pending_correspondent_name=pending_correspondent_name,
-    )
+    local_doc, remote_doc, item = context
     if not item.changed:
         reviewed_at = _reviewed_timestamp_for_doc(settings, db, int(doc_id))
         db.add(

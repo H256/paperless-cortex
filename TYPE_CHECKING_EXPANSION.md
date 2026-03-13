@@ -2,6 +2,11 @@
 
 ## Latest verified follow-up
 
+- Strict mypy remains green after the direct-writeback context extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/writeback_dryrun.py`
+  - `backend/app/services/writeback/writeback_context.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `166` source files.
 - Strict mypy remains green after the writeback mutation-side-effect extraction.
 - Verified additional typed changes in:
   - `backend/app/routes/writeback_dryrun.py`

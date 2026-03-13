@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.19"
+version = "0.5.20"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -42,6 +42,7 @@ files = [
     "app/services/writeback/writeback_apply.py",
     "app/services/writeback/writeback_execution.py",
     "app/services/writeback/writeback_selection.py",
+    "app/services/writeback/writeback_context.py",
     "app/services/writeback/writeback_direct.py",
     "app/services/writeback/writeback_effects.py",
     "app/services/writeback/writeback_preview.py",

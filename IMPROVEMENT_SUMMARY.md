@@ -28,6 +28,8 @@
 - The focused queue route/resilience regressions still pass after the cleanup, and the strict backend mypy baseline remains green on `164` configured files.
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/writeback_dryrun.py` no longer owns its writeback mutation side effects directly, and now delegates pending-row cleanup plus reviewed-timestamp refresh through `backend/app/services/writeback/writeback_effects.py`.
 - The focused writeback preview/dry-run/job regressions still pass after that extraction, and the strict backend mypy baseline remains green on `165` configured files with the new service added to the allowlist.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/writeback_dryrun.py` no longer owns direct-writeback document context assembly, and now delegates pending-row lookup, metadata hydration, and remote document fetches through `backend/app/services/writeback/writeback_context.py`.
+- The focused writeback preview/dry-run/job regressions still pass after that extraction, and the strict backend mypy baseline remains green on `166` configured files with the new service added to the allowlist.
 
 ### Weaviate migration hardening
 
