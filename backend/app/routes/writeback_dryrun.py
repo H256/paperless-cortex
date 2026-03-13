@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, selectinload
 
@@ -28,7 +27,6 @@ from app.api_models import (
     WritebackJobDetail,
     WritebackJobExecuteRequest,
     WritebackJobListResponse,
-    WritebackJobSummary,
 )
 from app.db import get_db
 from app.deps import get_settings
@@ -41,7 +39,6 @@ from app.models import (
 )
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.integrations import paperless
-from app.services.runtime.json_utils import parse_json_list
 from app.services.runtime.string_list_json import parse_string_list_json
 from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_apply import execute_writeback_call as _execute_call
@@ -61,6 +58,24 @@ from app.services.writeback.writeback_execution import (
     collect_changed_calls,
     execute_calls_with_audit,
     run_writeback_job_execution,
+)
+from app.services.writeback.writeback_jobs import (
+    deserialize_calls as _deserialize_calls,
+)
+from app.services.writeback.writeback_jobs import (
+    deserialize_doc_ids as _deserialize_doc_ids,
+)
+from app.services.writeback.writeback_jobs import (
+    job_detail as _job_detail,
+)
+from app.services.writeback.writeback_jobs import (
+    job_summary as _job_summary,
+)
+from app.services.writeback.writeback_jobs import (
+    missing_writeback_jobs_table as _missing_writeback_jobs_table,
+)
+from app.services.writeback.writeback_jobs import (
+    raise_missing_writeback_jobs_table as _raise_missing_table_message,
 )
 from app.services.writeback.writeback_plan import extract_ai_summary_note
 from app.services.writeback.writeback_preview import (
@@ -87,24 +102,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/writeback", tags=["writeback"])
-
-
-def _missing_writeback_jobs_table(exc: Exception) -> bool:
-    text = str(exc).lower()
-    return "writeback_jobs" in text and (
-        "no such table" in text
-        or "does not exist" in text
-        or "undefined table" in text
-    )
-
-
-def _raise_missing_table_message() -> None:
-    raise HTTPException(
-        status_code=503,
-        detail="Writeback jobs table is missing. Run database migrations (alembic upgrade head).",
-    )
-
-
 def _cleanup_pending_rows_after_patch(
     db: Session, doc_id: int, patch_payload: dict[str, Any]
 ) -> None:
@@ -127,53 +124,6 @@ def _cleanup_pending_rows_after_patch(
     if "tags" in patch_payload or "correspondent" in patch_payload:
         invalidate_writeback_preview_cache()
         invalidate_documents_list_cache()
-
-
-def _job_summary(job: WritebackJob) -> WritebackJobSummary:
-    return WritebackJobSummary(
-        id=job.id,
-        status=job.status,
-        dry_run=bool(job.dry_run),
-        docs_selected=int(job.docs_selected or 0),
-        docs_changed=int(job.docs_changed or 0),
-        calls_count=int(job.calls_count or 0),
-        created_at=job.created_at,
-        started_at=job.started_at,
-        finished_at=job.finished_at,
-        error=job.error,
-    )
-
-
-def _deserialize_doc_ids(job: WritebackJob) -> list[int]:
-    doc_ids: list[int] = []
-    for item in parse_json_list(job.doc_ids_json):
-        try:
-            doc_ids.append(int(item))
-        except (TypeError, ValueError):
-            continue
-    return doc_ids
-
-
-def _deserialize_calls(job: WritebackJob) -> list[WritebackDryRunCall]:
-    calls: list[WritebackDryRunCall] = []
-    for item in parse_json_list(job.calls_json):
-        if not isinstance(item, dict):
-            continue
-        try:
-            calls.append(WritebackDryRunCall(**item))
-        except ValidationError:
-            continue
-    return calls
-
-
-def _job_detail(job: WritebackJob) -> WritebackJobDetail:
-    return WritebackJobDetail(
-        **_job_summary(job).model_dump(),
-        doc_ids=_deserialize_doc_ids(job),
-        calls=_deserialize_calls(job),
-    )
-
-
 def _reviewed_timestamp_for_doc(settings: Settings, db: Session, doc_id: int) -> str:
     try:
         remote_doc = paperless.get_document(settings, int(doc_id))

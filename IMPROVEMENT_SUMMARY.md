@@ -22,6 +22,8 @@
 - The strict backend mypy baseline remains green after the cleanup on `164` configured files, and the affected document suggestion/document route regressions still pass.
 - `3.4 Reduce Import Complexity` moved again: the queue-enabled guard now lives in `backend/app/services/pipeline/queue_access.py`, so `documents.py`, `documents_actions.py`, and `documents_suggestions.py` no longer depend on the deleted route-local helper `backend/app/routes/queue_guard.py`.
 - The affected queue-enabled document route regressions still pass after the cleanup, and the strict backend mypy baseline remains green on `164` configured files.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/writeback_dryrun.py` no longer owns its writeback job serialization and missing-table helper cluster directly, and now delegates that logic through `backend/app/services/writeback/writeback_jobs.py`.
+- The focused writeback dry-run/job regressions still pass after the extraction, and the route contract remains unchanged.
 
 ### Weaviate migration hardening
 
