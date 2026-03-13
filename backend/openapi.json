@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.5.17"
+    "version": "0.5.18"
   },
   "paths": {
     "/documents/": {

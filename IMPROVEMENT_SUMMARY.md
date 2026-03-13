@@ -24,6 +24,8 @@
 - The affected queue-enabled document route regressions still pass after the cleanup, and the strict backend mypy baseline remains green on `164` configured files.
 - `3.4 Reduce Import Complexity` moved again: `backend/app/routes/writeback_dryrun.py` no longer owns its writeback job serialization and missing-table helper cluster directly, and now delegates that logic through `backend/app/services/writeback/writeback_jobs.py`.
 - The focused writeback dry-run/job regressions still pass after the extraction, and the route contract remains unchanged.
+- `3.4 Reduce Import Complexity` moved again: `backend/app/routes/queue.py` no longer depends on the deleted route-local helper `backend/app/routes/queue_helpers.py`, and now gets the queue-disabled response shape from `backend/app/services/pipeline/queue_responses.py`.
+- The focused queue route/resilience regressions still pass after the cleanup, and the strict backend mypy baseline remains green on `164` configured files.
 
 ### Weaviate migration hardening
 

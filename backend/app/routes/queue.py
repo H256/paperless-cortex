@@ -28,7 +28,6 @@ from app.api_models import (
 )
 from app.db import get_db
 from app.deps import get_settings
-from app.routes.queue_helpers import queue_disabled_response
 from app.services.pipeline.error_types import get_error_type_details, list_error_type_details
 from app.services.pipeline.queue import (
     cancel_queue,
@@ -51,6 +50,7 @@ from app.services.pipeline.queue import (
     resume_queue,
     worker_lock_status,
 )
+from app.services.pipeline.queue_responses import queue_disabled_response
 from app.services.pipeline.task_runs import list_task_runs
 
 if TYPE_CHECKING:

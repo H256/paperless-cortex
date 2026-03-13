@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.17"
+version = "0.5.18"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -133,7 +133,7 @@ files = [
     "app/routes/documents_similarity.py",
     "app/routes/meta.py",
     "app/routes/queue.py",
-    "app/routes/queue_helpers.py",
+    "app/services/pipeline/queue_responses.py",
     "app/services/pipeline/queue_access.py",
     "app/routes/status.py",
     "app/routes/sync.py",
