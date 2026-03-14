@@ -21,6 +21,10 @@ if TYPE_CHECKING:
 
 def build_dashboard_payload(db: Session) -> dict[str, object]:
     """Build the document operations dashboard payload from local aggregates."""
+    active_document = or_(
+        Document.deleted_at.is_(None),
+        ~Document.deleted_at.like("DELETED in Paperless%"),
+    )
     is_processed = and_(
         exists().where(DocumentEmbedding.doc_id == Document.id),
         exists().where(and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")),
@@ -50,7 +54,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
         func.sum(case((and_(Document.page_count >= 21, Document.page_count <= 50), 1), else_=0)).label("p21_50"),
         func.sum(case((and_(Document.page_count >= 51, Document.page_count <= 99), 1), else_=0)).label("p51_99"),
         func.sum(case((Document.page_count >= 100, 1), else_=0)).label("p100p"),
-    ).one()
+    ).filter(active_document).one()
     total_docs = int(aggregate_row.total or 0)
     fully_processed = int(aggregate_row.fully_processed or 0)
     stats = {
@@ -71,6 +75,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
             func.sum(case((~is_processed, 1), else_=0)).label("unprocessed_count"),
         )
         .join(Document, Document.correspondent_id == Correspondent.id)
+        .filter(active_document)
         .group_by(Correspondent.id)
         .order_by(func.count(Document.id).desc(), Correspondent.name.asc())
         .all()
@@ -86,11 +91,19 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     tag_rows = (
         db.query(Tag.id, Tag.name, func.count(document_tags.c.document_id))
         .join(document_tags, Tag.id == document_tags.c.tag_id)
+        .join(Document, Document.id == document_tags.c.document_id)
+        .filter(active_document)
         .group_by(Tag.id)
         .order_by(func.count(document_tags.c.document_id).desc(), Tag.name.asc())
         .all()
     )
-    tagged_docs_count = int(db.query(func.count(func.distinct(document_tags.c.document_id))).scalar() or 0)
+    tagged_docs_count = int(
+        db.query(func.count(func.distinct(document_tags.c.document_id)))
+        .join(Document, Document.id == document_tags.c.document_id)
+        .filter(active_document)
+        .scalar()
+        or 0
+    )
     untagged_count = max(0, total_docs - tagged_docs_count)
     tags = [{"id": row[0], "name": row[1] or "Untitled", "count": row[2]} for row in tag_rows]
     if untagged_count:
@@ -101,6 +114,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
     type_rows = (
         db.query(DocumentType.id, DocumentType.name, func.count(Document.id))
         .join(Document, Document.document_type_id == DocumentType.id)
+        .filter(active_document)
         .group_by(DocumentType.id)
         .order_by(func.count(Document.id).desc(), DocumentType.name.asc())
         .all()
@@ -124,6 +138,7 @@ def build_dashboard_payload(db: Session) -> dict[str, object]:
             func.sum(case((is_processed, 1), else_=0)).label("processed"),
             func.sum(case((is_processed, 0), else_=1)).label("unprocessed"),
         )
+        .filter(active_document)
         .group_by("month")
         .order_by("month")
         .all()

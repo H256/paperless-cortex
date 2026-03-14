@@ -257,6 +257,61 @@ def test_document_stats_cache_invalidates_after_suggestion_delete(api_client: An
     assert second.json()["suggestions"] == 0
 
 
+def test_dashboard_excludes_deleted_paperless_copies_from_operational_counts(api_client: Any) -> None:
+    from app.services.documents import dashboard_cache, document_stats_cache
+
+    dashboard_cache.invalidate_dashboard_cache()
+    document_stats_cache.invalidate_document_stats_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Correspondent(id=7301, name="BS|ENERGY"))
+        db.add_all(
+            [
+                Document(
+                    id=7302,
+                    title="Active pending",
+                    created="2026-02-01T00:00:00+00:00",
+                    correspondent_id=7301,
+                ),
+                Document(
+                    id=7303,
+                    title="Deleted copy",
+                    created="2026-02-02T00:00:00+00:00",
+                    correspondent_id=7301,
+                    deleted_at="DELETED in Paperless (copy kept) @ 2026-02-03T20:14:49.154744+00:00",
+                ),
+            ]
+        )
+        db.add_all(
+            [
+                DocumentEmbedding(doc_id=7303, embedding_source="vision", chunk_count=4),
+                DocumentSuggestion(
+                    doc_id=7303,
+                    source="paperless_ocr",
+                    payload="{}",
+                    created_at="2026-02-02T00:00:00+00:00",
+                    processed_at="2026-02-02T00:00:00+00:00",
+                ),
+            ]
+        )
+        db.commit()
+
+    dashboard = api_client.get("/documents/dashboard")
+    assert dashboard.status_code == 200
+    dashboard_payload = dashboard.json()
+    assert dashboard_payload["stats"]["total"] == 1
+    assert dashboard_payload["stats"]["unprocessed"] == 1
+    unprocessed = {row["name"]: row["count"] for row in dashboard_payload["unprocessed_by_correspondent"]}
+    assert unprocessed == {"BS|ENERGY": 1}
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    stats_payload = stats.json()
+    assert stats_payload["total"] == 1
+    assert stats_payload["unprocessed"] == 1
+
+
 def test_process_missing_queue_disabled(api_client: Any) -> None:
     response = api_client.post("/documents/process-missing", params={"dry_run": True})
     assert response.status_code == 200

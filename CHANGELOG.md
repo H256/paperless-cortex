@@ -5,6 +5,11 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Deleted Paperless copies excluded from operations counts
+- `uncommitted` fix(operations): aligned [`backend/app/services/documents/dashboard.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/dashboard.py) and [`backend/app/services/documents/document_stats.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/document_stats.py) with the existing continue-processing skip rule, so documents marked as `DELETED in Paperless (copy kept)` are no longer counted in operational totals, unprocessed counts, or unprocessed-by-correspondent dashboard groups.
+- `uncommitted` test(backend): added a direct regression in [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) to pin that deleted Paperless copies are excluded from `/documents/dashboard` and `/documents/stats` while active local documents still count normally.
+- `uncommitted` chore(version): bumped the project version from `0.5.53` to `0.5.54` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### DB init and engine reuse fix
 - `uncommitted` fix(testing): changed [`backend/app/db.py`](E:/workspace/python/paperless-intelligence/backend/app/db.py) so `SessionLocal` binds lazily instead of evaluating `DATABASE_URL` at import time, which fixes CI test collection for modules importing [`backend/app/routes/status.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/status.py), [`backend/app/routes/sync.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/sync.py), and [`backend/app/worker.py`](E:/workspace/python/paperless-intelligence/backend/app/worker.py) before fixtures set up the test database.
 - `uncommitted` fix(db): added cached SQLAlchemy engine and session-factory reuse in [`backend/app/db.py`](E:/workspace/python/paperless-intelligence/backend/app/db.py), so lazy session creation no longer opens a fresh PostgreSQL engine/connection pool per request in dev mode.

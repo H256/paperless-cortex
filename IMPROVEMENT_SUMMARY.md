@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Deleted Paperless copies excluded from operations counts
+
+- The operations dashboard and document stats now match the existing continue-processing rule for locally retained Paperless deletions: documents marked as `DELETED in Paperless (copy kept)` are no longer treated as active operational backlog.
+- That removes the misleading state where a deleted document could still show up as the only `unprocessed` item in dashboard counters or correspondent breakdowns even though it was intentionally skipped by continue-processing and normal repair flows.
+
 ### DB init and engine reuse fix
 
 - The backend DB bootstrap is now robust in both CI and dev mode: `backend/app/db.py` no longer requires `DATABASE_URL` just to import route or worker modules during pytest collection, but also no longer creates a fresh SQLAlchemy engine for every session after the lazy-init change.
