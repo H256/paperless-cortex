@@ -91,19 +91,13 @@ def _to_data_object(point: dict[str, Any]) -> DataObject[dict[str, Any], None]:
 def _combine_or(filters: list[Any]) -> Any | None:
     if not filters:
         return None
-    current = filters[0]
-    for item in filters[1:]:
-        current = current | item
-    return current
+    return Filter.any_of(filters)
 
 
 def _combine_and(filters: list[Any]) -> Any | None:
     if not filters:
         return None
-    current = filters[0]
-    for item in filters[1:]:
-        current = current & item
-    return current
+    return Filter.all_of(filters)
 
 
 def _translate_filter(filter_payload: dict[str, Any] | None, *, centroid: bool) -> Any | None:
@@ -160,9 +154,24 @@ def _result_object(raw: Any, *, include_vector: bool = False) -> dict[str, Any]:
     }
     if score is not None:
         result["score"] = score
-    if include_vector and isinstance(vector, list):
-        result["vector"] = vector
+    if include_vector:
+        if isinstance(vector, list):
+            result["vector"] = vector
+        elif isinstance(vector, dict):
+            default_vector = vector.get("default")
+            if isinstance(default_vector, list):
+                result["vector"] = default_vector
     return result
+
+
+def _score_threshold_to_distance(score_threshold: float | None) -> float | None:
+    if score_threshold is None:
+        return None
+    if score_threshold <= 0:
+        return None
+    if score_threshold >= 1:
+        return 0.0
+    return max(0.0, (1.0 / float(score_threshold)) - 1.0)
 
 
 class WeaviateVectorStoreAdapter:
@@ -288,7 +297,7 @@ class WeaviateVectorStoreAdapter:
             response = collection.query.near_vector(
                 near_vector=vector,
                 limit=max(1, limit),
-                distance=score_threshold if score_threshold is not None else None,
+                distance=_score_threshold_to_distance(score_threshold),
                 filters=where,
                 include_vector=not with_payload,
                 return_metadata=MetadataQuery(distance=True),

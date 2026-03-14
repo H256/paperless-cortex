@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +10,7 @@ from app.services.search import weaviate
 from app.services.search.vector_backends.weaviate_adapter import (
     WeaviateVectorStoreAdapter,
     _point_uuid,
+    _score_threshold_to_distance,
 )
 
 
@@ -174,6 +176,27 @@ def test_weaviate_adapter_search_points_routes_doc_filter_to_centroids(
     assert result["result"][0]["score"] == 0.8
 
 
+def test_weaviate_adapter_search_points_converts_score_threshold_to_distance(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.search_points(
+        settings,
+        [0.9, 0.8],
+        filter_payload={"must": [{"key": "type", "match": {"value": "doc"}}]},
+        score_threshold=0.8,
+    )
+
+    assert len(centroid_collection.query.near_vector_calls) == 1
+    assert centroid_collection.query.near_vector_calls[0]["distance"] == 0.25
+
+
 def test_weaviate_adapter_retrieve_points_falls_back_to_centroids(
     monkeypatch: Any,
 ) -> None:
@@ -208,6 +231,57 @@ def test_weaviate_adapter_retrieve_points_falls_back_to_centroids(
     assert len(chunk_collection.query.fetch_calls) == 1
     assert len(centroid_collection.query.fetch_calls) == 1
     assert [item["id"] for item in result["result"]] == ["1", "2"]
+    assert result["result"][0]["vector"] == [0.1, 0.2]
+    assert result["result"][1]["vector"] == [0.3, 0.4]
+
+
+def test_weaviate_adapter_retrieve_points_reads_default_named_vector(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[
+            SimpleNamespace(
+                properties={"point_id": "1", "doc_id": 1, "chunk": 0, "source": "vision"},
+                metadata=None,
+                vector={"default": [0.5, 0.6]},
+            )
+        ]
+    )
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    result = adapter.retrieve_points(settings, [1], with_vector=True)
+
+    assert result["result"][0]["vector"] == [0.5, 0.6]
+
+
+def test_weaviate_adapter_retrieve_points_uses_any_of_filter(
+    monkeypatch: Any,
+) -> None:
+    adapter_module = importlib.import_module("app.services.search.vector_backends.weaviate_adapter")
+
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+
+    any_of_calls: list[list[object]] = []
+    original_any_of = adapter_module.Filter.any_of
+
+    def fake_any_of(filters: list[object]) -> object:
+        any_of_calls.append(filters)
+        return original_any_of(filters)
+
+    monkeypatch.setattr(adapter_module.Filter, "any_of", staticmethod(fake_any_of))
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.retrieve_points(settings, [1, 2, 3], with_vector=False, with_payload=False)
+
+    assert len(any_of_calls) >= 1
+    assert len(any_of_calls[0]) == 3
 
 
 def test_weaviate_adapter_delete_all_chunk_points_uses_chunk_collection(
@@ -257,3 +331,11 @@ def test_weaviate_adapter_delete_operations_ignore_missing_collections(
 
     adapter.delete_all_chunk_points(settings)
     adapter.delete_similarity_points(settings, doc_id=11)
+
+
+def test_score_threshold_to_distance_handles_edge_values() -> None:
+    assert _score_threshold_to_distance(None) is None
+    assert _score_threshold_to_distance(0.0) is None
+    assert _score_threshold_to_distance(0.5) == 1.0
+    assert _score_threshold_to_distance(0.8) == 0.25
+    assert _score_threshold_to_distance(1.0) == 0.0
