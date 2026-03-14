@@ -5,9 +5,10 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
-### CI test collection fix
+### DB init and engine reuse fix
 - `uncommitted` fix(testing): changed [`backend/app/db.py`](E:/workspace/python/paperless-intelligence/backend/app/db.py) so `SessionLocal` binds lazily instead of evaluating `DATABASE_URL` at import time, which fixes CI test collection for modules importing [`backend/app/routes/status.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/status.py), [`backend/app/routes/sync.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/sync.py), and [`backend/app/worker.py`](E:/workspace/python/paperless-intelligence/backend/app/worker.py) before fixtures set up the test database.
-- `uncommitted` test(backend): updated [`backend/tests/test_connections_service.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_connections_service.py) to patch the current generic vector-store health seam instead of the removed Qdrant-specific helper, and re-verified the full backend suite (`278 passed`).
+- `uncommitted` fix(db): added cached SQLAlchemy engine and session-factory reuse in [`backend/app/db.py`](E:/workspace/python/paperless-intelligence/backend/app/db.py), so lazy session creation no longer opens a fresh PostgreSQL engine/connection pool per request in dev mode.
+- `uncommitted` test(backend): updated [`backend/tests/test_connections_service.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_connections_service.py) to patch the current generic vector-store health seam instead of the removed Qdrant-specific helper, added [`backend/tests/test_db.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_db.py) to pin engine caching, and re-verified the full backend suite (`279 passed`).
 
 ### Chat async offload completion
 - `uncommitted` perf(async): finished the low-risk async pass by making [`backend/app/routes/chat.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/chat.py) offload synchronous answer generation, streaming setup, follow-up generation, and evidence resolution through `asyncio.to_thread(...)` instead of doing that blocking work directly on async request handlers.

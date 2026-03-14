@@ -2,10 +2,10 @@
 
 ## Latest block
 
-### CI test collection fix
+### DB init and engine reuse fix
 
-- The backend test harness is now robust against import-order differences in CI: `backend/app/db.py` no longer requires `DATABASE_URL` just to import route or worker modules during pytest collection.
-- Full backend verification is green again after aligning the stale vector-store connection test with the generic provider health-check seam.
+- The backend DB bootstrap is now robust in both CI and dev mode: `backend/app/db.py` no longer requires `DATABASE_URL` just to import route or worker modules during pytest collection, but also no longer creates a fresh SQLAlchemy engine for every session after the lazy-init change.
+- Full backend verification is green again after aligning the stale vector-store connection test with the generic provider health-check seam and adding a direct engine-cache regression.
 
 ### Chat async offload completion
 

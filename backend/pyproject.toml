@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.48"
+version = "0.5.50"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -174,6 +174,7 @@ files = [
     "app/services/search/evidence.py",
     "app/services/search/embeddings.py",
     "tests/test_json_utils.py",
+    "tests/test_db.py",
     "tests/test_note_ids.py",
     "tests/test_string_list_json.py",
     "tests/test_worker_error_types.py",

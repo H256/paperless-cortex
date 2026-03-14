@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine
@@ -14,16 +15,29 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
+@lru_cache(maxsize=4)
+def _get_cached_engine(database_url: str) -> Engine:
+    return create_engine(database_url, pool_pre_ping=True)
+
+
+@lru_cache(maxsize=4)
+def _get_session_factory(database_url: str) -> sessionmaker[Session]:
+    return sessionmaker(autocommit=False, autoflush=False, bind=_get_cached_engine(database_url))
+
+
 def get_engine() -> Engine:
     settings = load_settings()
     if not settings.database_url:
         raise RuntimeError("DATABASE_URL not set")
-    return create_engine(settings.database_url, pool_pre_ping=True)
+    return _get_cached_engine(settings.database_url)
 
 
 class _LazySessionLocal:
     def __call__(self) -> Session:
-        factory = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        settings = load_settings()
+        if not settings.database_url:
+            raise RuntimeError("DATABASE_URL not set")
+        factory = _get_session_factory(settings.database_url)
         return factory()
 
 
