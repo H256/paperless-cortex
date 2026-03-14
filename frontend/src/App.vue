@@ -203,6 +203,11 @@ const syncStatus = computed(() => syncStatusQuery.data.value ?? { status: 'idle'
 const embedStatus = computed(() => embedStatusQuery.data.value ?? { status: 'idle', processed: 0, total: 0 })
 const queueLength = computed(() => Number(queueStatus.value.length ?? 0))
 const queueInProgress = computed(() => Number(queueStatus.value.in_progress ?? 0))
+const queueDone = computed(() => Number(queueStatus.value.done ?? 0))
+const queueTotal = computed(() => {
+  const reportedTotal = Number(queueStatus.value.total ?? 0)
+  return Math.max(reportedTotal, queueDone.value + queueLength.value + queueInProgress.value)
+})
 const syncRunning = computed(() => String(syncStatus.value.status || '').toLowerCase() === 'running')
 const embeddingsRunning = computed(() => String(embedStatus.value.status || '').toLowerCase() === 'running')
 const queueRunning = computed(() => Boolean(queueStatus.value.enabled) && (queueLength.value > 0 || queueInProgress.value > 0))
@@ -213,20 +218,22 @@ const processingBadgeLabel = computed(() => {
     const total = Number(syncStatus.value.total ?? 0)
     return `Sync ${processed}/${total || '?'}`
   }
+  if (queueRunning.value) {
+    return queueTotal.value > 0
+      ? `Processing ${queueDone.value}/${queueTotal.value}`
+      : `Queue ${queueLength.value + queueInProgress.value}`
+  }
   if (embeddingsRunning.value) {
     const processed = Number(embedStatus.value.processed ?? 0)
     const total = Number(embedStatus.value.total ?? 0)
     return `Embeddings ${processed}/${total || '?'}`
   }
-  if (queueRunning.value) {
-    return `Queue ${queueLength.value}`
-  }
   return 'Idle'
 })
 const processingBadgeTitle = computed(() => {
   if (syncRunning.value) return 'Document sync is currently running. Click to open Queue.'
-  if (embeddingsRunning.value) return 'Embedding processing is currently running. Click to open Queue.'
   if (queueRunning.value) return 'Queued background tasks are pending or running. Click to open Queue.'
+  if (embeddingsRunning.value) return 'Embedding processing is currently running. Click to open Queue.'
   return 'No active background processing. Click to open Documents.'
 })
 const processingBadgeClass = computed(() =>
