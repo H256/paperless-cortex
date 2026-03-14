@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### CI test collection fix
+
+- The backend test harness is now robust against import-order differences in CI: `backend/app/db.py` no longer requires `DATABASE_URL` just to import route or worker modules during pytest collection.
+- Full backend verification is green again after aligning the stale vector-store connection test with the generic provider health-check seam.
+
 ### Chat async offload completion
 
 - `6.1 Async/Await Optimization` is now effectively complete for this phase: the remaining low-risk async route hotspot in the chat surface no longer performs synchronous answer generation, follow-up generation, or evidence resolution directly on the async handler path.

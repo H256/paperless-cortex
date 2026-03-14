@@ -44,7 +44,7 @@ def test_run_all_formats_statuses(monkeypatch: Any) -> None:
         vector_store=SimpleNamespace(provider="qdrant", url="http://qdrant", api_key=None, collection="docs")
     )
     monkeypatch.setattr(connections, "check_paperless", lambda _settings: (True, "ok"))
-    monkeypatch.setattr(connections, "check_qdrant", lambda _settings: (False, "RuntimeError"))
+    monkeypatch.setattr(connections, "check_vector_store_health", lambda _settings: (False, "RuntimeError"))
     monkeypatch.setattr(connections, "check_llm", lambda _settings: (True, "ok"))
 
     payload = connections.run_all(cast("Any", settings))

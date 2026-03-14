@@ -21,7 +21,13 @@ def get_engine() -> Engine:
     return create_engine(settings.database_url, pool_pre_ping=True)
 
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+class _LazySessionLocal:
+    def __call__(self) -> Session:
+        factory = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        return factory()
+
+
+SessionLocal = _LazySessionLocal()
 
 
 def get_db() -> Iterator[Session]:
