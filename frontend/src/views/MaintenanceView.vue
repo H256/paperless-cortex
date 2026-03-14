@@ -1,7 +1,7 @@
 <template>
   <section>
     <div class="flex flex-wrap items-center justify-between gap-4">
-  <div>
+      <div>
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           Operations
         </h2>
@@ -123,12 +123,83 @@
       <div
         class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
       >
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          Audit missing vector chunks
+        </h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Checks local embedding rows against the active vector store and lists documents whose
+          expected chunk vectors are missing or incomplete.
+        </p>
+        <div class="mt-4 flex items-center gap-3">
+          <button
+            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+            :disabled="missingVectorChunksLoading"
+            @click="runMissingVectorChunkAudit"
+          >
+            <span v-if="missingVectorChunksLoading" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Auditing...
+            </span>
+            <span v-else>Find affected docs</span>
+          </button>
+          <div v-if="missingVectorChunkAuditText" class="text-xs text-slate-500 dark:text-slate-400">
+            {{ missingVectorChunkAuditText }}
+          </div>
+        </div>
+        <div
+          v-if="missingVectorChunkAudit"
+          class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300"
+        >
+          <div class="font-semibold text-slate-700 dark:text-slate-200">
+            Provider: {{ missingVectorChunkAudit.provider }}
+          </div>
+          <div class="mt-1">
+            Scanned {{ missingVectorChunkAudit.scanned_docs }} docs, found
+            {{ missingVectorChunkAudit.affected_docs }} affected
+            ({{ missingVectorChunkAudit.fully_missing_docs }} fully missing,
+            {{ missingVectorChunkAudit.partial_missing_docs }} partial).
+          </div>
+          <div
+            v-if="missingVectorChunkAudit.items.length"
+            class="mt-3 max-h-56 space-y-2 overflow-y-auto rounded border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
+          >
+            <div
+              v-for="item in missingVectorChunkAudit.items"
+              :key="item.doc_id"
+              class="rounded border border-slate-200 px-3 py-2 dark:border-slate-700"
+            >
+              <div class="font-semibold text-slate-800 dark:text-slate-100">
+                #{{ item.doc_id }} {{ item.title || 'Untitled document' }}
+              </div>
+              <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                source={{ item.embedding_source || 'unknown' }},
+                found={{ item.found_vectors }}/{{ item.expected_vectors }},
+                chunks={{ item.chunk_count }},
+                state={{ item.fully_missing ? 'fully missing' : 'partial' }}
+              </div>
+            </div>
+          </div>
+          <div v-else class="mt-3 text-xs text-emerald-600 dark:text-emerald-300">
+            No affected documents found.
+          </div>
+          <div
+            v-if="missingVectorChunkAudit.truncated"
+            class="mt-3 text-[11px] text-amber-700 dark:text-amber-300"
+          >
+            Showing the first {{ missingVectorChunkAudit.limit }} affected docs.
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Cleanup page texts</h3>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Rebuilds `clean_text` + token estimates for all stored page texts.
         </p>
         <label class="mt-3 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <input type="checkbox" v-model="cleanupClearFirst" />
+          <input v-model="cleanupClearFirst" type="checkbox" />
           Clear current clean fields first
         </label>
         <div class="mt-4 flex items-center gap-3">
@@ -207,179 +278,18 @@
       </div>
     </section>
 
-    <section
-      class="mt-6 rounded-xl border border-amber-200 bg-white p-6 shadow-sm dark:border-amber-900/50 dark:bg-slate-900"
-    >
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h3 class="text-lg font-semibold text-amber-700 dark:text-amber-300">Worker lock</h3>
-          <p class="text-sm text-slate-500 dark:text-slate-400">
-            Inspect Redis worker lock ownership and TTL. Reset only if a stale lock blocks startup.
-          </p>
-        </div>
-        <button
-          class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-          :disabled="workerLockLoading"
-          @click="loadWorkerLockStatus"
-        >
-          <span v-if="workerLockLoading" class="inline-flex items-center gap-2">
-            <Loader2 class="h-4 w-4 animate-spin" />
-            Refreshing...
-          </span>
-          <span v-else>Refresh lock status</span>
-        </button>
-      </div>
-      <div
-        class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
-      >
-        <div class="grid gap-2 md:grid-cols-3">
-          <div>
-            <div class="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">State</div>
-            <div class="font-semibold">
-              {{ workerLockStatus?.has_lock ? 'Lock set' : 'No lock' }}
-            </div>
-          </div>
-          <div>
-            <div class="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">Owner</div>
-            <div class="font-mono text-xs break-all">
-              {{ workerLockStatus?.owner || '—' }}
-            </div>
-          </div>
-          <div>
-            <div class="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">TTL</div>
-            <div class="font-semibold">
-              {{ workerLockStatusTtlLabel }}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-      >
-        Resetting the lock may cause a currently running worker to stop on its next lock refresh.
-      </div>
-      <div class="mt-4 flex items-center gap-3">
-        <button
-          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-          :disabled="workerLockResetLoading || !workerLockStatus?.has_lock"
-          @click="confirmWorkerLockReset"
-        >
-          <span v-if="workerLockResetLoading" class="inline-flex items-center gap-2">
-            <Loader2 class="h-4 w-4 animate-spin" />
-            Resetting...
-          </span>
-          <span v-else>Reset worker lock</span>
-        </button>
-        <div v-if="workerLockResetResult" class="text-xs text-slate-500 dark:text-slate-400">
-          {{ workerLockResetResult.had_lock ? 'Lock existed' : 'No lock existed' }},
-          {{ workerLockResetResult.reset ? 'reset done' : 'nothing reset' }}.
-          <span v-if="workerLockResetResult.reason">Reason: {{ workerLockResetResult.reason }}.</span>
-        </div>
-      </div>
-    </section>
-
-    <section
-      class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Runtime Configuration
-          </h3>
-          <p class="text-sm text-slate-500 dark:text-slate-400">
-            Read-only view of server URLs and models currently in use.
-          </p>
-        </div>
-      </div>
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        <div
-          class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
-        >
-          <div
-            class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
-          >
-            URLs
-          </div>
-          <dl class="mt-3 space-y-2">
-            <MaintenanceRuntimeRow
-              label="Paperless"
-              :value="runtime.paperless_base_url"
-              :copyable="Boolean(runtime.paperless_base_url)"
-              :copied="copiedKey === 'paperless'"
-              @copy="copyValue(runtime.paperless_base_url, 'paperless')"
-            />
-            <MaintenanceRuntimeRow
-              label="LLM Base"
-              :value="runtime.llm_base_url"
-              :copyable="Boolean(runtime.llm_base_url)"
-              :copied="copiedKey === 'llm_base'"
-              @copy="copyValue(runtime.llm_base_url, 'llm_base')"
-            />
-            <MaintenanceRuntimeRow
-              label="Qdrant"
-              :value="runtime.qdrant_url"
-              :copyable="Boolean(runtime.qdrant_url)"
-              :copied="copiedKey === 'qdrant'"
-              @copy="copyValue(runtime.qdrant_url, 'qdrant')"
-            />
-            <MaintenanceRuntimeRow
-              label="Redis"
-              :value="runtime.redis_host"
-              :copyable="Boolean(runtime.redis_host)"
-              :copied="copiedKey === 'redis'"
-              @copy="copyValue(runtime.redis_host, 'redis')"
-            />
-          </dl>
-        </div>
-        <div
-          class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
-        >
-          <div
-            class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
-          >
-            Models
-          </div>
-          <dl class="mt-3 space-y-2">
-            <MaintenanceRuntimeRow
-              label="Text LLM"
-              :value="runtime.text_model"
-              :copyable="Boolean(runtime.text_model)"
-              :copied="copiedKey === 'text_model'"
-              @copy="copyValue(runtime.text_model, 'text_model')"
-            />
-            <MaintenanceRuntimeRow
-              label="Chat LLM"
-              :value="runtime.chat_model"
-              :copyable="Boolean(runtime.chat_model)"
-              :copied="copiedKey === 'chat_model'"
-              @copy="copyValue(runtime.chat_model, 'chat_model')"
-            />
-            <MaintenanceRuntimeRow
-              label="Embeddings"
-              :value="runtime.embedding_model"
-              :copyable="Boolean(runtime.embedding_model)"
-              :copied="copiedKey === 'embedding_model'"
-              @copy="copyValue(runtime.embedding_model, 'embedding_model')"
-            />
-            <MaintenanceRuntimeRow
-              label="Vision OCR"
-              :value="runtime.vision_model"
-              :copyable="Boolean(runtime.vision_model)"
-              :copied="copiedKey === 'vision_model'"
-              @copy="copyValue(runtime.vision_model, 'vision_model')"
-            />
-            <MaintenanceRuntimeRow
-              label="Evidence max pages"
-              :value="runtime.evidence_max_pages"
-            />
-            <MaintenanceRuntimeRow
-              label="Evidence min snippet chars"
-              :value="runtime.evidence_min_snippet_chars"
-            />
-          </dl>
-        </div>
-      </div>
-    </section>
+    <MaintenanceRuntimeSection
+      :runtime="runtime"
+      :copied-key="copiedKey"
+      :worker-lock-status="workerLockStatus"
+      :worker-lock-loading="workerLockLoading"
+      :worker-lock-reset-loading="workerLockResetLoading"
+      :worker-lock-status-ttl-label="workerLockStatusTtlLabel"
+      :worker-lock-reset-result="workerLockResetResult"
+      @copy-value="copyValue"
+      @refresh-lock="loadWorkerLockStatus"
+      @reset-lock="confirmWorkerLockReset"
+    />
   </section>
 
   <div
@@ -419,8 +329,8 @@
       <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
         <button
           class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-          @click="closeReprocessModal"
           :disabled="reprocessRunning"
+          @click="closeReprocessModal"
         >
           Cancel
         </button>
@@ -467,8 +377,8 @@
         class="mt-4 flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-200"
       >
         <input
-          type="checkbox"
           v-model="clearAllArmed"
+          type="checkbox"
           class="h-4 w-4 rounded border-rose-300 text-rose-600"
         />
         I understand this will permanently delete all local documents and intelligence data.
@@ -477,8 +387,8 @@
       <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
         <button
           class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-          @click="closeClearAllModal"
           :disabled="clearAllLoading"
+          @click="closeClearAllModal"
         >
           Cancel
         </button>
@@ -509,15 +419,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RefreshCcw, Loader2 } from 'lucide-vue-next'
-import { useToastStore } from '../stores/toastStore'
-import {
-  type QueueWorkerLockReset,
-} from '../services/queue'
-import { useMaintenanceOps } from '../composables/useMaintenanceOps'
+import { Loader2, RefreshCcw } from 'lucide-vue-next'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import MaintenanceActionCard from '../components/MaintenanceActionCard.vue'
-import MaintenanceRuntimeRow from '../components/MaintenanceRuntimeRow.vue'
+import MaintenanceRuntimeSection from '../components/MaintenanceRuntimeSection.vue'
+import { useMaintenanceOps } from '../composables/useMaintenanceOps'
+import type { QueueWorkerLockReset } from '../services/queue'
+import { useToastStore } from '../stores/toastStore'
 
 const toastStore = useToastStore()
 const maintenanceOps = useMaintenanceOps()
@@ -533,6 +441,7 @@ const {
   suggestionsLoading,
   embeddingsLoading,
   similarityIndexLoading,
+  missingVectorChunksLoading,
   clearAllLoading,
   cleanupLoading,
   correspondentsSyncLoading,
@@ -544,6 +453,7 @@ const {
   removeSuggestions,
   removeEmbeddings,
   removeSimilarityIndex,
+  findMissingVectorChunks,
   clearAllIntelligence,
   cleanupTexts: runCleanupTexts,
   syncCorrespondentsNow: syncCorrespondentsAction,
@@ -598,6 +508,25 @@ const similarityIndexResult = ref<{
   qdrant_deleted: number
   qdrant_errors: number
 } | null>(null)
+const missingVectorChunkAudit = ref<{
+  provider: string
+  scanned_docs: number
+  affected_docs: number
+  fully_missing_docs: number
+  partial_missing_docs: number
+  limit: number
+  truncated: boolean
+  items: Array<{
+    doc_id: number
+    title?: string | null
+    embedding_source?: string | null
+    chunk_count: number
+    expected_vectors: number
+    found_vectors: number
+    fully_missing: boolean
+    embedded_at?: string | null
+  }>
+} | null>(null)
 const visionResultText = computed(() =>
   visionResult.value ? `Removed ${visionResult.value.deleted} rows` : '',
 )
@@ -612,6 +541,11 @@ const embeddingsResultText = computed(() =>
 const similarityIndexResultText = computed(() =>
   similarityIndexResult.value
     ? `Reset ${similarityIndexResult.value.deleted} task-runs (Qdrant ok: ${similarityIndexResult.value.qdrant_deleted}, errors: ${similarityIndexResult.value.qdrant_errors})`
+    : '',
+)
+const missingVectorChunkAuditText = computed(() =>
+  missingVectorChunkAudit.value
+    ? `${missingVectorChunkAudit.value.affected_docs} affected docs (${missingVectorChunkAudit.value.fully_missing_docs} fully missing)`
     : '',
 )
 const clearAllResult = ref<{
@@ -762,6 +696,26 @@ const confirmSimilarityIndex = async () => {
       }
     },
   )
+}
+
+const runMissingVectorChunkAudit = async () => {
+  missingVectorChunkAudit.value = null
+  try {
+    const result = await findMissingVectorChunks()
+    missingVectorChunkAudit.value = result
+    if (result.affected_docs > 0) {
+      toastStore.push(
+        `Found ${result.affected_docs} docs with missing active vector chunks`,
+        'warning',
+        'Audit complete',
+      )
+    } else {
+      toastStore.push('No missing active vector chunks found', 'success', 'Audit complete')
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to audit missing vector chunks'
+    toastStore.push(message, 'danger', 'Error')
+  }
 }
 
 const confirmCleanupTexts = async () => {

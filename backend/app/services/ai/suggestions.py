@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -183,7 +182,7 @@ def generate_suggestions(
         len(trimmed),
         document.get("id"),
     )
-    if os.getenv("LLM_DEBUG") == "1":
+    if settings.debug.llm:
         logger.info("Suggestions prompt:\n%s", prompt)
     raw_text = llm_client.chat_completion(
         settings,
@@ -257,7 +256,7 @@ def generate_field_variants(
         count,
         document.get("id"),
     )
-    if os.getenv("LLM_DEBUG") == "1":
+    if settings.debug.llm:
         logger.info("Suggestions field prompt:\n%s", prompt)
     raw_text = llm_client.chat_completion(
         settings,

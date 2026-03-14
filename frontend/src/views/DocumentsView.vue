@@ -1,41 +1,24 @@
 ﻿<template>
   <section>
-    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-      <div>
-        <h2 class="text-2xl font-semibold tracking-tight">Documents</h2>
-        <p class="text-sm text-slate-500">
-          Manage ingestion, embedding, and review analysis status.
-        </p>
-        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Showing {{ visibleDocuments.length }} of {{ totalCount }} synced documents
-          <template v-if="searchQuery.trim()">
-            for "{{ searchQuery.trim() }}"
-          </template>
-        </p>
-      </div>
-      <DocumentsOverviewPanel
-        :stats="stats"
-        :queued-count="queueStatus.enabled ? (queueStatus.length ?? 0) : 0"
-        :is-processing="isProcessing"
-        :sync-status="syncStatus"
-        :embed-status="embedStatus"
-        :has-queued-work="hasQueuedWork"
-        :progress-percent="progressPercent"
-        :eta-text="etaText"
-        :embed-label="embedLabel"
-        :processing-processed="processingProcessed"
-        :processing-total="processingTotal"
-        :processing-percent="processingPercent"
-        :processing-eta-text="processingEtaText"
-        :last-run-text="lastRunText"
-      />
-    </div>
-
-    <DocumentsProcessingToolbar
-      :continue-processing-running="false"
-      :processing-kickoff-pending="false"
+    <DocumentsHeaderSection
+      :visible-count="visibleDocuments.length"
+      :total-count="totalCount"
+      :search-label="searchQuery.trim()"
+      :stats="stats"
+      :queued-count="queueStatus.enabled ? (queueStatus.length ?? 0) : 0"
       :is-processing="isProcessing"
+      :sync-status="syncStatus"
+      :embed-status="embedStatus"
+      :has-queued-work="hasQueuedWork"
       :show-cancel="showCancel"
+      :progress-percent="progressPercent"
+      :eta-text="etaText"
+      :embed-label="embedLabel"
+      :processing-processed="processingProcessed"
+      :processing-total="processingTotal"
+      :processing-percent="processingPercent"
+      :processing-eta-text="processingEtaText"
+      :last-run-text="lastRunText"
       @open-preview="openPreview"
       @cancel-processing="cancelProcessing"
       @open-queue="openQueue"
@@ -138,10 +121,9 @@ import { useDocumentsRouteState } from '../composables/useDocumentsRouteState'
 import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
 import DocumentsEmptyState from '../components/DocumentsEmptyState.vue'
+import DocumentsHeaderSection from '../components/DocumentsHeaderSection.vue'
 import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
-import DocumentsOverviewPanel from '../components/DocumentsOverviewPanel.vue'
-import DocumentsProcessingToolbar from '../components/DocumentsProcessingToolbar.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
 
 const router = useRouter()

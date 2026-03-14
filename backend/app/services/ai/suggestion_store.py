@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import delete
 
 from app.models import Document, DocumentSuggestion, SuggestionAudit
+from app.services.ai.suggestions import normalize_suggestions_payload
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
@@ -128,3 +129,23 @@ def persist_suggestions(
     )
     audit_suggestion_run(db, doc_id, source, action, commit=False)
     db.commit()
+
+
+def parse_suggestion_payload(row: DocumentSuggestion, tags: list[str]) -> dict[str, object]:
+    parsed = parse_json_object(row.payload)
+    if not parsed:
+        return {"raw": row.payload}
+    return normalize_suggestions_payload(parsed, tags)
+
+
+def load_suggestions_map(
+    db: Session,
+    doc_id: int,
+    tags: list[str],
+    source: str | None = None,
+) -> dict[str, object]:
+    query = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id)
+    if source:
+        query = query.filter(DocumentSuggestion.source == source)
+    rows = query.order_by(DocumentSuggestion.source.asc()).all()
+    return {row.source: parse_suggestion_payload(row, tags) for row in rows}

@@ -37,3 +37,29 @@ def test_chat_stream_route_emits_done_with_conversation_id(
     body = response.text
     assert "event: done" in body
     assert '"conversation_id":"conv-stream"' in body
+
+
+def test_chat_route_offloads_answer_generation(api_client: Any, monkeypatch: Any) -> None:
+    from app.routes import chat as chat_routes
+
+    called: dict[str, object] = {}
+
+    def fake_answer_question(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {
+            "question": "q",
+            "answer": "a",
+            "conversation_id": "conv-offload",
+            "citations": [],
+        }
+
+    async def fake_to_thread(func: Any, *args: Any, **kwargs: Any) -> dict[str, object]:
+        called["func"] = func
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(chat_routes, "answer_question", fake_answer_question)
+    monkeypatch.setattr(chat_routes.asyncio, "to_thread", fake_to_thread)
+
+    response = api_client.post("/chat", json={"question": "hello", "top_k": 3})
+    assert response.status_code == 200
+    assert response.json()["conversation_id"] == "conv-offload"
+    assert called["func"] is fake_answer_question

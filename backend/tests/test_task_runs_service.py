@@ -185,6 +185,23 @@ def test_list_task_runs_reports_total_with_paged_results(session_factory: Any) -
         assert len(rows) == 1
 
 
+def test_list_task_runs_inferrs_total_from_short_first_page(session_factory: Any) -> None:
+    with session_factory() as db:
+        for doc_id in (4501, 4502):
+            create_task_run(
+                db,
+                doc_id=doc_id,
+                task="sync",
+                source=None,
+                payload={"doc_id": doc_id, "task": "sync"},
+                worker_id="worker:test",
+                attempt=1,
+            )
+        total, rows = list_task_runs(db, task="sync", limit=10, offset=0)
+        assert total == 2
+        assert len(rows) == 2
+
+
 def test_list_task_runs_reports_total_for_empty_page_offset(session_factory: Any) -> None:
     with session_factory() as db:
         for doc_id in (5001, 5002):

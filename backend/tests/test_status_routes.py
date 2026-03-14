@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any
 
+import pytest
+
 from app.config import load_settings
+from app.routes import status as status_routes
 from app.routes.status import _status_payload
+from app.services.runtime.metrics import snapshot_metrics
 
 
 def test_status_includes_evidence_runtime_config(api_client: Any) -> None:
@@ -28,3 +33,63 @@ def test_status_chat_model_falls_back_to_text_model(monkeypatch: Any) -> None:
     settings = load_settings()
     payload = _status_payload(settings)
     assert payload["chat_model"] == "text-default"
+
+
+def test_status_includes_vector_store_runtime_config(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.delenv("VECTOR_STORE_URL", raising=False)
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate-http")
+    monkeypatch.setenv("WEAVIATE_HTTP_PORT", "8080")
+    settings = load_settings()
+
+    payload = _status_payload(settings)
+
+    assert payload["vector_store_provider"] == "weaviate"
+    assert payload["vector_store_url"] == "http://weaviate-http:8080"
+
+
+@pytest.mark.anyio
+async def test_status_stream_offloads_blocking_payload_build(monkeypatch: Any) -> None:
+    monkeypatch.setenv("STATUS_STREAM_INTERVAL_SECONDS", "1")
+    settings = load_settings()
+
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    async def fake_to_thread(func: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        calls.append((args, kwargs))
+        return {"status": "ok", "timestamp": 1}
+
+    monkeypatch.setattr(status_routes.asyncio, "to_thread", fake_to_thread)
+
+    response = await status_routes.status_stream(settings)
+    iterator = response.body_iterator
+    assert isinstance(iterator, AsyncIterator)
+    payload = await anext(iterator)
+
+    assert payload == 'data: {"status": "ok", "timestamp": 1}\n\n'
+    assert calls == [((settings,), {"interval_seconds": 1})]
+
+
+def test_status_metrics_endpoint_exposes_request_metrics(api_client: Any) -> None:
+    response = api_client.get("/status")
+    assert response.status_code == 200
+
+    metrics_response = api_client.get("/status/metrics")
+    assert metrics_response.status_code == 200
+    payload = metrics_response.json()
+
+    counters = payload["counters"]
+    assert any(
+        item["name"] == "api_requests_total"
+        and item["labels"].get("path") == "/status"
+        and item["labels"].get("status") == "200"
+        for item in counters
+    )
+    assert any(item["name"] == "api_request_duration_ms" for item in payload["timers"])
+
+
+def test_status_metrics_snapshot_is_json_serializable() -> None:
+    payload = snapshot_metrics()
+
+    assert isinstance(payload["counters"], list)
+    assert isinstance(payload["timers"], list)

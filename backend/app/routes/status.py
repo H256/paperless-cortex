@@ -17,9 +17,11 @@ from app.deps import get_settings
 from app.models import SyncState
 from app.services.ai import llm_client
 from app.services.documents.document_stats import compute_document_stats
+from app.services.documents.document_stats_cache import get_cached_document_stats
 from app.services.integrations import paperless
 from app.services.pipeline.queue import is_paused, queue_stats, worker_status
 from app.services.runtime.guard import resolve_chat_model
+from app.services.runtime.metrics import snapshot_metrics
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.version import API_VERSION, APP_VERSION
 
@@ -100,6 +102,8 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
         "paperless_base_url": paperless_base,
         "llm_base_url": settings.llm_base_url,
         "qdrant_url": settings.qdrant_url,
+        "vector_store_provider": settings.vector_store.provider,
+        "vector_store_url": settings.vector_store.url,
         "redis_host": settings.redis_host,
         "text_model": settings.text_model,
         "chat_model": resolve_chat_model(settings),
@@ -116,7 +120,14 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
 
 @router.get("", response_model=StatusResponse)
 def status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    """Return the consolidated application health/config snapshot."""
     return _status_payload(settings)
+
+
+@router.get("/metrics")
+def metrics() -> dict[str, list[dict[str, Any]]]:
+    """Return in-memory backend counters and timing aggregates for observability."""
+    return snapshot_metrics()
 
 
 def _sync_state_payload(db: Session, key: str) -> dict[str, Any]:
@@ -150,7 +161,7 @@ def _queue_status_payload(settings: Settings) -> dict[str, Any]:
 
 
 def _document_stats_payload(db: Session) -> dict[str, Any]:
-    return compute_document_stats(db)
+    return get_cached_document_stats(db, build_payload=compute_document_stats)
 
 
 def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, Any]:
@@ -217,11 +228,16 @@ def _get_cached_stream_payload(settings: Settings, *, interval_seconds: int) -> 
 
 @router.get("/stream")
 async def status_stream(settings: Settings = Depends(get_settings)) -> StreamingResponse:
+    """Stream the consolidated app, queue, sync, and stats payload as server-sent events."""
     interval = max(1, settings.status_stream_interval_seconds)
 
     async def event_generator() -> AsyncIterator[str]:
         while True:
-            payload = _get_cached_stream_payload(settings, interval_seconds=interval)
+            payload = await asyncio.to_thread(
+                _get_cached_stream_payload,
+                settings,
+                interval_seconds=interval,
+            )
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
             await asyncio.sleep(interval)
 

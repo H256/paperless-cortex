@@ -4,13 +4,13 @@ import logging
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from app.api_models import SimilarDocumentsResponse, SimilarMetadata, SimilarMetadataResponse
 from app.db import get_db
 from app.deps import get_settings
 from app.models import Correspondent, Document, Tag
-from app.routes.documents import _apply_derived_fields_and_review_status
+from app.services.documents.read_models import apply_derived_fields_and_review_status
 from app.services.search.similarity import (
     aggregate_similar_metadata,
     fetch_doc_point_vector,
@@ -30,8 +30,8 @@ def _build_document_summary_payload(db: Session, doc_ids: list[int]) -> dict[int
     docs = (
         db.query(Document)
         .options(
-            joinedload(Document.tags).load_only(Tag.id),
-            joinedload(Document.correspondent).load_only(Correspondent.name),
+            selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.correspondent).load_only(Correspondent.name),
         )
         .filter(Document.id.in_(doc_ids))
         .all()
@@ -51,23 +51,30 @@ def _build_document_summary_payload(db: Session, doc_ids: list[int]) -> dict[int
                 "tags": [tag.id for tag in doc.tags],
             }
         )
-    payload = {
+    payload: dict[str, object] = {
         "count": len(base_results),
         "next": None,
         "previous": None,
         "results": base_results,
     }
-    enriched = _apply_derived_fields_and_review_status(
-        payload,
-        db,
+    enriched = apply_derived_fields_and_review_status(
+        payload=payload,
+        db=db,
         include_derived=True,
         include_summary_preview=True,
         review_status="all",
         page=1,
         page_size=max(1, len(base_results)),
     )
-    results = enriched.get("results", []) or []
-    return {int(row.get("id")): row for row in results if row.get("id") is not None}
+    enriched_results = enriched.get("results", [])
+    results = [
+        row for row in enriched_results if isinstance(row, dict)
+    ] if isinstance(enriched_results, list) else []
+    return {
+        int(row_id): row
+        for row in results
+        if isinstance((row_id := row.get("id")), int | str)
+    }
 
 
 @router.get("/{doc_id}/similar", response_model=SimilarDocumentsResponse)

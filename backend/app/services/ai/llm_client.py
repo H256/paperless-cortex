@@ -1,26 +1,23 @@
 from __future__ import annotations
 
+import atexit
 import logging
-import os
+import threading
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Literal
 
 import httpx
 from openai import BadRequestError, OpenAI
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from app.config import Settings
 
 logger = logging.getLogger(__name__)
-
-
-def _llm_debug_enabled() -> bool:
-    return os.getenv("LLM_DEBUG", "0") == "1"
-
-
-def _llm_debug_full_response_enabled() -> bool:
-    return os.getenv("LLM_DEBUG_FULL_RESPONSE", "0") == "1"
+_CLIENT_LOCK = threading.Lock()
+_CLIENTS: dict[tuple[float | None, bool], httpx.Client] = {}
+_SDK_CLIENTS: dict[tuple[str, str, float | None], OpenAI] = {}
 
 
 def _snippet(value: object, max_len: int = 500) -> str:
@@ -106,8 +103,40 @@ def sdk_base_url(
     return f"{base_url_for_purpose(settings, purpose=purpose)}/v1"
 
 
-def client(settings: Settings, timeout: float | None) -> httpx.Client:
-    return httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
+def clear_client_pool() -> None:
+    with _CLIENT_LOCK:
+        clients = list(_CLIENTS.values())
+        _CLIENTS.clear()
+        sdk_clients = list(_SDK_CLIENTS.values())
+        _SDK_CLIENTS.clear()
+    for pooled_client in clients:
+        pooled_client.close()
+    for sdk_client in sdk_clients:
+        sdk_client.close()
+
+
+@atexit.register
+def _close_pooled_clients() -> None:
+    clear_client_pool()
+
+
+def _client_key(settings: Settings, timeout: float | None) -> tuple[float | None, bool]:
+    return (float(timeout) if timeout is not None else None, bool(settings.httpx_verify_tls))
+
+
+def _shared_client(settings: Settings, timeout: float | None) -> httpx.Client:
+    key = _client_key(settings, timeout)
+    with _CLIENT_LOCK:
+        pooled_client = _CLIENTS.get(key)
+        if pooled_client is None or pooled_client.is_closed:
+            pooled_client = httpx.Client(timeout=timeout, verify=settings.httpx_verify_tls)
+            _CLIENTS[key] = pooled_client
+        return pooled_client
+
+
+@contextmanager
+def client(settings: Settings, timeout: float | None) -> Iterator[httpx.Client]:
+    yield _shared_client(settings, timeout)
 
 
 def headers(settings: Settings) -> dict[str, str]:
@@ -122,12 +151,19 @@ def _sdk_client(
     timeout: float | None,
     purpose: Literal["text", "vision", "embedding"] = "text",
 ) -> OpenAI:
+    base = sdk_base_url(settings, purpose=purpose)
     api_key = settings.llm_api_key or "no-key"
-    return OpenAI(
-        base_url=sdk_base_url(settings, purpose=purpose),
-        api_key=api_key,
-        timeout=timeout,
-    )
+    key = (base, api_key, float(timeout) if timeout is not None else None)
+    with _CLIENT_LOCK:
+        pooled_client = _SDK_CLIENTS.get(key)
+        if pooled_client is None:
+            pooled_client = OpenAI(
+                base_url=base,
+                api_key=api_key,
+                timeout=timeout,
+            )
+            _SDK_CLIENTS[key] = pooled_client
+        return pooled_client
 
 
 def chat_completion(
@@ -173,8 +209,8 @@ def chat_completion(
         ... )
     """
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)
-    debug_enabled = _llm_debug_enabled()
-    debug_full_response = _llm_debug_full_response_enabled()
+    debug_enabled = bool(settings.debug.llm)
+    debug_full_response = bool(settings.debug.llm_full_response)
     if debug_enabled:
         logger.info(
             "LLM chat request model=%s purpose=%s timeout=%s max_tokens=%s msg_count=%s",

@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, load_only, selectinload
 
 from app.api_models import WritebackDryRunItem, WritebackFieldDiff
 from app.models import (
     Correspondent,
     Document,
+    DocumentNote,
     DocumentPendingCorrespondent,
     DocumentPendingTag,
     SuggestionAudit,
@@ -22,14 +23,30 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 
-def metadata_maps(db: Session) -> tuple[dict[int, str], dict[int, str]]:
-    correspondents_by_id = {
-        int(corr_id): str(name or "")
-        for corr_id, name in db.query(Correspondent.id, Correspondent.name).all()
+def metadata_maps(
+    db: Session,
+    *,
+    correspondent_ids: set[int] | None = None,
+    tag_ids: set[int] | None = None,
+) -> tuple[dict[int, str], dict[int, str]]:
+    correspondent_query = db.query(Correspondent.id, Correspondent.name)
+    normalized_correspondent_ids = {
+        int(corr_id) for corr_id in (correspondent_ids or set()) if int(corr_id) > 0
     }
+    if normalized_correspondent_ids:
+        correspondent_query = correspondent_query.filter(
+            Correspondent.id.in_(normalized_correspondent_ids)
+        )
+    correspondents_by_id = {
+        int(corr_id): str(name or "") for corr_id, name in correspondent_query.all()
+    }
+
+    tag_query = db.query(Tag.id, Tag.name)
+    normalized_tag_ids = {int(tag_id) for tag_id in (tag_ids or set()) if int(tag_id) > 0}
+    if normalized_tag_ids:
+        tag_query = tag_query.filter(Tag.id.in_(normalized_tag_ids))
     tags_by_id = {
-        int(tag_id): str(name or "")
-        for tag_id, name in db.query(Tag.id, Tag.name).all()
+        int(tag_id): str(name or "") for tag_id, name in tag_query.all()
     }
     return correspondents_by_id, tags_by_id
 
@@ -138,11 +155,22 @@ def preview_for_doc_ids(
     db: Session,
     doc_ids: list[int],
 ) -> list[WritebackDryRunItem]:
+    """Build writeback preview items for the requested local document ids."""
     if not doc_ids:
         return []
     local_docs = (
         db.query(Document)
-        .options(joinedload(Document.tags), joinedload(Document.notes))
+        .options(
+            load_only(
+                Document.id,
+                Document.title,
+                Document.document_date,
+                Document.created,
+                Document.correspondent_id,
+            ),
+            selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.notes).load_only(DocumentNote.id, DocumentNote.note),
+        )
         .filter(Document.id.in_(doc_ids))
         .all()
     )
@@ -150,9 +178,8 @@ def preview_for_doc_ids(
     if not local_by_id:
         return []
 
-    correspondents_by_id, tags_by_id = metadata_maps(db)
     pending_rows = (
-        db.query(DocumentPendingTag)
+        db.query(DocumentPendingTag.doc_id, DocumentPendingTag.names_json)
         .filter(DocumentPendingTag.doc_id.in_(list(local_by_id.keys())))
         .all()
     )
@@ -171,14 +198,44 @@ def preview_for_doc_ids(
     }
 
     remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
+    correspondent_ids = {
+        int(doc.correspondent_id)
+        for doc in local_docs
+        if doc.correspondent_id is not None and int(doc.correspondent_id) > 0
+    }
+    tag_ids = {
+        int(tag.id)
+        for doc in local_docs
+        for tag in (doc.tags or [])
+        if int(tag.id) > 0
+    }
+    for remote_doc in remote_docs.values():
+        remote_correspondent_id = remote_doc.get("correspondent")
+        if isinstance(remote_correspondent_id, int) and remote_correspondent_id > 0:
+            correspondent_ids.add(remote_correspondent_id)
+        remote_tags = remote_doc.get("tags")
+        if isinstance(remote_tags, list):
+            for tag_id in remote_tags:
+                if isinstance(tag_id, int) and tag_id > 0:
+                    tag_ids.add(tag_id)
+    correspondents_by_id, tags_by_id = metadata_maps(
+        db,
+        correspondent_ids=correspondent_ids,
+        tag_ids=tag_ids,
+    )
     items: list[WritebackDryRunItem] = []
     for doc_id in doc_ids:
         local_doc = local_by_id.get(doc_id)
         if not local_doc:
             continue
-        remote_doc = remote_docs.get(int(doc_id))
-        if not remote_doc:
-            remote_doc = paperless.get_document_cached(settings, doc_id)
+        remote_doc_raw = remote_docs.get(int(doc_id))
+        if remote_doc_raw is None:
+            fallback_doc = paperless.get_document_cached(settings, doc_id)
+            if fallback_doc is None:
+                continue
+            remote_doc = fallback_doc
+        else:
+            remote_doc = remote_doc_raw
         items.append(
             build_writeback_item(
                 local_doc=local_doc,
@@ -193,6 +250,7 @@ def preview_for_doc_ids(
 
 
 def local_writeback_candidate_doc_ids(db: Session) -> list[int]:
+    """Return locally discoverable writeback candidates in stable preview order."""
     audit_rows = (
         db.query(
             SuggestionAudit.doc_id,
@@ -212,14 +270,16 @@ def local_writeback_candidate_doc_ids(db: Session) -> list[int]:
         ordered_ids.append(doc_id)
         seen.add(doc_id)
 
-    pending_rows = db.query(DocumentPendingTag.doc_id).all()
+    pending_rows = db.query(DocumentPendingTag.doc_id).distinct().yield_per(500)
     for pending_row in pending_rows:
         doc_id = int(pending_row.doc_id)
         if doc_id <= 0 or doc_id in seen:
             continue
         ordered_ids.append(doc_id)
         seen.add(doc_id)
-    pending_correspondent_rows = db.query(DocumentPendingCorrespondent.doc_id).all()
+    pending_correspondent_rows = (
+        db.query(DocumentPendingCorrespondent.doc_id).distinct().yield_per(500)
+    )
     for pending_correspondent_row in pending_correspondent_rows:
         doc_id = int(pending_correspondent_row.doc_id)
         if doc_id <= 0 or doc_id in seen:

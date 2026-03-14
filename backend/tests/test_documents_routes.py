@@ -8,10 +8,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.models import (
+    Correspondent,
     Document,
     DocumentEmbedding,
     DocumentNote,
     DocumentPageAnchor,
+    DocumentPageNote,
     DocumentPageText,
     DocumentPendingTag,
     DocumentSuggestion,
@@ -47,6 +49,8 @@ def _insert_local_document(
     created: str,
     *,
     correspondent_id: int | None = None,
+    analysis_model: str | None = None,
+    analysis_processed_at: str | None = None,
 ) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
@@ -57,6 +61,8 @@ def _insert_local_document(
                 created=created,
                 modified=created,
                 correspondent_id=correspondent_id,
+                analysis_model=analysis_model,
+                analysis_processed_at=analysis_processed_at,
             )
         )
         db.commit()
@@ -90,11 +96,220 @@ def _insert_suggestion(doc_id: int, source: str, payload: str) -> None:
         db.commit()
 
 
+def _insert_page_text(doc_id: int, page: int, source: str, text: str) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentPageText(
+                doc_id=doc_id,
+                page=page,
+                source=source,
+                text=text,
+                raw_text=text,
+                clean_text=text,
+            )
+        )
+        db.commit()
+
+
+def _insert_page_note(doc_id: int, page: int, source: str, status: str) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            DocumentPageNote(
+                doc_id=doc_id,
+                page=page,
+                source=source,
+                status=status,
+                notes_text=f"note-{page}-{source}",
+            )
+        )
+        db.commit()
+
+
 def test_get_local_document_missing(api_client: Any) -> None:
     response = api_client.get("/documents/999/local")
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "missing"
+
+
+def test_dashboard_uses_grouped_correspondent_counts(api_client: Any) -> None:
+    from app.services.documents import dashboard_cache
+
+    dashboard_cache.invalidate_dashboard_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        alpha = Correspondent(id=7001, name="Alpha")
+        beta = Correspondent(id=7002, name="Beta")
+        db.add_all([alpha, beta])
+        db.add_all(
+            [
+                Document(id=7101, title="Processed A", created="2026-02-01T00:00:00+00:00", correspondent_id=7001),
+                Document(id=7102, title="Pending A", created="2026-02-02T00:00:00+00:00", correspondent_id=7001),
+                Document(id=7103, title="Processed B", created="2026-02-03T00:00:00+00:00", correspondent_id=7002),
+                Document(id=7104, title="Unassigned pending", created="2026-02-04T00:00:00+00:00"),
+            ]
+        )
+        db.add_all(
+            [
+                DocumentEmbedding(doc_id=7101, embedding_source="paperless", chunk_count=1),
+                DocumentEmbedding(doc_id=7103, embedding_source="paperless", chunk_count=1),
+                DocumentPageText(doc_id=7101, page=1, source="vision_ocr", text="a", raw_text="a", clean_text="a"),
+                DocumentPageText(doc_id=7103, page=1, source="vision_ocr", text="b", raw_text="b", clean_text="b"),
+                DocumentSuggestion(
+                    doc_id=7101,
+                    source="paperless_ocr",
+                    payload="{}",
+                    created_at="2026-02-01T00:00:00+00:00",
+                    processed_at="2026-02-01T00:00:00+00:00",
+                ),
+                DocumentSuggestion(
+                    doc_id=7103,
+                    source="paperless_ocr",
+                    payload="{}",
+                    created_at="2026-02-03T00:00:00+00:00",
+                    processed_at="2026-02-03T00:00:00+00:00",
+                ),
+            ]
+        )
+        db.commit()
+
+    response = api_client.get("/documents/dashboard")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["stats"]["total"] == 4
+    assert payload["stats"]["embeddings"] == 2
+    assert payload["stats"]["fully_processed"] == 2
+    assert payload["stats"]["unprocessed"] == 2
+    correspondents = {row["name"]: row["count"] for row in payload["correspondents"]}
+    assert correspondents["Alpha"] == 2
+    assert correspondents["Beta"] == 1
+    assert correspondents["Unassigned correspondent"] == 1
+
+    unprocessed = {row["name"]: row["count"] for row in payload["unprocessed_by_correspondent"]}
+    assert unprocessed["Alpha"] == 1
+    assert unprocessed["Unassigned correspondent"] == 1
+    assert "Beta" not in unprocessed
+    page_counts = {row["label"]: row["count"] for row in payload["page_counts"]}
+    assert page_counts["Unknown"] == 4
+
+
+def test_dashboard_cache_invalidates_after_suggestion_delete(api_client: Any) -> None:
+    from app.services.documents import dashboard_cache
+
+    dashboard_cache.invalidate_dashboard_cache()
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7201, title="Cached Dashboard Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7201,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    first = api_client.get("/documents/dashboard")
+    assert first.status_code == 200
+    assert first.json()["stats"]["suggestions"] == 1
+
+    deleted = api_client.post("/documents/delete/suggestions", params={"doc_id": 7201})
+    assert deleted.status_code == 200
+
+    second = api_client.get("/documents/dashboard")
+    assert second.status_code == 200
+    assert second.json()["stats"]["suggestions"] == 0
+
+
+def test_document_stats_cache_invalidates_after_suggestion_delete(api_client: Any) -> None:
+    from app.services.documents import document_stats_cache
+
+    document_stats_cache.invalidate_document_stats_cache()
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7202, title="Cached Stats Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7202,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    first = api_client.get("/documents/stats")
+    assert first.status_code == 200
+    assert first.json()["suggestions"] == 1
+
+    deleted = api_client.post("/documents/delete/suggestions", params={"doc_id": 7202})
+    assert deleted.status_code == 200
+
+    second = api_client.get("/documents/stats")
+    assert second.status_code == 200
+    assert second.json()["suggestions"] == 0
+
+
+def test_dashboard_excludes_deleted_paperless_copies_from_operational_counts(api_client: Any) -> None:
+    from app.services.documents import dashboard_cache, document_stats_cache
+
+    dashboard_cache.invalidate_dashboard_cache()
+    document_stats_cache.invalidate_document_stats_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Correspondent(id=7301, name="BS|ENERGY"))
+        db.add_all(
+            [
+                Document(
+                    id=7302,
+                    title="Active pending",
+                    created="2026-02-01T00:00:00+00:00",
+                    correspondent_id=7301,
+                ),
+                Document(
+                    id=7303,
+                    title="Deleted copy",
+                    created="2026-02-02T00:00:00+00:00",
+                    correspondent_id=7301,
+                    deleted_at="DELETED in Paperless (copy kept) @ 2026-02-03T20:14:49.154744+00:00",
+                ),
+            ]
+        )
+        db.add_all(
+            [
+                DocumentEmbedding(doc_id=7303, embedding_source="vision", chunk_count=4),
+                DocumentSuggestion(
+                    doc_id=7303,
+                    source="paperless_ocr",
+                    payload="{}",
+                    created_at="2026-02-02T00:00:00+00:00",
+                    processed_at="2026-02-02T00:00:00+00:00",
+                ),
+            ]
+        )
+        db.commit()
+
+    dashboard = api_client.get("/documents/dashboard")
+    assert dashboard.status_code == 200
+    dashboard_payload = dashboard.json()
+    assert dashboard_payload["stats"]["total"] == 1
+    assert dashboard_payload["stats"]["unprocessed"] == 1
+    unprocessed = {row["name"]: row["count"] for row in dashboard_payload["unprocessed_by_correspondent"]}
+    assert unprocessed == {"BS|ENERGY": 1}
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    stats_payload = stats.json()
+    assert stats_payload["total"] == 1
+    assert stats_payload["unprocessed"] == 1
 
 
 def test_process_missing_queue_disabled(api_client: Any) -> None:
@@ -244,6 +459,53 @@ def test_mark_reviewed_moves_document_out_of_unreviewed(api_client: Any, monkeyp
     assert after.json()["count"] == 0
 
 
+def test_documents_list_cache_invalidates_after_mark_reviewed(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import documents_list_cache
+    from app.services.integrations import paperless
+
+    documents_list_cache.invalidate_documents_list_cache()
+    _insert_local_document(doc_id=47, title="Doc 47", created="2026-02-10T10:00:00+00:00")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents_cached",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 47,
+                    "title": "Doc 47",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    first = api_client.get(
+        "/documents",
+        params={"include_derived": True, "review_status": "unreviewed"},
+    )
+    assert first.status_code == 200
+    assert first.json()["count"] == 1
+
+    marked = api_client.post("/documents/47/review/mark")
+    assert marked.status_code == 200
+    assert marked.json()["status"] == "ok"
+
+    second = api_client.get(
+        "/documents",
+        params={"include_derived": True, "review_status": "unreviewed"},
+    )
+    assert second.status_code == 200
+    assert second.json()["count"] == 0
+
+
 def test_mark_reviewed_updates_local_review_status(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
@@ -278,6 +540,87 @@ def test_mark_reviewed_updates_local_review_status(api_client: Any, monkeypatch:
     assert after_payload["review_status"] == "reviewed"
     assert isinstance(after_payload["reviewed_at"], str)
     assert after_payload["reviewed_at"]
+
+
+def test_delete_vision_ocr_invalidates_page_text_cache(api_client: Any, monkeypatch: Any) -> None:
+    from app.models import DocumentPageText
+    from app.services.documents import page_texts_payload
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=47, title="Doc 47", created="2026-02-10T10:00:00+00:00")
+    _insert_page_text(doc_id=47, page=1, source="vision_ocr", text="vision page")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        row = (
+            db.query(DocumentPageText)
+            .filter(DocumentPageText.doc_id == 47, DocumentPageText.source == "vision_ocr")
+            .one()
+        )
+        row.quality_score = 0.9
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document_cached",
+        lambda *_args, **_kwargs: {"id": 47, "content": "", "page_count": 1},
+    )
+    monkeypatch.setattr(
+        page_texts_payload,
+        "get_baseline_page_texts",
+        lambda *_args, **_kwargs: [],
+    )
+
+    before = api_client.get("/documents/47/page-texts")
+    assert before.status_code == 200
+    assert len(before.json()["pages"]) == 1
+
+    deleted = api_client.post("/documents/delete/vision-ocr", params={"doc_id": 47})
+    assert deleted.status_code == 200
+
+    after = api_client.get("/documents/47/page-texts")
+    assert after.status_code == 200
+    assert after.json()["pages"] == []
+
+
+def test_delete_embeddings_invalidates_local_document_cache(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=48, title="Doc 48", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=48, embedding_source="paperless", chunk_count=2))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document_cached",
+        lambda *_args, **_kwargs: {
+            "id": 48,
+            "title": "Doc 48",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(documents_actions, "delete_points_for_doc", lambda *_args, **_kwargs: None)
+
+    before = api_client.get("/documents/48/local")
+    assert before.status_code == 200
+    assert before.json()["has_embeddings"] is True
+    assert before.json()["embedding_chunk_count"] == 2
+
+    deleted = api_client.post("/documents/delete/embeddings", params={"doc_id": 48})
+    assert deleted.status_code == 200
+
+    after = api_client.get("/documents/48/local")
+    assert after.status_code == 200
+    assert after.json()["has_embeddings"] is False
+    assert after.json()["embedding_chunk_count"] == 0
 
 
 def test_mark_reviewed_returns_missing_when_document_not_local(api_client: Any) -> None:
@@ -747,6 +1090,21 @@ def test_delete_similarity_index_clears_similarity_task_runs(
         assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
 
 
+def test_delete_embeddings_returns_success_when_vector_backend_is_empty(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    monkeypatch.setattr(documents_actions, "delete_all_chunk_points", lambda *_args, **_kwargs: None)
+
+    response = api_client.post("/documents/delete/embeddings")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deleted"] == 1
+    assert payload["qdrant_deleted"] == 1
+    assert payload["qdrant_errors"] == 0
+
+
 def test_get_local_document_note_override_sets_needs_review(
     api_client: Any, monkeypatch: Any
 ) -> None:
@@ -846,6 +1204,63 @@ def test_get_local_document_detects_empty_title_as_override(
     assert payload["review_status"] == "needs_review"
 
 
+def test_get_local_document_includes_derived_processing_flags(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=46, title="Doc 46", created="2026-02-10T10:00:00+00:00")
+    _insert_suggestion(doc_id=46, source="paperless_ocr", payload='{"title":"Doc 46"}')
+    _insert_suggestion(doc_id=46, source="vision_ocr", payload='{"title":"Doc 46"}')
+    _insert_suggestion(doc_id=46, source="hier_summary", payload='{"summary":"Kurz"}')
+    _insert_page_text(doc_id=46, page=1, source="vision_ocr", text="eins")
+    _insert_page_text(doc_id=46, page=2, source="vision_ocr", text="zwei")
+    _insert_page_note(doc_id=46, page=1, source="paperless_ocr", status="ok")
+    _insert_page_note(doc_id=46, page=2, source="vision_ocr", status="ok")
+    _insert_suggestion_audit(doc_id=46, created_at="2026-02-10T10:05:00+00:00")
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=46, embedding_source="vision", chunk_count=3))
+        local_doc = db.get(Document, 46)
+        assert local_doc is not None
+        local_doc.page_count = 2
+        db.commit()
+
+    monkeypatch.setenv("ENABLE_VISION_OCR", "1")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *args, **kwargs: {
+            "id": 46,
+            "title": "Doc 46",
+            "created": "2026-02-10T10:00:00+00:00",
+            "modified": "2026-02-10T10:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    response = api_client.get("/documents/46/local")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["has_embeddings"] is True
+    assert payload["embedding_source"] == "vision"
+    assert payload["embedding_chunk_count"] == 3
+    assert payload["has_embedding_for_preferred_source"] is True
+    assert payload["has_suggestions_paperless"] is True
+    assert payload["has_suggestions_vision"] is True
+    assert payload["has_hierarchical_summary"] is True
+    assert payload["vision_pages_done"] == 2
+    assert payload["has_complete_vision_pages"] is True
+    assert payload["page_notes_paperless_done"] == 1
+    assert payload["page_notes_vision_done"] == 1
+    assert payload["has_page_notes_paperless"] is True
+    assert payload["has_page_notes_vision"] is True
+    assert payload["review_status"] == "reviewed"
+
+
 def test_list_documents_summary_preview_only_when_requested(
     api_client: Any, monkeypatch: Any
 ) -> None:
@@ -890,3 +1305,86 @@ def test_list_documents_summary_preview_only_when_requested(
     with_payload = with_preview.json()
     assert with_payload["count"] == 1
     assert with_payload["results"][0].get("ai_summary_preview") == "Kurzfassung fuer Vorschau"
+
+
+def test_list_documents_includes_local_analysis_fields(api_client: Any, monkeypatch: Any) -> None:
+    from app.services.integrations import paperless
+
+    _insert_local_document(
+        doc_id=45,
+        title="Doc 45",
+        created="2026-02-10T10:00:00+00:00",
+        analysis_model="gpt-local",
+        analysis_processed_at="2026-02-11T12:30:00+00:00",
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 45,
+                    "title": "Doc 45",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["results"][0]["analysis_model"] == "gpt-local"
+    assert payload["results"][0]["analysis_processed_at"] == "2026-02-11T12:30:00+00:00"
+
+
+def test_list_documents_includes_suggestion_and_vision_flags(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_local_document(
+        doc_id=46,
+        title="Doc 46",
+        created="2026-02-10T10:00:00+00:00",
+    )
+    _insert_suggestion(doc_id=46, source="paperless_ocr", payload='{"title":"Doc 46"}')
+    _insert_suggestion(doc_id=46, source="vision_ocr", payload='{"title":"Doc 46 Vision"}')
+    _insert_page_text(doc_id=46, page=1, source="vision_ocr", text="Vision page 1")
+    _insert_page_text(doc_id=46, page=2, source="vision_ocr", text="Vision page 2")
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 46,
+                    "title": "Doc 46",
+                    "created": "2026-02-10T10:00:00+00:00",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "correspondent": None,
+                    "tags": [],
+                },
+            ],
+        },
+    )
+
+    response = api_client.get("/documents", params={"include_derived": True})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    row = payload["results"][0]
+    assert row["has_suggestions"] is True
+    assert row["has_suggestions_paperless"] is True
+    assert row["has_suggestions_vision"] is True
+    assert row["has_vision_pages"] is True

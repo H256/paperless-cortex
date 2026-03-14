@@ -1,21 +1,12 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.8
+    rev: v0.9.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
         files: ^backend/
       - id: ruff-format
         files: ^backend/
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
-    hooks:
-      - id: mypy
-        files: ^backend/app/
-        additional_dependencies:
-          - types-redis
-          - sqlalchemy[mypy]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -31,9 +22,21 @@ repos:
 
   - repo: local
     hooks:
-      - id: oxlint
-        name: oxlint
-        entry: bash -c 'cd frontend && npx oxlint . --fix'
+      - id: backend-mypy
+        name: backend mypy
+        entry: uv run --directory backend mypy --config-file pyproject.toml
         language: system
-        files: ^frontend/.*\.(ts|vue)$
+        files: ^backend/
+        pass_filenames: false
+      - id: frontend-lint
+        name: frontend lint
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+      - id: frontend-type-check
+        name: frontend type-check
+        entry: npm --prefix frontend run type-check
+        language: system
+        files: ^frontend/
         pass_filenames: false

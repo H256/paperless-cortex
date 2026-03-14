@@ -4,6 +4,7 @@ import {
   cleanupTexts,
   clearIntelligence,
   deleteEmbeddings,
+  findMissingVectorChunks,
   deleteSimilarityIndex,
   deleteSuggestions,
   deleteVisionOcr,
@@ -16,6 +17,7 @@ import {
   syncTags,
   type CleanupTextsPayload,
   type EmbedStatus,
+  type MissingVectorChunkAuditResult,
   type SyncStatus,
 } from '../services/documents'
 import { fetchHealthStatus } from '../services/status'
@@ -134,6 +136,10 @@ export const useMaintenanceOps = () => {
     onSuccess: async () => invalidateProcessingQueries(queryClient),
   })
 
+  const missingVectorChunksMutation = useMutation<MissingVectorChunkAuditResult, Error, { limit?: number }>({
+    mutationFn: ({ limit }) => findMissingVectorChunks(limit ?? 100),
+  })
+
   const clearAllMutation = useMutation({
     mutationFn: () => clearIntelligence(),
     onSuccess: async () => invalidateProcessingQueries(queryClient),
@@ -180,6 +186,7 @@ export const useMaintenanceOps = () => {
     suggestionsLoading: computed(() => removeSuggestionsMutation.isPending.value),
     embeddingsLoading: computed(() => removeEmbeddingsMutation.isPending.value),
     similarityIndexLoading: computed(() => removeSimilarityIndexMutation.isPending.value),
+    missingVectorChunksLoading: computed(() => missingVectorChunksMutation.isPending.value),
     clearAllLoading: computed(() => clearAllMutation.isPending.value),
     cleanupLoading: computed(() => cleanupMutation.isPending.value),
     correspondentsSyncLoading: computed(() => syncCorrespondentsMutation.isPending.value),
@@ -193,6 +200,8 @@ export const useMaintenanceOps = () => {
     removeSuggestions: async () => removeSuggestionsMutation.mutateAsync(),
     removeEmbeddings: async () => removeEmbeddingsMutation.mutateAsync(),
     removeSimilarityIndex: async () => removeSimilarityIndexMutation.mutateAsync(),
+    findMissingVectorChunks: async (limit = 100) =>
+      missingVectorChunksMutation.mutateAsync({ limit }),
     clearAllIntelligence: async () => clearAllMutation.mutateAsync(),
     cleanupTexts: async (payload: CleanupTextsPayload) => cleanupMutation.mutateAsync(payload),
     syncCorrespondentsNow: async () => syncCorrespondentsMutation.mutateAsync(),

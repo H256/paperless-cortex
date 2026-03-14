@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.1.0"
+    "version": "0.5.54"
   },
   "paths": {
     "/documents/": {
@@ -11,6 +11,7 @@
           "documents"
         ],
         "summary": "List Documents",
+        "description": "List Paperless documents with optional local derived state overlays.\n\nThe route preserves the upstream Paperless pagination contract for the\nunfiltered path and falls back to local post-filtering when review-status\nsemantics require derived state from the local cache.",
         "operationId": "list_documents_documents__get",
         "parameters": [
           {
@@ -174,6 +175,7 @@
           "documents"
         ],
         "summary": "Get Document Stats",
+        "description": "Return aggregate processing counters for the local document cache.",
         "operationId": "get_document_stats_documents_stats_get",
         "responses": {
           "200": {
@@ -195,6 +197,7 @@
           "documents"
         ],
         "summary": "Get Dashboard",
+        "description": "Return the cached dashboard payload used by the operations views.",
         "operationId": "get_dashboard_documents_dashboard_get",
         "responses": {
           "200": {
@@ -258,6 +261,7 @@
           "documents"
         ],
         "summary": "Get Local Document",
+        "description": "Return the local document view with derived processing and review state.",
         "operationId": "get_local_document_documents__doc_id__local_get",
         "parameters": [
           {
@@ -1341,6 +1345,50 @@
         }
       }
     },
+    "/documents/audit/missing-vector-chunks": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Missing Vector Chunks Audit",
+        "description": "Audit local embedding rows against the active vector store and report missing chunk vectors.",
+        "operationId": "get_missing_vector_chunks_audit_documents_audit_missing_vector_chunks_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingVectorChunkAuditResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/cleanup-texts": {
       "post": {
         "tags": [
@@ -2187,6 +2235,7 @@
           "sync"
         ],
         "summary": "Sync Documents",
+        "description": "Synchronize Paperless documents into the local cache and optionally queue embeddings.",
         "operationId": "sync_documents_sync_documents_post",
         "parameters": [
           {
@@ -2304,6 +2353,7 @@
           "sync"
         ],
         "summary": "Sync Status",
+        "description": "Return the current document-sync progress snapshot from local sync state.",
         "operationId": "sync_status_sync_documents_get",
         "responses": {
           "200": {
@@ -2325,6 +2375,7 @@
           "sync"
         ],
         "summary": "Cancel Sync",
+        "description": "Request cancellation of the running document-sync job, if any.",
         "operationId": "cancel_sync_sync_documents_cancel_post",
         "responses": {
           "200": {
@@ -2346,6 +2397,7 @@
           "sync"
         ],
         "summary": "Sync Document",
+        "description": "Refresh one Paperless document locally and optionally enqueue or run embeddings.",
         "operationId": "sync_document_sync_documents__doc_id__post",
         "parameters": [
           {
@@ -2424,6 +2476,7 @@
           "sync"
         ],
         "summary": "Sync Tags",
+        "description": "Upsert one page of Paperless tags into the local metadata cache.",
         "operationId": "sync_tags_sync_tags_post",
         "parameters": [
           {
@@ -2477,6 +2530,7 @@
           "sync"
         ],
         "summary": "Sync Correspondents",
+        "description": "Upsert one page of Paperless correspondents into the local metadata cache.",
         "operationId": "sync_correspondents_sync_correspondents_post",
         "parameters": [
           {
@@ -2530,6 +2584,7 @@
           "sync"
         ],
         "summary": "Sync Document Types",
+        "description": "Upsert one page of Paperless document types into the local metadata cache.",
         "operationId": "sync_document_types_sync_document_types_post",
         "parameters": [
           {
@@ -2583,6 +2638,7 @@
           "embeddings"
         ],
         "summary": "Ingest Embeddings",
+        "description": "Ingest embeddings for a filtered document set, either inline or through the queue.",
         "operationId": "ingest_embeddings_embeddings_ingest_post",
         "parameters": [
           {
@@ -2652,6 +2708,7 @@
           "embeddings"
         ],
         "summary": "Ingest Documents",
+        "description": "Ingest embeddings for an explicit list of local document IDs.",
         "operationId": "ingest_documents_embeddings_ingest_docs_post",
         "parameters": [
           {
@@ -2709,6 +2766,7 @@
           "embeddings"
         ],
         "summary": "Search",
+        "description": "Search embedding chunks and optionally attach local document context to matches.",
         "operationId": "search_embeddings_search_get",
         "parameters": [
           {
@@ -2823,6 +2881,7 @@
           "embeddings"
         ],
         "summary": "Embedding Status",
+        "description": "Return current embedding-ingest progress from sync state or queue statistics.",
         "operationId": "embedding_status_embeddings_status_get",
         "responses": {
           "200": {
@@ -2844,6 +2903,7 @@
           "embeddings"
         ],
         "summary": "Cancel Embeddings",
+        "description": "Request cancellation of the current embedding ingest run, if one exists.",
         "operationId": "cancel_embeddings_embeddings_cancel_post",
         "responses": {
           "200": {
@@ -2890,6 +2950,7 @@
           "queue"
         ],
         "summary": "Get Queue Status",
+        "description": "Return queue length/progress plus paused state for the active worker queue.",
         "operationId": "get_queue_status_queue_status_get",
         "responses": {
           "200": {
@@ -2911,6 +2972,7 @@
           "queue"
         ],
         "summary": "Enqueue",
+        "description": "Enqueue one or more document IDs for default worker processing.",
         "operationId": "enqueue_queue_enqueue_post",
         "requestBody": {
           "content": {
@@ -2952,6 +3014,7 @@
           "queue"
         ],
         "summary": "Peek",
+        "description": "Preview queued work items without removing them from the queue.",
         "operationId": "peek_queue_peek_get",
         "parameters": [
           {
@@ -2995,6 +3058,7 @@
           "queue"
         ],
         "summary": "Clear",
+        "description": "Clear the active queue by reusing the queue-cancel path.",
         "operationId": "clear_queue_clear_post",
         "responses": {
           "200": {
@@ -3016,6 +3080,7 @@
           "queue"
         ],
         "summary": "Cancel",
+        "description": "Request queue cancellation for the current worker run.",
         "operationId": "cancel_queue_cancel_post",
         "responses": {
           "200": {
@@ -3037,6 +3102,7 @@
           "queue"
         ],
         "summary": "Reset",
+        "description": "Reset persisted queue counters without modifying queued items.",
         "operationId": "reset_queue_reset_stats_post",
         "responses": {
           "200": {
@@ -3058,6 +3124,7 @@
           "queue"
         ],
         "summary": "Pause",
+        "description": "Pause queue consumption while keeping queued items intact.",
         "operationId": "pause_queue_pause_post",
         "responses": {
           "200": {
@@ -3079,6 +3146,7 @@
           "queue"
         ],
         "summary": "Resume",
+        "description": "Resume queue consumption after a pause.",
         "operationId": "resume_queue_resume_post",
         "responses": {
           "200": {
@@ -3100,6 +3168,7 @@
           "queue"
         ],
         "summary": "Move",
+        "description": "Move a queue item from one index to another.",
         "operationId": "move_queue_reorder_post",
         "requestBody": {
           "content": {
@@ -3141,6 +3210,7 @@
           "queue"
         ],
         "summary": "Move Top",
+        "description": "Move a queue item to the front of the queue.",
         "operationId": "move_top_queue_move_top_post",
         "requestBody": {
           "content": {
@@ -3182,6 +3252,7 @@
           "queue"
         ],
         "summary": "Move Bottom",
+        "description": "Move a queue item to the end of the queue.",
         "operationId": "move_bottom_queue_move_bottom_post",
         "requestBody": {
           "content": {
@@ -3223,6 +3294,7 @@
           "queue"
         ],
         "summary": "Remove",
+        "description": "Remove one queue item by index.",
         "operationId": "remove_queue_remove_post",
         "requestBody": {
           "content": {
@@ -3264,6 +3336,7 @@
           "queue"
         ],
         "summary": "Get Worker Lock",
+        "description": "Report worker-lock ownership and TTL details for queue debugging.",
         "operationId": "get_worker_lock_queue_worker_lock_get",
         "responses": {
           "200": {
@@ -3285,6 +3358,7 @@
           "queue"
         ],
         "summary": "Get Running",
+        "description": "Return the task the worker currently marks as running, if any.",
         "operationId": "get_running_queue_running_get",
         "responses": {
           "200": {
@@ -3306,6 +3380,7 @@
           "queue"
         ],
         "summary": "Reset Worker Lock Route",
+        "description": "Reset the worker lock for recovery scenarios, optionally forcing the reset.",
         "operationId": "reset_worker_lock_route_queue_worker_lock_reset_post",
         "parameters": [
           {
@@ -3349,6 +3424,7 @@
           "queue"
         ],
         "summary": "Get Dlq",
+        "description": "List dead-letter queue items for inspection and recovery.",
         "operationId": "get_dlq_queue_dlq_get",
         "parameters": [
           {
@@ -3392,6 +3468,7 @@
           "queue"
         ],
         "summary": "Get Delayed Queue",
+        "description": "List delayed queue items that are waiting for their retry time.",
         "operationId": "get_delayed_queue_queue_delayed_get",
         "parameters": [
           {
@@ -3435,6 +3512,7 @@
           "queue"
         ],
         "summary": "Clear Dlq",
+        "description": "Clear all dead-letter queue items.",
         "operationId": "clear_dlq_queue_dlq_clear_post",
         "responses": {
           "200": {
@@ -3456,6 +3534,7 @@
           "queue"
         ],
         "summary": "Requeue Dlq",
+        "description": "Move one dead-letter queue item back into the active queue.",
         "operationId": "requeue_dlq_queue_dlq_requeue_post",
         "requestBody": {
           "content": {
@@ -3497,6 +3576,7 @@
           "queue"
         ],
         "summary": "Get Task Runs",
+        "description": "List persisted worker task runs with filters for queue/ops inspection.",
         "operationId": "get_task_runs_queue_task_runs_get",
         "parameters": [
           {
@@ -3630,6 +3710,7 @@
           "queue"
         ],
         "summary": "Get Error Types",
+        "description": "Return the stable worker error-type catalog exposed to the UI.",
         "operationId": "get_error_types_queue_error_types_get",
         "responses": {
           "200": {
@@ -3651,6 +3732,7 @@
           "status"
         ],
         "summary": "Status",
+        "description": "Return the consolidated application health/config snapshot.",
         "operationId": "status_status_get",
         "responses": {
           "200": {
@@ -3666,12 +3748,43 @@
         }
       }
     },
+    "/status/metrics": {
+      "get": {
+        "tags": [
+          "status"
+        ],
+        "summary": "Metrics",
+        "description": "Return in-memory backend counters and timing aggregates for observability.",
+        "operationId": "metrics_status_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object",
+                  "title": "Response Metrics Status Metrics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status/stream": {
       "get": {
         "tags": [
           "status"
         ],
         "summary": "Status Stream",
+        "description": "Stream the consolidated app, queue, sync, and stats payload as server-sent events.",
         "operationId": "status_stream_status_stream_get",
         "responses": {
           "200": {
@@ -3691,6 +3804,7 @@
           "chat"
         ],
         "summary": "Chat",
+        "description": "Answer a chat question against the local evidence/search stack.",
         "operationId": "chat_chat_post",
         "requestBody": {
           "content": {
@@ -3732,6 +3846,7 @@
           "chat"
         ],
         "summary": "Chat Stream",
+        "description": "Start a streaming chat answer using the same retrieval path as the non-stream endpoint.",
         "operationId": "chat_stream_chat_stream_post",
         "requestBody": {
           "content": {
@@ -3748,7 +3863,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "title": "Response Chat Stream Chat Stream Post"
+                }
               }
             }
           },
@@ -3771,6 +3888,7 @@
           "chat"
         ],
         "summary": "Chat Followups",
+        "description": "Generate suggested follow-up questions from an existing answer and citation set.",
         "operationId": "chat_followups_chat_followups_post",
         "requestBody": {
           "content": {
@@ -3812,6 +3930,7 @@
           "chat"
         ],
         "summary": "Resolve Evidence",
+        "description": "Resolve citation snippets into richer evidence/page matches for the UI.",
         "operationId": "resolve_evidence_chat_resolve_evidence_post",
         "requestBody": {
           "content": {
@@ -3946,6 +4065,7 @@
           "writeback"
         ],
         "summary": "Dry Run Preview",
+        "description": "Preview pending writeback changes for one document or a paged selection.",
         "operationId": "dry_run_preview_writeback_dry_run_preview_get",
         "parameters": [
           {
@@ -4066,6 +4186,7 @@
           "writeback"
         ],
         "summary": "Create Writeback Job",
+        "description": "Create a persisted writeback job from the current previewable changes.",
         "operationId": "create_writeback_job_writeback_jobs_post",
         "requestBody": {
           "required": true,
@@ -6913,6 +7034,123 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MissingVectorChunkAuditResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "scanned_docs": {
+            "type": "integer",
+            "title": "Scanned Docs"
+          },
+          "affected_docs": {
+            "type": "integer",
+            "title": "Affected Docs"
+          },
+          "fully_missing_docs": {
+            "type": "integer",
+            "title": "Fully Missing Docs"
+          },
+          "partial_missing_docs": {
+            "type": "integer",
+            "title": "Partial Missing Docs"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "default": false
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MissingVectorChunkItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "scanned_docs",
+          "affected_docs",
+          "fully_missing_docs",
+          "partial_missing_docs",
+          "limit"
+        ],
+        "title": "MissingVectorChunkAuditResponse"
+      },
+      "MissingVectorChunkItem": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "embedding_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Source"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "title": "Chunk Count"
+          },
+          "expected_vectors": {
+            "type": "integer",
+            "title": "Expected Vectors"
+          },
+          "found_vectors": {
+            "type": "integer",
+            "title": "Found Vectors"
+          },
+          "fully_missing": {
+            "type": "boolean",
+            "title": "Fully Missing"
+          },
+          "embedded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "chunk_count",
+          "expected_vectors",
+          "found_vectors",
+          "fully_missing"
+        ],
+        "title": "MissingVectorChunkItem"
+      },
       "MonthlyProcessingBucket": {
         "properties": {
           "label": {
@@ -8339,6 +8577,28 @@
             ],
             "title": "Qdrant Url"
           },
+          "vector_store_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Store Provider"
+          },
+          "vector_store_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Store Url"
+          },
           "redis_host": {
             "anyOf": [
               {
@@ -8360,6 +8620,17 @@
               }
             ],
             "title": "Text Model"
+          },
+          "chat_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
           },
           "embedding_model": {
             "anyOf": [

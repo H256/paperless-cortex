@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.services.search import qdrant
+from app.services.search import vector_store
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -41,6 +41,9 @@ def ensure_vision_llm_ready(settings: Settings, *, require_model: bool = True) -
         raise RuntimeError("VISION_MODEL not set")
 
 
+def ensure_vector_store_ready(settings: Settings) -> None:
+    vector_store.ensure_ready(settings)
+
+
 def ensure_qdrant_ready(settings: Settings) -> None:
-    qdrant.base_url(settings)
-    qdrant.collection_name(settings)
+    ensure_vector_store_ready(settings)

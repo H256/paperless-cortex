@@ -33,6 +33,21 @@ def session_factory() -> Any:
     )
     testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
+    from app.services.documents.dashboard_cache import invalidate_dashboard_cache
+    from app.services.documents.document_stats_cache import invalidate_document_stats_cache
+    from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+    from app.services.documents.local_document_cache import invalidate_local_document_cache
+    from app.services.documents.page_texts_cache import invalidate_page_texts_cache
+    from app.services.runtime.metrics import clear_metrics
+    from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
+
+    invalidate_dashboard_cache()
+    invalidate_local_document_cache()
+    invalidate_page_texts_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
+    invalidate_writeback_preview_cache()
+    clear_metrics()
     return testing_session_local
 
 
@@ -45,6 +60,21 @@ def api_client(monkeypatch: Any) -> Any:
     import app.main as main
 
     importlib.reload(main)
+    from app.services.documents.dashboard_cache import invalidate_dashboard_cache
+    from app.services.documents.document_stats_cache import invalidate_document_stats_cache
+    from app.services.documents.documents_list_cache import invalidate_documents_list_cache
+    from app.services.documents.local_document_cache import invalidate_local_document_cache
+    from app.services.documents.page_texts_cache import invalidate_page_texts_cache
+    from app.services.runtime.metrics import clear_metrics
+    from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
+
+    invalidate_dashboard_cache()
+    invalidate_local_document_cache()
+    invalidate_page_texts_cache()
+    invalidate_document_stats_cache()
+    invalidate_documents_list_cache()
+    invalidate_writeback_preview_cache()
+    clear_metrics()
 
     engine = create_engine(
         os.environ["DATABASE_URL"],

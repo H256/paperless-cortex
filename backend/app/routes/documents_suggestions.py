@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import case, func, or_
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api_models import (
@@ -17,44 +15,38 @@ from app.api_models import (
 )
 from app.db import get_db
 from app.deps import get_settings
-from app.models import (
-    Correspondent,
-    DocumentNote,
-    DocumentPageText,
-    DocumentPendingCorrespondent,
-    DocumentPendingTag,
-    DocumentSuggestion,
-    Tag,
-)
-from app.routes.documents_common import load_suggestions_map
-from app.routes.queue_guard import require_queue_enabled
+from app.models import DocumentSuggestion
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.suggestion_apply import apply_suggestion_to_document_payload
+from app.services.ai.suggestion_operations import (
+    build_suggestions_meta,
+    generate_field_variants_payload,
+    get_document_suggestions_payload,
+    variant_source_key,
+)
 from app.services.ai.suggestion_store import (
     audit_suggestion_run,
+    load_suggestions_map,
     persist_suggestions,
     update_suggestion_field,
 )
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
-from app.services.documents.note_ids import next_local_note_id
 from app.services.documents.page_text_store import upsert_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.documents.text_pages import get_page_text_layers
 from app.services.integrations import paperless
 from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
 from app.services.pipeline.queue import enqueue_task_front, enqueue_task_sequence_front
+from app.services.pipeline.queue_access import is_queue_enabled
 from app.services.runtime.json_utils import parse_json_object
-from app.services.runtime.string_list_json import (
-    dumps_normalized_string_list,
-    normalize_string_list,
-    parse_string_list_json,
-)
-from app.services.runtime.time_utils import utc_now_iso
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from app.config import Settings
+
+require_queue_enabled = is_queue_enabled
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -72,30 +64,11 @@ class SuggestionFieldApply(BaseModel):
 
 
 def _variant_source_key(source: str, field: str) -> str:
-    prefix = "pvar" if source == "paperless_ocr" else "vvar"
-    return f"{prefix}:{field}"
+    return variant_source_key(source, field)
 
 
 def _build_suggestions_meta(db: Session, doc_id: int) -> dict[str, dict[str, str | None]]:
-    meta_rows = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).all()
-    ocr_model = (
-        db.query(DocumentPageText.model_name)
-        .filter(
-            DocumentPageText.doc_id == doc_id,
-            DocumentPageText.source == "vision_ocr",
-        )
-        .order_by(DocumentPageText.processed_at.desc().nullslast())
-        .first()
-    )
-    ocr_model_name = ocr_model[0] if ocr_model else None
-    return {
-        row.source: {
-            "model": row.model_name,
-            "processed_at": row.processed_at,
-            "ocr_model": ocr_model_name if row.source == "vision_ocr" else None,
-        }
-        for row in meta_rows
-    }
+    return build_suggestions_meta(db, doc_id)
 
 
 def _append_similar_docs_metadata(
@@ -107,21 +80,15 @@ def _append_similar_docs_metadata(
     logger: logging.Logger,
 ) -> None:
     try:
-        from app.services.search.similarity import (
-            aggregate_similar_metadata,
-            fetch_doc_point_vector,
-            search_similar_doc_points,
-        )
+        from app.services.ai.suggestion_operations import append_similar_docs_metadata
 
-        vector = fetch_doc_point_vector(settings, doc_id)
-        if not vector:
-            return
-        matches = search_similar_doc_points(settings, vector, top_k=10, min_score=None)
-        filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
-        doc_ids = [int(item["doc_id"]) for item in filtered]
-        score_by_doc = {int(item["doc_id"]): float(item.get("score") or 0.0) for item in filtered}
-        metadata = aggregate_similar_metadata(db, doc_ids=doc_ids, score_by_doc=score_by_doc)
-        suggestions_by_source["similar_docs"] = metadata
+        append_similar_docs_metadata(
+            settings,
+            db,
+            doc_id=doc_id,
+            suggestions_by_source=suggestions_by_source,
+            logger=logger,
+        )
     except (ImportError, RuntimeError, SQLAlchemyError, ValueError, TypeError) as exc:
         logger.warning("Similar metadata failed doc=%s err=%s", doc_id, exc)
 
@@ -143,128 +110,26 @@ def get_document_suggestions(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     logger = logging.getLogger(__name__)
-    logger.info("Fetch suggestions doc=%s source=%s refresh=%s", doc_id, source, refresh)
-    raw = paperless.get_document(settings, doc_id)
-    tags = get_cached_tags(settings)
-    correspondents = get_cached_correspondents(settings)
-
-    suggestions_by_source: dict[str, object] = {}
-
-    def run_baseline() -> dict[str, object]:
-        baseline_text = raw.get("content") or ""
-        baseline_suggestions = generate_normalized_suggestions(
-            settings,
-            raw,
-            baseline_text,
-            tags=tags,
-            correspondents=correspondents,
-        )
-        persist_suggestions(
-            db,
-            doc_id,
-            "paperless_ocr",
-            baseline_suggestions,
-            model_name=settings.text_model,
-        )
-        return baseline_suggestions
-
-    def run_vision() -> dict[str, object] | None:
-        if not settings.enable_vision_ocr:
-            logger.warning("Vision OCR refresh requested but ENABLE_VISION_OCR=0 doc=%s", doc_id)
-            return {"error": "vision_ocr_disabled"}
-        doc = get_document_or_none(db, doc_id)
-        if not doc:
-            return {"error": "document_missing"}
-        _, vision_pages, _ = collect_page_texts(
-            settings,
-            db,
-            doc,
-            force_vision=True,
-        )
-        if not vision_pages:
-            logger.warning("Vision OCR produced no pages doc=%s", doc_id)
-            return {"error": "vision_ocr_empty"}
-        vision_text = "\n\n".join(page.text or "" for page in vision_pages).strip()
-        if not vision_text:
-            logger.warning("Vision OCR returned empty text doc=%s", doc_id)
-            return {"error": "vision_ocr_empty_text"}
-        vision_suggestions = generate_normalized_suggestions(
-            settings,
-            raw,
-            vision_text,
-            tags=tags,
-            correspondents=correspondents,
-        )
-        persist_suggestions(
-            db,
-            doc_id,
-            "vision_ocr",
-            vision_suggestions,
-            model_name=settings.text_model,
-        )
-        return vision_suggestions
-
-    if refresh and priority and require_queue_enabled(settings):
-        if source == "vision_ocr":
-            enqueue_task_sequence_front(
-                settings,
-                [
-                    {"doc_id": doc_id, "task": "vision_ocr"},
-                    {"doc_id": doc_id, "task": "embeddings_vision"},
-                    {"doc_id": doc_id, "task": "suggestions_vision"},
-                ],
-            )
-        elif source == "paperless_ocr":
-            enqueue_task_front(settings, {"doc_id": doc_id, "task": "suggestions_paperless"})
-        suggestions_by_source = load_suggestions_map(db, doc_id, tags)
-        suggestions_meta = _build_suggestions_meta(db, doc_id)
-        if include_similar:
-            _append_similar_docs_metadata(
-                settings,
-                db,
-                doc_id=doc_id,
-                suggestions_by_source=suggestions_by_source,
-                logger=logger,
-            )
-        return {
-            "doc_id": doc_id,
-            "queued": True,
-            "suggestions": suggestions_by_source,
-            "suggestions_meta": suggestions_meta,
-        }
-
-    if refresh:
-        if source in (None, "paperless_ocr"):
-            suggestions_by_source["paperless_ocr"] = run_baseline()
-        if source in (None, "vision_ocr"):
-            vision = run_vision()
-            if vision is not None:
-                suggestions_by_source["vision_ocr"] = vision
-        if source == "vision_ocr" and "paperless_ocr" not in suggestions_by_source:
-            suggestions_by_source.update(
-                load_suggestions_map(db, doc_id, tags, source="paperless_ocr")
-            )
-        if source == "paperless_ocr" and "vision_ocr" not in suggestions_by_source:
-            suggestions_by_source.update(
-                load_suggestions_map(db, doc_id, tags, source="vision_ocr")
-            )
-    else:
-        suggestions_by_source = load_suggestions_map(db, doc_id, tags)
-
-    suggestions_meta = _build_suggestions_meta(db, doc_id)
-    if include_similar:
-        _append_similar_docs_metadata(
-            settings,
-            db,
-            doc_id=doc_id,
-            suggestions_by_source=suggestions_by_source,
-            logger=logger,
-        )
-    return {
-        "doc_id": doc_id,
-        "suggestions": suggestions_by_source,
-        "suggestions_meta": suggestions_meta,
-    }
+    return get_document_suggestions_payload(
+        doc_id=doc_id,
+        source=source,
+        refresh=refresh,
+        priority=priority,
+        include_similar=include_similar,
+        settings=settings,
+        db=db,
+        logger=logger,
+        get_document_fn=paperless.get_document,
+        get_cached_tags_fn=get_cached_tags,
+        get_cached_correspondents_fn=get_cached_correspondents,
+        load_suggestions_map_fn=load_suggestions_map,
+        persist_suggestions_fn=persist_suggestions,
+        generate_normalized_suggestions_fn=generate_normalized_suggestions,
+        get_document_or_none_fn=get_document_or_none,
+        collect_page_texts_fn=collect_page_texts,
+        enqueue_task_front_fn=enqueue_task_front,
+        enqueue_task_sequence_front_fn=enqueue_task_sequence_front,
+    )
 
 
 @router.post("/{doc_id}/suggestions/field", response_model=SuggestFieldVariantsResponse)
@@ -275,89 +140,33 @@ def suggest_field_variants(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    raw = paperless.get_document(settings, doc_id)
-    tags = get_cached_tags(settings)
-    correspondents = get_cached_correspondents(settings)
     if payload.source not in ("paperless_ocr", "vision_ocr"):
         raise ValueError("Invalid source")
     if payload.field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
-    target_field = "summary" if payload.field == "note" else payload.field
-
-    if payload.source == "vision_ocr":
-        vision_pages = (
-            db.query(DocumentPageText)
-            .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
-            .order_by(DocumentPageText.page.asc())
-            .all()
-        )
-        if not vision_pages and settings.enable_vision_ocr:
-            _, vision_generated = get_page_text_layers(
-                settings,
-                raw.get("content") or "",
-                fetch_pdf_bytes=lambda: fetch_pdf_bytes(settings, doc_id),
-                force_full_vision=True,
-            )
-            if vision_generated:
-                upsert_page_texts(
-                    db, settings, doc_id, vision_generated, source_filter="vision_ocr"
-                )
-                doc = get_document_or_none(db, doc_id)
-                if doc:
-                    ensure_document_ocr_score(settings, db, doc, "vision_ocr", force=True)
-                vision_pages = (
-                    db.query(DocumentPageText)
-                    .filter(
-                        DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr"
-                    )
-                    .order_by(DocumentPageText.page.asc())
-                    .all()
-                )
-        text = "\n\n".join(page.text or "" for page in vision_pages) if vision_pages else ""
-    else:
-        text = raw.get("content") or ""
-
-    current = None
-    stored = (
-        db.query(DocumentSuggestion)
-        .filter(DocumentSuggestion.doc_id == doc_id, DocumentSuggestion.source == payload.source)
-        .one_or_none()
-    )
-    if stored:
-        payload_json = parse_json_object(stored.payload)
-        current = payload_json.get(target_field)
-    if require_queue_enabled(settings) and not priority:
-        task = {
-            "doc_id": doc_id,
-            "task": "suggest_field",
-            "source": payload.source,
-            "field": payload.field,
-            "count": max(1, min(payload.count, 5)),
-            "current": current,
-        }
-        enqueue_task_front(settings, task)
-        return {"doc_id": doc_id, "source": payload.source, "field": payload.field, "queued": True}
-
-    generated = generate_field_variants(
-        settings,
-        raw,
-        text,
-        tags=tags,
-        correspondents=correspondents,
+    payload_data = generate_field_variants_payload(
+        doc_id=doc_id,
+        source=payload.source,
         field=payload.field,
-        count=max(1, min(payload.count, 5)),
-        current_value=current,
+        count=payload.count,
+        priority=priority,
+        settings=settings,
+        db=db,
+        get_document_fn=paperless.get_document,
+        get_cached_tags_fn=get_cached_tags,
+        get_cached_correspondents_fn=get_cached_correspondents,
+        get_document_or_none_fn=get_document_or_none,
+        get_page_text_layers_fn=get_page_text_layers,
+        fetch_pdf_bytes_fn=lambda: fetch_pdf_bytes(settings, doc_id),
+        upsert_page_texts_fn=upsert_page_texts,
+        ensure_document_ocr_score_fn=ensure_document_ocr_score,
+        generate_field_variants_fn=generate_field_variants,
+        enqueue_task_front_fn=enqueue_task_front,
     )
-    variants = generated.get("variants") if isinstance(generated, dict) else generated
-    if not isinstance(variants, list):
-        variants = []
+    if payload_data.get("queued") is True:
+        return payload_data
     audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")
-    return {
-        "doc_id": doc_id,
-        "source": payload.source,
-        "field": payload.field,
-        "variants": variants,
-    }
+    return payload_data
 
 
 @router.get("/{doc_id}/suggestions/field/variants", response_model=SuggestFieldVariantsResponse)
@@ -404,207 +213,16 @@ def apply_suggestion_to_document(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    logger = logging.getLogger(__name__)
-
-    def _format_ai_summary_note(
-        summary_text: str,
-        *,
-        model_name: str | None,
-        processed_at: str | None,
-    ) -> str:
-        def _format_created(value: str | None) -> str | None:
-            raw = str(value or "").strip()
-            if not raw:
-                return None
-            candidate = f"{raw[:-1]}+00:00" if raw.endswith("Z") else raw
-            try:
-                parsed = datetime.fromisoformat(candidate)
-                return parsed.strftime("%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                compact = raw.replace("T", " ")
-                return compact[:19]
-
-        summary = summary_text.strip()
-        meta_parts: list[str] = []
-        if model_name:
-            meta_parts.append(f"Model:{model_name}")
-        created = _format_created(processed_at)
-        if created:
-            meta_parts.append(f"Created:{created}")
-        meta_line = ", ".join(meta_parts)
-        if meta_line:
-            return f"{summary}\n\n{meta_line}\nKI-Zusammenfassung"
-        return f"{summary}\n\nKI-Zusammenfassung"
-
-    def _find_suggestion_meta() -> tuple[str | None, str | None]:
-        suggestion_row = None
-        if payload.source:
-            suggestion_row = (
-                db.query(DocumentSuggestion)
-                .filter(
-                    DocumentSuggestion.doc_id == doc_id,
-                    DocumentSuggestion.source == payload.source,
-                )
-                .one_or_none()
-            )
-        if not suggestion_row:
-            suggestion_row = (
-                db.query(DocumentSuggestion)
-                .filter(DocumentSuggestion.doc_id == doc_id)
-                .order_by(
-                    DocumentSuggestion.processed_at.desc().nullslast(),
-                    DocumentSuggestion.source.asc(),
-                )
-                .first()
-            )
-        if not suggestion_row:
-            return None, None
-        return suggestion_row.model_name, suggestion_row.processed_at
-
-    doc = get_document_or_none(db, doc_id)
-    if not doc:
-        return {"status": "missing"}
     field = payload.field
     value = payload.value
     if field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
-    updated = False
-    details: dict[str, object] = {}
-
-    if field == "title":
-        doc.title = str(value).strip() if value is not None else None
-        updated = True
-    elif field == "date":
-        doc.document_date = str(value).strip() if value is not None else None
-        updated = True
-    elif field == "correspondent":
-        pending_row = (
-            db.query(DocumentPendingCorrespondent)
-            .filter(DocumentPendingCorrespondent.doc_id == doc_id)
-            .one_or_none()
-        )
-        name = str(value).strip() if value is not None else ""
-        if name:
-            like_term = f"%{name}%"
-            match = (
-                db.query(Correspondent)
-                .filter(Correspondent.name.ilike(like_term))
-                .order_by(
-                    case((Correspondent.name.ilike(name), 0), else_=1),
-                    func.length(Correspondent.name).asc(),
-                )
-                .first()
-            )
-            if match:
-                doc.correspondent_id = match.id
-                if pending_row is not None:
-                    db.delete(pending_row)
-                updated = True
-            else:
-                doc.correspondent_id = None
-                if pending_row is None:
-                    db.add(
-                        DocumentPendingCorrespondent(
-                            doc_id=doc_id,
-                            name=name,
-                            updated_at=utc_now_iso(),
-                        )
-                    )
-                    updated = True
-                elif (pending_row.name or "").strip() != name:
-                    pending_row.name = name
-                    pending_row.updated_at = utc_now_iso()
-                    updated = True
-                details["unmatched"] = name
-        else:
-            doc.correspondent_id = None
-            if pending_row is not None:
-                db.delete(pending_row)
-            updated = True
-    elif field == "tags":
-        pending_row = (
-            db.query(DocumentPendingTag).filter(DocumentPendingTag.doc_id == doc_id).one_or_none()
-        )
-        old_pending: list[str] = []
-        if pending_row and pending_row.names_json:
-            old_pending = parse_string_list_json(pending_row.names_json)
-        tag_names: list[str] = []
-        if isinstance(value, list):
-            tag_names = [str(v).strip() for v in value if str(v).strip()]
-        elif isinstance(value, str):
-            tag_names = [v.strip() for v in value.split(",") if v.strip()]
-        matched: list[Tag] = []
-        unmatched: list[str] = []
-        for name in tag_names:
-            row = db.query(Tag).filter(Tag.name.ilike(name)).one_or_none()
-            if row:
-                matched.append(row)
-            else:
-                unmatched.append(name)
-        if matched:
-            doc.tags = matched
-            updated = True
-        normalized_unmatched = normalize_string_list(unmatched)
-        if normalized_unmatched:
-            names_payload = dumps_normalized_string_list(normalized_unmatched)
-            if pending_row is None:
-                db.add(
-                    DocumentPendingTag(
-                        doc_id=doc_id,
-                        names_json=names_payload,
-                        updated_at=utc_now_iso(),
-                    )
-                )
-                updated = True
-            else:
-                if (pending_row.names_json or "") != names_payload:
-                    pending_row.names_json = names_payload
-                    pending_row.updated_at = utc_now_iso()
-                    updated = True
-        elif pending_row is not None:
-            db.delete(pending_row)
-            updated = True
-        if sorted(old_pending, key=str.lower) != normalized_unmatched:
-            updated = True
-        details["unmatched"] = unmatched
-    elif field == "note":
-        summary = str(value).strip() if value is not None else ""
-        if summary:
-            model_name, processed_at = _find_suggestion_meta()
-            marker_text = _format_ai_summary_note(
-                summary,
-                model_name=model_name,
-                processed_at=processed_at,
-            )
-            existing_note = (
-                db.query(DocumentNote)
-                .filter(
-                    DocumentNote.document_id == doc_id,
-                    or_(
-                        DocumentNote.note.like("AI_SUMMARY v1 -%"),
-                        DocumentNote.note.like("%\nKI-Zusammenfassung"),
-                    ),
-                )
-                .order_by(DocumentNote.id.asc())
-                .first()
-            )
-            if existing_note:
-                existing_note.note = marker_text
-                existing_note.created = utc_now_iso()
-                updated = True
-            else:
-                note = DocumentNote(
-                    id=next_local_note_id(db),
-                    document_id=doc_id,
-                    note=marker_text,
-                    created=utc_now_iso(),
-                )
-                db.add(note)
-                updated = True
-
-    if updated:
-        audit_suggestion_run(db, doc_id, payload.source or "manual", f"apply_to_document:{field}")
-        db.commit()
-        logger.info("Applied suggestion to document doc=%s field=%s", doc_id, field)
-        return {"status": "ok", "updated": True, **details}
-    return {"status": "skipped", "updated": False, **details}
+    return apply_suggestion_to_document_payload(
+        db=db,
+        doc_id=doc_id,
+        source=payload.source,
+        field=field,
+        value=value,
+        get_document_or_none_fn=get_document_or_none,
+        audit_suggestion_run_fn=audit_suggestion_run,
+    )

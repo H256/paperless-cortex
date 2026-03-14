@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,14 +8,17 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import load_settings
 from app.db import SessionLocal
+from app.exceptions import ConfigurationError, DocumentNotFoundError, PaperlessIntelligenceError
 from app.routes import (
     chat,
     connections,
@@ -36,9 +38,11 @@ from app.services.integrations.meta_sync import sync_correspondents_all, sync_ta
 from app.services.runtime.logging_setup import (
     bind_log_context,
     configure_logging,
+    get_log_context,
     log_event,
     reset_log_context,
 )
+from app.services.runtime.metrics import increment_counter, observe_duration
 from app.version import API_VERSION
 
 if TYPE_CHECKING:
@@ -53,6 +57,69 @@ def _request_id_from_headers(request: Any) -> tuple[str, str]:
     request_id = str(request.headers.get("x-request-id") or "").strip() or str(uuid4())
     correlation_id = str(request.headers.get("x-correlation-id") or "").strip() or request_id
     return request_id, correlation_id
+
+
+def _error_code_for_status(status_code: int) -> str:
+    if status_code == 400:
+        return "BAD_REQUEST"
+    if status_code == 401:
+        return "UNAUTHORIZED"
+    if status_code == 403:
+        return "FORBIDDEN"
+    if status_code == 404:
+        return "NOT_FOUND"
+    if status_code == 409:
+        return "CONFLICT"
+    if status_code == 422:
+        return "VALIDATION_ERROR"
+    return "INTERNAL_SERVER_ERROR" if status_code >= 500 else "HTTP_ERROR"
+
+
+def _status_for_domain_error(exc: PaperlessIntelligenceError) -> int:
+    if isinstance(exc, DocumentNotFoundError):
+        return 404
+    if isinstance(exc, ConfigurationError):
+        return 500
+    return 400
+
+
+def _error_response_payload(*, detail: Any, error_code: str) -> dict[str, Any]:
+    context = get_log_context()
+    return {
+        "detail": detail,
+        "error_code": error_code,
+        "request_id": context.get("request_id"),
+        "correlation_id": context.get("correlation_id"),
+    }
+
+
+def _error_response(
+    *,
+    status_code: int,
+    detail: Any,
+    error_code: str,
+) -> JSONResponse:
+    response = JSONResponse(
+        status_code=status_code,
+        content=_error_response_payload(detail=detail, error_code=error_code),
+    )
+    response.headers["X-Error-Code"] = error_code
+    context = get_log_context()
+    request_id = context.get("request_id")
+    correlation_id = context.get("correlation_id")
+    if isinstance(request_id, str) and request_id:
+        response.headers["X-Request-ID"] = request_id
+    if isinstance(correlation_id, str) and correlation_id:
+        response.headers["X-Correlation-ID"] = correlation_id
+    return response
+
+
+def _request_metric_path(request: Request) -> str:
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", None)
+    if isinstance(route_path, str) and route_path:
+        return route_path
+    return request.url.path
 
 
 def _run_startup_sync() -> None:
@@ -147,7 +214,28 @@ async def bind_request_logging_context(request: Any, call_next: Any) -> Any:
         return response
     finally:
         elapsed_ms = (time.perf_counter() - started) * 1000.0
+        metric_path = _request_metric_path(request)
+        status_family = f"{int(status_code) // 100}xx"
+        increment_counter(
+            "api_requests_total",
+            method=request.method,
+            path=metric_path,
+            status=str(status_code),
+            status_family=status_family,
+        )
+        observe_duration(
+            "api_request_duration_ms",
+            elapsed_ms,
+            method=request.method,
+            path=metric_path,
+            status_family=status_family,
+        )
         if threshold_ms > 0 and elapsed_ms >= threshold_ms:
+            increment_counter(
+                "api_slow_requests_total",
+                method=request.method,
+                path=metric_path,
+            )
             log_event(
                 slow_request_logger,
                 logging.WARNING,
@@ -157,6 +245,61 @@ async def bind_request_logging_context(request: Any, call_next: Any) -> Any:
                 threshold_ms=threshold_ms,
             )
         reset_log_context(token)
+
+
+@api.exception_handler(PaperlessIntelligenceError)
+async def handle_domain_error(
+    _request: Request, exc: PaperlessIntelligenceError
+) -> JSONResponse:
+    status_code = _status_for_domain_error(exc)
+    log_event(
+        logger,
+        logging.ERROR if status_code >= 500 else logging.WARNING,
+        "Domain error response",
+        status_code=status_code,
+        error_code=exc.error_code,
+        error_message=exc.message,
+        error_class=exc.__class__.__name__,
+    )
+    return _error_response(
+        status_code=status_code,
+        detail=exc.message,
+        error_code=exc.error_code,
+    )
+
+
+@api.exception_handler(StarletteHTTPException)
+async def handle_http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    error_code = _error_code_for_status(int(exc.status_code))
+    log_event(
+        logger,
+        logging.WARNING if exc.status_code < 500 else logging.ERROR,
+        "HTTP error response",
+        status_code=int(exc.status_code),
+        error_code=error_code,
+        error_message=str(exc.detail),
+    )
+    return _error_response(
+        status_code=int(exc.status_code),
+        detail=exc.detail,
+        error_code=error_code,
+    )
+
+
+@api.exception_handler(RequestValidationError)
+async def handle_validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    log_event(
+        logger,
+        logging.WARNING,
+        "Request validation error",
+        status_code=422,
+        error_code="VALIDATION_ERROR",
+    )
+    return _error_response(
+        status_code=422,
+        detail=exc.errors(),
+        error_code="VALIDATION_ERROR",
+    )
 
 
 api.include_router(documents.router)
@@ -185,7 +328,7 @@ class SPAStaticFiles(StaticFiles):
             raise
 
 
-static_dir_env = os.getenv("FRONTEND_DIST", "")
+static_dir_env = SETTINGS.frontend.dist_path or ""
 static_dir = Path(static_dir_env) if static_dir_env else Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if static_dir.is_dir():
     app.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="static")

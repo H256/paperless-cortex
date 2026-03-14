@@ -75,6 +75,8 @@ class StatusResponse(BaseModel):
     paperless_base_url: str | None = None
     llm_base_url: str | None = None
     qdrant_url: str | None = None
+    vector_store_provider: str | None = None
+    vector_store_url: str | None = None
     redis_host: str | None = None
     text_model: str | None = None
     chat_model: str | None = None
@@ -691,6 +693,28 @@ class DeleteSuggestionsResponse(BaseModel):
 
 class DeleteVisionOcrResponse(BaseModel):
     deleted: int
+
+
+class MissingVectorChunkItem(BaseModel):
+    doc_id: int
+    title: str | None = None
+    embedding_source: str | None = None
+    chunk_count: int
+    expected_vectors: int
+    found_vectors: int
+    fully_missing: bool
+    embedded_at: str | None = None
+
+
+class MissingVectorChunkAuditResponse(BaseModel):
+    provider: str
+    scanned_docs: int
+    affected_docs: int
+    fully_missing_docs: int
+    partial_missing_docs: int
+    limit: int
+    truncated: bool = False
+    items: list[MissingVectorChunkItem] = []
 
 
 class CleanupTextsResponse(BaseModel):

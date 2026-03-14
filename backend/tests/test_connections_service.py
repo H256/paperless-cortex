@@ -9,10 +9,13 @@ from app.services.integrations import connections
 
 
 def test_check_qdrant_reports_missing_config() -> None:
-    settings = SimpleNamespace(qdrant_url=None, llm_base_url=None)
-    ok, detail = connections.check_qdrant(cast("Any", settings))
+    settings = SimpleNamespace(
+        vector_store=SimpleNamespace(provider="qdrant", url=None, api_key=None, collection=None),
+        llm_base_url=None,
+    )
+    ok, detail = connections.check_vector_store_health(cast("Any", settings))
     assert ok is False
-    assert detail == "QDRANT_URL not set"
+    assert detail == "VECTOR_STORE_URL not set"
 
 
 def test_check_llm_reports_missing_config() -> None:
@@ -37,9 +40,11 @@ def test_check_paperless_maps_http_error(monkeypatch: Any) -> None:
 
 
 def test_run_all_formats_statuses(monkeypatch: Any) -> None:
-    settings = SimpleNamespace()
+    settings = SimpleNamespace(
+        vector_store=SimpleNamespace(provider="qdrant", url="http://qdrant", api_key=None, collection="docs")
+    )
     monkeypatch.setattr(connections, "check_paperless", lambda _settings: (True, "ok"))
-    monkeypatch.setattr(connections, "check_qdrant", lambda _settings: (False, "RuntimeError"))
+    monkeypatch.setattr(connections, "check_vector_store_health", lambda _settings: (False, "RuntimeError"))
     monkeypatch.setattr(connections, "check_llm", lambda _settings: (True, "ok"))
 
     payload = connections.run_all(cast("Any", settings))

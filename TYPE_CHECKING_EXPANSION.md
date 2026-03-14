@@ -1,13 +1,185 @@
 # Type Checking Expansion Progress
 
+## Latest verified follow-up
+
+- Strict mypy remains green after the chat async offload completion.
+- Verified additional typed changes in:
+  - `backend/app/routes/chat.py`
+  - `backend/tests/test_chat_routes.py`
+  - `backend/tests/test_chat_evidence_routes.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `189` source files.
+- Strict mypy remains green after the documents mutation extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/document_mutations.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `189` source files.
+- Strict mypy remains green after the configuration redesign completion.
+- Verified additional typed changes in:
+  - `backend/app/config.py`
+  - `backend/app/main.py`
+  - `backend/app/services/ai/llm_client.py`
+  - `backend/app/services/ai/suggestions.py`
+  - `backend/app/services/ai/vision_ocr.py`
+  - `backend/app/services/search/embeddings.py`
+  - `backend/tests/test_config.py`
+  - `backend/tests/test_vector_store_service.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `188` source files.
+- Strict mypy remains green after the page-text payload extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents.py`
+  - `backend/app/services/documents/page_texts_payload.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `188` source files.
+- Strict mypy remains green after the suggestions route orchestration extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_suggestions.py`
+  - `backend/app/services/ai/suggestion_operations.py`
+  - `backend/app/services/ai/suggestion_apply.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `187` source files.
+- Strict mypy remains green after the local document detail eager-loading slice.
+- Verified additional typed changes in:
+  - `backend/app/services/documents/documents.py`
+  - `backend/app/services/documents/read_models.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `185` source files.
+- Strict mypy remains green after the runtime metrics slice.
+- Verified additional typed changes in:
+  - `backend/app/main.py`
+  - `backend/app/routes/status.py`
+  - `backend/app/services/runtime/metrics.py`
+  - `backend/app/services/pipeline/worker_task_execution.py`
+  - `backend/tests/conftest.py`
+  - `backend/tests/test_status_routes.py`
+  - `backend/tests/test_worker_task_execution.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `185` source files.
+- Strict mypy remains green after the LLM SDK client-pool slice.
+- Verified additional typed changes in:
+  - `backend/app/services/ai/llm_client.py`
+  - `backend/tests/test_http_client_pooling.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `184` source files.
+- Strict mypy remains green after the OCR scoring client-pool slice.
+- Verified additional typed changes in:
+  - `backend/app/services/ai/ocr_scoring.py`
+  - `backend/tests/test_ocr_scoring_client_pool.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `184` source files.
+- Strict mypy remains green after the vector-store deletion coverage slice.
+- Verified additional typed changes in:
+  - `backend/tests/test_vector_store_service.py`
+  - `backend/tests/test_weaviate_adapter.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `183` source files.
+- Strict mypy remains green after the worker execution coverage slice.
+- Verified additional typed changes in:
+  - `backend/tests/test_worker_task_execution.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `183` source files.
+- Strict mypy remains green after the cache-regression test slice.
+- Verified additional typed changes in:
+  - `backend/tests/test_documents_routes.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `182` source files.
+- Strict mypy remains green after the page-texts cache slice.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents.py`
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/routes/sync.py`
+  - `backend/app/services/documents/page_texts_cache.py`
+  - `backend/app/services/documents/intelligence_cleanup.py`
+  - `backend/tests/conftest.py`
+  - `backend/tests/test_documents_routes.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `182` source files.
+- Strict mypy remains green after the local-document cache slice.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents.py`
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/routes/sync.py`
+  - `backend/app/services/documents/local_document_cache.py`
+  - `backend/app/services/documents/intelligence_cleanup.py`
+  - `backend/app/services/search/vector_maintenance.py`
+  - `backend/app/services/writeback/writeback_effects.py`
+  - `backend/app/services/writeback/writeback_job_ops.py`
+  - `backend/app/services/writeback/writeback_commands.py`
+  - `backend/app/services/writeback/writeback_direct_execute.py`
+  - `backend/tests/conftest.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `181` source files.
+- Strict mypy remains green after the worker task-execution extraction.
+- Verified additional typed changes in:
+  - `backend/app/worker.py`
+  - `backend/app/services/pipeline/worker_task_execution.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `180` source files.
+- Strict mypy remains green after the cleanup-text request extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/cleanup_text_request.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `179` source files.
+- Strict mypy remains green after the enqueue-task extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/document_task_request.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `178` source files.
+- Strict mypy remains green after the reset-and-reprocess extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/reprocess_request.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `177` source files.
+- Strict mypy remains green after the process-missing request extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/process_missing_request.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `176` source files.
+- Strict mypy remains green after the intelligence cleanup extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/documents/intelligence_cleanup.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `172` source files.
+- Strict mypy remains green after the writeback route completion slice.
+- Verified additional typed changes in:
+  - `backend/app/routes/writeback_dryrun.py`
+  - `backend/app/services/writeback/writeback_commands.py`
+  - `backend/app/services/writeback/writeback_job_ops.py`
+  - `backend/app/services/writeback/writeback_direct_execute.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `171` source files.
+- Strict mypy remains green after the writeback preview-query extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/writeback_dryrun.py`
+  - `backend/app/services/writeback/writeback_queries.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `168` source files.
+- Strict mypy remains green after the vector-maintenance extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/search/vector_maintenance.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `167` source files.
+- Strict mypy remains green after the direct-writeback context extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/writeback_dryrun.py`
+  - `backend/app/services/writeback/writeback_context.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `166` source files.
+- Strict mypy remains green after the writeback mutation-side-effect extraction.
+- Verified additional typed changes in:
+  - `backend/app/routes/writeback_dryrun.py`
+  - `backend/app/services/writeback/writeback_effects.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `165` source files.
+- Strict mypy remains green after the Weaviate migration hardening block.
+- Verified additional typed changes in:
+  - `backend/app/routes/documents_actions.py`
+  - `backend/app/services/pipeline/error_types.py`
+  - `backend/app/services/pipeline/worker_document_tasks.py`
+  - `backend/app/worker.py`
+  - `backend/app/services/search/embeddings.py`
+  - `backend/app/services/search/vector_store.py`
+  - `backend/app/services/search/vector_backends/qdrant_adapter.py`
+  - `backend/app/services/search/vector_backends/weaviate_adapter.py`
+  - `backend/tests/test_config.py`
+  - `backend/tests/test_documents_routes.py`
+  - `backend/tests/test_status_routes.py`
+  - `backend/tests/test_vector_store_service.py`
+  - `backend/tests/test_weaviate_adapter.py`
+  - `backend/tests/test_worker_error_types.py`
+- Full backend verification currently passes with `uv run mypy --config-file pyproject.toml` on `163` source files.
+
 ## Verified state
 
-- Current configured `mypy` coverage: **141 source files**
+- Current configured `mypy` coverage: **151 source files**
 - Previous verified state in this branch before the follow-up slice: **41 source files**
-- Net change in the latest follow-up slices: **46 -> 141 files**
-- Net change from the original writeback-only baseline described in the review notes: **8 -> 141 files**
+- Net change in the latest follow-up slices: **46 -> 151 files**
+- Net change from the original writeback-only baseline described in the review notes: **8 -> 151 files**
 - Backend Python files currently present: **154**
-- Current strict-checked share of backend Python files: **100%** (`141 / 141`)
+- Current strict-checked share of backend Python files: **100%** (`151 / 151`)
 
 ## Files added in this slice
 
@@ -246,3 +418,279 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
   - `cd backend && uv run mypy --config-file pyproject.toml tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py`
   - `cd backend && uv run pytest tests/test_process_missing_route.py tests/test_logging_setup.py tests/test_request_logging.py tests/test_documents_actions_routes.py`
   - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest configuration-management expansion
+
+- Added `backend/tests/test_config.py` to the strict mypy allowlist.
+- Refactored `backend/app/config.py` to expose validated domain config views while preserving the existing flat `Settings` field API for downstream compatibility.
+- Added explicit parsing/validation helpers for booleans, integers, floats, optional strings, database URLs, and `CHUNK_MODE`.
+- Verified with:
+  - `cd backend && uv run ruff check app/config.py tests/test_config.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/config.py tests/test_config.py`
+  - `cd backend && uv run pytest tests/test_config.py tests/test_status_routes.py tests/test_request_logging.py tests/test_qdrant_service.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest service-layer extraction expansion
+
+- Added `backend/app/services/documents/operations.py` to the strict mypy allowlist.
+- Extracted the `documents_actions` pipeline orchestration and cleanup-text execution logic into the new service module while preserving route-level behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/documents_actions.py app/services/documents/operations.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_actions.py app/services/documents/operations.py`
+  - `cd backend && uv run pytest tests/test_documents_actions_routes.py tests/test_process_missing_route.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest documents read-model extraction expansion
+
+- Added `backend/app/services/documents/read_models.py` to the strict mypy allowlist.
+- Extracted the `documents.py` list/local-read shaping helpers into the new service module while preserving route-level behavior and reusing the same read-model seam from `documents_similarity.py`.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/documents/read_models.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest sync extraction expansion
+
+- Added `backend/app/services/documents/sync_operations.py` to the strict mypy allowlist.
+- Extracted the `sync.py` document-sync orchestration, note merge logic, document upsert logic, and embedding execution into the new service module while preserving route-level behavior and sync test coverage.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_meta_sync.py tests/test_sync_upsert_notes.py tests/test_sync_routes_state.py tests/test_sync_documents_routes.py tests/test_sync_meta_connections_routes.py`
+
+## Latest embeddings extraction expansion
+
+- Added `backend/app/services/documents/embedding_operations.py` to the strict mypy allowlist.
+- Extracted the `embeddings.py` ingest/search/status/cancel orchestration into the new service module while preserving route-level behavior and the current embeddings route test seams.
+- Verified with:
+  - `cd backend && uv run ruff check app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/embeddings.py app/services/documents/embedding_operations.py tests/test_embeddings_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_embeddings_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest worker runtime extraction expansion
+
+- Added `backend/app/services/pipeline/worker_runtime.py` and `backend/tests/test_worker_runtime.py` to the strict mypy allowlist.
+- Extracted the `worker.py` queue-payload parsing, cancel-path handling, and task-dispatch selection into the new service module while preserving the existing worker task implementations and regression behavior.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_runtime.py tests/test_worker_runtime.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py`
+
+## Latest worker document-task extraction expansion
+
+- Added `backend/app/services/pipeline/worker_document_tasks.py` to the strict mypy allowlist.
+- Extracted the sync/embedding/evidence/similarity task helpers out of `backend/app/worker.py` into the new service module while keeping the worker entry points stable as thin wrappers.
+- The strict mypy allowlist count is now `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_document_tasks.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_worker_vision_suggestions.py tests/test_pipeline_similarity_index.py tests/test_documents_routes.py`
+
+## Latest query-optimization verification
+
+- The strict mypy allowlist count remains `143` after the low-risk eager-loading optimization pass.
+- Verified the optimized document/similarity/writeback query paths with:
+  - `cd backend && uv run ruff check app/routes/documents.py app/routes/documents_similarity.py app/services/search/similarity.py app/services/writeback/writeback_preview.py app/routes/writeback_dryrun.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py app/routes/documents_similarity.py app/services/search/similarity.py app/services/writeback/writeback_preview.py app/routes/writeback_dryrun.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_writeback_preview_service.py`
+  - `cd backend && uv run pytest tests/test_writeback_jobs_routes.py tests/test_writeback_dryrun_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest tooling-enforcement verification
+
+- The strict mypy allowlist count remains `143` after the backend CI and pre-commit enforcement changes.
+- Verified the enforced tooling commands with:
+  - `uv run --project backend pre-commit validate-config`
+  - `uv run --project backend pre-commit run check-yaml --files .pre-commit-config.yaml .github/workflows/backend-ci.yml`
+  - `cd backend && uv run --project backend ruff check app tests scripts alembic`
+  - `cd backend && uv run --project backend mypy --config-file pyproject.toml`
+  - `cd backend && uv run --project backend pytest`
+
+## Latest error-observability expansion
+
+- Added `backend/tests/test_api_error_responses.py` to the strict mypy allowlist.
+- The strict mypy allowlist count is now `144`.
+- Verified the centralized error-response/observability changes with:
+  - `cd backend && uv run ruff check app/main.py tests/test_api_error_responses.py tests/test_request_logging.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/main.py tests/test_api_error_responses.py`
+  - `cd backend && uv run pytest tests/test_api_error_responses.py tests/test_request_logging.py tests/test_status_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+
+## Latest client-pooling expansion
+
+- Added `backend/tests/test_http_client_pooling.py` to the strict mypy allowlist.
+- The strict mypy allowlist count is now `145`.
+- Verified the client-pooling/performance slice with:
+  - `cd backend && uv run ruff check app/services/integrations/paperless.py app/services/search/qdrant.py app/services/ai/llm_client.py tests/test_http_client_pooling.py app/services/integrations/connections.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_http_client_pooling.py tests/test_connections_service.py tests/test_qdrant_service.py tests/test_status_routes.py`
+
+## Latest task-runs SQL optimization verification
+
+- Added composite `task_runs` indexes in `backend/app/models.py` plus the matching Alembic migration `backend/alembic/versions/b7c4d8e9f1a2_add_task_run_composite_indexes.py`.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/models.py alembic/versions/b7c4d8e9f1a2_add_task_run_composite_indexes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
+- Migration note:
+  - `cd backend && uv run alembic upgrade head` against a throwaway SQLite database still stops on the older `6d3183eda0be_add_core_metadata_tables.py` foreign-key alteration, which is a pre-existing SQLite limitation in the migration chain rather than a regression from the new index migration.
+
+## Latest task-runs pagination-query optimization
+
+- Simplified `backend/app/services/pipeline/task_runs.py` so `list_task_runs()` fetches rows first, infers totals on short first pages, and only performs a separate count query when the exact total cannot be derived cheaply.
+- Added a regression in `backend/tests/test_task_runs_service.py` for the short-first-page total inference path.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/pipeline/task_runs.py tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/pipeline/task_runs.py tests/test_task_runs_service.py`
+  - `cd backend && uv run pytest tests/test_task_runs_service.py tests/test_queue_task_runs_routes.py tests/test_worker_runtime.py tests/test_worker_error_types.py`
+
+## Latest document read-model query optimization
+
+- Simplified `backend/app/services/documents/read_models.py` by folding `analysis_model` and `analysis_processed_at` into the main local document query used for derived document lists, removing a separate analysis lookup for each document batch.
+- Added a regression in `backend/tests/test_documents_routes.py` to keep those analysis fields visible in derived list responses.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest document derived-list aggregation reduction
+
+- Simplified `backend/app/services/documents/read_models.py` again by:
+  - skipping ordered suggestion-row fetching when summary previews are not requested
+  - fetching `vision_ocr` doc IDs distinctly for the list-level `has_vision_pages` flag
+- Added a regression in `backend/tests/test_documents_routes.py` to keep suggestion and vision-page flags stable in derived document lists.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/read_models.py tests/test_documents_routes.py`
+  - `cd backend && uv run pytest tests/test_documents_routes.py tests/test_similarity_service.py tests/test_pipeline_similarity_index.py`
+
+## Latest writeback preview metadata-scope reduction
+
+- Simplified `backend/app/services/writeback/writeback_preview.py` by narrowing correspondent/tag metadata queries to only the IDs referenced by the current preview batch.
+- Strengthened `backend/tests/test_writeback_preview_service.py` to keep remote/local name resolution stable under the scoped metadata path.
+- The strict mypy allowlist count remains `151`.
+- Verified with:
+  - `cd backend && uv run ruff check app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml app/services/writeback/writeback_preview.py tests/test_writeback_preview_service.py`
+  - `cd backend && uv run pytest tests/test_writeback_preview_service.py tests/test_writeback_dryrun_routes.py tests/test_writeback_jobs_routes.py`
+
+## Latest worker suggestion-task extraction
+
+- Added `backend/app/services/pipeline/worker_suggestion_tasks.py` and `backend/tests/test_worker_suggest_field.py` to the strict mypy allowlist.
+- Extracted worker suggestion-generation, vision-suggestion recovery, and field-variant handling out of `backend/app/worker.py` into the new service module while preserving the worker wrapper seams used by existing tests.
+- The strict mypy allowlist count is now `153`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_suggestion_tasks.py app/services/writeback/writeback_preview.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`
+
+## Latest worker orchestration stabilization
+
+- Added `backend/tests/test_worker_doc_orchestration.py` to the strict mypy allowlist.
+- Added direct coverage for `_process_doc` orchestration across:
+  - the large-document vision path
+  - the early cancel short-circuit path
+- The strict mypy allowlist count is now `154`.
+- Verified with:
+  - `cd backend && uv run ruff check tests/test_worker_doc_orchestration.py tests/test_worker_suggest_field.py tests/test_worker_vision_suggestions.py app/worker.py app/services/pipeline/worker_suggestion_tasks.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`
+
+## Latest worker content-task extraction
+
+- Added `backend/app/services/pipeline/worker_content_tasks.py` to the strict mypy allowlist.
+- Extracted worker vision OCR execution, page-note generation, and hierarchical-summary execution out of `backend/app/worker.py` into the new service module while preserving worker wrapper seams and the recently added orchestration coverage.
+- The strict mypy allowlist count is now `155`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_content_tasks.py app/services/pipeline/worker_suggestion_tasks.py tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py tests/test_writeback_preview_service.py`
+
+## Latest worker orchestration extraction
+
+- Added `backend/app/services/pipeline/worker_orchestration.py` to the strict mypy allowlist.
+- Extracted `_process_doc` full-document orchestration out of `backend/app/worker.py` into the new service module while preserving the existing wrapper seam and orchestration tests.
+- The strict mypy allowlist count is now `156`.
+- Verified with:
+  - `cd backend && uv run ruff check app/worker.py app/services/pipeline/worker_orchestration.py tests/test_worker_doc_orchestration.py`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest tests/test_worker_doc_orchestration.py tests/test_worker_vision_suggestions.py tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_worker_error_types.py tests/test_worker_checkpoint_recovery.py tests/test_worker_resume_checkpoint.py tests/test_worker_retry_checkpoint_sequence.py tests/test_pipeline_similarity_index.py`
+
+## Current baseline re-verification
+
+- No new mypy allowlist files were needed for this SQL/perf slice; the strict backend baseline remains `156` files green.
+- Re-verified the current backend CI equivalent after the latest query optimizations and version bump.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## API documentation baseline re-verification
+
+- No new mypy allowlist files were needed for this `5.1` documentation slice; the strict backend baseline remains `156` files green.
+- Re-verified the backend CI equivalent after the docstring additions and version bump.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## API documentation baseline re-verification (sync/embeddings/worker)
+
+- No new mypy allowlist files were needed for this follow-up `5.1` documentation slice; the strict backend baseline remains `156` files green.
+- Re-verified the backend CI equivalent after the sync, embeddings, and worker docstring additions plus the version bump.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## API documentation baseline re-verification (chat/queue/status/task-runs)
+
+- No new mypy allowlist files were needed for the final `5.1` documentation slice; the strict backend baseline remains `156` files green.
+- Re-verified the backend CI equivalent after the chat, queue, status, task-run, logging, and error-catalog docstring additions plus the version bump.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## Vector-store adapter baseline re-verification
+
+- Added the new adapter/config/test files to the strict mypy allowlist, raising the strict backend baseline from `156` to `159` files.
+- Re-verified the backend CI equivalent after the vector-store facade, Qdrant adapter, generic `VECTOR_STORE_*` config view, and migration-prep tests landed.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## Weaviate adapter baseline re-verification
+
+- Added the Weaviate helper/adapter plus the new status/config test coverage to the strict mypy allowlist, raising the strict backend baseline from `159` to `161` files.
+- Re-verified the backend CI equivalent after the official `weaviate-client` integration, HTTP/gRPC config split, separate centroid collection routing, and status/config surface updates landed.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## Weaviate adapter coverage baseline re-verification
+
+- Added [`backend/tests/test_weaviate_adapter.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_weaviate_adapter.py) to the strict mypy allowlist, raising the strict backend baseline from `161` to `162` files.
+- Re-verified the backend CI equivalent after adding direct fake-client coverage for Weaviate collection creation, chunk-vs-centroid upsert routing, centroid-search selection, and centroid retrieve fallback.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`
+
+## Dashboard cache invalidation baseline re-verification
+
+- Added [`backend/app/services/documents/dashboard_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/dashboard_cache.py) to the strict mypy allowlist, raising the strict backend baseline from `162` to `163` files.
+- Re-verified the backend CI equivalent after extracting the dashboard cache seam and wiring explicit invalidation into the sync and document-mutation routes.
+- Verified with:
+  - `cd backend && uv run ruff check app tests scripts alembic`
+  - `cd backend && uv run mypy --config-file pyproject.toml`
+  - `cd backend && uv run pytest`

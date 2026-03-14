@@ -3,7 +3,30 @@ from __future__ import annotations
 from typing import Any
 
 
-def test_resolve_evidence_returns_matches(api_client: Any) -> None:
+def test_resolve_evidence_returns_matches(api_client: Any, monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "app.routes.chat.resolve_evidence_matches",
+        lambda *_args, **_kwargs: [
+            {
+                "doc_id": 1756,
+                "page": 1,
+                "snippet": "foo",
+                "bbox": None,
+                "confidence": 0.0,
+                "status": "no_match",
+                "error": None,
+            },
+            {
+                "doc_id": 1756,
+                "page": 2,
+                "snippet": "bar",
+                "bbox": [1, 2, 3, 4],
+                "confidence": 1.0,
+                "status": "ok",
+                "error": None,
+            },
+        ],
+    )
     payload = {
         "citations": [
             {"doc_id": 1756, "page": 1, "snippet": "foo"},
@@ -21,7 +44,22 @@ def test_resolve_evidence_returns_matches(api_client: Any) -> None:
     assert data["matches"][1]["bbox"] == [1, 2, 3, 4]
 
 
-def test_resolve_evidence_caps_to_max_pages(api_client: Any) -> None:
+def test_resolve_evidence_caps_to_max_pages(api_client: Any, monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "app.routes.chat.resolve_evidence_matches",
+        lambda citations, **_kwargs: [
+            {
+                "doc_id": int(item["doc_id"]),
+                "page": int(item["page"]),
+                "snippet": str(item["snippet"]),
+                "bbox": None,
+                "confidence": 0.0,
+                "status": "no_match",
+                "error": None,
+            }
+            for item in citations[:2]
+        ],
+    )
     payload = {
         "citations": [
             {"doc_id": 1, "page": 1, "snippet": "a"},
@@ -37,7 +75,22 @@ def test_resolve_evidence_caps_to_max_pages(api_client: Any) -> None:
     assert data["count"] == 2
 
 
-def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client: Any) -> None:
+def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client: Any, monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "app.routes.chat.resolve_evidence_matches",
+        lambda citations, **_kwargs: [
+            {
+                "doc_id": int(item["doc_id"]),
+                "page": int(item["page"]),
+                "snippet": str(item["snippet"]),
+                "bbox": None,
+                "confidence": 0.0,
+                "status": "no_match",
+                "error": None,
+            }
+            for item in citations[:3]
+        ],
+    )
     payload = {
         "citations": [
             {"doc_id": 1, "page": 1, "snippet": "first"},
@@ -55,7 +108,21 @@ def test_resolve_evidence_limits_unique_pages_not_raw_items(api_client: Any) -> 
     assert pages == [1, 1, 2]
 
 
-def test_resolve_evidence_marks_invalid_bbox(api_client: Any) -> None:
+def test_resolve_evidence_marks_invalid_bbox(api_client: Any, monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "app.routes.chat.resolve_evidence_matches",
+        lambda *_args, **_kwargs: [
+            {
+                "doc_id": 1,
+                "page": 1,
+                "snippet": "x",
+                "bbox": None,
+                "confidence": 0.0,
+                "status": "error",
+                "error": "invalid_bbox",
+            }
+        ],
+    )
     payload = {
         "citations": [
             {"doc_id": 1, "page": 1, "snippet": "x", "bbox": [10, 10, 5, 5]},
@@ -68,3 +135,38 @@ def test_resolve_evidence_marks_invalid_bbox(api_client: Any) -> None:
     assert data["count"] == 1
     assert data["matches"][0]["status"] == "error"
     assert data["matches"][0]["error"] == "invalid_bbox"
+
+
+def test_resolve_evidence_offloads_match_resolution(api_client: Any, monkeypatch: Any) -> None:
+    from app.routes import chat as chat_routes
+
+    called: dict[str, object] = {}
+
+    async def fake_to_thread(func: Any, *args: Any, **kwargs: Any) -> list[dict[str, object]]:
+        called["func"] = func
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(chat_routes.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(
+        chat_routes,
+        "resolve_evidence_matches",
+        lambda *_args, **_kwargs: [
+            {
+                "doc_id": 1,
+                "page": 1,
+                "snippet": "x",
+                "bbox": None,
+                "confidence": 0.0,
+                "status": "ok",
+                "error": None,
+            }
+        ],
+    )
+
+    response = api_client.post(
+        "/chat/resolve-evidence",
+        json={"citations": [{"doc_id": 1, "page": 1, "snippet": "x"}], "max_pages": 2},
+    )
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert called["func"] is chat_routes.resolve_evidence_matches
