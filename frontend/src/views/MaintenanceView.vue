@@ -123,6 +123,77 @@
       <div
         class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
       >
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          Audit missing vector chunks
+        </h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Checks local embedding rows against the active vector store and lists documents whose
+          expected chunk vectors are missing or incomplete.
+        </p>
+        <div class="mt-4 flex items-center gap-3">
+          <button
+            class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+            :disabled="missingVectorChunksLoading"
+            @click="runMissingVectorChunkAudit"
+          >
+            <span v-if="missingVectorChunksLoading" class="inline-flex items-center gap-2">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Auditing...
+            </span>
+            <span v-else>Find affected docs</span>
+          </button>
+          <div v-if="missingVectorChunkAuditText" class="text-xs text-slate-500 dark:text-slate-400">
+            {{ missingVectorChunkAuditText }}
+          </div>
+        </div>
+        <div
+          v-if="missingVectorChunkAudit"
+          class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300"
+        >
+          <div class="font-semibold text-slate-700 dark:text-slate-200">
+            Provider: {{ missingVectorChunkAudit.provider }}
+          </div>
+          <div class="mt-1">
+            Scanned {{ missingVectorChunkAudit.scanned_docs }} docs, found
+            {{ missingVectorChunkAudit.affected_docs }} affected
+            ({{ missingVectorChunkAudit.fully_missing_docs }} fully missing,
+            {{ missingVectorChunkAudit.partial_missing_docs }} partial).
+          </div>
+          <div
+            v-if="missingVectorChunkAudit.items.length"
+            class="mt-3 max-h-56 space-y-2 overflow-y-auto rounded border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
+          >
+            <div
+              v-for="item in missingVectorChunkAudit.items"
+              :key="item.doc_id"
+              class="rounded border border-slate-200 px-3 py-2 dark:border-slate-700"
+            >
+              <div class="font-semibold text-slate-800 dark:text-slate-100">
+                #{{ item.doc_id }} {{ item.title || 'Untitled document' }}
+              </div>
+              <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                source={{ item.embedding_source || 'unknown' }},
+                found={{ item.found_vectors }}/{{ item.expected_vectors }},
+                chunks={{ item.chunk_count }},
+                state={{ item.fully_missing ? 'fully missing' : 'partial' }}
+              </div>
+            </div>
+          </div>
+          <div v-else class="mt-3 text-xs text-emerald-600 dark:text-emerald-300">
+            No affected documents found.
+          </div>
+          <div
+            v-if="missingVectorChunkAudit.truncated"
+            class="mt-3 text-[11px] text-amber-700 dark:text-amber-300"
+          >
+            Showing the first {{ missingVectorChunkAudit.limit }} affected docs.
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Cleanup page texts</h3>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Rebuilds `clean_text` + token estimates for all stored page texts.
@@ -370,6 +441,7 @@ const {
   suggestionsLoading,
   embeddingsLoading,
   similarityIndexLoading,
+  missingVectorChunksLoading,
   clearAllLoading,
   cleanupLoading,
   correspondentsSyncLoading,
@@ -381,6 +453,7 @@ const {
   removeSuggestions,
   removeEmbeddings,
   removeSimilarityIndex,
+  findMissingVectorChunks,
   clearAllIntelligence,
   cleanupTexts: runCleanupTexts,
   syncCorrespondentsNow: syncCorrespondentsAction,
@@ -435,6 +508,25 @@ const similarityIndexResult = ref<{
   qdrant_deleted: number
   qdrant_errors: number
 } | null>(null)
+const missingVectorChunkAudit = ref<{
+  provider: string
+  scanned_docs: number
+  affected_docs: number
+  fully_missing_docs: number
+  partial_missing_docs: number
+  limit: number
+  truncated: boolean
+  items: Array<{
+    doc_id: number
+    title?: string | null
+    embedding_source?: string | null
+    chunk_count: number
+    expected_vectors: number
+    found_vectors: number
+    fully_missing: boolean
+    embedded_at?: string | null
+  }>
+} | null>(null)
 const visionResultText = computed(() =>
   visionResult.value ? `Removed ${visionResult.value.deleted} rows` : '',
 )
@@ -449,6 +541,11 @@ const embeddingsResultText = computed(() =>
 const similarityIndexResultText = computed(() =>
   similarityIndexResult.value
     ? `Reset ${similarityIndexResult.value.deleted} task-runs (Qdrant ok: ${similarityIndexResult.value.qdrant_deleted}, errors: ${similarityIndexResult.value.qdrant_errors})`
+    : '',
+)
+const missingVectorChunkAuditText = computed(() =>
+  missingVectorChunkAudit.value
+    ? `${missingVectorChunkAudit.value.affected_docs} affected docs (${missingVectorChunkAudit.value.fully_missing_docs} fully missing)`
     : '',
 )
 const clearAllResult = ref<{
@@ -599,6 +696,26 @@ const confirmSimilarityIndex = async () => {
       }
     },
   )
+}
+
+const runMissingVectorChunkAudit = async () => {
+  missingVectorChunkAudit.value = null
+  try {
+    const result = await findMissingVectorChunks()
+    missingVectorChunkAudit.value = result
+    if (result.affected_docs > 0) {
+      toastStore.push(
+        `Found ${result.affected_docs} docs with missing active vector chunks`,
+        'warning',
+        'Audit complete',
+      )
+    } else {
+      toastStore.push('No missing active vector chunks found', 'success', 'Audit complete')
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to audit missing vector chunks'
+    toastStore.push(message, 'danger', 'Error')
+  }
 }
 
 const confirmCleanupTexts = async () => {

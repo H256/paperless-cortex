@@ -119,3 +119,45 @@ def test_reset_and_reprocess_enqueues_priority_tasks(api_client: Any, monkeypatc
         {"doc_id": 144, "task": "vision_ocr"},
         {"doc_id": 144, "task": "embeddings_vision"},
     ]
+
+
+def test_missing_vector_chunk_audit_route_returns_typed_payload(
+    api_client: Any,
+    monkeypatch: Any,
+) -> None:
+    from app.routes import documents_actions
+
+    monkeypatch.setattr(
+        documents_actions,
+        "audit_missing_vector_chunks",
+        lambda _settings, _db, limit=100: {
+            "provider": "weaviate",
+            "scanned_docs": 2,
+            "affected_docs": 1,
+            "fully_missing_docs": 1,
+            "partial_missing_docs": 0,
+            "limit": limit,
+            "truncated": False,
+            "items": [
+                {
+                    "doc_id": 67,
+                    "title": "Missing Vision Doc",
+                    "embedding_source": "vision",
+                    "chunk_count": 4,
+                    "expected_vectors": 4,
+                    "found_vectors": 0,
+                    "fully_missing": True,
+                    "embedded_at": "2026-03-14T09:51:13.631637+00:00",
+                }
+            ],
+        },
+    )
+
+    response = api_client.get("/documents/audit/missing-vector-chunks?limit=25")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["provider"] == "weaviate"
+    assert payload["scanned_docs"] == 2
+    assert payload["affected_docs"] == 1
+    assert payload["limit"] == 25
+    assert payload["items"][0]["doc_id"] == 67

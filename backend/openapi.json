@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.5.51"
+    "version": "0.5.52"
   },
   "paths": {
     "/documents/": {
@@ -1328,6 +1328,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeleteSimilarityIndexResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/audit/missing-vector-chunks": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Missing Vector Chunks Audit",
+        "description": "Audit local embedding rows against the active vector store and report missing chunk vectors.",
+        "operationId": "get_missing_vector_chunks_audit_documents_audit_missing_vector_chunks_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingVectorChunkAuditResponse"
                 }
               }
             }
@@ -6989,6 +7033,123 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MissingVectorChunkAuditResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "scanned_docs": {
+            "type": "integer",
+            "title": "Scanned Docs"
+          },
+          "affected_docs": {
+            "type": "integer",
+            "title": "Affected Docs"
+          },
+          "fully_missing_docs": {
+            "type": "integer",
+            "title": "Fully Missing Docs"
+          },
+          "partial_missing_docs": {
+            "type": "integer",
+            "title": "Partial Missing Docs"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "default": false
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MissingVectorChunkItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "scanned_docs",
+          "affected_docs",
+          "fully_missing_docs",
+          "partial_missing_docs",
+          "limit"
+        ],
+        "title": "MissingVectorChunkAuditResponse"
+      },
+      "MissingVectorChunkItem": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "embedding_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Source"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "title": "Chunk Count"
+          },
+          "expected_vectors": {
+            "type": "integer",
+            "title": "Expected Vectors"
+          },
+          "found_vectors": {
+            "type": "integer",
+            "title": "Found Vectors"
+          },
+          "fully_missing": {
+            "type": "boolean",
+            "title": "Fully Missing"
+          },
+          "embedded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "chunk_count",
+          "expected_vectors",
+          "found_vectors",
+          "fully_missing"
+        ],
+        "title": "MissingVectorChunkItem"
       },
       "MonthlyProcessingBucket": {
         "properties": {

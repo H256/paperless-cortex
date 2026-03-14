@@ -695,6 +695,28 @@ class DeleteVisionOcrResponse(BaseModel):
     deleted: int
 
 
+class MissingVectorChunkItem(BaseModel):
+    doc_id: int
+    title: str | None = None
+    embedding_source: str | None = None
+    chunk_count: int
+    expected_vectors: int
+    found_vectors: int
+    fully_missing: bool
+    embedded_at: str | None = None
+
+
+class MissingVectorChunkAuditResponse(BaseModel):
+    provider: str
+    scanned_docs: int
+    affected_docs: int
+    fully_missing_docs: int
+    partial_missing_docs: int
+    limit: int
+    truncated: bool = False
+    items: list[MissingVectorChunkItem] = []
+
+
 class CleanupTextsResponse(BaseModel):
     queued: bool = False
     docs: int = 0

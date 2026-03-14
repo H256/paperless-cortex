@@ -18,6 +18,7 @@ from app.api_models import (
     DocumentPipelineFanoutResponse,
     DocumentPipelineStatusResponse,
     DocumentResetReprocessResponse,
+    MissingVectorChunkAuditResponse,
     ProcessMissingResponse,
     ResetIntelligenceResponse,
 )
@@ -70,6 +71,7 @@ from app.services.pipeline.queue import (
 )
 from app.services.pipeline.queue_access import is_queue_enabled
 from app.services.pipeline.queue_tasks import build_task_sequence
+from app.services.search.vector_integrity import audit_missing_vector_chunks
 from app.services.search.vector_maintenance import (
     delete_all_chunk_points,
     delete_embeddings_payload,
@@ -415,6 +417,20 @@ def delete_similarity_index(
         doc_id=doc_id,
         logger=logger,
         delete_similarity_points_fn=delete_similarity_points,
+    )
+
+
+@router.get("/audit/missing-vector-chunks", response_model=MissingVectorChunkAuditResponse)
+def get_missing_vector_chunks_audit(
+    limit: int = 100,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> ResponseDict:
+    """Audit local embedding rows against the active vector store and report missing chunk vectors."""
+    return audit_missing_vector_chunks(
+        settings,
+        db,
+        limit=limit,
     )
 
 

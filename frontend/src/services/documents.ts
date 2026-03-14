@@ -261,6 +261,26 @@ export type DeleteSimilarityIndexResult = {
   qdrant_deleted: number
   qdrant_errors: number
 }
+export type MissingVectorChunkItem = {
+  doc_id: number
+  title?: string | null
+  embedding_source?: string | null
+  chunk_count: number
+  expected_vectors: number
+  found_vectors: number
+  fully_missing: boolean
+  embedded_at?: string | null
+}
+export type MissingVectorChunkAuditResult = {
+  provider: string
+  scanned_docs: number
+  affected_docs: number
+  fully_missing_docs: number
+  partial_missing_docs: number
+  limit: number
+  truncated: boolean
+  items: MissingVectorChunkItem[]
+}
 
 export type DocumentPipelineStepStatus = {
   key: string
@@ -316,5 +336,40 @@ export const deleteSimilarityIndex = async (docId?: number): Promise<DeleteSimil
     deleted: Number(parsed.deleted ?? 0),
     qdrant_deleted: Number(parsed.qdrant_deleted ?? 0),
     qdrant_errors: Number(parsed.qdrant_errors ?? 0),
+  }
+}
+
+export const findMissingVectorChunks = async (limit = 100): Promise<MissingVectorChunkAuditResult> => {
+  const response = await fetch(
+    `/api/documents/audit/missing-vector-chunks?limit=${encodeURIComponent(String(limit))}`,
+  )
+  const body = await response.text()
+  const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : {}
+  if (!response.ok) {
+    const detail = typeof parsed.detail === 'string' ? parsed.detail : `HTTP ${response.status}`
+    throw new Error(detail)
+  }
+  const rawItems = Array.isArray(parsed.items) ? parsed.items : []
+  const items: MissingVectorChunkItem[] = rawItems
+    .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+    .map((item) => ({
+      doc_id: Number(item.doc_id ?? 0),
+      title: typeof item.title === 'string' ? item.title : null,
+      embedding_source: typeof item.embedding_source === 'string' ? item.embedding_source : null,
+      chunk_count: Number(item.chunk_count ?? 0),
+      expected_vectors: Number(item.expected_vectors ?? 0),
+      found_vectors: Number(item.found_vectors ?? 0),
+      fully_missing: Boolean(item.fully_missing),
+      embedded_at: typeof item.embedded_at === 'string' ? item.embedded_at : null,
+    }))
+  return {
+    provider: typeof parsed.provider === 'string' ? parsed.provider : 'unknown',
+    scanned_docs: Number(parsed.scanned_docs ?? 0),
+    affected_docs: Number(parsed.affected_docs ?? 0),
+    fully_missing_docs: Number(parsed.fully_missing_docs ?? 0),
+    partial_missing_docs: Number(parsed.partial_missing_docs ?? 0),
+    limit: Number(parsed.limit ?? limit),
+    truncated: Boolean(parsed.truncated),
+    items,
   }
 }

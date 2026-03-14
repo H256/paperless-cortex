@@ -1,6 +1,6 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.51"
+version = "0.5.52"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
@@ -112,6 +112,7 @@ files = [
     "app/services/search/weaviate.py",
     "app/services/search/vector_store.py",
     "app/services/search/vector_maintenance.py",
+    "app/services/search/vector_integrity.py",
     "app/services/search/vector_backends/qdrant_adapter.py",
     "app/services/search/vector_backends/weaviate_adapter.py",
     "app/services/search/evidence_index.py",
@@ -233,6 +234,7 @@ files = [
     "tests/test_logging_setup.py",
     "tests/test_request_logging.py",
     "tests/test_vector_store_service.py",
+    "tests/test_vector_integrity_service.py",
     "tests/test_weaviate_adapter.py",
     "tests/conftest.py",
 ]
