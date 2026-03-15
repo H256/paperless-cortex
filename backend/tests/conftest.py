@@ -21,11 +21,18 @@ sys.path.insert(0, str(BACKEND_ROOT))
 from app.models import Base  # noqa: E402
 
 
+def _set_test_env(db_path: Path) -> None:
+    os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"
+    os.environ["QUEUE_ENABLED"] = "0"
+    os.environ["REDIS_HOST"] = "test-redis"
+    os.environ["ENABLE_VISION_OCR"] = "1"
+    os.environ["QDRANT_URL"] = "http://test-qdrant:6333"
+
+
 @pytest.fixture()
 def session_factory() -> Any:
     db_path = Path(tempfile.gettempdir()) / f"paperless_intelligence_test_{uuid.uuid4().hex}.db"
-    os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"
-    os.environ["QUEUE_ENABLED"] = "0"
+    _set_test_env(db_path)
 
     engine = create_engine(
         os.environ["DATABASE_URL"],
@@ -54,8 +61,7 @@ def session_factory() -> Any:
 @pytest.fixture()
 def api_client(monkeypatch: Any) -> Any:
     db_path = Path(tempfile.gettempdir()) / f"paperless_intelligence_test_{uuid.uuid4().hex}.db"
-    os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{db_path}"
-    os.environ["QUEUE_ENABLED"] = "0"
+    _set_test_env(db_path)
 
     import app.main as main
 

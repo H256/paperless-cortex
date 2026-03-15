@@ -5,6 +5,11 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### CI test defaults aligned with strict config validation
+- `uncommitted` fix(testing): updated [`backend/tests/conftest.py`](E:/workspace/python/paperless-intelligence/backend/tests/conftest.py) so the backend test fixtures now set explicit defaults for `REDIS_HOST`, `ENABLE_VISION_OCR`, and `QDRANT_URL` alongside the temporary SQLite database, instead of relying on developer-local env state.
+- `uncommitted` test(backend): re-verified the previously failing queue/process-missing/embeddings/document route clusters and then the full backend suite with `cd backend && uv run pytest` (`288 passed`), which matches the GitHub CI failure pattern caused by the stricter config validation and vision/vector defaults.
+- `uncommitted` chore(version): bumped the project version from `0.5.55` to `0.5.56` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### Title suggestion apply invalidates writeback state correctly
 - `uncommitted` fix(suggestions): changed [`backend/app/services/ai/suggestion_apply.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/suggestion_apply.py) so applying a suggestion to a document now invalidates the local document cache, documents-list cache, and writeback preview cache after commit instead of leaving stale detail/writeback state behind.
 - `uncommitted` fix(routes): wired the invalidation hooks through [`backend/app/routes/documents_suggestions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_suggestions.py), so title applies update the detail view and writeback candidate detection immediately.

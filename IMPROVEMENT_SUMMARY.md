@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### CI fixtures now match strict runtime defaults
+
+- The backend test fixtures no longer depend on whatever queue, vision, or vector-store env values happen to exist on a developer machine: `backend/tests/conftest.py` now sets explicit test defaults for Redis, vision OCR, and the vector-store URL before loading the app.
+- That closes the GitHub-only pytest failures introduced by the stricter config validation and the newer vision/vector assumptions, while keeping the production validation logic intact.
+
 ### Title suggestion apply refreshes writeback state again
 
 - The detail-page suggestion apply flow no longer leaves stale `local_overrides` and writeback availability behind after changing a title: applying a title suggestion now invalidates the local document cache and writeback preview candidate cache immediately.
