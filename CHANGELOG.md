@@ -5,6 +5,13 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Similar documents now derive review status from real remote fields
+- `uncommitted` fix(similar): changed [`backend/app/routes/documents_similarity.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_similarity.py) so similar/duplicate document cards are enriched from cached Paperless document payloads instead of local-only summary rows when deriving `local_overrides` and `review_status`.
+- `uncommitted` fix(similar): the route now carries the real remote `created`, `modified`, `correspondent`, `document_type`, `tags`, and `notes` fields into the shared derived-field logic, which fixes the case where a similar document card could incorrectly show `needs_review` while the detail page correctly showed `reviewed`.
+- `uncommitted` test(backend): added a regression in [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) that pins the concrete inconsistency: a reviewed similar document with a local/remote created-date mismatch no longer flips to `needs_review` in `/documents/{id}/similar`.
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_documents_routes.py -q` (`41 passed`), `cd backend && uv run ruff check app/routes/documents_similarity.py tests/test_documents_routes.py`, and `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_similarity.py tests/test_documents_routes.py`.
+- `uncommitted` chore(version): bumped the project version from `0.5.57` to `0.5.58` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### Reset-and-reprocess tolerates unavailable vector cleanup
 - `uncommitted` fix(documents): changed [`backend/app/services/documents/reprocess_request.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/reprocess_request.py) so reset-and-reprocess treats vector-point deletion as best-effort cleanup instead of aborting the local reset when the active vector backend is unavailable.
 - `uncommitted` test(backend): re-verified the specific reset-and-reprocess regression and the full backend suite with `cd backend && uv run pytest` (`288 passed`), matching the last remaining GitHub CI failure where Linux tried to resolve the dummy vector-store host during document reset.
