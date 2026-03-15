@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING
+
+import httpx
 
 from app.api_models import DocumentIn
 
@@ -32,7 +35,8 @@ def reset_and_reprocess_payload(
     enqueue_task_sequence_front_fn: Callable[[Settings, list[TaskPayload]], int],
 ) -> dict[str, object]:
     clear_document_intelligence_fn(db, doc_id)
-    delete_points_for_doc_fn(settings, doc_id)
+    with suppress(httpx.HTTPError, RuntimeError, ValueError):
+        delete_points_for_doc_fn(settings, doc_id)
 
     raw = get_document_fn(settings, doc_id)
     data = DocumentIn.model_validate(raw)
