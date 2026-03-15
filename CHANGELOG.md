@@ -5,6 +5,11 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Reset-and-reprocess tolerates unavailable vector cleanup
+- `uncommitted` fix(documents): changed [`backend/app/services/documents/reprocess_request.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/reprocess_request.py) so reset-and-reprocess treats vector-point deletion as best-effort cleanup instead of aborting the local reset when the active vector backend is unavailable.
+- `uncommitted` test(backend): re-verified the specific reset-and-reprocess regression and the full backend suite with `cd backend && uv run pytest` (`288 passed`), matching the last remaining GitHub CI failure where Linux tried to resolve the dummy vector-store host during document reset.
+- `uncommitted` chore(version): bumped the project version from `0.5.56` to `0.5.57` and re-exported [`backend/openapi.json`](E:/workspace/python/paperless-intelligence/backend/openapi.json).
+
 ### CI test defaults aligned with strict config validation
 - `uncommitted` fix(testing): updated [`backend/tests/conftest.py`](E:/workspace/python/paperless-intelligence/backend/tests/conftest.py) so the backend test fixtures now set explicit defaults for `REDIS_HOST`, `ENABLE_VISION_OCR`, and `QDRANT_URL` alongside the temporary SQLite database, instead of relying on developer-local env state.
 - `uncommitted` test(backend): re-verified the previously failing queue/process-missing/embeddings/document route clusters and then the full backend suite with `cd backend && uv run pytest` (`288 passed`), which matches the GitHub CI failure pattern caused by the stricter config validation and vision/vector defaults.

@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Reset-and-reprocess no longer fails on unreachable vector backends
+
+- Document reset/reprocess now treats vector-point cleanup as best-effort instead of a hard prerequisite. If the active vector backend is temporarily unreachable, the local intelligence reset and Paperless resync still complete.
+- That closes the last GitHub-only backend pytest failure after the stricter config/test-default work: the reset path no longer depends on a resolvable dummy vector-store host just to clear local task runs and local intelligence state.
+
 ### CI fixtures now match strict runtime defaults
 
 - The backend test fixtures no longer depend on whatever queue, vision, or vector-store env values happen to exist on a developer machine: `backend/tests/conftest.py` now sets explicit test defaults for Redis, vision OCR, and the vector-store URL before loading the app.
