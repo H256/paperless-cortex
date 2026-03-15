@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Title suggestion apply refreshes writeback state again
+
+- The detail-page suggestion apply flow no longer leaves stale `local_overrides` and writeback availability behind after changing a title: applying a title suggestion now invalidates the local document cache and writeback preview candidate cache immediately.
+- That restores the expected UX on the document detail page: after taking over a title suggestion, the document is immediately recognized as a local override again and the writeback action becomes available without waiting for cache expiry.
+
 ### Deleted Paperless copies excluded from operations counts
 
 - The operations dashboard and document stats now match the existing continue-processing rule for locally retained Paperless deletions: documents marked as `DELETED in Paperless (copy kept)` are no longer treated as active operational backlog.

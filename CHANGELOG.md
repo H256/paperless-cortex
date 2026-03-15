@@ -5,6 +5,11 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-03-13 (branch: develop)
 
+### Title suggestion apply invalidates writeback state correctly
+- `uncommitted` fix(suggestions): changed [`backend/app/services/ai/suggestion_apply.py`](E:/workspace/python/paperless-intelligence/backend/app/services/ai/suggestion_apply.py) so applying a suggestion to a document now invalidates the local document cache, documents-list cache, and writeback preview cache after commit instead of leaving stale detail/writeback state behind.
+- `uncommitted` fix(routes): wired the invalidation hooks through [`backend/app/routes/documents_suggestions.py`](E:/workspace/python/paperless-intelligence/backend/app/routes/documents_suggestions.py), so title applies update the detail view and writeback candidate detection immediately.
+- `uncommitted` test(backend): added a regression in [`backend/tests/test_documents_suggestions_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_suggestions_routes.py) that pins the broken title flow: after `POST /documents/{id}/apply-suggestion` for `title`, `/documents/{id}/local` now reports `local_overrides=true` and the writeback candidate scan includes the document again.
+
 ### Deleted Paperless copies excluded from operations counts
 - `uncommitted` fix(operations): aligned [`backend/app/services/documents/dashboard.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/dashboard.py) and [`backend/app/services/documents/document_stats.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/document_stats.py) with the existing continue-processing skip rule, so documents marked as `DELETED in Paperless (copy kept)` are no longer counted in operational totals, unprocessed counts, or unprocessed-by-correspondent dashboard groups.
 - `uncommitted` test(backend): added a direct regression in [`backend/tests/test_documents_routes.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_documents_routes.py) to pin that deleted Paperless copies are excluded from `/documents/dashboard` and `/documents/stats` while active local documents still count normally.

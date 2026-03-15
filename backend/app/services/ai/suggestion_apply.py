@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from sqlalchemy import case, func, or_
@@ -22,11 +23,12 @@ from app.services.runtime.string_list_json import (
 from app.services.runtime.time_utils import utc_now_iso
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from sqlalchemy.orm import Session
 
     from app.models import Document
+
+InvalidateAll = Callable[[], None]
+InvalidateDoc = Callable[[int | None], None]
 
 
 def apply_suggestion_to_document_payload(
@@ -38,6 +40,9 @@ def apply_suggestion_to_document_payload(
     value: object,
     get_document_or_none_fn: Callable[[Session, int], Document | None],
     audit_suggestion_run_fn: Callable[[Session, int, str, str], None],
+    invalidate_documents_list_cache_fn: InvalidateAll | None = None,
+    invalidate_local_document_cache_fn: InvalidateDoc | None = None,
+    invalidate_writeback_preview_cache_fn: InvalidateAll | None = None,
 ) -> dict[str, object]:
     def find_suggestion_meta() -> tuple[str | None, str | None]:
         suggestion_row = None
@@ -206,5 +211,11 @@ def apply_suggestion_to_document_payload(
     if updated:
         audit_suggestion_run_fn(db, doc_id, source or "manual", f"apply_to_document:{field}")
         db.commit()
+        if invalidate_documents_list_cache_fn is not None:
+            invalidate_documents_list_cache_fn()
+        if invalidate_local_document_cache_fn is not None:
+            invalidate_local_document_cache_fn(doc_id)
+        if invalidate_writeback_preview_cache_fn is not None:
+            invalidate_writeback_preview_cache_fn()
         return {"status": "ok", "updated": True, **details}
     return {"status": "skipped", "updated": False, **details}
