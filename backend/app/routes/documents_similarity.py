@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, selectinload
 
@@ -11,6 +12,7 @@ from app.db import get_db
 from app.deps import get_settings
 from app.models import Correspondent, Document, Tag
 from app.services.documents.read_models import apply_derived_fields_and_review_status
+from app.services.integrations import paperless
 from app.services.search.similarity import (
     aggregate_similar_metadata,
     fetch_doc_point_vector,
@@ -24,9 +26,17 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 
 
-def _build_document_summary_payload(db: Session, doc_ids: list[int]) -> dict[int, dict]:
+def _build_document_summary_payload(
+    settings: Settings,
+    db: Session,
+    doc_ids: list[int],
+) -> dict[int, dict]:
     if not doc_ids:
         return {}
+    try:
+        remote_docs_by_id = paperless.get_documents_cached(settings, doc_ids)
+    except (RuntimeError, httpx.HTTPError):
+        remote_docs_by_id = {}
     docs = (
         db.query(Document)
         .options(
@@ -38,17 +48,29 @@ def _build_document_summary_payload(db: Session, doc_ids: list[int]) -> dict[int
     )
     base_results = []
     for doc in docs:
+        remote_doc = remote_docs_by_id.get(int(doc.id), {})
+        remote_correspondent_id = remote_doc.get("correspondent")
+        correspondent_name = doc.correspondent.name if doc.correspondent else None
+        if remote_correspondent_id not in (None, doc.correspondent_id):
+            correspondent_name = None
         base_results.append(
             {
                 "id": doc.id,
-                "title": doc.title,
-                "document_date": doc.document_date,
-                "created": doc.created,
-                "modified": doc.modified,
-                "correspondent": doc.correspondent_id,
-                "correspondent_name": doc.correspondent.name if doc.correspondent else None,
-                "document_type": doc.document_type_id,
-                "tags": [tag.id for tag in doc.tags],
+                "title": remote_doc.get("title") or doc.title,
+                "document_date": remote_doc.get("document_date") or doc.document_date,
+                "created": remote_doc.get("created") or doc.created,
+                "modified": remote_doc.get("modified") or doc.modified,
+                "correspondent": remote_correspondent_id
+                if isinstance(remote_correspondent_id, int | str)
+                else doc.correspondent_id,
+                "correspondent_name": correspondent_name,
+                "document_type": remote_doc.get("document_type") or doc.document_type_id,
+                "tags": (
+                    [int(tag_id) for tag_id in remote_doc.get("tags", []) if isinstance(tag_id, int)]
+                    if isinstance(remote_doc.get("tags"), list)
+                    else [tag.id for tag in doc.tags]
+                ),
+                "notes": remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else [],
             }
         )
     payload: dict[str, object] = {
@@ -92,7 +114,7 @@ def get_similar_documents(
     filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
     filtered = filtered[:top_k]
     doc_ids = [int(item["doc_id"]) for item in filtered]
-    summaries = _build_document_summary_payload(db, doc_ids)
+    summaries = _build_document_summary_payload(settings, db, doc_ids)
     results = [
         {
             "doc_id": int(item["doc_id"]),
@@ -119,7 +141,7 @@ def get_duplicate_documents(
     filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
     filtered = filtered[:top_k]
     doc_ids = [int(item["doc_id"]) for item in filtered]
-    summaries = _build_document_summary_payload(db, doc_ids)
+    summaries = _build_document_summary_payload(settings, db, doc_ids)
     results = [
         {
             "doc_id": int(item["doc_id"]),

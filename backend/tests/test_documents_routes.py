@@ -18,6 +18,7 @@ from app.models import (
     DocumentPendingTag,
     DocumentSuggestion,
     SuggestionAudit,
+    Tag,
     TaskRun,
 )
 
@@ -1388,3 +1389,65 @@ def test_list_documents_includes_suggestion_and_vision_flags(
     assert row["has_suggestions_paperless"] is True
     assert row["has_suggestions_vision"] is True
     assert row["has_vision_pages"] is True
+
+
+def test_similar_documents_preserve_reviewed_status_from_remote_fields(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_similarity
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=671, title="Source Doc", created="2026-02-10T10:00:00+00:00")
+    _insert_local_document(
+        doc_id=1777,
+        title="Rechnung 6005603054",
+        created="2025-08-09",
+        correspondent_id=146,
+    )
+    _insert_suggestion_audit(doc_id=1777, created_at="2026-03-15T21:03:43.775519+00:00")
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        correspondent = Correspondent(id=146, name="Example Corp")
+        tag_one = Tag(id=1, name="one", color="#111111")
+        tag_two = Tag(id=14, name="two", color="#222222")
+        doc = db.get(Document, 1777)
+        assert doc is not None
+        doc.document_date = "2025-08-11"
+        doc.correspondent = correspondent
+        doc.tags = [tag_one, tag_two]
+        db.add_all([correspondent, tag_one, tag_two])
+        db.commit()
+
+    monkeypatch.setattr(documents_similarity, "fetch_doc_point_vector", lambda *_args, **_kwargs: [0.1, 0.2])
+    monkeypatch.setattr(
+        documents_similarity,
+        "search_similar_doc_points",
+        lambda *_args, **_kwargs: [{"doc_id": 1777, "score": 0.98}],
+    )
+    monkeypatch.setattr(
+        paperless,
+        "get_documents_cached",
+        lambda *_args, **_kwargs: {
+            1777: {
+                "id": 1777,
+                "title": "Rechnung 6005603054",
+                "created": "2025-08-11",
+                "modified": "2026-02-20T19:18:33.894343+01:00",
+                "document_date": None,
+                "correspondent": 146,
+                "document_type": None,
+                "tags": [14, 1],
+                "notes": [{"note": "remote note"}],
+            }
+        },
+    )
+
+    response = api_client.get("/documents/671/similar")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["matches"]) == 1
+    match = payload["matches"][0]["document"]
+    assert match["id"] == 1777
+    assert match["local_overrides"] is False
+    assert match["review_status"] == "reviewed"

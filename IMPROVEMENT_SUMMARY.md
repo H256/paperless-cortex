@@ -2,6 +2,11 @@
 
 ## Latest block
 
+### Similar-document review badges now match the detail page
+
+- Similar and duplicate cards no longer derive `needs_review` from a local-only summary row that can disagree with the actual Paperless document fields. The similar-doc route now enriches those cards from cached Paperless document payloads before running the shared review/local-override derivation.
+- That closes the confusing UX where a similar document could appear as needing review in the Similar tab, but then open into a detail page that correctly showed `Reviewed` and offered no `Mark reviewed` action.
+
 ### Reset-and-reprocess no longer fails on unreachable vector backends
 
 - Document reset/reprocess now treats vector-point cleanup as best-effort instead of a hard prerequisite. If the active vector backend is temporarily unreachable, the local intelligence reset and Paperless resync still complete.
