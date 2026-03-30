@@ -239,7 +239,13 @@ const onJumpPage = async (targetPage: number) => {
   await load()
 }
 
+const isValidDocId = (id: number) => Number.isFinite(id) && id > 0
+
 const open = (id: number) => {
+  if (!isValidDocId(id)) {
+    toastStore.push('Invalid document ID.', 'warning', 'Documents')
+    return
+  }
   router.push({
     path: `/documents/${id}`,
     query: { return_to: encodeURIComponent(route.fullPath) },
@@ -247,6 +253,10 @@ const open = (id: number) => {
 }
 
 const openOperations = (id: number) => {
+  if (!isValidDocId(id)) {
+    toastStore.push('Invalid document ID.', 'warning', 'Documents')
+    return
+  }
   router.push({
     path: `/documents/${id}`,
     query: {
@@ -257,6 +267,10 @@ const openOperations = (id: number) => {
 }
 
 const openSuggestions = (id: number) => {
+  if (!isValidDocId(id)) {
+    toastStore.push('Invalid document ID.', 'warning', 'Documents')
+    return
+  }
   router.push({
     path: `/documents/${id}`,
     query: {

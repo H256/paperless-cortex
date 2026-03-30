@@ -4,6 +4,7 @@ import { reactive, ref } from 'vue'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let ContinueProcessingView: unknown
+const toastPush = vi.fn()
 
 const route = reactive({
   path: '/processing/continue',
@@ -22,7 +23,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('../stores/toastStore', () => ({
   useToastStore: () => ({
-    push: vi.fn(),
+    push: toastPush,
   }),
 }))
 
@@ -132,5 +133,25 @@ describe('ContinueProcessingView', () => {
     expect(router.push).toHaveBeenCalledWith('/queue')
     expect(router.push).toHaveBeenCalledWith('/logs')
     expect(router.push).toHaveBeenCalledWith('/documents')
+  })
+
+  it('blocks navigation for invalid preview doc ids', async () => {
+    const wrapper = mount(ContinueProcessingView as never, {
+      global: {
+        stubs: {
+          ContinueProcessingPanel: {
+            template: '<button data-test="open-doc" @click="$emit(\'open-doc\', Number.NaN)">doc</button>',
+          },
+        },
+      },
+    })
+
+    await Promise.resolve()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="open-doc"]').trigger('click')
+
+    expect(router.push).not.toHaveBeenCalled()
+    expect(toastPush).toHaveBeenCalledWith('Invalid document ID.', 'warning', 'Continue processing')
   })
 })

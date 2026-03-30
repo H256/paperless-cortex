@@ -4,6 +4,15 @@ import { nextTick, reactive, ref } from 'vue'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentDetailView: unknown
+const toastPush = vi.fn()
+const loadDocumentMock = vi.fn(async () => undefined)
+const loadMetaMock = vi.fn(async () => undefined)
+const loadPageTextsMock = vi.fn(async () => undefined)
+const loadContentQualityMock = vi.fn(async () => undefined)
+const loadOcrScoresMock = vi.fn(async () => undefined)
+const loadSuggestionsMock = vi.fn(async () => undefined)
+const refreshPipelineStatusMock = vi.fn(async () => undefined)
+const refreshPipelineFanoutMock = vi.fn(async () => undefined)
 
 const route = reactive({
   params: { id: '1' },
@@ -21,7 +30,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('../stores/toastStore', () => ({
   useToastStore: () => ({
-    push: vi.fn(),
+    push: toastPush,
   }),
 }))
 
@@ -65,12 +74,12 @@ vi.mock('../composables/useDocumentDetailData', () => ({
     suggestionVariants: ref({}),
     suggestionVariantLoading: ref(false),
     suggestionVariantError: ref(''),
-    loadDocument: vi.fn(async () => undefined),
-    loadMeta: vi.fn(async () => undefined),
-    loadPageTexts: vi.fn(async () => undefined),
-    loadContentQuality: vi.fn(async () => undefined),
-    loadOcrScores: vi.fn(async () => undefined),
-    loadSuggestions: vi.fn(async () => undefined),
+    loadDocument: loadDocumentMock,
+    loadMeta: loadMetaMock,
+    loadPageTexts: loadPageTextsMock,
+    loadContentQuality: loadContentQualityMock,
+    loadOcrScores: loadOcrScoresMock,
+    loadSuggestions: loadSuggestionsMock,
     refreshSuggestions: vi.fn(async () => undefined),
     suggestField: vi.fn(async () => undefined),
     applyVariant: vi.fn(async () => undefined),
@@ -86,8 +95,8 @@ vi.mock('../composables/useDocumentPipeline', () => ({
     pipelineFanout: ref(null),
     pipelineFanoutLoading: ref(false),
     pipelineFanoutError: ref(''),
-    refreshPipelineStatus: vi.fn(async () => undefined),
-    refreshPipelineFanout: vi.fn(async () => undefined),
+    refreshPipelineStatus: refreshPipelineStatusMock,
+    refreshPipelineFanout: refreshPipelineFanoutMock,
     continuePipeline: vi.fn(async () => ({ enabled: true, enqueued: 0, missing_tasks: 0 })),
     continuePipelineLoading: ref(false),
   }),
@@ -193,6 +202,7 @@ describe('DocumentDetailView', () => {
   })
 
   afterEach(() => {
+    route.params.id = '1'
     route.query = { tab: 'operations' }
     vi.clearAllMocks()
   })
@@ -258,6 +268,37 @@ describe('DocumentDetailView', () => {
     await nextTick()
     await Promise.resolve()
     expect(wrapper.find('[data-test="ops-section"]').exists()).toBe(true)
+  })
+
+  it('does not load document APIs when route doc id is invalid', async () => {
+    route.params.id = 'NaN'
+
+    mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+
+    await Promise.resolve()
+
+    expect(loadDocumentMock).not.toHaveBeenCalled()
+    expect(loadPageTextsMock).not.toHaveBeenCalled()
+    expect(loadContentQualityMock).not.toHaveBeenCalled()
+    expect(loadSuggestionsMock).not.toHaveBeenCalled()
+    expect(refreshPipelineStatusMock).not.toHaveBeenCalled()
+    expect(refreshPipelineFanoutMock).not.toHaveBeenCalled()
+    expect(toastPush).toHaveBeenCalledWith('Invalid document ID.', 'warning', 'Document')
   })
 
   it('syncs pdf page/highlights from route query page+bbox', async () => {
