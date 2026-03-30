@@ -4,6 +4,7 @@ import { computed, reactive, ref } from 'vue'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentsView: unknown
+const toastPush = vi.fn()
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -37,7 +38,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('../stores/toastStore', () => ({
   useToastStore: () => ({
-    push: vi.fn(),
+    push: toastPush,
   }),
 }))
 
@@ -231,5 +232,32 @@ describe('DocumentsView', () => {
     await wrapper.get('[data-test="empty-open-processing"]').trigger('click')
 
     expect(router.push).toHaveBeenCalledWith('/processing/continue')
+  })
+
+  it('blocks invalid document ids from the list view', async () => {
+    const wrapper = mount(DocumentsView as never, {
+      global: {
+        stubs: {
+          DocumentsHeaderSection: true,
+          DocumentsFiltersPanel: true,
+          DocumentsActiveFiltersStrip: true,
+          DocumentsPresetBar: true,
+          DocumentsQuickControls: true,
+          DocumentsEmptyState: true,
+          DocumentsTable: {
+            template:
+              '<div><button data-test="open-doc" @click="$emit(\'open-doc\', Number.NaN)">doc</button><button data-test="open-ops" @click="$emit(\'open-doc-operations\', Number.NaN)">ops</button><button data-test="open-suggestions" @click="$emit(\'open-doc-suggestions\', Number.NaN)">suggestions</button></div>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="open-doc"]').trigger('click')
+    await wrapper.get('[data-test="open-ops"]').trigger('click')
+    await wrapper.get('[data-test="open-suggestions"]').trigger('click')
+
+    expect(router.push).not.toHaveBeenCalledWith(expect.objectContaining({ path: '/documents/NaN' }))
+    expect(toastPush).toHaveBeenCalledTimes(3)
+    expect(toastPush).toHaveBeenCalledWith('Invalid document ID.', 'warning', 'Documents')
   })
 })

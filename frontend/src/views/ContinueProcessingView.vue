@@ -163,6 +163,10 @@ const goBack = () => {
 }
 
 const openDoc = (id: number) => {
+  if (!Number.isFinite(id) || id <= 0) {
+    toastStore.push('Invalid document ID.', 'warning', 'Continue processing')
+    return
+  }
   clearPreviewState()
   router.push(`/documents/${id}`)
 }
