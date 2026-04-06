@@ -17,6 +17,7 @@ const router = createRouter({
     { path: '/logs', component: () => import('./views/LogInspectorView.vue') },
     { path: '/processing/continue', component: () => import('./views/ContinueProcessingView.vue') },
     { path: '/chat', component: () => import('./views/ChatView.vue') },
+    { path: '/settings', component: () => import('./views/SettingsView.vue') },
     { path: '/operations', component: () => import('./views/MaintenanceView.vue') },
     { path: '/writeback', component: () => import('./views/WritebackDryRunView.vue') },
     { path: '/writeback-dry-run', redirect: '/writeback' },

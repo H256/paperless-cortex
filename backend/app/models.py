@@ -75,6 +75,17 @@ class SyncState(Base):
     cancel_requested: Mapped[bool | None] = mapped_column(Boolean)
 
 
+class RuntimeModelProviderOverride(Base):
+    __tablename__ = "runtime_model_provider_overrides"
+
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
+    base_url: Mapped[str | None] = mapped_column(String(512))
+    model: Mapped[str | None] = mapped_column(String(256))
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text)
+    api_key_hint: Mapped[str | None] = mapped_column(String(32))
+    updated_at: Mapped[str | None] = mapped_column(String(64))
+
+
 class DocumentEmbedding(Base):
     __tablename__ = "document_embeddings"
 

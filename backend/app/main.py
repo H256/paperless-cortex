@@ -29,6 +29,7 @@ from app.routes import (
     embeddings,
     meta,
     queue,
+    settings,
     status,
     sync,
     writeback_dryrun,
@@ -312,6 +313,7 @@ api.include_router(embeddings.router)
 api.include_router(connections.router)
 api.include_router(queue.router)
 api.include_router(status.router)
+api.include_router(settings.router)
 api.include_router(chat.router)
 api.include_router(writeback_dryrun.router)
 

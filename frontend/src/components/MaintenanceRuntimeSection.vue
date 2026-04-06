@@ -70,131 +70,13 @@
     </div>
   </section>
 
-  <section
-    class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-  >
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          Runtime Configuration
-        </h3>
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          Read-only view of server URLs and models currently in use.
-        </p>
-      </div>
-    </div>
-    <div class="mt-4 grid gap-4 md:grid-cols-2">
-      <div
-        class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
-      >
-        <div
-          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
-        >
-          URLs
-        </div>
-        <dl class="mt-3 space-y-2">
-          <MaintenanceRuntimeRow
-            label="Paperless"
-            :value="runtime.paperless_base_url"
-            :copyable="Boolean(runtime.paperless_base_url)"
-            :copied="copiedKey === 'paperless'"
-            @copy="$emit('copy-value', runtime.paperless_base_url, 'paperless')"
-          />
-          <MaintenanceRuntimeRow
-            label="LLM Base"
-            :value="runtime.llm_base_url"
-            :copyable="Boolean(runtime.llm_base_url)"
-            :copied="copiedKey === 'llm_base'"
-            @copy="$emit('copy-value', runtime.llm_base_url, 'llm_base')"
-          />
-          <MaintenanceRuntimeRow
-            label="Qdrant"
-            :value="runtime.qdrant_url"
-            :copyable="Boolean(runtime.qdrant_url)"
-            :copied="copiedKey === 'qdrant'"
-            @copy="$emit('copy-value', runtime.qdrant_url, 'qdrant')"
-          />
-          <MaintenanceRuntimeRow
-            label="Redis"
-            :value="runtime.redis_host"
-            :copyable="Boolean(runtime.redis_host)"
-            :copied="copiedKey === 'redis'"
-            @copy="$emit('copy-value', runtime.redis_host, 'redis')"
-          />
-        </dl>
-      </div>
-      <div
-        class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
-      >
-        <div
-          class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
-        >
-          Models
-        </div>
-        <dl class="mt-3 space-y-2">
-          <MaintenanceRuntimeRow
-            label="Text LLM"
-            :value="runtime.text_model"
-            :copyable="Boolean(runtime.text_model)"
-            :copied="copiedKey === 'text_model'"
-            @copy="$emit('copy-value', runtime.text_model, 'text_model')"
-          />
-          <MaintenanceRuntimeRow
-            label="Chat LLM"
-            :value="runtime.chat_model"
-            :copyable="Boolean(runtime.chat_model)"
-            :copied="copiedKey === 'chat_model'"
-            @copy="$emit('copy-value', runtime.chat_model, 'chat_model')"
-          />
-          <MaintenanceRuntimeRow
-            label="Embeddings"
-            :value="runtime.embedding_model"
-            :copyable="Boolean(runtime.embedding_model)"
-            :copied="copiedKey === 'embedding_model'"
-            @copy="$emit('copy-value', runtime.embedding_model, 'embedding_model')"
-          />
-          <MaintenanceRuntimeRow
-            label="Vision OCR"
-            :value="runtime.vision_model"
-            :copyable="Boolean(runtime.vision_model)"
-            :copied="copiedKey === 'vision_model'"
-            @copy="$emit('copy-value', runtime.vision_model, 'vision_model')"
-          />
-          <MaintenanceRuntimeRow
-            label="Evidence max pages"
-            :value="runtime.evidence_max_pages"
-          />
-          <MaintenanceRuntimeRow
-            label="Evidence min snippet chars"
-            :value="runtime.evidence_min_snippet_chars"
-          />
-        </dl>
-      </div>
-    </div>
-  </section>
 </template>
 
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
-import MaintenanceRuntimeRow from './MaintenanceRuntimeRow.vue'
 import type { QueueWorkerLockReset, QueueWorkerLockStatus } from '../services/queue'
 
-type MaintenanceRuntime = {
-  paperless_base_url?: string | null
-  llm_base_url?: string | null
-  qdrant_url?: string | null
-  redis_host?: string | null
-  text_model?: string | null
-  chat_model?: string | null
-  embedding_model?: string | null
-  vision_model?: string | null
-  evidence_max_pages?: number | null
-  evidence_min_snippet_chars?: number | null
-}
-
 defineProps<{
-  runtime: MaintenanceRuntime
-  copiedKey: string | null
   workerLockStatus: QueueWorkerLockStatus | null
   workerLockLoading: boolean
   workerLockResetLoading: boolean
@@ -203,7 +85,6 @@ defineProps<{
 }>()
 
 defineEmits<{
-  (e: 'copy-value', value: string | null | undefined, key: string): void
   (e: 'refresh-lock'): void
   (e: 'reset-lock'): void
 }>()

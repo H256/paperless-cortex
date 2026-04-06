@@ -66,9 +66,9 @@ Per-document operations also allow targeted manual re-runs for individual steps 
 - Python `>=3.13` for the backend.
 - Node.js `>=18` for the frontend.
 - Paperless-ngx instance reachable by URL and API token.
-- Postgres, Redis, and Qdrant (local installs or Docker).
+- Postgres, Redis, and a supported vector store (`Qdrant` or `Weaviate`) (local installs or Docker).
 - An OpenAI-compatible LLM endpoint (local or remote).
-See `MANUAL.md` for more detailed setup and operations.
+For user-facing operations and UI guidance, see [`docs/manual/README.md`](E:/workspace/python/paperless-intelligence/docs/manual/README.md).
 
 ### Backend (recommended: uv)
 ```bash
@@ -111,7 +111,7 @@ npm run dev
 
 ## Local setup (database + migrations)
 1. Copy `.env.example` to `.env` and fill values. Do not commit `.env` to GitHub.
-2. Ensure Postgres, Redis, and Qdrant are running.
+2. Ensure Postgres, Redis, and your active vector store are running.
 3. Create the database specified by `DATABASE_URL`.
 4. Run migrations with Alembic.
 
@@ -146,99 +146,43 @@ docker compose -f docker-compose.worker.yml up --build
 ```
 
 ## Configuration
-Set values in `.env`. The defaults below are the runtime defaults used by `backend/app/config.py` when the variable is not set.
+Set values in `.env`.
 
-### Required for a real setup
+### Minimum for a real setup
 - `PAPERLESS_BASE_URL`
 - `PAPERLESS_API_TOKEN`
 - `DATABASE_URL`
-- `QDRANT_URL`
+- `VECTOR_STORE_PROVIDER`
+- vector-store-specific settings for Qdrant or Weaviate
 - `LLM_BASE_URL`
+- `TEXT_MODEL`
+- `EMBEDDING_MODEL`
 
-### All configuration parameters
-| Variable | Default | Description |
-| --- | --- | --- |
-| `LOG_LEVEL` | `INFO` | Log level for backend services. |
-| `LOG_JSON` | `0` | Emit JSON logs when `1`. |
-| `API_SLOW_REQUEST_LOG_MS` | `1200` | Log API requests slower than this (ms). |
-| `WORKER_MAX_RETRIES` | `2` | Worker retry count per task. |
-| `PAPERLESS_BASE_URL` | `` | Base URL for Paperless-ngx. |
-| `PAPERLESS_API_TOKEN` | `` | Paperless-ngx API token. |
-| `DATABASE_URL` | `` | SQLAlchemy DB URL for local persistence. |
-| `QDRANT_URL` | `` | Qdrant HTTP endpoint. |
-| `QDRANT_API_KEY` | `` | Qdrant API key (optional). |
-| `REDIS_HOST` | `` | Redis host or host:port for queue mode. |
-| `QUEUE_ENABLED` | `0` | Enable queue-backed worker processing. |
-| `LLM_BASE_URL` | `` | OpenAI-compatible API base URL. |
-| `LLM_API_KEY` | `` | API key for the LLM provider. |
-| `TEXT_MODEL` | `` | Text model name for suggestions and summaries (and chat fallback). |
-| `CHAT_MODEL` | `` | Optional chat model override; falls back to `TEXT_MODEL` when unset. |
-| `EMBEDDING_MODEL` | `` | Embedding model name. |
-| `EMBEDDING_BATCH_SIZE` | `16` | Embedding batch size. |
-| `EMBEDDING_TIMEOUT_SECONDS` | `60` | Embedding request timeout. |
-| `EMBEDDING_MAX_CHUNKS_PER_DOC` | `0` | Max chunks per doc (0 = no cap). |
-| `EMBEDDING_MAX_INPUT_TOKENS` | `3000` | Max tokens per embedding request. |
-| `QDRANT_COLLECTION` | `paperless_chunks` | Qdrant collection name. |
-| `EMBED_ON_SYNC` | `0` | Run embeddings during sync when `1`. |
-| `CHUNK_MODE` | `heuristic` | Chunking strategy. |
-| `CHUNK_MAX_CHARS` | `1200` | Max characters per chunk. |
-| `CHUNK_OVERLAP` | `200` | Overlap between chunks. |
-| `CHUNK_SIMILARITY_THRESHOLD` | `0.75` | Threshold for chunk merging. |
-| `ENABLE_PDF_PAGE_EXTRACT` | `1` | Use PDF text extraction when Paperless page splits are missing. |
-| `ENABLE_VISION_OCR` | `0` | Enable vision OCR pipeline. |
-| `VISION_MODEL` | `` | Vision model name for OCR. |
-| `VISION_OCR_PROMPT` | `` | Inline prompt override for vision OCR. |
-| `VISION_OCR_PROMPT_PATH` | `` | Prompt file path for vision OCR. |
-| `SUGGESTIONS_PROMPT_PATH` | `` | Prompt file path for suggestions. |
-| `SUGGESTIONS_DEBUG` | `0` | Log extra suggestion debug info when `1`. |
-| `SUGGESTIONS_MAX_INPUT_CHARS` | `12000` | Max chars sent to suggestions prompt. |
-| `LARGE_DOC_PAGE_THRESHOLD` | `20` | Large-doc cutoff (pages). |
-| `PAGE_NOTES_TIMEOUT_SECONDS` | `45` | Timeout for page notes calls. |
-| `PAGE_NOTES_MAX_OUTPUT_TOKENS` | `300` | Max tokens for page notes output. |
-| `SUMMARY_SECTION_PAGES` | `25` | Pages per summary section. |
-| `SECTION_SUMMARY_MAX_INPUT_TOKENS` | `6000` | Max input tokens per section summary. |
-| `SECTION_SUMMARY_TIMEOUT_SECONDS` | `90` | Section summary timeout. |
-| `GLOBAL_SUMMARY_MAX_INPUT_TOKENS` | `7000` | Max input tokens for global summary. |
-| `GLOBAL_SUMMARY_TIMEOUT_SECONDS` | `120` | Global summary timeout. |
-| `SUMMARY_MAX_OUTPUT_TOKENS` | `900` | Max output tokens for summaries. |
-| `VISION_OCR_MIN_CHARS` | `40` | Minimum chars required to accept OCR result. |
-| `VISION_OCR_MIN_SCORE` | `60` | Minimum OCR quality score to keep result. |
-| `VISION_OCR_MAX_NONALNUM_RATIO` | `0.6` | Reject OCR if non-alnum ratio exceeds this. |
-| `VISION_OCR_MAX_PAGES` | `0` | Max pages for vision OCR (0 = no cap). |
-| `VISION_OCR_TIMEOUT_SECONDS` | `120` | Timeout per vision OCR request. |
-| `VISION_OCR_MAX_DIM` | `1024` | Max image dimension for OCR rendering. |
-| `VISION_OCR_TARGET_DIM` | `0` | Target resize dim (0 = disabled). |
-| `VISION_OCR_BATCH_PAGES` | `1` | Pages per OCR request. |
-| `HTTPX_VERIFY_TLS` | `1` | Verify TLS for outbound HTTPX requests. |
-| `OCR_CHAT_BASE` | `` | Base URL for OCR quality scoring (chat). |
-| `OCR_VISION_BASE` | `` | Base URL for OCR vision calls. |
-| `OCR_SCORE_MODEL` | `` | Model override for OCR scoring. |
-| `OCR_THRESH_BAD` | `55` | OCR "bad" threshold (higher = worse). |
-| `OCR_THRESH_BORDERLINE` | `32` | OCR "borderline" threshold. |
-| `OCR_ENABLE_LOGPROB_PPL` | `1` | Enable logprob/perplexity scoring. |
-| `OCR_PPL_MAX_PROMPT_CHARS` | `20000` | Max chars sent to OCR scoring prompt. |
-| `OCR_PPL_CHUNK_CHARS` | `4000` | Chunk size for OCR scoring. |
-| `OCR_PPL_TIMEOUT_SEC` | `120` | Timeout for OCR scoring calls. |
-| `OCR_VISION_TIMEOUT_SEC` | `180` | Timeout for OCR vision agreement calls. |
-| `OCR_VISION_MAX_TOKENS` | `1200` | Max tokens for OCR vision agreement. |
-| `STATUS_STREAM_INTERVAL_SECONDS` | `5` | Status stream poll interval. |
-| `STATUS_LLM_MODELS_TTL_SECONDS` | `60` | Cache TTL for model status. |
-| `EVIDENCE_MAX_PAGES` | `3` | Max pages searched for evidence. |
-| `EVIDENCE_MIN_SNIPPET_CHARS` | `20` | Min snippet length for evidence. |
-| `WORKER_SUGGESTIONS_MAX_CHARS` | `12000` | Max chars sent to worker suggestions. |
-| `WRITEBACK_EXECUTE_ENABLED` | `0` | Enable writeback execution when `1`. |
+### Configuration docs
+- [`.env.example`](E:/workspace/python/paperless-intelligence/.env.example) for concrete environment variables and example values
+- [`docs/config-reference.md`](E:/workspace/python/paperless-intelligence/docs/config-reference.md) for grouped runtime configuration guidance
+- [`docs/architecture-overview.md`](E:/workspace/python/paperless-intelligence/docs/architecture-overview.md) for the technical component overview
 
-## Docker-specific parameters
-| Variable | Default | Description |
-| --- | --- | --- |
-| `FRONTEND_DIST` | `` | Path to prebuilt frontend assets inside the container. |
+## Documentation map
 
-## Important docs
-- `agents.md`: compact project state + next actions.
-- `CHANGELOG.md`: granular change history.
-- `MANUAL.md`: usage/ops details.
-- `CONTRIBUTING.md`: how to contribute.
-- `docs/execution-blueprint-large-doc-worker.md`: large-document worker strategy.
+### For users
+- [`MANUAL.md`](E:/workspace/python/paperless-intelligence/MANUAL.md): documentation entry point
+- [`docs/manual/README.md`](E:/workspace/python/paperless-intelligence/docs/manual/README.md): end-user manual
+- [`docs/manual/14-tages-checkliste.md`](E:/workspace/python/paperless-intelligence/docs/manual/14-tages-checkliste.md): daily checklist
+- [`docs/manual/12-similar-workflow.md`](E:/workspace/python/paperless-intelligence/docs/manual/12-similar-workflow.md): similar-doc review workflow
+- [`docs/manual/13-team-policy.md`](E:/workspace/python/paperless-intelligence/docs/manual/13-team-policy.md): concise working rules
+
+### For admins and operators
+- [`docs/manual/15-admin-und-betrieb.md`](E:/workspace/python/paperless-intelligence/docs/manual/15-admin-und-betrieb.md): admin and UI operations guide
+- [`docs/manual/16-settings-und-live-model-provider.md`](E:/workspace/python/paperless-intelligence/docs/manual/16-settings-und-live-model-provider.md): live model-provider settings and API-key behavior
+- [`docs/architecture-overview.md`](E:/workspace/python/paperless-intelligence/docs/architecture-overview.md): architecture overview
+- [`docs/config-reference.md`](E:/workspace/python/paperless-intelligence/docs/config-reference.md): grouped configuration reference
+
+### For developers and contributors
+- [`CHANGELOG.md`](E:/workspace/python/paperless-intelligence/CHANGELOG.md): granular change history
+- [`agents.md`](E:/workspace/python/paperless-intelligence/agents.md): compact project state and next actions
+- [`CONTRIBUTING.md`](E:/workspace/python/paperless-intelligence/CONTRIBUTING.md): contribution notes
+- [`docs/execution-blueprint-large-doc-worker.md`](E:/workspace/python/paperless-intelligence/docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
 
 ## API/client generation
 ```bash
@@ -259,6 +203,7 @@ This synchronizes:
 - `frontend/src/generated/version.ts`
 
 `GET /api/status` exposes `app_version`, `api_version`, and `frontend_version`; the frontend footer renders them.
+
 ## License
 MIT License. See `LICENSE`.
 Provided “as is”, without warranty of any kind.

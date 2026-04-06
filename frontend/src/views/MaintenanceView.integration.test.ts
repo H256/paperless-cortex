@@ -4,7 +4,6 @@ import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
 const toastPush = vi.fn()
-const refreshRuntime = vi.fn(async () => null)
 const loadWorkerLockStatus = vi.fn(async () => null)
 
 vi.mock('../stores/toastStore', () => ({
@@ -17,18 +16,6 @@ vi.mock('../composables/useMaintenanceOps', () => ({
   useMaintenanceOps: () => ({
     syncStatus: ref({ status: 'idle', processed: 0, total: 0, started_at: null, eta_seconds: null }),
     embedStatus: ref({ status: 'idle', processed: 0, total: 0, started_at: null, eta_seconds: null }),
-    runtime: ref({
-      paperless_base_url: 'http://paperless.local',
-      llm_base_url: 'http://llm.local',
-      qdrant_url: 'http://qdrant.local',
-      redis_host: 'redis.local',
-      text_model: 'gpt-test',
-      chat_model: 'gpt-chat-test',
-      embedding_model: 'embed-test',
-      vision_model: 'vision-test',
-      evidence_max_pages: 3,
-      evidence_min_snippet_chars: 20,
-    }),
     workerLockStatus: ref({ has_lock: false, owner: null, ttl_seconds: null }),
     workerLockLoading: ref(false),
     reprocessRunning: ref(false),
@@ -43,7 +30,6 @@ vi.mock('../composables/useMaintenanceOps', () => ({
     tagsSyncLoading: ref(false),
     workerLockResetLoading: ref(false),
     loadWorkerLockStatus,
-    refreshRuntime,
     reprocessAll: vi.fn(async () => ({})),
     removeVisionOcr: vi.fn(async () => ({ deleted: 0 })),
     removeSuggestions: vi.fn(async () => ({ deleted: 0 })),
@@ -72,24 +58,15 @@ import MaintenanceView from './MaintenanceView.vue'
 describe('MaintenanceView runtime rows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: vi.fn(async () => undefined) },
-      configurable: true,
-    })
   })
 
-  it('copies runtime values from row action buttons', async () => {
+  it('renders worker lock maintenance controls without runtime config rows', async () => {
     const wrapper = mount(MaintenanceView)
     await Promise.resolve()
 
-    const copyButtons = wrapper.findAll('button').filter((b) => b.text() === 'Copy')
-    expect(copyButtons.length).toBeGreaterThan(0)
-    const firstCopyButton = copyButtons[0]
-    if (!firstCopyButton) throw new Error('Expected at least one copy button')
-    await firstCopyButton.trigger('click')
-
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://paperless.local')
-    expect(toastPush).toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Copied')
+    expect(wrapper.text()).toContain('Worker lock')
+    expect(wrapper.text()).not.toContain('Runtime Configuration')
+    expect(loadWorkerLockStatus).toHaveBeenCalled()
+    expect(toastPush).not.toHaveBeenCalled()
   })
 })

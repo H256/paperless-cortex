@@ -294,6 +294,7 @@ def generate_followups(
         model=model_name,
         messages=[{"role": "user", "content": prompt}],
         timeout=60,
+        purpose="chat",
     )
     candidates = parse_string_list_json(raw)
     if candidates:
@@ -355,6 +356,7 @@ def answer_question(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             timeout=120,
+            purpose="chat",
         )
         _resolve_evidence_for_sources(settings, sources, db=db)
         for citation in sources:
@@ -373,6 +375,7 @@ def answer_question(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             timeout=None,
+            purpose="chat",
         ):
             answer_chunks.append(token)
             payload = json.dumps({"token": token})

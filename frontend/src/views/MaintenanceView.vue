@@ -279,14 +279,11 @@
     </section>
 
     <MaintenanceRuntimeSection
-      :runtime="runtime"
-      :copied-key="copiedKey"
       :worker-lock-status="workerLockStatus"
       :worker-lock-loading="workerLockLoading"
       :worker-lock-reset-loading="workerLockResetLoading"
       :worker-lock-status-ttl-label="workerLockStatusTtlLabel"
       :worker-lock-reset-result="workerLockResetResult"
-      @copy-value="copyValue"
       @refresh-lock="loadWorkerLockStatus"
       @reset-lock="confirmWorkerLockReset"
     />
@@ -433,7 +430,6 @@ const maintenanceOps = useMaintenanceOps()
 const {
   syncStatus,
   embedStatus,
-  runtime,
   workerLockStatus,
   workerLockLoading,
   reprocessRunning,
@@ -462,7 +458,6 @@ const {
 } = maintenanceOps
 
 const showReprocessModal = ref(false)
-const copiedKey = ref<string | null>(null)
 const showClearAllModal = ref(false)
 const clearAllArmed = ref(false)
 
@@ -802,22 +797,8 @@ const confirmWorkerLockReset = async () => {
 }
 
 onMounted(async () => {
-  await Promise.all([loadWorkerLockStatus(), maintenanceOps.refreshRuntime()])
+  await loadWorkerLockStatus()
 })
-
-const copyValue = async (value: string | null | undefined, key: string) => {
-  if (!value) return
-  try {
-    await navigator.clipboard.writeText(value)
-    copiedKey.value = key
-    toastStore.push('Copied to clipboard', 'success', 'Copied')
-    window.setTimeout(() => {
-      if (copiedKey.value === key) copiedKey.value = null
-    }, 1200)
-  } catch {
-    copiedKey.value = null
-  }
-}
 
 const openClearAllModal = () => {
   clearAllArmed.value = false
