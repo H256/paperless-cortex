@@ -74,6 +74,10 @@ class StatusResponse(BaseModel):
     llm_vision: StatusEntry
     paperless_base_url: str | None = None
     llm_base_url: str | None = None
+    text_base_url: str | None = None
+    chat_base_url: str | None = None
+    embedding_base_url: str | None = None
+    vision_base_url: str | None = None
     qdrant_url: str | None = None
     vector_store_provider: str | None = None
     vector_store_url: str | None = None
@@ -88,6 +92,44 @@ class StatusResponse(BaseModel):
     api_version: str | None = None
     frontend_version: str | None = None
     latency_ms: int | None = None
+
+
+class ModelProviderSettingsItem(BaseModel):
+    role: str
+    base_url: str | None = None
+    model: str | None = None
+    api_key_configured: bool = False
+    api_key_hint: str | None = None
+    base_url_overridden: bool = False
+    model_overridden: bool = False
+    api_key_overridden: bool = False
+
+
+class ModelProviderSettingsResponse(BaseModel):
+    items: list[ModelProviderSettingsItem] = []
+
+
+class ModelProviderSettingsUpdateItem(BaseModel):
+    role: str
+    base_url: str | None = None
+    model: str | None = None
+    api_key: str | None = None
+    clear_api_key: bool = False
+
+
+class ModelProviderSettingsUpdateRequest(BaseModel):
+    items: list[ModelProviderSettingsUpdateItem] = []
+
+
+class ModelProviderDiscoveryRequest(BaseModel):
+    base_url: str | None = None
+    api_key: str | None = None
+
+
+class ModelProviderDiscoveryResponse(BaseModel):
+    ok: bool
+    detail: str
+    models: list[str] = []
 
 
 class QueueStatusResponse(BaseModel):

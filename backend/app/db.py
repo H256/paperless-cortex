@@ -26,7 +26,7 @@ def _get_session_factory(database_url: str) -> sessionmaker[Session]:
 
 
 def get_engine() -> Engine:
-    settings = load_settings()
+    settings = load_settings(apply_runtime_overrides=False)
     if not settings.database_url:
         raise RuntimeError("DATABASE_URL not set")
     return _get_cached_engine(settings.database_url)
@@ -34,7 +34,7 @@ def get_engine() -> Engine:
 
 class _LazySessionLocal:
     def __call__(self) -> Session:
-        settings = load_settings()
+        settings = load_settings(apply_runtime_overrides=False)
         if not settings.database_url:
             raise RuntimeError("DATABASE_URL not set")
         factory = _get_session_factory(settings.database_url)

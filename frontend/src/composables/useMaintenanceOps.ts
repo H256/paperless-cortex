@@ -20,7 +20,6 @@ import {
   type MissingVectorChunkAuditResult,
   type SyncStatus,
 } from '../services/documents'
-import { fetchHealthStatus } from '../services/status'
 import {
   fetchWorkerLockStatus,
   resetWorkerLock,
@@ -42,19 +41,6 @@ const IDLE_EMBED_STATUS: EmbedStatus = {
   total: 0,
   started_at: null,
   eta_seconds: null,
-}
-
-const EMPTY_RUNTIME = {
-  paperless_base_url: '',
-  llm_base_url: '',
-  qdrant_url: '',
-  redis_host: '',
-  text_model: '',
-  chat_model: '',
-  embedding_model: '',
-  vision_model: '',
-  evidence_max_pages: 0,
-  evidence_min_snippet_chars: 0,
 }
 
 const REPROCESS_SYNC_PARAMS = {
@@ -93,12 +79,6 @@ export const useMaintenanceOps = () => {
     queryFn: () => getEmbedStatus(),
     refetchInterval: 30_000,
     staleTime: 5_000,
-  })
-
-  const runtimeQuery = useQuery({
-    queryKey: ['runtime-status'],
-    queryFn: () => fetchHealthStatus(),
-    staleTime: 60_000,
   })
 
   const workerLockQuery = useQuery({
@@ -178,7 +158,6 @@ export const useMaintenanceOps = () => {
   return {
     syncStatus: computed(() => syncStatusQuery.data.value ?? IDLE_SYNC_STATUS),
     embedStatus: computed(() => embedStatusQuery.data.value ?? IDLE_EMBED_STATUS),
-    runtime: computed(() => runtimeQuery.data.value ?? EMPTY_RUNTIME),
     workerLockStatus: computed(() => workerLockQuery.data.value ?? null),
     workerLockLoading: computed(() => workerLockQuery.isFetching.value),
     reprocessRunning: computed(() => reprocessMutation.isPending.value),
@@ -192,9 +171,8 @@ export const useMaintenanceOps = () => {
     correspondentsSyncLoading: computed(() => syncCorrespondentsMutation.isPending.value),
     tagsSyncLoading: computed(() => syncTagsMutation.isPending.value),
     workerLockResetLoading: computed(() => resetWorkerLockMutation.isPending.value),
-    refreshPipelineStatus,
     loadWorkerLockStatus,
-    refreshRuntime: async () => runtimeQuery.refetch(),
+    refreshPipelineStatus,
     reprocessAll: async () => reprocessMutation.mutateAsync(),
     removeVisionOcr: async () => removeVisionMutation.mutateAsync(),
     removeSuggestions: async () => removeSuggestionsMutation.mutateAsync(),

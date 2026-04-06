@@ -4,7 +4,7 @@ import logging
 import os
 import socket
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from app.config import load_settings
 from app.db import SessionLocal
@@ -410,6 +410,7 @@ def main() -> None:
             doc_id = parsed["doc_id"]
             task_type = parsed["task_type"]
             task = parsed["task_payload"]
+            active_settings = load_settings()
             if handle_worker_cancel_request(
                 settings,
                 is_cancel_requested_fn=is_cancel_requested,
@@ -429,15 +430,30 @@ def main() -> None:
                 time.sleep(0.5)
                 continue
             running_task = task if isinstance(task, dict) else {"doc_id": doc_id, "task": "full"}
-            mark_worker_task_start(settings, running_task)
+            mark_worker_task_start(active_settings, running_task)
             run_started = time.time()
             pending_retry_payload: dict | None = None
             pending_retry_delay_seconds: int | None = None
             pending_dead_letter: dict | None = None
             retry_attempt = parsed["retry_attempt"]
             with SessionLocal() as db:
+                def build_handler(
+                    current_task_type: str,
+                    current_doc_id: int,
+                    current_task: dict[str, object] | None,
+                    current_run_id: int | None,
+                ) -> Callable[[], None] | None:
+                    return _build_dispatch_handler(
+                        active_settings,
+                        db,
+                        current_task_type,
+                        current_doc_id,
+                        current_task,
+                        current_run_id,
+                    )
+
                 execution = execute_worker_task(
-                    settings=settings,
+                    settings=active_settings,
                     db=db,
                     worker_token=worker_token,
                     doc_id=doc_id,
@@ -445,14 +461,7 @@ def main() -> None:
                     task=task if isinstance(task, dict) else None,
                     retry_attempt=retry_attempt,
                     dispatch_worker_task_fn=dispatch_worker_task,
-                    build_handler_fn=lambda current_task_type, current_doc_id, current_task, current_run_id: _build_dispatch_handler(
-                        settings,
-                        db,
-                        current_task_type,
-                        current_doc_id,
-                        current_task if isinstance(current_task, dict) else None,
-                        current_run_id,
-                    ),
+                    build_handler_fn=build_handler,
                     process_vision_ocr_force_fn=lambda active_settings, active_db, active_doc_id, force, active_run_id: _process_vision_ocr_only(
                         active_settings,
                         active_db,
@@ -473,7 +482,7 @@ def main() -> None:
                 pending_retry_delay_seconds = execution["pending_retry_delay_seconds"]
                 pending_dead_letter = execution["pending_dead_letter"]
                 finalize_worker_task(
-                    settings,
+                    active_settings,
                     client=client,
                     task=task if isinstance(task, dict) else None,
                     doc_id=doc_id,

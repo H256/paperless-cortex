@@ -1,9 +1,10 @@
 [project]
 name = "paperless-intelligence-backend"
-version = "0.5.58"
+version = "0.5.59"
 description = "FastAPI backend for Paperless Intelligence"
 requires-python = ">=3.13"
 dependencies = [
+    "cryptography>=46.0.0",
     "fastapi>=0.112.0",
     "httpx>=0.27.0",
     "openai>=1.40.0",
@@ -68,6 +69,7 @@ files = [
     "app/services/runtime/string_list_json.py",
     "app/services/runtime/logging_setup.py",
     "app/services/runtime/metrics.py",
+    "app/services/runtime/model_providers.py",
     # Documents utilities (simple, well-typed)
     "app/services/documents/documents.py",
     "app/services/documents/dashboard.py",
@@ -157,6 +159,7 @@ files = [
     "app/routes/documents_similarity.py",
     "app/routes/meta.py",
     "app/routes/queue.py",
+    "app/routes/settings.py",
     "app/services/pipeline/queue_responses.py",
     "app/services/pipeline/queue_access.py",
     "app/routes/status.py",
@@ -191,6 +194,7 @@ files = [
     "tests/test_writeback_selection_service.py",
     "tests/test_chat_routes.py",
     "tests/test_status_routes.py",
+    "tests/test_settings_routes.py",
     "tests/test_ocr_scoring_client_pool.py",
     "tests/test_meta_sync.py",
     "tests/test_sync_upsert_notes.py",

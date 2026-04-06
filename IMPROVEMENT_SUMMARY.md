@@ -2,6 +2,26 @@
 
 ## Latest block
 
+### Live runtime model-provider settings are now editable in the UI
+
+- The app no longer requires container restarts just to change the active text/chat/embedding/vision model stack. There is now a dedicated Settings page that exposes the effective runtime configuration plus editable provider cards for all four model roles.
+- Those provider cards support live URL, API-key, and model changes, model discovery from arbitrary OpenAI-compatible `/v1/models` endpoints, and manual model entry when discovery is unavailable.
+
+### Runtime model overrides are persisted safely and applied live
+
+- Runtime model-provider overrides are now stored in the database instead of being hard-coded to process-start environment variables, but API keys are encrypted at rest behind a deployment-provided `RUNTIME_SETTINGS_MASTER_KEY` and are never returned in plaintext through the API.
+- The backend now resolves the effective runtime provider settings through a dedicated override layer, and the worker refreshes those settings at task boundaries so newly dequeued work picks up changed model URLs/keys/models without interrupting in-flight jobs.
+
+### Runtime configuration moved out of Operations
+
+- The read-only runtime configuration card now lives on the dedicated Settings page where it belongs, while Operations is back to actual operational controls such as resets, cleanup, audits, and worker-lock handling.
+- That removes the previous split-brain UX where runtime inspection lived under Operations but actual runtime model changes still required env edits and container restarts.
+
+### Coverage and API surface were extended with the feature
+
+- The backend now exposes dedicated settings endpoints for reading effective role settings, updating encrypted overrides, and discovering provider models, and the status payload now exposes role-specific base URLs so the UI can show the true live runtime state.
+- The feature is pinned by new backend route tests plus a new frontend Settings page integration test, and the maintenance tests were updated to match the moved runtime card.
+
 ### Similar-document review badges now match the detail page
 
 - Similar and duplicate cards no longer derive `needs_review` from a local-only summary row that can disagree with the actual Paperless document fields. The similar-doc route now enriches those cards from cached Paperless document payloads before running the shared review/local-override derivation.

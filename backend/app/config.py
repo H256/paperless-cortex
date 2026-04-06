@@ -184,6 +184,30 @@ class DebugConfig:
 
 
 @dataclass(frozen=True)
+class RuntimeOverrideConfig:
+    master_key: str | None
+
+
+@dataclass(frozen=True)
+class ModelProviderRuntime:
+    base_url: str | None
+    api_key: str | None
+    model: str | None
+    base_url_overridden: bool = False
+    api_key_overridden: bool = False
+    model_overridden: bool = False
+    api_key_hint: str | None = None
+
+
+@dataclass(frozen=True)
+class ModelProvidersRuntime:
+    text: ModelProviderRuntime
+    chat: ModelProviderRuntime
+    embedding: ModelProviderRuntime
+    vision: ModelProviderRuntime
+
+
+@dataclass(frozen=True)
 class Settings:
     logging: LoggingConfig
     api: ApiConfig
@@ -206,6 +230,8 @@ class Settings:
     writeback: WritebackConfig
     frontend: FrontendConfig
     debug: DebugConfig
+    runtime_override: RuntimeOverrideConfig
+    model_providers: ModelProvidersRuntime
 
     def __getattr__(self, name: str) -> Any:
         path = _COMPAT_ATTRIBUTE_PATHS.get(name)
@@ -304,6 +330,7 @@ _COMPAT_ATTRIBUTE_PATHS: dict[str, tuple[str, ...]] = {
     "frontend_dist": ("frontend", "dist_path"),
     "llm_debug": ("debug", "llm"),
     "llm_debug_full_response": ("debug", "llm_full_response"),
+    "runtime_settings_master_key": ("runtime_override", "master_key"),
 }
 
 
@@ -440,7 +467,7 @@ def _validate_settings(settings: Settings) -> None:
         object.__setattr__(settings, "debug", DebugConfig(llm=True, llm_full_response=True))
 
 
-def load_settings() -> Settings:
+def _build_settings_from_env() -> Settings:
     repo_root = Path(__file__).resolve().parents[2]
     _load_env(repo_root)
 
@@ -454,6 +481,7 @@ def load_settings() -> Settings:
 
     qdrant, weaviate, vector_store = _build_vector_configs()
 
+    placeholder_provider = ModelProviderRuntime(base_url=None, api_key=None, model=None)
     settings = Settings(
         logging=LoggingConfig(
             level=(_env_str("LOG_LEVEL", "INFO") or "INFO").upper(),
@@ -562,6 +590,27 @@ def load_settings() -> Settings:
             llm=_env_bool("LLM_DEBUG", False),
             llm_full_response=_env_bool("LLM_DEBUG_FULL_RESPONSE", False),
         ),
+        runtime_override=RuntimeOverrideConfig(
+            master_key=_env_optional_str("RUNTIME_SETTINGS_MASTER_KEY"),
+        ),
+        model_providers=ModelProvidersRuntime(
+            text=placeholder_provider,
+            chat=placeholder_provider,
+            embedding=placeholder_provider,
+            vision=placeholder_provider,
+        ),
     )
     _validate_settings(settings)
     return settings
+
+
+def load_settings(*, apply_runtime_overrides: bool = True) -> Settings:
+    settings = _build_settings_from_env()
+    if not apply_runtime_overrides:
+        return settings
+    try:
+        from app.services.runtime.model_providers import apply_runtime_model_overrides
+
+        return apply_runtime_model_overrides(settings)
+    except ImportError:
+        return settings

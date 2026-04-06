@@ -5,22 +5,9 @@ import { mount } from '@vue/test-utils'
 import MaintenanceRuntimeSection from './MaintenanceRuntimeSection.vue'
 
 describe('MaintenanceRuntimeSection', () => {
-  it('renders runtime values and emits worker lock actions', async () => {
+  it('renders worker lock values and emits worker lock actions', async () => {
     const wrapper = mount(MaintenanceRuntimeSection, {
       props: {
-        runtime: {
-          paperless_base_url: 'http://paperless.local',
-          llm_base_url: 'http://llm.local',
-          qdrant_url: 'http://qdrant.local',
-          redis_host: 'redis.local',
-          text_model: 'gpt-test',
-          chat_model: 'gpt-chat-test',
-          embedding_model: 'embed-test',
-          vision_model: 'vision-test',
-          evidence_max_pages: 3,
-          evidence_min_snippet_chars: 20,
-        },
-        copiedKey: null,
         workerLockStatus: {
           enabled: true,
           has_lock: true,
@@ -36,8 +23,7 @@ describe('MaintenanceRuntimeSection', () => {
 
     expect(wrapper.text()).toContain('Worker lock')
     expect(wrapper.text()).toContain('worker-a')
-    expect(wrapper.text()).toContain('http://paperless.local')
-    expect(wrapper.text()).toContain('gpt-chat-test')
+    expect(wrapper.text()).not.toContain('Runtime Configuration')
 
     const buttons = wrapper.findAll('button')
     const refreshButton = buttons.find((button) => button.text().includes('Refresh lock status'))

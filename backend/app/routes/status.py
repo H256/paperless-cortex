@@ -22,6 +22,7 @@ from app.services.integrations import paperless
 from app.services.pipeline.queue import is_paused, queue_stats, worker_status
 from app.services.runtime.guard import resolve_chat_model
 from app.services.runtime.metrics import snapshot_metrics
+from app.services.runtime.model_providers import provider_api_key, provider_base_url, provider_model
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.version import API_VERSION, APP_VERSION
 
@@ -33,26 +34,34 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 router = APIRouter(prefix="/status", tags=["status"])
-_model_cache: dict[str, Any] = {"ts": 0.0, "ok": False, "detail": "uncached", "models": []}
+_model_cache: dict[tuple[str, str], dict[str, Any]] = {}
 _stream_cache_lock = threading.Lock()
 _stream_cache: dict[str, Any] = {"ts": 0.0, "payload": None}
 
 
-def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, Any]]]:
+def _fetch_models(
+    settings: Settings,
+    *,
+    base_url: str | None,
+    api_key: str | None,
+) -> tuple[bool, str, list[dict[str, Any]]]:
     ttl = max(0, settings.status_llm_models_ttl_seconds)
     now = time.time()
-    if ttl and (now - float(_model_cache["ts"])) < ttl:
-        cached_models = _model_cache.get("models")
+    normalized_base = str(base_url or "").rstrip("/")
+    normalized_api_key = str(api_key or "").strip()
+    cache_key = (normalized_base, normalized_api_key[-8:])
+    cached = _model_cache.get(cache_key)
+    if cached and ttl and (now - float(cached.get("ts") or 0.0)) < ttl:
+        cached_models = cached.get("models")
         models = cached_models if isinstance(cached_models, list) else []
-        return bool(_model_cache["ok"]), str(_model_cache["detail"]), list(models)
-    base_url = settings.llm_base_url
-    if not base_url:
+        return bool(cached.get("ok")), str(cached.get("detail")), list(models)
+    if not normalized_base:
         return False, "LLM_BASE_URL not set", []
     try:
         with llm_client.client(settings, timeout=5) as client:
             response = client.get(
-                f"{base_url.rstrip('/')}/v1/models",
-                headers=llm_client.headers(settings),
+                f"{normalized_base}/v1/models",
+                headers={"Authorization": f"Bearer {normalized_api_key}"} if normalized_api_key else {},
             )
             response.raise_for_status()
             payload = response.json()
@@ -60,12 +69,15 @@ def _fetch_models(settings: Settings) -> tuple[bool, str, list[dict[str, Any]]]:
         if not isinstance(models, list):
             return False, "Invalid models payload", []
         data = [m for m in models if isinstance(m, dict)]
-        _model_cache.update({"ts": now, "ok": True, "detail": "ok", "models": data})
+        _model_cache[cache_key] = {"ts": now, "ok": True, "detail": "ok", "models": data}
         return True, "ok", data
     except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-        _model_cache.update(
-            {"ts": now, "ok": False, "detail": exc.__class__.__name__, "models": []}
-        )
+        _model_cache[cache_key] = {
+            "ts": now,
+            "ok": False,
+            "detail": exc.__class__.__name__,
+            "models": [],
+        }
         return False, exc.__class__.__name__, []
 
 
@@ -84,10 +96,50 @@ def _model_status(models: list[dict[str, object]], model_name: str | None) -> tu
 
 def _status_payload(settings: Settings) -> dict[str, Any]:
     started = time.perf_counter()
-    llm_ok, llm_detail, models = _fetch_models(settings)
-    text_ok, text_detail = _model_status(models, settings.text_model)
-    embed_ok, embed_detail = _model_status(models, settings.embedding_model)
-    vision_ok, vision_detail = _model_status(models, settings.vision_model)
+    text_url = provider_base_url(settings, "text")
+    chat_url = provider_base_url(settings, "chat")
+    embedding_url = provider_base_url(settings, "embedding")
+    vision_url = provider_base_url(settings, "vision")
+    text_api_key = provider_api_key(settings, "text")
+    chat_api_key = provider_api_key(settings, "chat")
+    embedding_api_key = provider_api_key(settings, "embedding")
+    vision_api_key = provider_api_key(settings, "vision")
+    text_llm_ok, text_llm_detail, text_models = _fetch_models(
+        settings, base_url=text_url, api_key=text_api_key
+    )
+    chat_llm_ok, chat_llm_detail, chat_models = _fetch_models(
+        settings, base_url=chat_url, api_key=chat_api_key
+    )
+    embedding_llm_ok, embedding_llm_detail, embedding_models = _fetch_models(
+        settings, base_url=embedding_url, api_key=embedding_api_key
+    )
+    vision_llm_ok, vision_llm_detail, vision_models = _fetch_models(
+        settings, base_url=vision_url, api_key=vision_api_key
+    )
+    text_ok, text_detail = _model_status(text_models, provider_model(settings, "text"))
+    _chat_ok, _chat_detail = _model_status(chat_models, resolve_chat_model(settings))
+    embed_ok, embed_detail = _model_status(
+        embedding_models, provider_model(settings, "embedding")
+    )
+    vision_ok, vision_detail = _model_status(vision_models, provider_model(settings, "vision"))
+    llm_ok = text_llm_ok and chat_llm_ok and embedding_llm_ok and vision_llm_ok
+    llm_detail = (
+        "ok"
+        if llm_ok
+        else next(
+            (
+                detail
+                for detail, ok in (
+                    (text_llm_detail, text_llm_ok),
+                    (chat_llm_detail, chat_llm_ok),
+                    (embedding_llm_detail, embedding_llm_ok),
+                    (vision_llm_detail, vision_llm_ok),
+                )
+                if not ok
+            ),
+            "unknown",
+        )
+    )
     worker_ok, worker_detail = (
         worker_status(settings) if settings.queue_enabled else (False, "Queue disabled")
     )
@@ -100,15 +152,19 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
         "llm_embedding": {"status": "UP" if embed_ok else "DOWN", "detail": embed_detail},
         "llm_vision": {"status": "UP" if vision_ok else "DOWN", "detail": vision_detail},
         "paperless_base_url": paperless_base,
-        "llm_base_url": settings.llm_base_url,
+        "llm_base_url": text_url,
+        "text_base_url": text_url,
+        "chat_base_url": chat_url,
+        "embedding_base_url": embedding_url,
+        "vision_base_url": vision_url,
         "qdrant_url": settings.qdrant_url,
         "vector_store_provider": settings.vector_store.provider,
         "vector_store_url": settings.vector_store.url,
         "redis_host": settings.redis_host,
-        "text_model": settings.text_model,
+        "text_model": provider_model(settings, "text"),
         "chat_model": resolve_chat_model(settings),
-        "embedding_model": settings.embedding_model,
-        "vision_model": settings.vision_model,
+        "embedding_model": provider_model(settings, "embedding"),
+        "vision_model": provider_model(settings, "vision"),
         "evidence_max_pages": settings.evidence_max_pages,
         "evidence_min_snippet_chars": settings.evidence_min_snippet_chars,
         "app_version": APP_VERSION,

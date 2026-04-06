@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Literal
 import httpx
 from openai import BadRequestError, OpenAI
 
+from app.services.runtime.model_providers import provider_api_key, provider_base_url
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
@@ -67,12 +69,12 @@ def base_url(settings: Settings) -> str:
     Raises:
         RuntimeError: If LLM_BASE_URL is not configured
     """
-    return _require(settings.llm_base_url, "LLM_BASE_URL")
+    return _require(provider_base_url(settings, "text"), "LLM_BASE_URL")
 
 
 def base_url_for_purpose(
     settings: Settings,
-    purpose: Literal["text", "vision", "embedding"] = "text",
+    purpose: Literal["text", "chat", "vision", "embedding"] = "text",
 ) -> str:
     """Get the appropriate LLM base URL for a specific purpose.
 
@@ -81,7 +83,7 @@ def base_url_for_purpose(
 
     Args:
         settings: Application settings
-        purpose: Type of LLM operation ("text", "vision", or "embedding")
+        purpose: Type of LLM operation ("text", "chat", "vision", or "embedding")
 
     Returns:
         Base URL appropriate for the specified purpose
@@ -90,15 +92,16 @@ def base_url_for_purpose(
         RuntimeError: If required URL is not configured
     """
     if purpose == "vision":
-        return _require(settings.ocr_vision_base_url or settings.llm_base_url, "LLM_BASE_URL")
+        return _require(provider_base_url(settings, "vision"), "LLM_BASE_URL")
     if purpose == "embedding":
-        return _require(settings.llm_base_url, "LLM_BASE_URL")
-    return _require(settings.ocr_chat_base_url or settings.llm_base_url, "LLM_BASE_URL")
+        return _require(provider_base_url(settings, "embedding"), "LLM_BASE_URL")
+    role: Literal["text", "chat"] = "chat" if purpose == "chat" else "text"
+    return _require(provider_base_url(settings, role), "LLM_BASE_URL")
 
 
 def sdk_base_url(
     settings: Settings,
-    purpose: Literal["text", "vision", "embedding"] = "text",
+    purpose: Literal["text", "chat", "vision", "embedding"] = "text",
 ) -> str:
     return f"{base_url_for_purpose(settings, purpose=purpose)}/v1"
 
@@ -140,7 +143,7 @@ def client(settings: Settings, timeout: float | None) -> Iterator[httpx.Client]:
 
 
 def headers(settings: Settings) -> dict[str, str]:
-    api_key = getattr(settings, "llm_api_key", None)
+    api_key = provider_api_key(settings, "text")
     if api_key:
         return {"Authorization": f"Bearer {api_key}"}
     return {}
@@ -149,10 +152,19 @@ def headers(settings: Settings) -> dict[str, str]:
 def _sdk_client(
     settings: Settings,
     timeout: float | None,
-    purpose: Literal["text", "vision", "embedding"] = "text",
+    purpose: Literal["text", "chat", "vision", "embedding"] = "text",
 ) -> OpenAI:
     base = sdk_base_url(settings, purpose=purpose)
-    api_key = settings.llm_api_key or "no-key"
+    role: Literal["text", "chat", "embedding", "vision"]
+    if purpose == "vision":
+        role = "vision"
+    elif purpose == "embedding":
+        role = "embedding"
+    elif purpose == "chat":
+        role = "chat"
+    else:
+        role = "text"
+    api_key = provider_api_key(settings, role) or "no-key"
     key = (base, api_key, float(timeout) if timeout is not None else None)
     with _CLIENT_LOCK:
         pooled_client = _SDK_CLIENTS.get(key)
@@ -172,7 +184,7 @@ def chat_completion(
     model: str,
     messages: list[dict[str, object]],
     timeout: float | None,
-    purpose: Literal["text", "vision"] = "text",
+    purpose: Literal["text", "chat", "vision"] = "text",
     max_tokens: int | None = None,
     temperature: float | None = None,
     json_mode: bool = False,
@@ -271,7 +283,7 @@ def stream_chat_completion(
     model: str,
     messages: list[dict[str, object]],
     timeout: float | None,
-    purpose: Literal["text", "vision"] = "text",
+    purpose: Literal["text", "chat", "vision"] = "text",
     max_tokens: int | None = None,
 ) -> Iterable[str]:
     client_sdk = _sdk_client(settings, timeout=timeout, purpose=purpose)

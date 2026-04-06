@@ -281,7 +281,11 @@ def test_answer_question_limits_history_in_prompt(monkeypatch: Any) -> None:
     captured = {"prompt": ""}
 
     def _chat_completion(
-        _settings: Any, model: str, messages: list[dict[str, Any]], timeout: int = 120
+        _settings: Any,
+        model: str,
+        messages: list[dict[str, Any]],
+        timeout: int = 120,
+        **_kwargs: Any,
     ) -> str:
         captured["prompt"] = str(messages[0].get("content") or "")
         return "ok"
@@ -318,7 +322,11 @@ def test_answer_question_prefers_chat_model_over_text_model(monkeypatch: Any) ->
     captured = {"model": ""}
 
     def _chat_completion(
-        _settings: Any, model: str, messages: list[dict[str, Any]], timeout: int = 120
+        _settings: Any,
+        model: str,
+        messages: list[dict[str, Any]],
+        timeout: int = 120,
+        **_kwargs: Any,
     ) -> str:
         captured["model"] = str(model)
         return "ok"
@@ -345,7 +353,11 @@ def test_answer_question_falls_back_to_text_model_when_chat_model_missing(
     captured = {"model": ""}
 
     def _chat_completion(
-        _settings: Any, model: str, messages: list[dict[str, Any]], timeout: int = 120
+        _settings: Any,
+        model: str,
+        messages: list[dict[str, Any]],
+        timeout: int = 120,
+        **_kwargs: Any,
     ) -> str:
         captured["model"] = str(model)
         return "ok"

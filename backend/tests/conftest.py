@@ -27,6 +27,7 @@ def _set_test_env(db_path: Path) -> None:
     os.environ["REDIS_HOST"] = "test-redis"
     os.environ["ENABLE_VISION_OCR"] = "1"
     os.environ["QDRANT_URL"] = "http://test-qdrant:6333"
+    os.environ["RUNTIME_SETTINGS_MASTER_KEY"] = "xjFFDGjXcmcrwlFe0Vm9Dq4mOAcN2DERPslm9jqISqg="
 
 
 @pytest.fixture()

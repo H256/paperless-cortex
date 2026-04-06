@@ -27,6 +27,21 @@ def test_status_includes_effective_chat_model(monkeypatch: Any) -> None:
     assert payload["chat_model"] == "chat-override"
 
 
+def test_status_includes_role_specific_base_urls(monkeypatch: Any) -> None:
+    monkeypatch.setenv("LLM_BASE_URL", "http://llm-default")
+    monkeypatch.setenv("OCR_CHAT_BASE", "http://chat-live")
+    monkeypatch.setenv("OCR_VISION_BASE", "http://vision-live")
+
+    settings = load_settings()
+    payload = _status_payload(settings)
+
+    assert payload["llm_base_url"] == "http://chat-live"
+    assert payload["text_base_url"] == "http://chat-live"
+    assert payload["chat_base_url"] == "http://chat-live"
+    assert payload["embedding_base_url"] == "http://llm-default"
+    assert payload["vision_base_url"] == "http://vision-live"
+
+
 def test_status_chat_model_falls_back_to_text_model(monkeypatch: Any) -> None:
     monkeypatch.delenv("CHAT_MODEL", raising=False)
     monkeypatch.setenv("TEXT_MODEL", "text-default")
