@@ -27,17 +27,38 @@
 
       <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Model
+        <select
+          v-if="models.length && !manualModelEntry"
+          :value="selectedModel"
+          class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          @change="
+            (($event.target as HTMLSelectElement).value === '__manual__'
+              ? (manualModelEntry = true)
+              : $emit('update:model', ($event.target as HTMLSelectElement).value))
+          "
+        >
+          <option value="">Select a model</option>
+          <option v-for="modelOption in models" :key="modelOption" :value="modelOption">
+            {{ modelOption }}
+          </option>
+          <option value="__manual__">Manual entry...</option>
+        </select>
         <input
+          v-else
           :value="draft.model"
-          :list="datalistId"
           type="text"
           class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           placeholder="Choose or type a model"
           @input="$emit('update:model', ($event.target as HTMLInputElement).value)"
         />
-        <datalist :id="datalistId">
-          <option v-for="modelOption in models" :key="modelOption" :value="modelOption" />
-        </datalist>
+        <button
+          v-if="models.length"
+          type="button"
+          class="mt-2 text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-300"
+          @click="manualModelEntry = !manualModelEntry"
+        >
+          {{ manualModelEntry ? 'Back to dropdown' : 'Type model manually' }}
+        </button>
       </label>
     </div>
 
@@ -87,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { ModelProviderSettingsItem, ModelProviderRole } from '../services/settings'
 
 const props = defineProps<{
@@ -111,8 +132,22 @@ defineEmits<{
   (e: 'update:api-key', value: string): void
 }>()
 
-const datalistId = computed(() => `models-${props.role}`)
+const manualModelEntry = ref(false)
 const apiKeyPlaceholder = computed(() =>
   props.item.api_key_configured ? 'Leave empty to keep current key' : 'Paste API key',
+)
+const selectedModel = computed(() => {
+  const current = props.draft.model.trim()
+  if (!current) return ''
+  return props.models.includes(current) ? current : '__manual__'
+})
+
+watch(
+  () => props.models,
+  (models) => {
+    const current = props.draft.model.trim()
+    manualModelEntry.value = Boolean(current) && !models.includes(current)
+  },
+  { immediate: true },
 )
 </script>

@@ -137,14 +137,12 @@ describe('SettingsView', () => {
     })
     expect(wrapper.text()).toContain('2 models loaded')
 
-    const modelInputs = wrapper
-      .findAll('input')
-      .filter((input) => input.attributes('placeholder') === 'Choose or type a model')
-    const firstModelInput = modelInputs[0]
-    if (!firstModelInput) {
-      throw new Error('Expected model input')
+    const selects = wrapper.findAll('select')
+    const firstSelect = selects[0]
+    if (!firstSelect) {
+      throw new Error('Expected model select')
     }
-    await firstModelInput.setValue('text-live')
+    await firstSelect.setValue('text-live')
     await flush()
 
     const saveButton = wrapper.findAll('button').find((button) => button.text().includes('Save changes'))
