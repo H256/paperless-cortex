@@ -63,18 +63,35 @@
     </div>
 
     <div class="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]">
-      <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        API Key
-        <input
-          :value="draft.api_key"
-          type="password"
-          class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          :placeholder="apiKeyPlaceholder"
-          autocomplete="new-password"
-          @input="$emit('update:api-key', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
+      <div>
+        <label
+          v-if="showApiKeyInput"
+          class="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+        >
+          API Key
+          <input
+            :value="draft.api_key"
+            :name="`runtime-api-key-${role}`"
+            type="password"
+            class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            :placeholder="apiKeyPlaceholder"
+            autocomplete="off"
+            data-lpignore="true"
+            @input="$emit('update:api-key', ($event.target as HTMLInputElement).value)"
+          />
+        </label>
+        <div v-else class="text-xs text-slate-500 dark:text-slate-400">
+          API key field is hidden until you explicitly add or replace a key.
+        </div>
+      </div>
       <div class="flex items-end gap-3">
+        <button
+          type="button"
+          class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200"
+          @click="showApiKeyInput = !showApiKeyInput"
+        >
+          {{ showApiKeyInput ? 'Hide key field' : item.api_key_configured ? 'Replace key' : 'Set key' }}
+        </button>
         <button
           type="button"
           class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
@@ -133,6 +150,7 @@ defineEmits<{
 }>()
 
 const manualModelEntry = ref(false)
+const showApiKeyInput = ref(false)
 const apiKeyPlaceholder = computed(() =>
   props.item.api_key_configured ? 'Leave empty to keep current key' : 'Paste API key',
 )
@@ -149,5 +167,11 @@ watch(
     manualModelEntry.value = Boolean(current) && !models.includes(current)
   },
   { immediate: true },
+)
+watch(
+  () => props.item.api_key_configured,
+  () => {
+    showApiKeyInput.value = false
+  },
 )
 </script>
