@@ -246,6 +246,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const docId = computed(() => Number(route.params.id))
+const hasValidDocId = computed(() => Number.isFinite(docId.value) && docId.value > 0)
 const {
   activeTab,
   pdfPage,
@@ -438,7 +439,7 @@ const navigateBackToDocuments = async () => {
 }
 
 const openSimilarDoc = async (docId: number) => {
-  if (!docId) return
+  if (!Number.isFinite(docId) || docId <= 0) return
   const returnTo = encodeURIComponent(returnToDocumentsPath.value)
   await router.push(`/documents/${docId}?return_to=${returnTo}`)
 }
@@ -486,6 +487,7 @@ const copyRunError = async (message?: string | null) => {
 }
 
 const load = async () => {
+  if (!hasValidDocId.value) return
   await loadDocument(docId.value)
 }
 
@@ -494,15 +496,18 @@ const loadMetaForDoc = async () => {
 }
 
 const loadPageTextsForDoc = async (priority = false) => {
+  if (!hasValidDocId.value) return
   await loadPageTexts(docId.value, priority)
 }
 
 const loadContentQualityForDoc = async (priority = false) => {
+  if (!hasValidDocId.value) return
   await loadContentQuality(docId.value, priority)
   await loadOcrScores(docId.value, priority)
 }
 
 const loadSuggestionsForDoc = async () => {
+  if (!hasValidDocId.value) return
   await loadSuggestions(docId.value)
 }
 
@@ -544,10 +549,12 @@ const applyVariantToDocumentAction = async (
 }
 
 const loadPipelineStatus = async () => {
+  if (!hasValidDocId.value) return
   await refreshPipelineStatus()
 }
 
 const loadPipelineFanout = async () => {
+  if (!hasValidDocId.value) return
   await refreshPipelineFanout()
 }
 
@@ -603,6 +610,10 @@ const {
 )
 
 const reloadAll = async () => {
+  if (!hasValidDocId.value) {
+    toastStore.push('Invalid document ID.', 'warning', 'Document')
+    return
+  }
   reloadingAll.value = true
   try {
     await load()
