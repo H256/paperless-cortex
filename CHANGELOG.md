@@ -12,7 +12,7 @@ All granular implementation slices and refactors are tracked here.
 
 ### Paperless writeback creates shared metadata
 - `uncommitted` fix(writeback): changed Paperless metadata creation in [`backend/app/services/integrations/paperless.py`](E:/workspace/python/paperless-intelligence/backend/app/services/integrations/paperless.py) so app-created tags and correspondents are sent with `owner: null`, avoiding private API-user metadata during writeback.
-- `uncommitted` fix(writeback): updated [`backend/app/services/writeback/writeback_apply.py`](E:/workspace/python/paperless-intelligence/backend/app/services/writeback/writeback_apply.py) to clear the owner on existing matched Paperless correspondents and tags before PATCHing them onto a document, which repairs metadata created by a previous failed attempt.
+- `uncommitted` fix(writeback): updated [`backend/app/services/writeback/writeback_apply.py`](E:/workspace/python/paperless-intelligence/backend/app/services/writeback/writeback_apply.py) to clear the owner on existing matched Paperless correspondents and tags before PATCHing them onto a document, even when the Paperless list endpoint does not expose the current `owner` value.
 - `uncommitted` test(backend): added regression coverage in [`backend/tests/test_writeback_apply_service.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_writeback_apply_service.py) and verified `cd backend && uv run pytest -q tests/test_writeback_apply_service.py tests/test_writeback_jobs_routes.py` (`27 passed`) plus `cd backend && uv run ruff check app/services/writeback/writeback_apply.py app/services/integrations/paperless.py tests/test_writeback_apply_service.py`.
 
 ## 2026-04-06 (branch: develop)

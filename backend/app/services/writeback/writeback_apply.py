@@ -45,26 +45,25 @@ def resolve_paperless_tag_ids(
                 remote_by_name[raw_name.lower()] = tag
     resolved_ids: list[int] = []
     unowned_tag_ids: set[int] = set()
+
+    def _ensure_shared_tag(tag_id: int) -> None:
+        if int(tag_id) in unowned_tag_ids:
+            return
+        paperless.update_tag(settings, int(tag_id), {"owner": None})
+        unowned_tag_ids.add(int(tag_id))
+
     for local_id in local_tag_ids:
         existing_row = remote_by_id.get(int(local_id))
         if existing_row is None:
             continue
-        if existing_row.get("owner") is not None:
-            paperless.update_tag(settings, int(local_id), {"owner": None})
-            unowned_tag_ids.add(int(local_id))
+        _ensure_shared_tag(int(local_id))
         resolved_ids.append(int(local_id))
     for name in local_names:
         key = name.lower()
         existing_row = remote_by_name.get(key)
         existing_id = _as_int_tag_id(existing_row.get("id")) if existing_row else None
-        if (
-            existing_id is not None
-            and existing_row
-            and existing_row.get("owner") is not None
-            and existing_id not in unowned_tag_ids
-        ):
-            paperless.update_tag(settings, existing_id, {"owner": None})
-            unowned_tag_ids.add(existing_id)
+        if existing_id is not None:
+            _ensure_shared_tag(existing_id)
         if existing_id is None:
             created = paperless.create_tag(settings, name)
             created_id = _as_int_tag_id(created.get("id"))
@@ -148,9 +147,7 @@ def resolve_paperless_correspondent_id(
             remote_by_id[row_id] = str(row.get("name") or "").strip()
             remote_row_by_id[row_id] = row
     if local_id and local_id in remote_by_id:
-        existing_row = remote_row_by_id.get(local_id)
-        if existing_row and existing_row.get("owner") is not None:
-            paperless.update_correspondent(settings, local_id, {"owner": None})
+        paperless.update_correspondent(settings, local_id, {"owner": None})
         return local_id
 
     remote_by_name: dict[str, dict[str, Any]] = {}
@@ -163,7 +160,7 @@ def resolve_paperless_correspondent_id(
         return None
     existing_row = remote_by_name.get(local_name.lower())
     existing_id = _as_int(existing_row.get("id")) if existing_row else None
-    if existing_id is not None and existing_row and existing_row.get("owner") is not None:
+    if existing_id is not None:
         paperless.update_correspondent(settings, existing_id, {"owner": None})
     if existing_id is None:
         created = paperless.create_correspondent(settings, local_name)
