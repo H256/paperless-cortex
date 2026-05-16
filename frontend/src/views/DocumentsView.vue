@@ -378,11 +378,10 @@ useDocumentsRouteState({
   viewMode: listViewMode,
 })
 
-onMounted(async () => {
+onMounted(() => {
   if (!hasExplicitViewQuery.value && window.matchMedia('(max-width: 767px)').matches) {
     listViewMode.value = 'cards'
   }
-  await load()
 })
 
 </script>

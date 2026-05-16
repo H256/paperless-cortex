@@ -21,7 +21,12 @@ def resolve_paperless_tag_ids(
     pending_tag_names: list[str] | None = None,
 ) -> list[int]:
     local_tags = db.query(Tag).filter(Tag.id.in_(local_tag_ids)).all()
-    local_names = [str(tag.name or "").strip() for tag in local_tags if str(tag.name or "").strip()]
+    local_tag_names_by_id = {
+        int(tag.id): str(tag.name or "").strip()
+        for tag in local_tags
+        if str(tag.name or "").strip()
+    }
+    local_names = list(local_tag_names_by_id.values())
     for name in pending_tag_names or []:
         clean = str(name or "").strip()
         if clean and clean not in local_names:
@@ -29,22 +34,43 @@ def resolve_paperless_tag_ids(
     if not local_names:
         return []
     remote_tags = paperless.list_all_tags(settings)
-    remote_by_name: dict[str, int] = {}
+    remote_by_id: dict[int, dict[str, Any]] = {}
+    remote_by_name: dict[str, dict[str, Any]] = {}
     for tag in remote_tags:
-        raw_id = tag.get("id")
+        raw_id = _as_int_tag_id(tag.get("id"))
         raw_name = str(tag.get("name") or "").strip()
-        if isinstance(raw_id, int) and raw_name:
-            remote_by_name[raw_name.lower()] = raw_id
+        if raw_id is not None:
+            remote_by_id[raw_id] = tag
+            if raw_name:
+                remote_by_name[raw_name.lower()] = tag
     resolved_ids: list[int] = []
+    unowned_tag_ids: set[int] = set()
+    for local_id in local_tag_ids:
+        existing_row = remote_by_id.get(int(local_id))
+        if existing_row is None:
+            continue
+        if existing_row.get("owner") is not None:
+            paperless.update_tag(settings, int(local_id), {"owner": None})
+            unowned_tag_ids.add(int(local_id))
+        resolved_ids.append(int(local_id))
     for name in local_names:
         key = name.lower()
-        existing_id = remote_by_name.get(key)
+        existing_row = remote_by_name.get(key)
+        existing_id = _as_int_tag_id(existing_row.get("id")) if existing_row else None
+        if (
+            existing_id is not None
+            and existing_row
+            and existing_row.get("owner") is not None
+            and existing_id not in unowned_tag_ids
+        ):
+            paperless.update_tag(settings, existing_id, {"owner": None})
+            unowned_tag_ids.add(existing_id)
         if existing_id is None:
             created = paperless.create_tag(settings, name)
-            created_id = created.get("id")
-            if isinstance(created_id, int):
+            created_id = _as_int_tag_id(created.get("id"))
+            if created_id is not None:
                 existing_id = created_id
-                remote_by_name[key] = created_id
+                remote_by_name[key] = created
         if isinstance(existing_id, int):
             resolved_ids.append(existing_id)
             local_tag = db.query(Tag).filter(Tag.id == existing_id).one_or_none()
@@ -53,6 +79,20 @@ def resolve_paperless_tag_ids(
             elif (local_tag.name or "").strip() != name:
                 local_tag.name = name
     return sorted(set(resolved_ids))
+
+
+def _as_int_tag_id(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+    return None
 
 
 def resolve_paperless_correspondent_id(

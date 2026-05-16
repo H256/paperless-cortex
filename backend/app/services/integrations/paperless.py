@@ -299,6 +299,17 @@ def create_tag(settings: Settings, name: str) -> dict[str, Any]:
         return response.json()
 
 
+def update_tag(
+    settings: Settings,
+    tag_id: int,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    with client(settings) as http:
+        response = http.patch(f"/tags/{int(tag_id)}/", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+
 def list_correspondents(settings: Settings, page: int = 1, page_size: int = 50) -> dict[str, Any]:
     with client(settings) as http:
         response = http.get(

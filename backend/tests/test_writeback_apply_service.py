@@ -159,6 +159,59 @@ def test_execute_writeback_call_unowns_existing_pending_correspondent(
         assert patched == [{"correspondent": 192}]
 
 
+def test_execute_writeback_call_unowns_existing_tags_before_document_patch(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    settings = load_settings()
+    with session_factory() as db:
+        db.add(Tag(id=1, name="Inbox"))
+        db.add(Tag(id=36, name="Kassenbon"))
+        db.add(Tag(id=59, name="Getraenke"))
+        db.add(Document(id=1205, title="Doc 1205"))
+        db.commit()
+
+        monkeypatch.setattr(
+            paperless,
+            "list_all_tags",
+            lambda *_args, **_kwargs: [
+                {"id": 1, "name": "Inbox", "owner": None},
+                {"id": 36, "name": "Kassenbon", "owner": 1},
+                {"id": 59, "name": "Getraenke", "owner": None},
+            ],
+        )
+        unowned: list[tuple[int, dict[str, Any]]] = []
+        monkeypatch.setattr(
+            paperless,
+            "update_tag",
+            lambda _settings, tag_id, payload: unowned.append((int(tag_id), dict(payload))),
+        )
+        patched: list[dict[str, Any]] = []
+        monkeypatch.setattr(
+            paperless,
+            "update_document",
+            lambda _settings, _doc_id, payload: patched.append(dict(payload)),
+        )
+
+        execute_writeback_call(
+            settings,
+            db,
+            WritebackDryRunCall(
+                doc_id=1205,
+                method="PATCH",
+                path="/api/documents/1205/",
+                payload={
+                    "title": "Bestellbestaetigung Getraenke",
+                    "tags": [1, 36, 59],
+                },
+            ),
+        )
+
+        assert unowned == [(36, {"owner": None})]
+        assert patched == [{"title": "Bestellbestaetigung Getraenke", "tags": [1, 36, 59]}]
+
+
 def test_execute_writeback_call_delete_raises_for_invalid_note_path(
     session_factory: Any,
 ) -> None:
