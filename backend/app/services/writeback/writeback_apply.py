@@ -101,21 +101,30 @@ def resolve_paperless_correspondent_id(
 
     remote_rows = paperless.list_all_correspondents(settings)
     remote_by_id: dict[int, str] = {}
+    remote_row_by_id: dict[int, dict[str, Any]] = {}
     for row in remote_rows:
         row_id = _as_int(row.get("id"))
         if row_id is not None:
             remote_by_id[row_id] = str(row.get("name") or "").strip()
+            remote_row_by_id[row_id] = row
     if local_id and local_id in remote_by_id:
+        existing_row = remote_row_by_id.get(local_id)
+        if existing_row and existing_row.get("owner") is not None:
+            paperless.update_correspondent(settings, local_id, {"owner": None})
         return local_id
 
-    remote_by_name = {
-        str(row.get("name") or "").strip().lower(): _as_int(row.get("id"))
-        for row in remote_rows
-        if _as_int(row.get("id")) is not None and str(row.get("name") or "").strip()
-    }
+    remote_by_name: dict[str, dict[str, Any]] = {}
+    for row in remote_rows:
+        row_id = _as_int(row.get("id"))
+        row_name = str(row.get("name") or "").strip()
+        if row_id is not None and row_name:
+            remote_by_name[row_name.lower()] = row
     if not local_name:
         return None
-    existing_id = remote_by_name.get(local_name.lower())
+    existing_row = remote_by_name.get(local_name.lower())
+    existing_id = _as_int(existing_row.get("id")) if existing_row else None
+    if existing_id is not None and existing_row and existing_row.get("owner") is not None:
+        paperless.update_correspondent(settings, existing_id, {"owner": None})
     if existing_id is None:
         created = paperless.create_correspondent(settings, local_name)
         created_id = _as_int(created.get("id"))

@@ -292,7 +292,7 @@ def list_all_tags(settings: Settings, page_size: int = 200) -> list[dict[str, An
 
 
 def create_tag(settings: Settings, name: str) -> dict[str, Any]:
-    payload = {"name": str(name or "").strip()}
+    payload = {"name": str(name or "").strip(), "owner": None}
     with client(settings) as http:
         response = http.post("/tags/", json=payload)
         response.raise_for_status()
@@ -323,9 +323,20 @@ def list_all_correspondents(settings: Settings, page_size: int = 200) -> list[di
 
 
 def create_correspondent(settings: Settings, name: str) -> dict[str, Any]:
-    payload = {"name": str(name or "").strip()}
+    payload = {"name": str(name or "").strip(), "owner": None}
     with client(settings) as http:
         response = http.post("/correspondents/", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+
+def update_correspondent(
+    settings: Settings,
+    correspondent_id: int,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    with client(settings) as http:
+        response = http.patch(f"/correspondents/{int(correspondent_id)}/", json=payload)
         response.raise_for_status()
         return response.json()
 

@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-05-16 (branch: develop)
+
+### Paperless writeback creates shared metadata
+- `uncommitted` fix(writeback): changed Paperless metadata creation in [`backend/app/services/integrations/paperless.py`](E:/workspace/python/paperless-intelligence/backend/app/services/integrations/paperless.py) so app-created tags and correspondents are sent with `owner: null`, avoiding private API-user metadata during writeback.
+- `uncommitted` fix(writeback): updated [`backend/app/services/writeback/writeback_apply.py`](E:/workspace/python/paperless-intelligence/backend/app/services/writeback/writeback_apply.py) to clear the owner on an existing matched Paperless correspondent before PATCHing it onto a document, which repairs correspondents created by a previous failed attempt.
+- `uncommitted` test(backend): added regression coverage in [`backend/tests/test_writeback_apply_service.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_writeback_apply_service.py) and verified `cd backend && uv run pytest -q tests/test_writeback_apply_service.py tests/test_writeback_jobs_routes.py` (`26 passed`).
+
 ## 2026-04-06 (branch: develop)
 
 ### Live model-provider settings page with encrypted runtime overrides
