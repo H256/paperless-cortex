@@ -106,6 +106,59 @@ def test_execute_writeback_call_post_and_delete_paths(
         assert ("del", 1202, 66) in notes
 
 
+def test_execute_writeback_call_unowns_existing_pending_correspondent(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    settings = load_settings()
+    with session_factory() as db:
+        db.add(Document(id=1204, title="Doc 1204", correspondent_id=None))
+        db.add(
+            DocumentPendingCorrespondent(
+                doc_id=1204,
+                name="Private Corr",
+                updated_at="2026-02-20T10:00:00+00:00",
+            )
+        )
+        db.commit()
+
+        monkeypatch.setattr(
+            paperless,
+            "list_all_correspondents",
+            lambda *_args, **_kwargs: [{"id": 192, "name": "Private Corr", "owner": 1}],
+        )
+        unowned: list[tuple[int, dict[str, Any]]] = []
+        monkeypatch.setattr(
+            paperless,
+            "update_correspondent",
+            lambda _settings, corr_id, payload: unowned.append((int(corr_id), dict(payload))),
+        )
+        patched: list[dict[str, Any]] = []
+        monkeypatch.setattr(
+            paperless,
+            "update_document",
+            lambda _settings, _doc_id, payload: patched.append(dict(payload)),
+        )
+
+        execute_writeback_call(
+            settings,
+            db,
+            WritebackDryRunCall(
+                doc_id=1204,
+                method="PATCH",
+                path="/api/documents/1204/",
+                payload={
+                    "correspondent": None,
+                    "pending_correspondent_name": "Private Corr",
+                },
+            ),
+        )
+
+        assert unowned == [(192, {"owner": None})]
+        assert patched == [{"correspondent": 192}]
+
+
 def test_execute_writeback_call_delete_raises_for_invalid_note_path(
     session_factory: Any,
 ) -> None:
