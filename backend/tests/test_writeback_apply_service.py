@@ -30,6 +30,8 @@ def test_execute_writeback_call_patch_resolves_metadata_and_updates_local(
         monkeypatch.setattr(paperless, "create_tag", lambda *_args, **_kwargs: {"id": 2, "name": "PendingTag"})
         monkeypatch.setattr(paperless, "list_all_correspondents", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(paperless, "create_correspondent", lambda *_args, **_kwargs: {"id": 77, "name": "New Corr"})
+        monkeypatch.setattr(paperless, "update_correspondent", lambda *_args, **_kwargs: {"id": 77})
+        monkeypatch.setattr(paperless, "update_tag", lambda *_args, **_kwargs: {"id": 1})
         patched: list[dict[str, Any]] = []
         monkeypatch.setattr(
             paperless,
@@ -208,7 +210,11 @@ def test_execute_writeback_call_unowns_existing_tags_before_document_patch(
             ),
         )
 
-        assert unowned == [(36, {"owner": None})]
+        assert unowned == [
+            (1, {"owner": None}),
+            (36, {"owner": None}),
+            (59, {"owner": None}),
+        ]
         assert patched == [{"title": "Bestellbestaetigung Getraenke", "tags": [1, 36, 59]}]
 
 
