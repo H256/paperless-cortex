@@ -13,11 +13,18 @@ document_tags = Table(
     Base.metadata,
     Column("document_id", ForeignKey("documents.id"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+    Index("ix_document_tags_tag_id_document_id", "tag_id", "document_id"),
 )
 
 
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_correspondent_id", "correspondent_id"),
+        Index("ix_documents_document_type_id", "document_type_id"),
+        Index("ix_documents_deleted_at", "deleted_at"),
+        Index("ix_documents_page_count", "page_count"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str | None] = mapped_column(String(512))
@@ -99,6 +106,7 @@ class DocumentEmbedding(Base):
 
 class DocumentPageText(Base):
     __tablename__ = "document_page_texts"
+    __table_args__ = (Index("ix_document_page_texts_doc_id_source", "doc_id", "source"),)
 
     doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
     page: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -198,6 +206,7 @@ class DocumentOcrScore(Base):
 
 class SuggestionAudit(Base):
     __tablename__ = "suggestion_audit"
+    __table_args__ = (Index("ix_suggestion_audit_doc_action_created", "doc_id", "action", "created_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     doc_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
