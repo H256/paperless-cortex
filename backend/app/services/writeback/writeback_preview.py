@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from sqlalchemy import func
 from sqlalchemy.orm import Session, load_only, selectinload
 
@@ -197,7 +198,11 @@ def preview_for_doc_ids(
         if str(row.name or "").strip()
     }
 
-    remote_docs = paperless.get_documents_cached(settings, list(local_by_id.keys()))
+    remote_docs = paperless.get_documents_cached(
+        settings,
+        list(local_by_id.keys()),
+        skip_not_found=True,
+    )
     correspondent_ids = {
         int(doc.correspondent_id)
         for doc in local_docs
@@ -230,7 +235,13 @@ def preview_for_doc_ids(
             continue
         remote_doc_raw = remote_docs.get(int(doc_id))
         if remote_doc_raw is None:
-            fallback_doc = paperless.get_document_cached(settings, doc_id)
+            try:
+                fallback_doc = paperless.get_document_cached(settings, doc_id)
+            except httpx.HTTPStatusError as exc:
+                response = exc.response
+                if response is not None and int(response.status_code) == 404:
+                    continue
+                raise
             if fallback_doc is None:
                 continue
             remote_doc = fallback_doc
