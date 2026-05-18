@@ -191,6 +191,7 @@ def get_documents_cached(
     *,
     ttl_seconds: int = _DOC_CACHE_TTL_SECONDS,
     max_workers: int = 8,
+    skip_not_found: bool = False,
 ) -> dict[int, dict[str, Any]]:
     unique_ids: list[int] = []
     seen: set[int] = set()
@@ -204,7 +205,15 @@ def get_documents_cached(
         return {}
 
     if not _cache_enabled(settings, ttl_seconds):
-        return {doc_id: get_document(settings, doc_id) for doc_id in unique_ids}
+        results: dict[int, dict[str, Any]] = {}
+        for doc_id in unique_ids:
+            try:
+                results[doc_id] = get_document(settings, doc_id)
+            except httpx.HTTPStatusError as exc:
+                if skip_not_found and _http_status_code(exc) == 404:
+                    continue
+                raise
+        return results
 
     now = time.time()
     ttl = max(0, int(ttl_seconds))
@@ -229,7 +238,12 @@ def get_documents_cached(
         }
         for future in as_completed(future_by_doc):
             doc_id = future_by_doc[future]
-            payload = future.result()
+            try:
+                payload = future.result()
+            except httpx.HTTPStatusError as exc:
+                if skip_not_found and _http_status_code(exc) == 404:
+                    continue
+                raise
             fetched_results[doc_id] = payload
 
     with _CACHE_LOCK:
@@ -241,6 +255,11 @@ def get_documents_cached(
         **cached_results,
         **{doc_id: dict(payload) for doc_id, payload in fetched_results.items()},
     }
+
+
+def _http_status_code(exc: httpx.HTTPStatusError) -> int | None:
+    response = exc.response
+    return int(response.status_code) if response is not None else None
 
 
 def list_documents_cached(

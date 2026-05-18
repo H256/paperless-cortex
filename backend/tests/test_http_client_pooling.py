@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
+
 from app.config import load_settings
 from app.services.ai import llm_client
 from app.services.integrations import paperless
@@ -19,6 +21,23 @@ def test_paperless_client_pool_reuses_client(monkeypatch: Any) -> None:
         assert first is second
 
     paperless.clear_client_pool()
+
+
+def test_paperless_get_documents_cached_can_skip_not_found(monkeypatch: Any) -> None:
+    settings = load_settings()
+
+    def _get_document(_settings: object, doc_id: int) -> dict[str, object]:
+        if int(doc_id) == 2:
+            request = httpx.Request("GET", f"http://paperless.local/api/documents/{doc_id}/")
+            response = httpx.Response(404, request=request)
+            raise httpx.HTTPStatusError("not found", request=request, response=response)
+        return {"id": int(doc_id), "title": f"Doc {doc_id}"}
+
+    monkeypatch.setattr(paperless, "get_document", _get_document)
+
+    result = paperless.get_documents_cached(settings, [1, 2, 3], skip_not_found=True)
+
+    assert sorted(result) == [1, 3]
 
 
 def test_qdrant_client_pool_keys_by_timeout(monkeypatch: Any) -> None:

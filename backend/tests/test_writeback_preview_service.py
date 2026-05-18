@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from app.models import (
     Correspondent,
     Document,
@@ -119,6 +121,42 @@ def test_preview_for_doc_ids_uses_fallback_document_fetch(
         assert len(items) == 1
         assert items[0].doc_id == 902
         assert called["fallback"] == 1
+
+
+def test_preview_for_doc_ids_skips_missing_remote_documents(
+    session_factory: Any, monkeypatch: MonkeyPatch
+) -> None:
+    from app.config import load_settings
+    from app.services.integrations import paperless
+
+    with session_factory() as db:
+        db.add(Document(id=908, title="Available local"))
+        db.add(Document(id=909, title="Deleted local"))
+        db.commit()
+
+        def _batch_fetch(*_args: object, **kwargs: object) -> dict[int, dict[str, object]]:
+            assert kwargs.get("skip_not_found") is True
+            return {
+                908: {
+                    "id": 908,
+                    "title": "Available remote",
+                    "created": None,
+                    "correspondent": None,
+                    "tags": [],
+                    "notes": [],
+                }
+            }
+
+        def _missing_fallback(*_args: object, **_kwargs: object) -> dict[str, object]:
+            request = httpx.Request("GET", "http://paperless.local/api/documents/909/")
+            response = httpx.Response(404, request=request)
+            raise httpx.HTTPStatusError("not found", request=request, response=response)
+
+        monkeypatch.setattr(paperless, "get_documents_cached", _batch_fetch)
+        monkeypatch.setattr(paperless, "get_document_cached", _missing_fallback)
+
+        items = preview_for_doc_ids(load_settings(), db, [908, 909])
+        assert [item.doc_id for item in items] == [908]
 
 
 def test_local_writeback_candidate_doc_ids_dedupes_sources(session_factory: Any) -> None:
