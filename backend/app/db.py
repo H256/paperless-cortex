@@ -17,7 +17,10 @@ if TYPE_CHECKING:
 
 @lru_cache(maxsize=4)
 def _get_cached_engine(database_url: str) -> Engine:
-    return create_engine(database_url, pool_pre_ping=True)
+    connect_args: dict[str, bool] | None = None
+    if database_url.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
+    return create_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
 
 
 @lru_cache(maxsize=4)
