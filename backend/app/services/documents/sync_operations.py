@@ -368,6 +368,10 @@ def run_documents_sync(
     enqueue_task_sequence_fn: TaskEnqueuer,
 ) -> ResponseDict:
     """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
+    normalized_page = max(1, page)
+    mark_missing_allowed = (
+        mark_missing and not incremental and not page_only and normalized_page == 1
+    )
     modified_since: str | None = None
     if incremental:
         state = db.get(SyncState, "documents")
@@ -382,7 +386,6 @@ def run_documents_sync(
         processed = 0
         seen_ids: set[int] = set()
         cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
-        normalized_page = max(1, page)
         total = 0
         embed_queue: list[Document] = []
         while True:
@@ -415,7 +418,7 @@ def run_documents_sync(
                 }
             for raw in results:
                 data = DocumentIn.model_validate(raw)
-                if mark_missing and not incremental:
+                if mark_missing_allowed:
                     seen_ids.add(data.id)
                 if insert_only:
                     existing = db.get(Document, data.id)
@@ -441,7 +444,7 @@ def run_documents_sync(
         state.status = "idle"
         db.commit()
         marked_deleted = 0
-        if mark_missing and not incremental:
+        if mark_missing_allowed:
             timestamp = datetime.now(UTC).isoformat()
             missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
             for doc in missing_docs:
@@ -471,7 +474,7 @@ def run_documents_sync(
             "upserted": upserted,
             "incremental": incremental,
             "embedded": embedded,
-            "marked_deleted": marked_deleted if mark_missing and not incremental else None,
+            "marked_deleted": marked_deleted if mark_missing_allowed else None,
         }
     except Exception:
         db.rollback()

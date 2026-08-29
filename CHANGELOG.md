@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-08-29 (branch: agent/138-mark-missing-page-only)
+
+### mark_missing refuses incomplete page walks
+- `uncommitted` fix(sync): added a guard in [`backend/app/routes/sync.py`](backend/app/routes/sync.py) so `POST /sync/documents` now returns HTTP 400 when `mark_missing=true` is combined with `page_only=true` or `page > 1`, because such walks cannot produce a complete `seen_ids` set and would have flagged every local document as `DELETED in Paperless (copy kept)` in one call.
+- `uncommitted` fix(sync): hoisted `normalized_page` out of the sync loop and introduced a precomputed `mark_missing_allowed` gate in [`backend/app/services/documents/sync_operations.py`](backend/app/services/documents/sync_operations.py) that only permits the mark-missing phase when `mark_missing=true`, `incremental=false`, `page_only=false`, and the walk starts at page 1, so the service no longer runs the missing pass on an incomplete page walk (defense in depth for direct callers; all previously safe combinations behave exactly as before).
+- `uncommitted` test(backend): added route-level regressions in [`backend/tests/test_sync_documents_routes.py`](backend/tests/test_sync_documents_routes.py) covering the two unsafe combinations (`mark_missing` + `page_only=true` and `mark_missing` + `page=2`), asserting the 400 response with `mark_missing` in the detail, that the Paperless client is never called, that no local document is flagged deleted, and that no sync state row is created.
+- `uncommitted` test(backend): added [`backend/tests/test_sync_operations_mark_missing.py`](backend/tests/test_sync_operations_mark_missing.py) with service-level coverage proving `page_only=true` and `page=2` skip the missing pass (reported as `marked_deleted: null`) while the sync itself still upserts, and that the safe full walk from page 1 still marks the unseen local document as deleted.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_sync_documents_routes.py tests/test_sync_operations_mark_missing.py tests/test_sync_operations_error_state.py -q` (`11 passed`), `cd backend && uv run pytest tests/test_documents_actions_routes.py tests/test_process_missing_route.py tests/test_process_missing_service.py -q` (`8 passed`), `cd backend && uv run ruff check app/routes/sync.py app/services/documents/sync_operations.py tests/test_sync_documents_routes.py tests/test_sync_operations_mark_missing.py` (clean), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`318 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-05-16 (branch: develop)
 
 ### Documents list load path tightened
