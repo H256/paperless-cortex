@@ -179,6 +179,7 @@ files = [
     "app/services/search/embeddings.py",
     "tests/test_json_utils.py",
     "tests/test_db.py",
+    "tests/test_db_cross_thread.py",
     "tests/test_note_ids.py",
     "tests/test_string_list_json.py",
     "tests/test_worker_error_types.py",
