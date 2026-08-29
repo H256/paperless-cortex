@@ -12,6 +12,10 @@ from app.services.documents.text_cleaning import estimate_tokens
 from app.services.documents.text_pages import score_text_quality
 from app.services.runtime.guard import ensure_embedding_llm_ready
 from app.services.search import vector_store
+from app.services.search.vector_backends.sources import (
+    embedding_source_payload_values,
+    normalize_embedding_source,
+)
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -28,14 +32,7 @@ _DOC_POINT_CHUNK = 999_999
 
 
 def _normalize_embedding_source(source: str | None) -> str | None:
-    if not source:
-        return None
-    normalized = str(source).strip().lower()
-    if normalized in {"paperless", "paperless_ocr"}:
-        return "paperless"
-    if normalized in {"vision", "vision_ocr"}:
-        return "vision"
-    return normalized
+    return normalize_embedding_source(source)
 
 
 def make_point_id(doc_id: int, chunk: int, source: str | None = None) -> int:
@@ -506,8 +503,9 @@ def delete_all_chunk_points(settings: Settings) -> None:
 
 
 def delete_points_for_doc(settings: Settings, doc_id: int, source: str | None = None) -> None:
-    normalized_source = _normalize_embedding_source(source)
-    vector_store.delete_points_for_doc(settings, doc_id=doc_id, source=normalized_source)
+    vector_store.delete_points_for_doc(
+        settings, doc_id=doc_id, source=embedding_source_payload_values(source)
+    )
 
 
 def delete_similarity_points(settings: Settings, *, doc_id: int | None = None) -> None:

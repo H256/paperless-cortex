@@ -96,6 +96,35 @@ def _client_context(fake_client: FakeClient) -> Any:
     yield fake_client
 
 
+def _spy_filter_equal_calls(
+    monkeypatch: Any,
+) -> tuple[list[tuple[str, object]], list[list[object]]]:
+    adapter_module = importlib.import_module("app.services.search.vector_backends.weaviate_adapter")
+    recorded: list[tuple[str, object]] = []
+    any_of_calls: list[list[object]] = []
+    original_by_property = adapter_module.Filter.by_property
+    original_any_of = adapter_module.Filter.any_of
+
+    def fake_by_property(property_name: str) -> Any:
+        filter_object = original_by_property(property_name)
+        original_equal = filter_object.equal
+
+        def recorded_equal(value: object) -> Any:
+            recorded.append((property_name, value))
+            return original_equal(value)
+
+        filter_object.equal = recorded_equal
+        return filter_object
+
+    def fake_any_of(filters: list[object]) -> Any:
+        any_of_calls.append(list(filters))
+        return original_any_of(filters)
+
+    monkeypatch.setattr(adapter_module.Filter, "by_property", staticmethod(fake_by_property))
+    monkeypatch.setattr(adapter_module.Filter, "any_of", staticmethod(fake_any_of))
+    return recorded, any_of_calls
+
+
 def test_weaviate_adapter_ensure_collection_creates_chunk_and_centroid(
     monkeypatch: Any,
 ) -> None:
@@ -331,6 +360,68 @@ def test_weaviate_adapter_delete_operations_ignore_missing_collections(
 
     adapter.delete_all_chunk_points(settings)
     adapter.delete_similarity_points(settings, doc_id=11)
+
+
+def test_weaviate_adapter_delete_points_for_doc_expanded_source_uses_any_of(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    adapter = WeaviateVectorStoreAdapter()
+
+    recorded, any_of_calls = _spy_filter_equal_calls(monkeypatch)
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.delete_points_for_doc(settings, doc_id=7, source=("paperless_ocr", "pdf_text"))
+
+    assert ("doc_id", 7) in recorded
+    assert ("source", "paperless_ocr") in recorded
+    assert ("source", "pdf_text") in recorded
+    assert len(any_of_calls) == 1
+    assert len(any_of_calls[0]) == 2
+    assert len(chunk_collection.data.deleted_filters) == 1
+
+
+def test_weaviate_adapter_delete_points_for_doc_single_source_uses_equal(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    adapter = WeaviateVectorStoreAdapter()
+
+    recorded, any_of_calls = _spy_filter_equal_calls(monkeypatch)
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.delete_points_for_doc(settings, doc_id=7, source="vision_ocr")
+
+    assert ("doc_id", 7) in recorded
+    assert ("source", "vision_ocr") in recorded
+    assert any_of_calls == []
+    assert len(chunk_collection.data.deleted_filters) == 1
+
+
+def test_weaviate_adapter_delete_points_for_doc_without_source_omits_source_filter(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    adapter = WeaviateVectorStoreAdapter()
+
+    recorded, any_of_calls = _spy_filter_equal_calls(monkeypatch)
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.delete_points_for_doc(settings, doc_id=7)
+
+    assert ("doc_id", 7) in recorded
+    assert not any(name == "source" for name, _value in recorded)
+    assert any_of_calls == []
+    assert len(chunk_collection.data.deleted_filters) == 1
 
 
 def test_score_threshold_to_distance_handles_edge_values() -> None:

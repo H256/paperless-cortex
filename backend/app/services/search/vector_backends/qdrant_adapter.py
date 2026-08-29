@@ -9,6 +9,8 @@ import httpx
 from app.services.search import qdrant
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from app.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -105,14 +107,18 @@ class QdrantVectorStoreAdapter:
                 raise
 
     def delete_points_for_doc(
-        self, settings: Settings, *, doc_id: int, source: str | None = None
+        self, settings: Settings, *, doc_id: int, source: str | Sequence[str] | None = None
     ) -> None:
         base = qdrant.base_url(settings)
         collection = qdrant.collection_name(settings)
         headers = qdrant.headers(settings)
         must_filters: list[dict[str, object]] = [{"key": "doc_id", "match": {"value": doc_id}}]
         if source:
-            must_filters.append({"key": "source", "match": {"value": source}})
+            values = (source,) if isinstance(source, str) else tuple(source)
+            if len(values) == 1:
+                must_filters.append({"key": "source", "match": {"value": values[0]}})
+            else:
+                must_filters.append({"key": "source", "match": {"any": list(values)}})
         with qdrant.client(settings, timeout=30) as client:
             response = client.post(
                 f"{base}/collections/{collection}/points/delete",
