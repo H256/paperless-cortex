@@ -6,6 +6,7 @@ import httpx
 
 from app.config import load_settings
 from app.services.search import qdrant
+from app.services.search.vector_backends.qdrant_adapter import qdrant_adapter
 
 if TYPE_CHECKING:
     from pytest import MonkeyPatch
@@ -15,6 +16,7 @@ class _FakeClient:
     def __init__(self, responses: list[httpx.Response]):
         self._responses = responses
         self.calls: list[str] = []
+        self.bodies: list[object] = []
 
     def __enter__(self) -> _FakeClient:
         return self
@@ -26,7 +28,100 @@ class _FakeClient:
         self, url: str, headers: object = None, json: object = None
     ) -> httpx.Response:
         self.calls.append(url)
+        self.bodies.append(json)
         return self._responses.pop(0)
+
+
+def _patch_qdrant_settings(monkeypatch: MonkeyPatch, fake: _FakeClient) -> None:
+    monkeypatch.setattr(qdrant, "base_url", lambda _settings: "http://qdrant")
+    monkeypatch.setattr(qdrant, "collection_name", lambda _settings: "test")
+    monkeypatch.setattr(qdrant, "headers", lambda _settings: {})
+    monkeypatch.setattr(qdrant, "client", lambda _settings, timeout: fake)
+
+
+def _delete_fake() -> _FakeClient:
+    request_delete = httpx.Request("POST", "http://qdrant/collections/test/points/delete")
+    return _FakeClient([httpx.Response(200, request=request_delete)])
+
+
+DELETE_URL = "http://qdrant/collections/test/points/delete"
+
+
+def test_delete_points_for_doc_expanded_source_uses_any_match(monkeypatch: MonkeyPatch) -> None:
+    settings = load_settings()
+    fake = _delete_fake()
+    _patch_qdrant_settings(monkeypatch, fake)
+
+    qdrant_adapter.delete_points_for_doc(settings, doc_id=7, source=("paperless_ocr", "pdf_text"))
+
+    assert fake.calls == [DELETE_URL]
+    assert fake.bodies == [
+        {
+            "filter": {
+                "must": [
+                    {"key": "doc_id", "match": {"value": 7}},
+                    {"key": "source", "match": {"any": ["paperless_ocr", "pdf_text"]}},
+                ]
+            }
+        }
+    ]
+
+
+def test_delete_points_for_doc_single_source_uses_value_match(monkeypatch: MonkeyPatch) -> None:
+    settings = load_settings()
+    fake = _delete_fake()
+    _patch_qdrant_settings(monkeypatch, fake)
+
+    qdrant_adapter.delete_points_for_doc(settings, doc_id=7, source="vision_ocr")
+
+    assert fake.calls == [DELETE_URL]
+    assert fake.bodies == [
+        {
+            "filter": {
+                "must": [
+                    {"key": "doc_id", "match": {"value": 7}},
+                    {"key": "source", "match": {"value": "vision_ocr"}},
+                ]
+            }
+        }
+    ]
+
+
+def test_delete_points_for_doc_without_source_omits_source_condition(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    settings = load_settings()
+    fake = _delete_fake()
+    _patch_qdrant_settings(monkeypatch, fake)
+
+    qdrant_adapter.delete_points_for_doc(settings, doc_id=7)
+
+    assert fake.calls == [DELETE_URL]
+    assert fake.bodies == [
+        {"filter": {"must": [{"key": "doc_id", "match": {"value": 7}}]}}
+    ]
+
+
+def test_delete_points_for_doc_raw_source_passthrough_uses_value_match(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    settings = load_settings()
+    fake = _delete_fake()
+    _patch_qdrant_settings(monkeypatch, fake)
+
+    qdrant_adapter.delete_points_for_doc(settings, doc_id=7, source="pdf_text")
+
+    assert fake.calls == [DELETE_URL]
+    assert fake.bodies == [
+        {
+            "filter": {
+                "must": [
+                    {"key": "doc_id", "match": {"value": 7}},
+                    {"key": "source", "match": {"value": "pdf_text"}},
+                ]
+            }
+        }
+    ]
 
 
 def test_retrieve_points_falls_back_to_points_endpoint_on_404(monkeypatch: MonkeyPatch) -> None:

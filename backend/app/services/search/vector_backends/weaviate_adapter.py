@@ -10,6 +10,8 @@ from weaviate.classes.query import Filter, MetadataQuery
 from app.services.search import weaviate
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from weaviate.collections.collection.sync import Collection
 
     from app.config import Settings
@@ -250,12 +252,18 @@ class WeaviateVectorStoreAdapter:
             )
 
     def delete_points_for_doc(
-        self, settings: Settings, *, doc_id: int, source: str | None = None
+        self, settings: Settings, *, doc_id: int, source: str | Sequence[str] | None = None
     ) -> None:
         self.ensure_ready(settings)
         filters: list[Any] = [Filter.by_property("doc_id").equal(doc_id)]
         if source:
-            filters.append(Filter.by_property("source").equal(source))
+            values = (source,) if isinstance(source, str) else tuple(source)
+            if len(values) == 1:
+                filters.append(Filter.by_property("source").equal(values[0]))
+            else:
+                filters.append(
+                    Filter.any_of([Filter.by_property("source").equal(v) for v in values])
+                )
         where = _combine_and(filters)
         if where is None:
             return
