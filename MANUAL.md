@@ -28,7 +28,7 @@ Die wichtigsten Betriebsdokumente:
 ### Voraussetzungen
 
 - Python `>=3.13`
-- Node.js `>=18`
+- Node.js `>=20.19` (20.x) oder `>=22.12`
 - Paperless-ngx mit API-Token
 - PostgreSQL
 - Redis für Queue-Betrieb
