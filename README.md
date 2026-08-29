@@ -64,7 +64,7 @@ Per-document operations also allow targeted manual re-runs for individual steps 
 ## Requirements and installation
 ### Prerequisites
 - Python `>=3.13` for the backend.
-- Node.js `>=18` for the frontend.
+- Node.js `>=20.19` (20.x line) or `>=22.12` for the frontend.
 - Paperless-ngx instance reachable by URL and API token.
 - Postgres, Redis, and a supported vector store (`Qdrant` or `Weaviate`) (local installs or Docker).
 - An OpenAI-compatible LLM endpoint (local or remote).
