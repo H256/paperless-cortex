@@ -4,10 +4,18 @@ import json
 import os
 from typing import Any
 
+import httpx
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from app.models import Document, DocumentPendingTag, SuggestionAudit, Tag, WritebackJob
+from app.models import (
+    Document,
+    DocumentNote,
+    DocumentPendingTag,
+    SuggestionAudit,
+    Tag,
+    WritebackJob,
+)
 
 
 def _insert_document(doc_id: int, title: str) -> None:
@@ -228,6 +236,8 @@ def test_writeback_execute_now_executes_without_queue(api_client: Any, monkeypat
     assert payload["docs_selected"] == 1
     assert payload["docs_changed"] == 1
     assert payload["calls_count"] >= 1
+    assert payload["errors"] == []
+    assert payload["failed_doc_ids"] == []
     assert calls["patch"] >= 1
 
 
@@ -648,3 +658,206 @@ def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(
     history_statuses = {str(item.get("status") or "") for item in history.json().get("items", [])}
     assert "completed" in history_statuses
     assert "failed" in history_statuses
+
+
+def test_writeback_execute_now_reports_httpx_status_error_partial_failure(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_document(581, "Shared title 581")
+    _insert_document(582, "Local title 582")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.query(Document).filter(Document.id == 581).first()
+        doc.notes = [DocumentNote(id=9101, note="Zusammenfassung 581\nKI-Zusammenfassung")]
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda _settings, doc_id: {
+            "id": doc_id,
+            "title": "Shared title 581" if int(doc_id) == 581 else "Remote title 582",
+            "created": None,
+            "modified": "2026-02-10T10:00:00Z",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    def _note_with_status_error(*_args: Any, **_kwargs: Any) -> None:
+        request = httpx.Request("POST", "http://paperless.local/api/documents/581/notes/")
+        response = httpx.Response(500, request=request)
+        raise httpx.HTTPStatusError("Paperless 500", request=request, response=response)
+
+    patch_calls: dict[int, int] = {}
+
+    def _patch(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        patch_calls[int(doc_id)] = patch_calls.get(int(doc_id), 0) + 1
+        return {"id": doc_id, **payload}
+
+    monkeypatch.setattr(paperless, "add_document_note", _note_with_status_error)
+    monkeypatch.setattr(paperless, "update_document", _patch)
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post("/writeback/execute-now", json={"doc_ids": [581, 582]})
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["docs_selected"] == 2
+    assert payload["docs_changed"] == 2
+    assert payload["doc_ids"] == [582]
+    assert payload["failed_doc_ids"] == [581]
+    assert len(payload["errors"]) == 1
+    assert payload["errors"][0]["doc_id"] == 581
+    assert payload["errors"][0]["method"] == "POST"
+    assert payload["errors"][0]["path"] == "/api/documents/581/notes/"
+    assert "Paperless 500" in payload["errors"][0]["error"]
+    assert patch_calls.get(582, 0) >= 1
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        audit_582 = (
+            db.query(SuggestionAudit)
+            .filter(
+                SuggestionAudit.doc_id == 582,
+                SuggestionAudit.action == "apply_to_document:writeback",
+            )
+            .one_or_none()
+        )
+        assert audit_582 is not None
+        audit_581 = (
+            db.query(SuggestionAudit)
+            .filter(
+                SuggestionAudit.doc_id == 581,
+                SuggestionAudit.action == "apply_to_document:writeback",
+            )
+            .one_or_none()
+        )
+        assert audit_581 is None
+        assert db.query(WritebackJob).all() == []
+
+
+def test_writeback_execute_now_continues_after_httpx_connect_error(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_document(591, "Local title 591")
+    _insert_document(592, "Local title 592")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda _settings, doc_id: {
+            "id": doc_id,
+            "title": f"Remote title {doc_id}",
+            "created": None,
+            "modified": "2026-02-10T10:00:00Z",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    def _patch(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        if int(doc_id) == 591:
+            raise httpx.ConnectError("connection refused")
+        return {"id": doc_id, **payload}
+
+    monkeypatch.setattr(paperless, "update_document", _patch)
+    monkeypatch.setattr(paperless, "add_document_note", lambda *args, **kwargs: {"id": 1})
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post("/writeback/execute-now", json={"doc_ids": [591, 592]})
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["doc_ids"] == [592]
+    assert payload["failed_doc_ids"] == [591]
+    assert len(payload["errors"]) == 1
+    assert payload["errors"][0]["doc_id"] == 591
+    assert payload["errors"][0]["method"] == "PATCH"
+    assert payload["errors"][0]["path"] == "/api/documents/591/"
+    assert "connection refused" in payload["errors"][0]["error"]
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        audit_592 = (
+            db.query(SuggestionAudit)
+            .filter(
+                SuggestionAudit.doc_id == 592,
+                SuggestionAudit.action == "apply_to_document:writeback",
+            )
+            .one_or_none()
+        )
+        assert audit_592 is not None
+        audit_591 = (
+            db.query(SuggestionAudit)
+            .filter(
+                SuggestionAudit.doc_id == 591,
+                SuggestionAudit.action == "apply_to_document:writeback",
+            )
+            .one_or_none()
+        )
+        assert audit_591 is None
+        assert db.query(WritebackJob).all() == []
+
+
+def test_writeback_direct_execute_httpx_error_returns_400_not_500(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    _insert_document(593, "Shared title 593")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.query(Document).filter(Document.id == 593).first()
+        doc.notes = [DocumentNote(id=9301, note="Zusammenfassung 593\nKI-Zusammenfassung")]
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda _settings, doc_id: {
+            "id": doc_id,
+            "title": "Shared title 593",
+            "created": None,
+            "modified": "2026-02-10T10:00:00Z",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "update_document",
+        lambda _settings, doc_id, payload: {"id": doc_id, **payload},
+    )
+
+    def _note_with_connect_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.ConnectError("boom")
+
+    monkeypatch.setattr(paperless, "add_document_note", _note_with_connect_error)
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    result = api_client.post(
+        "/writeback/documents/593/execute-direct",
+        json={"known_paperless_modified": "2026-02-10T10:00:00Z", "resolutions": {}},
+    )
+    assert result.status_code == 400
+    assert "boom" in str(result.json().get("detail"))
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        audit_593 = (
+            db.query(SuggestionAudit)
+            .filter(
+                SuggestionAudit.doc_id == 593,
+                SuggestionAudit.action == "apply_to_document:writeback",
+            )
+            .one_or_none()
+        )
+        assert audit_593 is None

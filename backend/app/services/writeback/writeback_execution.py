@@ -43,8 +43,10 @@ def execute_calls_with_audit(
     cleanup_pending_rows_after_patch: Callable[[Session, int, dict[str, Any]], None],
     reviewed_timestamp_for_doc: Callable[[Settings, Session, int], str],
     logger: logging.Logger,
+    on_call_error: Callable[[WritebackDryRunCall, Exception], None] | None = None,
 ) -> set[int]:
     executed_doc_ids: set[int] = set()
+    failed_doc_ids: set[int] = set()
     for call in calls:
         logger.info(
             "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
@@ -54,15 +56,24 @@ def execute_calls_with_audit(
             call.path,
             call.payload,
         )
-        executed_doc_ids.add(int(call.doc_id))
         if dry_run:
+            executed_doc_ids.add(int(call.doc_id))
             continue
-        execute_call(settings, db, call)
+        try:
+            execute_call(settings, db, call)
+        except (RuntimeError, ValueError, httpx.HTTPError) as exc:
+            if on_call_error is None:
+                raise
+            failed_doc_ids.add(int(call.doc_id))
+            on_call_error(call, exc)
+            continue
+        executed_doc_ids.add(int(call.doc_id))
         if call.method.upper() == "PATCH" and isinstance(call.payload, dict):
             cleanup_pending_rows_after_patch(db, int(call.doc_id), call.payload)
 
-    if not dry_run and executed_doc_ids:
-        for doc_id in sorted(executed_doc_ids):
+    successful_doc_ids = executed_doc_ids - failed_doc_ids
+    if not dry_run and successful_doc_ids:
+        for doc_id in sorted(successful_doc_ids):
             reviewed_at = reviewed_timestamp_for_doc(settings, db, int(doc_id))
             db.add(
                 SuggestionAudit(
@@ -75,7 +86,7 @@ def execute_calls_with_audit(
                     created_at=reviewed_at,
                 )
             )
-    return executed_doc_ids
+    return successful_doc_ids
 
 
 def run_writeback_job_execution(

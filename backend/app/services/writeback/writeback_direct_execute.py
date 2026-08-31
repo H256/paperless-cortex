@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from fastapi import HTTPException
 
 from app.api_models import WritebackDirectExecuteResponse
@@ -111,7 +112,7 @@ def direct_execute_response(
             execute_call_fn=execute_call,
             cleanup_pending_rows_after_patch_fn=cleanup_pending_rows_after_patch,
         )
-    except RuntimeError as exc:
+    except (RuntimeError, httpx.HTTPError) as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

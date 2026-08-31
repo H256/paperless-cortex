@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.5.60"
+    "version": "0.5.61"
   },
   "paths": {
     "/documents/": {
@@ -9774,6 +9774,34 @@
         ],
         "title": "ValidationError"
       },
+      "WritebackCallError": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "method",
+          "path",
+          "error"
+        ],
+        "title": "WritebackCallError"
+      },
       "WritebackConflictField": {
         "properties": {
           "field": {
@@ -10057,6 +10085,22 @@
             },
             "type": "array",
             "title": "Calls",
+            "default": []
+          },
+          "failed_doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Failed Doc Ids",
+            "default": []
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackCallError"
+            },
+            "type": "array",
+            "title": "Errors",
             "default": []
           }
         },

@@ -5,7 +5,9 @@
  * OpenAPI spec version: 0.5.61
  */
 
-export interface QueueMoveResponse {
-  enabled: boolean;
-  moved: boolean;
+export interface WritebackCallError {
+  doc_id: number;
+  method: string;
+  path: string;
+  error: string;
 }

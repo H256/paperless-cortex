@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.api_models import (
+    WritebackCallError,
     WritebackDryRunCall,
     WritebackDryRunExecuteResponse,
     WritebackExecuteNowResponse,
@@ -64,6 +65,25 @@ def execute_now_response(
         preview_items=preview_items,
         build_calls_for_item=build_calls_for_item,
     )
+    call_errors: list[WritebackCallError] = []
+
+    def _record_call_error(call: WritebackDryRunCall, exc: Exception) -> None:
+        call_errors.append(
+            WritebackCallError(
+                doc_id=int(call.doc_id),
+                method=call.method,
+                path=call.path,
+                error=str(exc),
+            )
+        )
+        logger.warning(
+            "WRITEBACK EXECUTE call failed doc=%s method=%s path=%s error=%s",
+            call.doc_id,
+            call.method,
+            call.path,
+            exc,
+        )
+
     executed_doc_ids = execute_calls_with_audit(
         settings=settings,
         db=db,
@@ -73,6 +93,7 @@ def execute_now_response(
         cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
         reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
         logger=logger,
+        on_call_error=_record_call_error,
     )
     db.commit()
     invalidate_writeback_preview_cache()
@@ -85,6 +106,8 @@ def execute_now_response(
         calls_count=len(calls),
         doc_ids=sorted(executed_doc_ids),
         calls=calls,
+        failed_doc_ids=sorted({error.doc_id for error in call_errors}),
+        errors=call_errors,
     )
 
 
