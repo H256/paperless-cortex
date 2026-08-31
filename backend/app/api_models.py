@@ -895,6 +895,13 @@ class WritebackDryRunCall(BaseModel):
     payload: dict[str, Any] = {}
 
 
+class WritebackCallError(BaseModel):
+    doc_id: int
+    method: str
+    path: str
+    error: str
+
+
 class WritebackDryRunExecuteResponse(BaseModel):
     docs_selected: int
     docs_changed: int
@@ -911,6 +918,8 @@ class WritebackExecuteNowResponse(BaseModel):
     calls_count: int
     doc_ids: list[int] = []
     calls: list[WritebackDryRunCall] = []
+    failed_doc_ids: list[int] = []
+    errors: list[WritebackCallError] = []
 
 
 class WritebackDirectExecuteRequest(BaseModel):
