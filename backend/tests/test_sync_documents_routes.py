@@ -23,6 +23,36 @@ def _insert_local_document(doc_id: int, title: str) -> None:
         db.commit()
 
 
+def test_sync_documents_marks_state_failed_when_paperless_is_unavailable(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    import app.routes.sync as sync_routes
+
+    def _raise_paperless_unavailable(*_args: Any, **_kwargs: Any) -> dict[str, object]:
+        engine = create_engine(
+            os.environ["DATABASE_URL"], connect_args={"check_same_thread": False}
+        )
+        with Session(engine) as db:
+            state = db.get(SyncState, "documents")
+            assert state is not None
+            state.cancel_requested = True
+            db.commit()
+        raise RuntimeError("Paperless unavailable")
+
+    monkeypatch.setattr(sync_routes.paperless, "list_documents", _raise_paperless_unavailable)
+    api_client._transport.raise_server_exceptions = False
+
+    response = api_client.post("/sync/documents", params={"incremental": False})
+
+    assert response.status_code == 500
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        state = db.get(SyncState, "documents")
+        assert state is not None
+        assert state.status == "failed"
+        assert state.cancel_requested is False
+
+
 def test_sync_documents_marks_missing_and_queues_embed_followups(
     api_client: Any, monkeypatch: Any
 ) -> None:

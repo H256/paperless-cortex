@@ -5,6 +5,10 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-05-16 (branch: develop)
 
+### Recovery state is durable across sync and queue resume
+- `uncommitted` fix(recovery): Paperless sync errors now persist the documents state as `failed` and clear a concurrently requested cancellation; Queue Resume atomically clears paused and cancel Redis markers, allowing later Continue processing without restarts.
+- `uncommitted` test(backend): verified `cd backend && .\\.venv\\Scripts\\python.exe -m pytest tests/test_sync_documents_routes.py tests/test_queue_routes_basic.py` (`9 passed in 7.06s`) and `cd backend && .\\.venv\\Scripts\\python.exe -m ruff check app/services/documents/sync_operations.py app/services/pipeline/queue.py tests/test_sync_documents_routes.py tests/test_queue_routes_basic.py` (`All checks passed!`).
+
 ### Documents list load path tightened
 - `uncommitted` perf(frontend): removed the manual initial `refetchDocuments()` from [`frontend/src/views/DocumentsView.vue`](E:/workspace/python/paperless-intelligence/frontend/src/views/DocumentsView.vue), so the documents list no longer does an immediate duplicate fetch on mount after TanStack Query has already started the list request.
 - `uncommitted` perf(db): added list/dashboard-oriented ORM indexes in [`backend/app/models.py`](E:/workspace/python/paperless-intelligence/backend/app/models.py) and migration [`backend/alembic/versions/c6a1b9e2d4f8_add_document_list_indexes.py`](E:/workspace/python/paperless-intelligence/backend/alembic/versions/c6a1b9e2d4f8_add_document_list_indexes.py) for document metadata aggregates, tag filtering, page-text source checks, and review audit lookups.

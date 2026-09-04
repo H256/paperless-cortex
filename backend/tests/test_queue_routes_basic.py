@@ -93,6 +93,24 @@ def test_queue_enqueue_enabled_returns_count(api_client: Any, monkeypatch: Any) 
     assert payload["enqueued"] == 3
 
 
+def test_resume_queue_clears_pause_and_cancel_markers(monkeypatch: Any) -> None:
+    import app.services.pipeline.queue as queue
+
+    class Client:
+        def __init__(self) -> None:
+            self.deleted: list[tuple[str, ...]] = []
+
+        def delete(self, *keys: str) -> None:
+            self.deleted.append(keys)
+
+    client = Client()
+    monkeypatch.setattr(queue, "_get_client", lambda _settings: client)
+
+    queue.resume_queue(object())
+
+    assert client.deleted == [(queue.PAUSE_KEY, queue.CANCEL_KEY)]
+
+
 def test_queue_worker_lock_route_returns_status(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.queue as queue_routes
 

@@ -354,6 +354,51 @@ def run_documents_sync(
     build_task_sequence_fn: TaskBuilder,
     enqueue_task_sequence_fn: TaskEnqueuer,
 ) -> ResponseDict:
+    """Run document sync and leave its persisted state terminal on failure."""
+    try:
+        return _run_documents_sync(
+            db=db,
+            settings=settings,
+            page_size=page_size,
+            incremental=incremental,
+            embed=embed,
+            page=page,
+            page_only=page_only,
+            force_embed=force_embed,
+            mark_missing=mark_missing,
+            insert_only=insert_only,
+            list_documents_fn=list_documents_fn,
+            build_task_sequence_fn=build_task_sequence_fn,
+            enqueue_task_sequence_fn=enqueue_task_sequence_fn,
+        )
+    except Exception:
+        try:
+            db.rollback()
+            failed_state = get_or_create_state(db, "documents")
+            failed_state.status = "failed"
+            failed_state.cancel_requested = False
+            db.commit()
+        except Exception:
+            logger.exception("Unable to persist failed document-sync state")
+        raise
+
+
+def _run_documents_sync(
+    *,
+    db: Session,
+    settings: Settings,
+    page_size: int,
+    incremental: bool,
+    embed: bool,
+    page: int,
+    page_only: bool,
+    force_embed: bool,
+    mark_missing: bool,
+    insert_only: bool,
+    list_documents_fn: PaperlessListDocuments,
+    build_task_sequence_fn: TaskBuilder,
+    enqueue_task_sequence_fn: TaskEnqueuer,
+) -> ResponseDict:
     """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
     modified_since: str | None = None
     if incremental:
