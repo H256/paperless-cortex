@@ -438,7 +438,7 @@ def resume_queue(settings: Settings) -> None:
     client = _get_client(settings)
     if not client:
         return
-    client.delete(PAUSE_KEY)
+    client.delete(PAUSE_KEY, CANCEL_KEY)
 
 
 def is_paused(settings: Settings) -> bool:
