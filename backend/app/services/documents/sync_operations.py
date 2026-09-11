@@ -480,6 +480,7 @@ def run_documents_sync(
         db.rollback()
         failed_state = get_or_create_state(db, "documents")
         failed_state.status = "error"
+        failed_state.cancel_requested = False
         db.commit()
         raise
 

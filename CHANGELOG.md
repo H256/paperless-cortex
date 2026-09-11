@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
+
+### Queue resume recovers stale cancel marker and sync failure state
+- `uncommitted` fix(queue): changed [`backend/app/services/pipeline/queue.py`](backend/app/services/pipeline/queue.py) so `resume_queue` now clears the paused and cancel markers with a single atomic `DEL` (`client.delete(PAUSE_KEY, CANCEL_KEY)`), so a stale `paperless_intelligence:queue_cancel` marker left behind when no healthy worker consumed a cancel request no longer blocks `enqueue_task_sequence`/continue-processing until a service restart.
+- `uncommitted` fix(sync): extended the #139 failure handler in [`backend/app/services/documents/sync_operations.py`](backend/app/services/documents/sync_operations.py) so the terminal `error` state persisted for `sync_state.key='documents'` after a Paperless sync exception also clears a concurrently requested cancellation (`cancel_requested=False`), leaving a clean terminal row instead of a stale cancel flag.
+- `uncommitted` test(backend): added `test_resume_queue_clears_pause_and_cancel_markers` and `test_resume_queue_clears_stale_cancel_marker_and_reenables_enqueue` to [`backend/tests/test_queue_routes_basic.py`](backend/tests/test_queue_routes_basic.py) (resume issues one atomic multi-key delete; a seeded cancel marker blocks enqueue, Queue Resume clears it, and enqueue succeeds without a restart) and `test_sync_documents_marks_error_state_when_paperless_unavailable` to [`backend/tests/test_sync_documents_routes.py`](backend/tests/test_sync_documents_routes.py) (forced `list_documents` failure yields 500, persisted terminal `error` status, and cleared `cancel_requested`).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_queue_routes_basic.py tests/test_sync_documents_routes.py tests/test_sync_operations_error_state.py -q` (`16 passed`), `cd backend && uv run ruff check app/services/pipeline/queue.py app/services/documents/sync_operations.py tests/test_queue_routes_basic.py tests/test_sync_documents_routes.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues), and `cd backend && uv run pytest -q` (`324 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-08-30 (branch: agent/175-execute-now-httpx-error)
 
 ### Writeback execute-now reports httpx partial failures
