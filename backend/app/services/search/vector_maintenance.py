@@ -49,15 +49,14 @@ def delete_embeddings_payload(
 ) -> dict[str, object]:
     delete_points = delete_points_for_doc_fn or delete_points_for_doc
     delete_all_points = delete_all_chunk_points_fn or delete_all_chunk_points
-    qdrant_deleted = 0
-    qdrant_errors = 0
     if doc_id is not None:
+        # Vector-store deletion is authoritative: only clear DB bookkeeping
+        # once the vector points are confirmed deleted.
         try:
             delete_points(settings, doc_id)
-            qdrant_deleted = 1
         except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-            qdrant_errors = 1
             logger.warning("Failed to delete embedding points doc_id=%s: %s", doc_id, exc)
+            return {"deleted": 0, "qdrant_deleted": 0, "qdrant_errors": 1}
         row = db.get(DocumentEmbedding, doc_id)
         if row:
             db.delete(row)
@@ -66,21 +65,20 @@ def delete_embeddings_payload(
             invalidate_document_stats_cache()
             invalidate_documents_list_cache()
             invalidate_local_document_cache(doc_id)
-        return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
+        return {"deleted": 1, "qdrant_deleted": 1, "qdrant_errors": 0}
 
+    try:
+        delete_all_points(settings)
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+        logger.warning("Failed to delete all embedding points: %s", exc)
+        return {"deleted": 0, "qdrant_deleted": 0, "qdrant_errors": 1}
     db.query(DocumentEmbedding).delete(synchronize_session=False)
     db.commit()
     invalidate_dashboard_cache()
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_local_document_cache()
-    try:
-        delete_all_points(settings)
-        qdrant_deleted = 1
-    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-        qdrant_errors = 1
-        logger.warning("Failed to delete all embedding points: %s", exc)
-    return {"deleted": 1, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
+    return {"deleted": 1, "qdrant_deleted": 1, "qdrant_errors": 0}
 
 
 def delete_similarity_index_payload(
@@ -92,14 +90,13 @@ def delete_similarity_index_payload(
     delete_similarity_points_fn: Callable[..., None] | None = None,
 ) -> dict[str, object]:
     delete_similarity = delete_similarity_points_fn or delete_similarity_points
-    qdrant_deleted = 0
-    qdrant_errors = 0
+    # Vector-store deletion is authoritative: only clear TaskRun bookkeeping
+    # once the vector points are confirmed deleted.
     try:
         delete_similarity(settings, doc_id=doc_id)
-        qdrant_deleted = 1
     except (httpx.HTTPError, RuntimeError, ValueError) as exc:
-        qdrant_errors = 1
         logger.warning("Failed to delete similarity index points doc_id=%s: %s", doc_id, exc)
+        return {"deleted": 0, "qdrant_deleted": 0, "qdrant_errors": 1}
 
     query = db.query(TaskRun).filter(TaskRun.task == "similarity_index")
     if doc_id is not None:
@@ -109,7 +106,7 @@ def delete_similarity_index_payload(
     invalidate_document_stats_cache()
     invalidate_documents_list_cache()
     invalidate_local_document_cache(doc_id)
-    return {"deleted": deleted, "qdrant_deleted": qdrant_deleted, "qdrant_errors": qdrant_errors}
+    return {"deleted": deleted, "qdrant_deleted": 1, "qdrant_errors": 0}
 
 
 def delete_document_chunk_vectors(
