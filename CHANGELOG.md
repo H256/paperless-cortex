@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-12 (branch: agent/160-weaviate-cosine-score)
+
+### Weaviate scores and thresholds now use true cosine semantics
+- `uncommitted` fix(search): changed [`backend/app/services/search/vector_backends/weaviate_adapter.py`](backend/app/services/search/vector_backends/weaviate_adapter.py) so `_result_object` now reports true cosine similarity (`score = 1 - distance`, clamped to [0, 1]) instead of `1 / (1 + distance)`, and `_score_threshold_to_distance` now converts a minimum-cosine `score_threshold` into a Weaviate distance cap of `1 - score_threshold`, matching Qdrant's Cosine `score_threshold` semantics (Weaviate collections use the default Cosine metric, where distance is `1 - cos`).
+- `uncommitted` test(backend): updated the score/threshold assertions in [`backend/tests/test_weaviate_adapter.py`](backend/tests/test_weaviate_adapter.py) to true-cosine values (distance 0.25 → score 0.75; threshold 0.75 → distance 0.25; edge values 0.5 → 0.5 and 0.75 → 0.25), made `FakeQueryOps.near_vector` honor the recorded distance cap, and added `test_weaviate_adapter_result_object_reports_true_cosine_similarity` (cos 0.5 / 0.9), `test_weaviate_adapter_result_object_omits_score_without_distance`, and `test_weaviate_adapter_search_points_score_threshold_keeps_only_intended_set` (threshold 0.75 keeps only the cos-0.9 hit, which reports score 0.9).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_weaviate_adapter.py -q` (`17 passed`), `cd backend && uv run ruff check app/services/search/vector_backends/weaviate_adapter.py tests/test_weaviate_adapter.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues), and `cd backend && uv run pytest -q` (`327 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state

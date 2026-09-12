@@ -3,13 +3,14 @@ from __future__ import annotations
 import importlib
 from contextlib import contextmanager
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 from app.config import Settings, load_settings
 from app.services.search import weaviate
 from app.services.search.vector_backends.weaviate_adapter import (
     WeaviateVectorStoreAdapter,
     _point_uuid,
+    _result_object,
     _score_threshold_to_distance,
 )
 
@@ -39,7 +40,15 @@ class FakeQueryOps:
 
     def near_vector(self, **kwargs: object) -> object:
         self.near_vector_calls.append(dict(kwargs))
-        return self.near_vector_response
+        distance = cast("float | None", kwargs.get("distance"))
+        objects = list(getattr(self.near_vector_response, "objects", []))
+        if distance is not None:
+            objects = [
+                obj
+                for obj in objects
+                if getattr(getattr(obj, "metadata", None), "distance", 0.0) <= distance
+            ]
+        return SimpleNamespace(objects=objects)
 
     def fetch_objects(self, **kwargs: object) -> object:
         self.fetch_calls.append(dict(kwargs))
@@ -202,7 +211,7 @@ def test_weaviate_adapter_search_points_routes_doc_filter_to_centroids(
     assert len(chunk_collection.query.near_vector_calls) == 0
     assert len(centroid_collection.query.near_vector_calls) == 1
     assert result["result"][0]["id"] == "doc-9"
-    assert result["result"][0]["score"] == 0.8
+    assert result["result"][0]["score"] == 0.75
 
 
 def test_weaviate_adapter_search_points_converts_score_threshold_to_distance(
@@ -219,7 +228,7 @@ def test_weaviate_adapter_search_points_converts_score_threshold_to_distance(
         settings,
         [0.9, 0.8],
         filter_payload={"must": [{"key": "type", "match": {"value": "doc"}}]},
-        score_threshold=0.8,
+        score_threshold=0.75,
     )
 
     assert len(centroid_collection.query.near_vector_calls) == 1
@@ -427,6 +436,67 @@ def test_weaviate_adapter_delete_points_for_doc_without_source_omits_source_filt
 def test_score_threshold_to_distance_handles_edge_values() -> None:
     assert _score_threshold_to_distance(None) is None
     assert _score_threshold_to_distance(0.0) is None
-    assert _score_threshold_to_distance(0.5) == 1.0
-    assert _score_threshold_to_distance(0.8) == 0.25
+    assert _score_threshold_to_distance(0.5) == 0.5
+    assert _score_threshold_to_distance(0.75) == 0.25
     assert _score_threshold_to_distance(1.0) == 0.0
+
+
+def test_weaviate_adapter_result_object_reports_true_cosine_similarity() -> None:
+    raw_half = SimpleNamespace(
+        properties={"point_id": "doc-9", "doc_id": 9, "chunk": -1, "source": "paperless", "type": "doc"},
+        metadata=SimpleNamespace(distance=0.5),
+    )
+    raw_nine = SimpleNamespace(
+        properties={"point_id": "doc-9", "doc_id": 9, "chunk": -1, "source": "paperless", "type": "doc"},
+        metadata=SimpleNamespace(distance=0.1),
+    )
+
+    assert _result_object(raw_half)["score"] == 0.5
+    assert _result_object(raw_nine)["score"] == 0.9
+
+
+def test_weaviate_adapter_result_object_omits_score_without_distance() -> None:
+    raw = SimpleNamespace(
+        properties={"point_id": "1", "doc_id": 1, "chunk": 0, "source": "paperless"},
+        metadata=None,
+    )
+
+    assert "score" not in _result_object(raw)
+
+
+def test_weaviate_adapter_search_points_score_threshold_keeps_only_intended_set(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+    centroid_collection.query.near_vector_response = SimpleNamespace(
+        objects=[
+            SimpleNamespace(
+                properties={"point_id": "doc-1", "doc_id": 1, "chunk": -1, "source": "paperless", "type": "doc"},
+                metadata=SimpleNamespace(distance=0.1),
+            ),
+            SimpleNamespace(
+                properties={"point_id": "doc-2", "doc_id": 2, "chunk": -1, "source": "paperless", "type": "doc"},
+                metadata=SimpleNamespace(distance=0.3),
+            ),
+            SimpleNamespace(
+                properties={"point_id": "doc-3", "doc_id": 3, "chunk": -1, "source": "paperless", "type": "doc"},
+                metadata=SimpleNamespace(distance=0.5),
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    result = adapter.search_points(
+        settings,
+        [0.9, 0.8],
+        filter_payload={"must": [{"key": "type", "match": {"value": "doc"}}]},
+        score_threshold=0.75,
+    )
+
+    assert centroid_collection.query.near_vector_calls[0]["distance"] == 0.25
+    assert [item["id"] for item in result["result"]] == ["doc-1"]
+    assert result["result"][0]["score"] == 0.9

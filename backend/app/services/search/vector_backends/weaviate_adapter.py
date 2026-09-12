@@ -149,7 +149,11 @@ def _result_object(raw: Any, *, include_vector: bool = False) -> dict[str, Any]:
         for key in ("doc_id", "chunk", "text", "page", "source", "quality_score", "bbox", "type")
         if key in properties
     }
-    score = 1.0 / (1.0 + float(distance)) if isinstance(distance, int | float) else None
+    # Weaviate collections use the default Cosine metric, so the reported
+    # distance is 1 - cos(a, b) and the true cosine similarity is
+    # 1 - distance. Clamp to [0, 1] so scores stay on the same scale as
+    # Qdrant's cosine scores (self-provided vectors are not re-normalized).
+    score = min(1.0, max(0.0, 1.0 - float(distance))) if isinstance(distance, int | float) else None
     result: dict[str, Any] = {
         "id": properties.get("point_id") or str(getattr(raw, "uuid", "")),
         "payload": payload,
@@ -173,7 +177,10 @@ def _score_threshold_to_distance(score_threshold: float | None) -> float | None:
         return None
     if score_threshold >= 1:
         return 0.0
-    return max(0.0, (1.0 / float(score_threshold)) - 1.0)
+    # Weaviate Cosine distance is 1 - cos(a, b), so a minimum-cosine score
+    # threshold maps to a maximum-distance cap of 1 - threshold, matching
+    # Qdrant score_threshold semantics.
+    return min(1.0, max(0.0, 1.0 - float(score_threshold)))
 
 
 class WeaviateVectorStoreAdapter:
