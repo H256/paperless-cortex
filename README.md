@@ -68,7 +68,7 @@ Per-document operations also allow targeted manual re-runs for individual steps 
 - Paperless-ngx instance reachable by URL and API token.
 - Postgres, Redis, and a supported vector store (`Qdrant` or `Weaviate`) (local installs or Docker).
 - An OpenAI-compatible LLM endpoint (local or remote).
-For user-facing operations and UI guidance, see [`docs/manual/README.md`](E:/workspace/python/paperless-intelligence/docs/manual/README.md).
+For user-facing operations and UI guidance, see [`docs/manual/README.md`](docs/manual/README.md).
 
 ### Backend (recommended: uv)
 ```bash
@@ -159,30 +159,30 @@ Set values in `.env`.
 - `EMBEDDING_MODEL`
 
 ### Configuration docs
-- [`.env.example`](E:/workspace/python/paperless-intelligence/.env.example) for concrete environment variables and example values
-- [`docs/config-reference.md`](E:/workspace/python/paperless-intelligence/docs/config-reference.md) for grouped runtime configuration guidance
-- [`docs/architecture-overview.md`](E:/workspace/python/paperless-intelligence/docs/architecture-overview.md) for the technical component overview
+- [`.env.example`](.env.example) for concrete environment variables and example values
+- [`docs/config-reference.md`](docs/config-reference.md) for grouped runtime configuration guidance
+- [`docs/architecture-overview.md`](docs/architecture-overview.md) for the technical component overview
 
 ## Documentation map
 
 ### For users
-- [`MANUAL.md`](E:/workspace/python/paperless-intelligence/MANUAL.md): documentation entry point
-- [`docs/manual/README.md`](E:/workspace/python/paperless-intelligence/docs/manual/README.md): end-user manual
-- [`docs/manual/14-tages-checkliste.md`](E:/workspace/python/paperless-intelligence/docs/manual/14-tages-checkliste.md): daily checklist
-- [`docs/manual/12-similar-workflow.md`](E:/workspace/python/paperless-intelligence/docs/manual/12-similar-workflow.md): similar-doc review workflow
-- [`docs/manual/13-team-policy.md`](E:/workspace/python/paperless-intelligence/docs/manual/13-team-policy.md): concise working rules
+- [`MANUAL.md`](MANUAL.md): documentation entry point
+- [`docs/manual/README.md`](docs/manual/README.md): end-user manual
+- [`docs/manual/14-tages-checkliste.md`](docs/manual/14-tages-checkliste.md): daily checklist
+- [`docs/manual/12-similar-workflow.md`](docs/manual/12-similar-workflow.md): similar-doc review workflow
+- [`docs/manual/13-team-policy.md`](docs/manual/13-team-policy.md): concise working rules
 
 ### For admins and operators
-- [`docs/manual/15-admin-und-betrieb.md`](E:/workspace/python/paperless-intelligence/docs/manual/15-admin-und-betrieb.md): admin and UI operations guide
-- [`docs/manual/16-settings-und-live-model-provider.md`](E:/workspace/python/paperless-intelligence/docs/manual/16-settings-und-live-model-provider.md): live model-provider settings and API-key behavior
-- [`docs/architecture-overview.md`](E:/workspace/python/paperless-intelligence/docs/architecture-overview.md): architecture overview
-- [`docs/config-reference.md`](E:/workspace/python/paperless-intelligence/docs/config-reference.md): grouped configuration reference
+- [`docs/manual/15-admin-und-betrieb.md`](docs/manual/15-admin-und-betrieb.md): admin and UI operations guide
+- [`docs/manual/16-settings-und-live-model-provider.md`](docs/manual/16-settings-und-live-model-provider.md): live model-provider settings and API-key behavior
+- [`docs/architecture-overview.md`](docs/architecture-overview.md): architecture overview
+- [`docs/config-reference.md`](docs/config-reference.md): grouped configuration reference
 
 ### For developers and contributors
-- [`CHANGELOG.md`](E:/workspace/python/paperless-intelligence/CHANGELOG.md): granular change history
-- [`agents.md`](E:/workspace/python/paperless-intelligence/agents.md): compact project state and next actions
-- [`CONTRIBUTING.md`](E:/workspace/python/paperless-intelligence/CONTRIBUTING.md): contribution notes
-- [`docs/execution-blueprint-large-doc-worker.md`](E:/workspace/python/paperless-intelligence/docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
+- [`CHANGELOG.md`](CHANGELOG.md): granular change history
+- [`agents.md`](agents.md): compact project state and next actions
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): contribution notes
+- [`docs/execution-blueprint-large-doc-worker.md`](docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
 
 ## API/client generation
 ```bash

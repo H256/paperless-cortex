@@ -87,9 +87,9 @@ Wichtig:
 
 Siehe dazu:
 
-- [docs/config-reference.md](E:\workspace\python\paperless-intelligence\docs\config-reference.md)
-- [`.env.example`](E:\workspace\python\paperless-intelligence\.env.example)
-- [`.env.worker.example`](E:\workspace\python\paperless-intelligence\.env.worker.example)
+- [docs/config-reference.md](docs/config-reference.md)
+- [`.env.example`](.env.example)
+- [`.env.worker.example`](.env.worker.example)
 
 ## 8. Empfohlene sichere Arbeitsweise
 
