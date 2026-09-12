@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import httpx
+import pytest
 
 from app.config import load_settings
 from app.services.search import qdrant
@@ -124,29 +125,18 @@ def test_delete_points_for_doc_raw_source_passthrough_uses_value_match(
     ]
 
 
-def test_retrieve_points_falls_back_to_points_endpoint_on_404(monkeypatch: MonkeyPatch) -> None:
+def test_retrieve_points_propagates_404_without_points_fallback(monkeypatch: MonkeyPatch) -> None:
     settings = load_settings()
     request_retrieve = httpx.Request("POST", "http://qdrant/collections/test/points/retrieve")
-    request_points = httpx.Request("POST", "http://qdrant/collections/test/points")
-    fake = _FakeClient(
-        [
-            httpx.Response(404, request=request_retrieve),
-            httpx.Response(200, request=request_points, json={"result": []}),
-        ]
-    )
+    fake = _FakeClient([httpx.Response(404, request=request_retrieve)])
+    _patch_qdrant_settings(monkeypatch, fake)
 
-    monkeypatch.setattr(qdrant, "base_url", lambda _settings: "http://qdrant")
-    monkeypatch.setattr(qdrant, "collection_name", lambda _settings: "test")
-    monkeypatch.setattr(qdrant, "headers", lambda _settings: {})
-    monkeypatch.setattr(qdrant, "client", lambda _settings, timeout: fake)
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
+        qdrant.retrieve_points(settings, [123], with_vector=True, with_payload=False)
 
-    payload = qdrant.retrieve_points(settings, [123], with_vector=True, with_payload=False)
-
-    assert payload == {"result": []}
-    assert fake.calls == [
-        "http://qdrant/collections/test/points/retrieve",
-        "http://qdrant/collections/test/points",
-    ]
+    assert excinfo.value.response.status_code == 404
+    assert fake.calls == ["http://qdrant/collections/test/points/retrieve"]
+    assert fake.bodies == [{"ids": [123], "with_vector": True, "with_payload": False}]
 
 
 def test_retrieve_points_uses_retrieve_endpoint_when_supported(
