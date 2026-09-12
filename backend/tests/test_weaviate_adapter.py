@@ -5,6 +5,9 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+from weaviate.classes.data import DataObject
+
 from app.config import Settings, load_settings
 from app.services.search import weaviate
 from app.services.search.vector_backends.weaviate_adapter import (
@@ -14,14 +17,25 @@ from app.services.search.vector_backends.weaviate_adapter import (
 )
 
 
+class FakeInsertManyReturn:
+    def __init__(self, has_errors: bool, errors: dict[int, object] | None = None) -> None:
+        self.has_errors = has_errors
+        self.errors = errors or {}
+        self.uuids: dict[int, object] = {}
+
+
 class FakeDataOps:
     def __init__(self) -> None:
         self.inserted: list[list[object]] = []
         self.deleted_ids: list[object] = []
         self.deleted_filters: list[object] = []
+        self.insert_many_error: str | None = None
 
-    def insert_many(self, objects: list[object]) -> None:
+    def insert_many(self, objects: list[object]) -> FakeInsertManyReturn:
         self.inserted.append(list(objects))
+        if self.insert_many_error is not None:
+            return FakeInsertManyReturn(True, {0: SimpleNamespace(message=self.insert_many_error)})
+        return FakeInsertManyReturn(False)
 
     def delete_by_id(self, point_id: object) -> None:
         self.deleted_ids.append(point_id)
@@ -169,9 +183,106 @@ def test_weaviate_adapter_upsert_points_splits_chunk_and_centroid(
 
     assert len(chunk_collection.data.inserted) == 1
     assert len(chunk_collection.data.inserted[0]) == 1
-    assert centroid_collection.data.deleted_ids == [_point_uuid("doc-7")]
+    assert centroid_collection.data.deleted_ids == []
     assert len(centroid_collection.data.inserted) == 1
     assert len(centroid_collection.data.inserted[0]) == 1
+
+
+def test_weaviate_adapter_upsert_points_raises_on_centroid_insert_failure(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+    centroid_collection.data.insert_many_error = "gRPC 14 unavailable: transient"
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="Weaviate insert_many failed") as excinfo:
+        adapter.upsert_points(
+            settings,
+            [
+                {
+                    "id": "doc-7",
+                    "vector": [0.3, 0.4],
+                    "payload": {"doc_id": 7, "chunk": -1, "source": "paperless", "type": "doc"},
+                },
+            ],
+        )
+
+    assert "gRPC 14 unavailable: transient" in str(excinfo.value)
+    assert centroid_collection.data.deleted_ids == []
+    assert len(centroid_collection.data.inserted) == 1
+    assert chunk_collection.data.inserted == []
+
+
+def test_weaviate_adapter_upsert_points_raises_on_chunk_insert_failure(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+    chunk_collection.data.insert_many_error = "property validation: page must be int"
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="collection=paperless_chunks_v2") as excinfo:
+        adapter.upsert_points(
+            settings,
+            [
+                {
+                    "id": "chunk-7-0",
+                    "vector": [0.1, 0.2],
+                    "payload": {"doc_id": 7, "chunk": 0, "source": "paperless", "text": "chunk text"},
+                },
+            ],
+        )
+
+    assert "property validation: page must be int" in str(excinfo.value)
+    assert centroid_collection.data.inserted == []
+
+
+def test_weaviate_adapter_upsert_points_centroid_upserts_by_uuid_without_delete(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.upsert_points(
+        settings,
+        [
+            {
+                "id": "doc-7",
+                "vector": [0.3, 0.4],
+                "payload": {"doc_id": 7, "chunk": -1, "source": "paperless", "type": "doc"},
+            },
+        ],
+    )
+    adapter.upsert_points(
+        settings,
+        [
+            {
+                "id": "doc-7",
+                "vector": [0.5, 0.6],
+                "payload": {"doc_id": 7, "chunk": -1, "source": "vision", "type": "doc"},
+            },
+        ],
+    )
+
+    assert centroid_collection.data.deleted_ids == []
+    assert len(centroid_collection.data.inserted) == 2
+    for batch in centroid_collection.data.inserted:
+        assert len(batch) == 1
+        assert isinstance(batch[0], DataObject)
+        assert batch[0].uuid == _point_uuid("doc-7")
 
 
 def test_weaviate_adapter_search_points_routes_doc_filter_to_centroids(
