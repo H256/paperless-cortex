@@ -10,16 +10,25 @@
     </p>
     <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
       <button
+        v-if="mode !== 'error'"
         class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
         @click="$emit('clearFilters')"
       >
         Clear filters
       </button>
       <button
+        v-if="mode !== 'error'"
         class="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
         @click="$emit('openProcessing')"
       >
         Continue processing
+      </button>
+      <button
+        v-if="mode === 'error'"
+        class="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+        @click="$emit('retry')"
+      >
+        Retry
       </button>
     </div>
   </section>
@@ -29,17 +38,19 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  mode?: 'filtered' | 'running_only' | 'empty'
+  mode?: 'filtered' | 'running_only' | 'empty' | 'error'
 }>()
 
 defineEmits<{
   clearFilters: []
   openProcessing: []
+  retry: []
 }>()
 
 const titleText = computed(() => {
   if (props.mode === 'running_only') return 'No running documents right now'
   if (props.mode === 'empty') return 'No documents available yet'
+  if (props.mode === 'error') return "Couldn't load documents"
   return 'No documents match current filters'
 })
 
@@ -49,6 +60,9 @@ const descriptionText = computed(() => {
   }
   if (props.mode === 'empty') {
     return 'Sync documents from Paperless or continue processing to build local intelligence data.'
+  }
+  if (props.mode === 'error') {
+    return 'The documents request failed. This is a connection or backend problem — nothing has been lost. Retry once the backend is reachable.'
   }
   return 'Adjust filters or continue processing to generate more results.'
 })

@@ -76,6 +76,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
     tags,
     correspondents,
     documentsLoading: listQuery.isPending,
+    documentsError: computed(() => listQuery.isError.value),
     refetchDocuments,
   }
 }

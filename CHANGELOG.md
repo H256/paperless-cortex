@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-13 (branch: agent/167-documents-list-error-state)
+
+### Documents list shows a distinct error state with retry instead of a false empty state
+- `uncommitted` fix(frontend): exposed the documents list query error state from [`frontend/src/composables/useDocumentsCatalog.ts`](frontend/src/composables/useDocumentsCatalog.ts) as `documentsError` (bound to the vue-query `isError` result), so a failed `listDocuments` request is distinguishable from a genuinely empty corpus — with `placeholderData: keepPreviousData` the list query keeps last-good data on a failed re-fetch, but an initial failure leaves `data` undefined while `isError` is true.
+- `uncommitted` fix(frontend): changed [`frontend/src/views/DocumentsView.vue`](frontend/src/views/DocumentsView.vue) so `emptyStateMode` gains an `'error'` branch (query failed and no documents loaded) that takes precedence over the `'empty'` branch while `'running_only'` still wins first, and wired the new empty-state `retry` event to the existing `load()` refetch path (which already toasts on failure).
+- `uncommitted` fix(frontend): added the `'error'` mode to [`frontend/src/components/DocumentsEmptyState.vue`](frontend/src/components/DocumentsEmptyState.vue) with a "Couldn't load documents" title, an explanation that this is a connection/backend problem and nothing was lost, and a Retry button, hiding the "Clear filters" and "Continue processing" buttons in error mode because they imply a data problem rather than a network problem.
+- `uncommitted` test(frontend): extended [`frontend/src/views/DocumentsView.integration.test.ts`](frontend/src/views/DocumentsView.integration.test.ts) with a case asserting the error UI (title + retry button, no empty-mode title, no filter/processing buttons) renders when the mocked catalog reports an error with no documents, that clicking Retry invokes the mocked refetch, and that the pre-existing empty scenario still renders "No documents available yet", plus a new composable test [`frontend/src/composables/useDocumentsCatalog.test.ts`](frontend/src/composables/useDocumentsCatalog.test.ts) driving the real vue-query lifecycle (retries disabled) against a failing `listDocuments` mock: the error state flips true with an empty list and a successful retry re-invokes the service and clears the error.
+- `uncommitted` test: verified `cd frontend && npx vitest run` (28 files / 87 tests passed; baseline 84 + 3 new), `cd frontend && npx vue-tsc --build` (clean), and `cd frontend && npx oxlint src/` (clean).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state

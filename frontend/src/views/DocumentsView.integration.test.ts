@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentsView: unknown
 const toastPush = vi.fn()
+const refetchDocumentsMock = vi.fn(async () => undefined)
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -51,6 +52,7 @@ const documents = ref([
     has_vision_pages: false,
   },
 ])
+const documentsError = ref(false)
 
 vi.mock('../composables/useDocumentsCatalog', () => ({
   useDocumentsCatalog: () => ({
@@ -67,7 +69,8 @@ vi.mock('../composables/useDocumentsCatalog', () => ({
     dateFrom: ref(''),
     dateTo: ref(''),
     documentsLoading: ref(false),
-    refetchDocuments: vi.fn(async () => undefined),
+    documentsError,
+    refetchDocuments: refetchDocumentsMock,
   }),
 }))
 
@@ -155,6 +158,7 @@ describe('DocumentsView', () => {
     ]
     route.query = {}
     route.fullPath = '/documents?page=3&view=cards'
+    documentsError.value = false
     vi.clearAllMocks()
   })
 
@@ -220,18 +224,51 @@ describe('DocumentsView', () => {
           DocumentsActiveFiltersStrip: true,
           DocumentsPresetBar: true,
           DocumentsQuickControls: true,
-          DocumentsEmptyState: {
-            template:
-              '<button data-test="empty-open-processing" @click="$emit(\'open-processing\')">open processing</button>',
-          },
           DocumentsTable: true,
         },
       },
     })
 
-    await wrapper.get('[data-test="empty-open-processing"]').trigger('click')
+    expect(wrapper.text()).toContain('No documents available yet')
+
+    const cta = wrapper.findAll('button').find((b) => b.text() === 'Continue processing')
+    if (!cta) {
+      throw new Error('Expected Continue processing button')
+    }
+    await cta.trigger('click')
 
     expect(router.push).toHaveBeenCalledWith('/processing/continue')
+  })
+
+  it('shows the error state with a retry button when the documents query fails without data', async () => {
+    documents.value = []
+    documentsError.value = true
+
+    const wrapper = mount(DocumentsView as never, {
+      global: {
+        stubs: {
+          DocumentsHeaderSection: true,
+          DocumentsFiltersPanel: true,
+          DocumentsActiveFiltersStrip: true,
+          DocumentsPresetBar: true,
+          DocumentsQuickControls: true,
+          DocumentsTable: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain("Couldn't load documents")
+    expect(wrapper.text()).not.toContain('No documents available yet')
+    expect(wrapper.text()).not.toContain('Clear filters')
+    expect(wrapper.text()).not.toContain('Continue processing')
+
+    const retryButton = wrapper.findAll('button').find((b) => b.text() === 'Retry')
+    if (!retryButton) {
+      throw new Error('Expected Retry button')
+    }
+    await retryButton.trigger('click')
+
+    expect(refetchDocumentsMock).toHaveBeenCalledTimes(1)
   })
 
   it('blocks invalid document ids from the list view', async () => {
