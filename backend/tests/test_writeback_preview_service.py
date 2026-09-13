@@ -4,6 +4,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import httpx
+import pytest
 
 from app.models import (
     Correspondent,
@@ -94,6 +95,7 @@ def test_preview_for_doc_ids_builds_changed_item_with_pending_values(
 def test_preview_for_doc_ids_uses_fallback_document_fetch(
     session_factory: Any, monkeypatch: MonkeyPatch
 ) -> None:
+    """Fallback rescue for a batch-missed document (404 isolated, then found by the per-doc fetch)."""
     from app.config import load_settings
     from app.services.integrations import paperless
 
@@ -102,8 +104,17 @@ def test_preview_for_doc_ids_uses_fallback_document_fetch(
         db.commit()
 
         called = {"fallback": 0}
-        monkeypatch.setattr(paperless, "get_documents_cached", lambda *_args, **_kwargs: {})
 
+        def _batch_miss(*_args: object, **_kwargs: object) -> dict[str, object]:
+            request = httpx.Request("GET", "http://paperless.local/api/documents/902/")
+            response = httpx.Response(404, request=request)
+            raise httpx.HTTPStatusError("not found", request=request, response=response)
+
+        monkeypatch.setattr(paperless, "get_document", _batch_miss)
+
+        # Concurrent-create contract: the document is missing at batch time (404, isolated by the
+        # real skip-not-found path) but exists when the per-doc fallback runs — reachable in
+        # production only via a create between the two fetches.
         def _fallback(*_args: object, **_kwargs: object) -> dict[str, object]:
             called["fallback"] += 1
             return {
@@ -120,7 +131,67 @@ def test_preview_for_doc_ids_uses_fallback_document_fetch(
         items = preview_for_doc_ids(load_settings(), db, [902])
         assert len(items) == 1
         assert items[0].doc_id == 902
+        assert items[0].title.original == "Remote 902"
+        assert items[0].changed is True
         assert called["fallback"] == 1
+
+
+def test_preview_for_doc_ids_isolates_404_document_in_multi_doc_batch(
+    session_factory: Any, monkeypatch: MonkeyPatch
+) -> None:
+    from app.config import load_settings
+    from app.services.integrations import paperless
+
+    with session_factory() as db:
+        db.add(Document(id=910, title="Local 910"))
+        db.add(Document(id=911, title="Local 911"))
+        db.commit()
+
+        calls: dict[int, int] = {}
+
+        def _batch_fetch(_settings: object, doc_id: int) -> dict[str, object]:
+            calls[int(doc_id)] = calls.get(int(doc_id), 0) + 1
+            if int(doc_id) == 910:
+                return {
+                    "id": 910,
+                    "title": "Remote 910",
+                    "created": None,
+                    "correspondent": None,
+                    "tags": [],
+                    "notes": [],
+                }
+            request = httpx.Request("GET", "http://paperless.local/api/documents/911/")
+            response = httpx.Response(404, request=request)
+            raise httpx.HTTPStatusError("not found", request=request, response=response)
+
+        monkeypatch.setattr(paperless, "get_document", _batch_fetch)
+
+        items = preview_for_doc_ids(load_settings(), db, [910, 911])
+        assert [item.doc_id for item in items] == [910]
+        assert items[0].title.original == "Remote 910"
+        assert calls[910] == 1
+        assert calls[911] == 2
+
+
+def test_preview_for_doc_ids_raises_on_non_404_batch_error(
+    session_factory: Any, monkeypatch: MonkeyPatch
+) -> None:
+    from app.config import load_settings
+    from app.services.integrations import paperless
+
+    with session_factory() as db:
+        db.add(Document(id=912, title="Local 912"))
+        db.commit()
+
+        def _batch_fetch(_settings: object, doc_id: int) -> dict[str, object]:
+            request = httpx.Request("GET", "http://paperless.local/api/documents/912/")
+            response = httpx.Response(500, request=request)
+            raise httpx.HTTPStatusError("server error", request=request, response=response)
+
+        monkeypatch.setattr(paperless, "get_document", _batch_fetch)
+
+        with pytest.raises(httpx.HTTPStatusError):
+            preview_for_doc_ids(load_settings(), db, [912])
 
 
 def test_preview_for_doc_ids_skips_missing_remote_documents(

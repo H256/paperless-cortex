@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-13 (branch: agent/174-preview-404-test)
+
+### Preview batch-404 tests exercise the real fetch path
+- `uncommitted` test(backend): rewrote `test_preview_for_doc_ids_uses_fallback_document_fetch` in [`backend/tests/test_writeback_preview_service.py`](backend/tests/test_writeback_preview_service.py) so the batch miss comes from the real `get_documents_cached` skip-not-found path (a per-doc `404` raised by the patched `get_document`) instead of a fabricated empty-batch mock, with the per-doc fallback patched to succeed, pinning the concurrent-create contract: a document missing at batch time is still previewed when the per-doc fetch finds it.
+- `uncommitted` test(backend): added `test_preview_for_doc_ids_isolates_404_document_in_multi_doc_batch` (a multi-doc batch in which one document 404s isolates that document — no exception, the remaining document is previewed, and the 404 document is excluded after the per-doc fallback also 404s) and `test_preview_for_doc_ids_raises_on_non_404_batch_error` (a `500` in the batch still aborts the preview, pinning that #108 isolation is 404-specific) to [`backend/tests/test_writeback_preview_service.py`](backend/tests/test_writeback_preview_service.py).
+- `uncommitted` test: verified `cd backend && uv run pytest -q tests/test_writeback_preview_service.py` (`8 passed`), `cd backend && uv run pytest -q tests/test_writeback_preview_service.py tests/test_http_client_pooling.py` (`13 passed`), `cd backend && uv run ruff check tests/test_writeback_preview_service.py` (clean), and `cd backend && uv run pytest -q` (`326 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
