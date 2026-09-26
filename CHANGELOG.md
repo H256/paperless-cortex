@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-26 (branch: agent/203-queue-force-flag)
+
+### Queue mode honors the force flag on the vision-embedding step
+- `uncommitted` fix(queue): changed [`backend/app/services/pipeline/queue_tasks.py`](backend/app/services/pipeline/queue_tasks.py) so the `embeddings_vision` task now carries `force` (matching the `vision_ocr` task), so a forced reprocess enqueued in queue mode no longer drops the force flag on the embedding step.
+- `uncommitted` fix(worker): changed [`backend/app/services/pipeline/worker_dispatch.py`](backend/app/services/pipeline/worker_dispatch.py) so the `embeddings_vision` handler reads `force` from the task payload and passes it to `process_embeddings_vision_fn`, and [`backend/app/services/pipeline/worker_document_tasks.py`](backend/app/services/pipeline/worker_document_tasks.py) so `process_embeddings_vision` accepts a `force` parameter and forwards it to `collect_page_texts(force_vision=force)`, making the queue-mode embedding step re-run full vision OCR when forced — identical to the inline `embed_documents` path instead of always reading cached vision pages.
+- `uncommitted` fix(worker): changed the `_process_embeddings_vision` wrapper in [`backend/app/worker.py`](backend/app/worker.py) to accept and forward the `force` parameter.
+- `uncommitted` test(backend): added [`backend/tests/test_queue_force_flag.py`](backend/tests/test_queue_force_flag.py) with `test_build_task_sequence_carries_force_on_embeddings_vision` (forced task sequence puts `force` on both `vision_ocr` and `embeddings_vision`), `test_build_task_sequence_default_force_is_false`, `test_dispatch_embeddings_vision_passes_force_to_handler` (a forced task payload reaches the handler with `force=True`), and `test_dispatch_embeddings_vision_defaults_force_to_false` (a task without `force` reaches the handler with `force=False`).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_queue_force_flag.py tests/test_worker_runtime.py -q` (`11 passed`), `cd backend && uv run pytest tests/test_sync_documents_routes.py tests/test_sync_routes_state.py tests/test_sync_operations_error_state.py tests/test_sync_operations_mark_missing.py tests/test_documents_actions_routes.py tests/test_worker_runtime.py tests/test_queue_task_runs_routes.py -q` (`31 passed`), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 files), and `cd backend && uv run pytest -q` (`328 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure). Two pre-existing `ruff` findings in `app/worker.py` (UP035, B023) are present on `master` and untouched by this change.
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state

@@ -41,7 +41,7 @@ def build_dispatch_handler(
             settings, db, doc_id, run_id=run_id
         ),
         "embeddings_vision": lambda: process_embeddings_vision_fn(
-            settings, db, doc_id, run_id=run_id
+            settings, db, doc_id, run_id=run_id, force=bool((task or {}).get("force"))
         ),
         "similarity_index": lambda: process_similarity_index_fn(settings, db, doc_id),
         "cleanup_texts": lambda: process_cleanup_texts_fn(
