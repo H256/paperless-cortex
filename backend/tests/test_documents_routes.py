@@ -1451,3 +1451,123 @@ def test_similar_documents_preserve_reviewed_status_from_remote_fields(
     assert match["id"] == 1777
     assert match["local_overrides"] is False
     assert match["review_status"] == "reviewed"
+
+
+def _mock_remote_document(monkeypatch: Any, doc_id: int, *, notes: list[dict[str, Any]]) -> None:
+    from app.services.integrations import paperless
+
+    remote = {
+        "id": doc_id,
+        "title": "Doc",
+        "created": "2026-02-10T10:00:00+00:00",
+        "modified": "2026-02-10T10:00:00+00:00",
+        "correspondent": None,
+        "tags": [],
+        "notes": notes,
+    }
+    monkeypatch.setattr(paperless, "get_document", lambda *a, **k: dict(remote))
+    monkeypatch.setattr(paperless, "get_document_cached", lambda *a, **k: dict(remote))
+    monkeypatch.setattr(
+        paperless, "get_documents_cached", lambda *a, **k: {doc_id: dict(remote)}
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *a, **k: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": remote["title"],
+                    "created": remote["created"],
+                    "modified": remote["modified"],
+                    "correspondent": remote["correspondent"],
+                    "tags": remote["tags"],
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents_cached",
+        lambda *a, **k: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": remote["title"],
+                    "created": remote["created"],
+                    "modified": remote["modified"],
+                    "correspondent": remote["correspondent"],
+                    "tags": remote["tags"],
+                }
+            ],
+        },
+    )
+
+
+def test_list_and_detail_review_status_consistent_ai_summary_override(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """A doc whose only local difference is an AI summary must show the same
+    review_status (needs_review) in both the list and detail endpoints."""
+    _insert_local_document(doc_id=47, title="Doc", created="2026-02-10T10:00:00+00:00")
+    _insert_local_note(
+        doc_id=47,
+        note="Local summary text\n\nModel:gpt\nKI-Zusammenfassung",
+        note_id=-47,
+    )
+    # Remote has no AI summary note -> local AI summary is an override.
+    _mock_remote_document(monkeypatch, 47, notes=[])
+
+    list_response = api_client.get(
+        "/documents", params={"include_derived": True, "review_status": "needs_review"}
+    )
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert list_payload["count"] == 1
+    assert list_payload["results"][0]["local_overrides"] is True
+    assert list_payload["results"][0]["review_status"] == "needs_review"
+
+    detail_response = api_client.get("/documents/47/local")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["local_overrides"] is True
+    assert detail_payload["review_status"] == "needs_review"
+    # List and detail must agree.
+    assert (
+        list_payload["results"][0]["review_status"] == detail_payload["review_status"]
+    )
+
+
+def test_list_and_detail_review_status_consistent_no_ai_summary(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """A reviewed doc with no overrides must show the same review_status
+    (reviewed) in both endpoints — the fix must not introduce false overrides."""
+    _insert_local_document(doc_id=48, title="Doc", created="2026-02-10T10:00:00+00:00")
+    _insert_suggestion_audit(doc_id=48, created_at="2026-02-11T10:00:00+00:00")
+    # Remote and local both lack an AI summary -> no override.
+    _mock_remote_document(monkeypatch, 48, notes=[])
+
+    list_response = api_client.get(
+        "/documents", params={"include_derived": True, "review_status": "reviewed"}
+    )
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert list_payload["count"] == 1
+    assert list_payload["results"][0]["local_overrides"] is False
+    assert list_payload["results"][0]["review_status"] == "reviewed"
+
+    detail_response = api_client.get("/documents/48/local")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["local_overrides"] is False
+    assert detail_payload["review_status"] == "reviewed"
+    assert (
+        list_payload["results"][0]["review_status"] == detail_payload["review_status"]
+    )

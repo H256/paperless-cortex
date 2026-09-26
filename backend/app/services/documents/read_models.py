@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import load_only, selectinload
 
@@ -9,6 +10,7 @@ from app.models import (
     Correspondent,
     Document,
     DocumentEmbedding,
+    DocumentNote,
     DocumentPageNote,
     DocumentPageText,
     DocumentPendingCorrespondent,
@@ -42,6 +44,29 @@ def reviewed_audit_filter() -> Any:
 
 def normalize_review_status(value: str | None) -> str:
     return value if value in {"all", "unreviewed", "reviewed", "needs_review"} else "all"
+
+
+def _ai_summary_pair(
+    local_notes: list[DocumentNote] | None,
+    remote_notes: list[dict[str, Any]] | None,
+) -> tuple[str | None, str | None]:
+    """Compute canonical local/remote AI summaries for override comparison.
+
+    Shared by the list and detail read paths so both derive the same
+    ``local_overrides`` signal from the same inputs.
+    """
+    local_ai_note = extract_ai_summary_note(
+        [{"id": note.id, "note": note.note} for note in (local_notes or [])]
+    )[1]
+    remote_ai_note = extract_ai_summary_note(
+        remote_notes if isinstance(remote_notes, list) else []
+    )[1]
+    local_ai_summary = canonical_ai_summary(local_ai_note)
+    remote_ai_summary = canonical_ai_summary(remote_ai_note)
+    return (
+        local_ai_summary if local_ai_summary else None,
+        remote_ai_summary if remote_ai_summary else None,
+    )
 
 
 def _document_rows(value: object) -> list[dict[str, object]]:
@@ -158,6 +183,7 @@ def apply_derived_fields_and_review_status(
     *,
     payload: dict[str, object],
     db: Session,
+    settings: Settings,
     include_derived: bool,
     include_summary_preview: bool,
     review_status: str,
@@ -199,12 +225,27 @@ def apply_derived_fields_and_review_status(
                 Document.analysis_processed_at,
             ),
             selectinload(Document.tags).load_only(Tag.id),
+            selectinload(Document.notes).load_only(DocumentNote.id, DocumentNote.note),
             selectinload(Document.correspondent).load_only(Correspondent.name),
         )
         .filter(Document.id.in_(doc_ids))
         .all()
     )
     local_by_id = {int(doc.id): doc for doc in local_docs}
+    cached_doc_ids = [doc_id for doc_id in doc_ids if doc_id in local_by_id]
+    remote_notes_by_doc: dict[int, list[dict[str, Any]]] = {}
+    if cached_doc_ids:
+        try:
+            remote_docs = paperless.get_documents_cached(
+                settings, cached_doc_ids, skip_not_found=True
+            )
+        except (RuntimeError, httpx.HTTPError):
+            remote_docs = {}
+        for remote_doc_id, remote_doc in remote_docs.items():
+            remote_notes = remote_doc.get("notes")
+            remote_notes_by_doc[int(remote_doc_id)] = (
+                remote_notes if isinstance(remote_notes, list) else []
+            )
     local_status_rows = (
         db.query(
             Document.id,
@@ -316,6 +357,9 @@ def apply_derived_fields_and_review_status(
                 if isinstance(tag_id, int)
             ] if isinstance(raw_tag_ids, list) else []
             remote_correspondent_id = doc.get("correspondent")
+            local_ai_summary, remote_ai_summary = _ai_summary_pair(
+                local_doc.notes, remote_notes_by_doc.get(doc_id, [])
+            )
             local_overrides = has_local_overrides(
                 local_title=local_doc.title,
                 remote_title=str(doc.get("title") or "") or None,
@@ -331,6 +375,8 @@ def apply_derived_fields_and_review_status(
                 local_tag_ids=local_tags,
                 remote_tag_ids=paperless_tags,
                 pending_tag_names=pending_tag_names,
+                local_ai_summary=local_ai_summary,
+                remote_ai_summary=remote_ai_summary,
             )
             if local_overrides:
                 doc["title"] = local_doc.title
@@ -513,14 +559,10 @@ def build_local_document_payload(
     local_issue_date = doc.document_date or doc.created
     remote_issue_date = remote_doc.get("created")
     remote_correspondent_id = remote_doc.get("correspondent")
-    _, local_ai_note = extract_ai_summary_note(
-        [{"id": note.id, "note": note.note} for note in (doc.notes or [])]
+    local_ai_summary, remote_ai_summary = _ai_summary_pair(
+        doc.notes,
+        remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else [],
     )
-    _, remote_ai_note = extract_ai_summary_note(
-        remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
-    )
-    local_ai_summary = canonical_ai_summary(local_ai_note)
-    remote_ai_summary = canonical_ai_summary(remote_ai_note)
     local_overrides = has_local_overrides(
         local_title=doc.title,
         remote_title=str(remote_doc.get("title") or "") or None,
