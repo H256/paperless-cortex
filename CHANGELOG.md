@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/217-unified-embedding-point-layout)
+
+### Inline sync embedding path now writes the doc-level point
+- `uncommitted` fix(search): changed `embed_documents` in [`backend/app/services/documents/sync_operations.py`](backend/app/services/documents/sync_operations.py) so the inline sync embedding path now collects the per-chunk vectors and upserts a doc-level point (`make_doc_point_id(doc.id)`, `chunk=-1`, `type=doc`, `source=embedding_source`, vector = `average_vectors(chunk_vectors)`), matching the layout already produced by the reprocess path (`ingest_embeddings_for_documents`) and the worker path (`worker_document_tasks.py`). Previously the inline sync path upserted only chunk points, so a document embedded via sync had no doc-level point and its point layout (and doc-level match/centroid, dedup, and ranking behavior) diverged from documents embedded via reprocess/maintenance.
+- `uncommitted` test(backend): added `test_embed_documents_writes_doc_level_point` to [`backend/tests/test_sync_operations_error_state.py`](backend/tests/test_sync_operations_error_state.py) — drives `embed_documents` with a stubbed `embed_text` and captures `upsert_points`, asserting a doc-level point is written for the document with the correct `make_doc_point_id`, `chunk=-1`, and the averaged vector.
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_sync_operations_error_state.py -q` (`5 passed`), `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure), `cd backend && uv run ruff check app/services/documents/sync_operations.py tests/test_sync_operations_error_state.py` (clean), and `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 files).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
