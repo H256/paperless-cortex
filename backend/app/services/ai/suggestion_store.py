@@ -5,11 +5,10 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete
-
 from app.models import Document, DocumentSuggestion, SuggestionAudit
 from app.services.ai.suggestions import normalize_suggestions_payload
 from app.services.documents.cache_invalidation import invalidate_document_caches
+from app.services.runtime.db_upsert import upsert_on_conflict
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
@@ -28,24 +27,21 @@ def upsert_suggestion(
     *,
     commit: bool = True,
 ) -> None:
-    db.execute(
-        delete(DocumentSuggestion).where(
-            DocumentSuggestion.doc_id == doc_id,
-            DocumentSuggestion.source == source,
-        )
-    )
     processed_at = processed_at or datetime.now(UTC).isoformat()
-    created_at = processed_at
-    db.add(
-        DocumentSuggestion(
-            doc_id=doc_id,
-            source=source,
-            payload=payload,
-            created_at=created_at,
-            model_name=model_name,
-            processed_at=processed_at,
-        )
+    upsert = upsert_on_conflict(
+        DocumentSuggestion,
+        {
+            "doc_id": doc_id,
+            "source": source,
+            "payload": payload,
+            "created_at": processed_at,
+            "model_name": model_name,
+            "processed_at": processed_at,
+        },
+        conflict_columns=["doc_id", "source"],
+        update_columns=["payload", "model_name", "processed_at"],
     )
+    upsert(db)
     doc = db.get(Document, doc_id)
     if doc:
         doc.analysis_model = model_name

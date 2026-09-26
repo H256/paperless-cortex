@@ -11,6 +11,7 @@ from app.services.ai.hierarchical_helpers import (
     _sanitize_model_output_text,
 )
 from app.services.documents.text_cleaning import estimate_tokens
+from app.services.runtime.db_upsert import upsert_on_conflict
 from app.services.runtime.time_utils import utc_now_iso
 
 if TYPE_CHECKING:
@@ -28,13 +29,6 @@ def upsert_page_note(
     error: str | None = None,
     model_name: str | None = None,
 ) -> None:
-    db.execute(
-        delete(DocumentPageNote).where(
-            DocumentPageNote.doc_id == doc_id,
-            DocumentPageNote.page == page,
-            DocumentPageNote.source == source,
-        )
-    )
     notes_text_value: str | None = None
     if isinstance(payload, dict):
         notes_text_value = _sanitize_model_output_text(str(payload.get("text") or ""))
@@ -43,19 +37,23 @@ def upsert_page_note(
     if notes_text_value:
         notes_text_value = notes_text_value[:12000]
     now = utc_now_iso()
-    db.add(
-        DocumentPageNote(
-            doc_id=doc_id,
-            page=page,
-            source=source,
-            notes_text=notes_text_value,
-            model_name=model_name,
-            status=status,
-            error=error,
-            created_at=now,
-            processed_at=now,
-        )
+    upsert = upsert_on_conflict(
+        DocumentPageNote,
+        {
+            "doc_id": doc_id,
+            "page": page,
+            "source": source,
+            "notes_text": notes_text_value,
+            "model_name": model_name,
+            "status": status,
+            "error": error,
+            "created_at": now,
+            "processed_at": now,
+        },
+        conflict_columns=["doc_id", "page", "source"],
+        update_columns=["notes_text", "model_name", "status", "error", "processed_at"],
     )
+    upsert(db)
     db.commit()
 
 
@@ -87,18 +85,27 @@ def replace_section_summaries(
         if not summary_text_value:
             summary_text_value = f"Section {section_key} summary unavailable."
         summary_text_value = summary_text_value[:12000]
-        db.add(
-            DocumentSectionSummary(
-                doc_id=doc_id,
-                section_key=section_key,
-                source=source,
-                summary_text=summary_text_value,
-                model_name=model_name,
-                status="ok",
-                created_at=now,
-                processed_at=now,
-            )
+        upsert = upsert_on_conflict(
+            DocumentSectionSummary,
+            {
+                "doc_id": doc_id,
+                "section_key": section_key,
+                "source": source,
+                "summary_text": summary_text_value,
+                "model_name": model_name,
+                "status": "ok",
+                "created_at": now,
+                "processed_at": now,
+            },
+            conflict_columns=["doc_id", "section_key", "source"],
+            update_columns=[
+                "summary_text",
+                "model_name",
+                "status",
+                "processed_at",
+            ],
         )
+        upsert(db)
     db.commit()
 
 
