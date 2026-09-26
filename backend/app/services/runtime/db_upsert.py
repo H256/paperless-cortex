@@ -12,7 +12,7 @@ def upsert_on_conflict(
     *,
     conflict_columns: list[str],
     update_columns: list[str] | None = None,
-) -> "_DialectAwareUpsert":
+) -> _DialectAwareUpsert:
     """Build an ``INSERT ... ON CONFLICT DO UPDATE`` statement for a model.
 
     Works on both SQLite and PostgreSQL (the two supported backends).
