@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import copy
-import time
 from collections.abc import Callable
-from threading import Lock
+
+from app.services.documents.cache import TtlLruCache
 
 DocumentsPageBuilder = Callable[[], dict[str, object]]
 DocumentsPageKey = tuple[
@@ -21,14 +21,12 @@ DocumentsPageKey = tuple[
 ]
 
 _CACHE_TTL_SECONDS = 15
-_CACHE_LOCK = Lock()
-_DOCUMENTS_LIST_CACHE: dict[str, object] = {"entries": {}, "timestamps": {}}
+_CACHE_MAXSIZE = 512
+_CACHE = TtlLruCache(ttl_seconds=_CACHE_TTL_SECONDS, maxsize=_CACHE_MAXSIZE)
 
 
 def invalidate_documents_list_cache() -> None:
-    with _CACHE_LOCK:
-        _DOCUMENTS_LIST_CACHE["entries"] = {}
-        _DOCUMENTS_LIST_CACHE["timestamps"] = {}
+    _CACHE.clear()
 
 
 def get_cached_documents_page(
@@ -36,25 +34,10 @@ def get_cached_documents_page(
     cache_key: DocumentsPageKey,
     build_payload: DocumentsPageBuilder,
 ) -> dict[str, object]:
-    now = time.time()
-    with _CACHE_LOCK:
-        entries_raw = _DOCUMENTS_LIST_CACHE.get("entries")
-        timestamps_raw = _DOCUMENTS_LIST_CACHE.get("timestamps")
-        entries = entries_raw if isinstance(entries_raw, dict) else {}
-        timestamps = timestamps_raw if isinstance(timestamps_raw, dict) else {}
-        cached_ts_raw = timestamps.get(cache_key)
-        cached_ts = float(cached_ts_raw) if isinstance(cached_ts_raw, int | float) else 0.0
-        cached_payload = entries.get(cache_key)
-        if isinstance(cached_payload, dict) and (now - cached_ts) < _CACHE_TTL_SECONDS:
-            return copy.deepcopy(cached_payload)
+    cached = _CACHE.get(cache_key)
+    if isinstance(cached, dict):
+        return copy.deepcopy(cached)
+
     payload = build_payload()
-    with _CACHE_LOCK:
-        entries_raw = _DOCUMENTS_LIST_CACHE.get("entries")
-        timestamps_raw = _DOCUMENTS_LIST_CACHE.get("timestamps")
-        entries = entries_raw if isinstance(entries_raw, dict) else {}
-        timestamps = timestamps_raw if isinstance(timestamps_raw, dict) else {}
-        entries[cache_key] = copy.deepcopy(payload)
-        timestamps[cache_key] = now
-        _DOCUMENTS_LIST_CACHE["entries"] = entries
-        _DOCUMENTS_LIST_CACHE["timestamps"] = timestamps
+    _CACHE.put(cache_key, copy.deepcopy(payload))
     return copy.deepcopy(payload)
