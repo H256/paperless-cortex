@@ -9,8 +9,10 @@ from app.models import Document, DocumentEmbedding, DocumentPageText, DocumentSu
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from app.config import Settings
 
-def compute_document_stats(db: Session) -> dict[str, int]:
+
+def compute_document_stats(db: Session, settings: Settings) -> dict[str, int]:
     active_document = or_(
         Document.deleted_at.is_(None),
         ~Document.deleted_at.like("DELETED in Paperless%"),
@@ -20,7 +22,10 @@ def compute_document_stats(db: Session) -> dict[str, int]:
         and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")
     )
     suggestion_exists = exists().where(DocumentSuggestion.doc_id == Document.id)
-    fully_processed_exists = and_(embedding_exists, vision_exists, suggestion_exists)
+    if settings.enable_vision_ocr:
+        fully_processed_exists = and_(embedding_exists, vision_exists, suggestion_exists)
+    else:
+        fully_processed_exists = and_(embedding_exists, suggestion_exists)
 
     stmt = select(
         func.count(Document.id).label("total"),

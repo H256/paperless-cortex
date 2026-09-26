@@ -18,23 +18,24 @@ from app.models import (
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from app.config import Settings
 
-def build_dashboard_payload(db: Session) -> dict[str, object]:
+
+def build_dashboard_payload(db: Session, settings: Settings) -> dict[str, object]:
     """Build the document operations dashboard payload from local aggregates."""
     active_document = or_(
         Document.deleted_at.is_(None),
         ~Document.deleted_at.like("DELETED in Paperless%"),
-    )
-    is_processed = and_(
-        exists().where(DocumentEmbedding.doc_id == Document.id),
-        exists().where(and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")),
-        exists().where(DocumentSuggestion.doc_id == Document.id),
     )
     embedding_exists = exists().where(DocumentEmbedding.doc_id == Document.id)
     vision_exists = exists().where(
         and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")
     )
     suggestion_exists = exists().where(DocumentSuggestion.doc_id == Document.id)
+    if settings.enable_vision_ocr:
+        is_processed = and_(embedding_exists, vision_exists, suggestion_exists)
+    else:
+        is_processed = and_(embedding_exists, suggestion_exists)
 
     aggregate_row = db.query(
         func.count(Document.id).label("total"),
