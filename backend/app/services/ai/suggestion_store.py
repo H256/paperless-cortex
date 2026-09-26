@@ -39,7 +39,7 @@ def upsert_suggestion(
             "processed_at": processed_at,
         },
         conflict_columns=["doc_id", "source"],
-        update_columns=["payload", "model_name", "processed_at"],
+        update_columns=["payload", "model_name", "created_at", "processed_at"],
     )
     upsert(db)
     doc = db.get(Document, doc_id)

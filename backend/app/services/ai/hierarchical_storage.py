@@ -51,7 +51,14 @@ def upsert_page_note(
             "processed_at": now,
         },
         conflict_columns=["doc_id", "page", "source"],
-        update_columns=["notes_text", "model_name", "status", "error", "processed_at"],
+        update_columns=[
+            "notes_text",
+            "model_name",
+            "status",
+            "error",
+            "created_at",
+            "processed_at",
+        ],
     )
     upsert(db)
     db.commit()
@@ -102,6 +109,7 @@ def replace_section_summaries(
                 "summary_text",
                 "model_name",
                 "status",
+                "created_at",
                 "processed_at",
             ],
         )

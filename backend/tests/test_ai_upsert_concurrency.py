@@ -181,14 +181,18 @@ def test_replace_section_summaries_survives_interleaved_same_key(session_factory
 def test_upsert_suggestion_idempotent_update_in_place(session_factory: Any) -> None:
     with session_factory() as db:
         _seed_document(db)
-        upsert_suggestion(db, 1, "src", '{"a":1}', model_name="m1")
+        upsert_suggestion(
+            db, 1, "src", '{"a":1}', model_name="m1", processed_at="2026-01-01T00:00:00+00:00"
+        )
         first_created = (
             db.query(DocumentSuggestion)
             .filter_by(doc_id=1, source="src")
             .one()
             .created_at
         )
-        upsert_suggestion(db, 1, "src", '{"a":2}', model_name="m2")
+        upsert_suggestion(
+            db, 1, "src", '{"a":2}', model_name="m2", processed_at="2026-02-01T00:00:00+00:00"
+        )
         row = (
             db.query(DocumentSuggestion)
             .filter_by(doc_id=1, source="src")
@@ -196,4 +200,7 @@ def test_upsert_suggestion_idempotent_update_in_place(session_factory: Any) -> N
         )
     assert row.payload == '{"a":2}'
     assert row.model_name == "m2"
-    assert row.created_at == first_created, "created_at must be preserved on update"
+    # created_at must advance on re-upsert (matches the old delete+insert reset
+    # semantics that the pipeline staleness check relies on).
+    assert row.created_at != first_created
+    assert row.created_at == "2026-02-01T00:00:00+00:00"

@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-26 (branch: agent/208-atomic-upsert)
+
+### AI upserts are atomic ON CONFLICT instead of delete-then-insert
+- `uncommitted` fix(ai): changed [`backend/app/services/ai/suggestion_store.py`](backend/app/services/ai/suggestion_store.py) so `upsert_suggestion` now issues a single `INSERT ... ON CONFLICT (doc_id, source) DO UPDATE` (via the new [`backend/app/services/runtime/db_upsert.py`](backend/app/services/runtime/db_upsert.py) helper) instead of a separate `DELETE` followed by `INSERT`, so a concurrent session upserting the same key can no longer interleave between the delete and insert and cause an unhandled `IntegrityError` that drops the task to the DLQ.
+- `uncommitted` fix(ai): changed [`backend/app/services/ai/hierarchical_storage.py`](backend/app/services/ai/hierarchical_storage.py) so `upsert_page_note` and `replace_section_summaries` use the same atomic ON CONFLICT upsert (per-row for section summaries, keeping the batch delete-then-upsert for the "replace all sections for a source" semantic) with the composite PKs as conflict targets.
+- `uncommitted` chore(ai): added [`backend/app/services/runtime/db_upsert.py`](backend/app/services/runtime/db_upsert.py), a small dialect-aware helper that builds `ON CONFLICT DO UPDATE` statements for both SQLite and PostgreSQL (the two supported backends) and picks the right one at execution time.
+- `uncommitted` test(backend): added [`backend/tests/test_ai_upsert_concurrency.py`](backend/tests/test_ai_upsert_concurrency.py) proving the old delete-then-insert pattern raises `IntegrityError` under an interleaved same-key insert, that the ON CONFLICT upsert survives the same interleaving with exactly one consistent row, and that a re-upsert updates in place while preserving `created_at`.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_ai_upsert_concurrency.py -q` (`5 passed`), `cd backend && uv run ruff check app/services/runtime/db_upsert.py app/services/ai/suggestion_store.py app/services/ai/hierarchical_storage.py tests/test_ai_upsert_concurrency.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/runtime/db_upsert.py app/services/ai/suggestion_store.py app/services/ai/hierarchical_storage.py tests/test_ai_upsert_concurrency.py` (no issues), and `cd backend && uv run pytest` (`329 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
 
 ### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
