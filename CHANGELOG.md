@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-03 (branch: agent/211-bounded-ttl-cache-eviction-reland)
+
+### Re-land: bounded, TTL-expiring LRU for the unbounded document caches (lost merge of issue #211 / AUDIT docs-002)
+- `uncommitted` fix(cache): the 2026-09-26 fix (commits `d99e523` + `2d3f99e`, branch `agent/211-bounded-ttl-cache-eviction`) was wiped by the master history reset, so `cache.py` is absent from master and the three module-level document caches again use raw unbounded dicts (no size bound, no LRU eviction) — memory grows without bound as distinct cache keys accumulate. Re-landed verbatim via `git cherry-pick d99e523 2d3f99e` onto current master (`5fd21ff`): `TtlLruCache` (`OrderedDict`-backed, thread-safe, size-bounded via LRU eviction, TTL-expiring on access, copy-on-read/write) is restored and backs `documents_list_cache`, `local_document_cache`, and `page_texts_cache`.
+- `uncommitted` test(backend): the cherry-pick carries the 2 regression test modules from the original commit — `tests/test_cache_helper.py` (10 tests: put/get roundtrip, TTL expiry on access, LRU maxsize eviction, deepcopy isolation, invalidation) and `tests/test_document_caches.py` (8 tests: per-cache size bounds + TTL eviction for the 3 refactored caches, plus boundedness regression tests for the 2 single-entry caches). Verified RED on base (helper absent), GREEN on branch.
+
 ## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
 
 ### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
@@ -468,6 +474,14 @@ All granular implementation slices and refactors are tracked here.
 - `test(frontend)`: added [`frontend/src/services/http.test.ts`](frontend/src/services/http.test.ts) covering error normalization (4xx with `detail`, 5xx fallback message, `error_code` passthrough, empty-body 2xx, network failure → `status:0`) and the retry policy (idempotent 503/network/timeout retry-then-succeed, non-idempotent POST not retried, intentional abort not retried, retry-budget exhaustion).
 - `test(frontend)`: verified `cd frontend && npm run type-check` (clean), `cd frontend && npm run lint` (0 warnings / 0 errors), and `cd frontend && npm run test:run` (`101 passed`, including the new `http.test.ts` 17 tests and the existing `chatStream.test.ts`).
 - `chore`: a grep gate confirms the only hand-written raw `fetch` call sites are `services/http.ts` (the client itself) and `services/chatStream.ts` (streaming); all JSON calls route through `requestJson`.
+
+## 2026-09-26 (branch: agent/211-bounded-ttl-cache-eviction)
+
+### Bounded, TTL-expiring LRU for the unbounded document caches
+- `uncommitted` fix(cache): added `TtlLruCache` to [`backend/app/services/documents/cache.py`](backend/app/services/documents/cache.py) — an `OrderedDict`-backed, thread-safe cache that is size-bounded (`maxsize`, LRU eviction on overflow) and TTL-expiring (expired entries purged on access), with copy-on-read/write to preserve the existing deepcopy semantics.
+- `uncommitted` fix(cache): backed the three unbounded module-level document caches with `TtlLruCache` so their entry count is now bounded and expired payloads are released on access — [`documents_list_cache.py`](backend/app/services/documents/documents_list_cache.py) (keyed by `(page, sort, filters)`), [`local_document_cache.py`](backend/app/services/documents/local_document_cache.py) (keyed by `doc_id`), and [`page_texts_cache.py`](backend/app/services/documents/page_texts_cache.py) (keyed by `doc_id`). Public API (`get_cached_*` / `invalidate_*`) and builder-call semantics are unchanged; the 2 single-entry caches (`dashboard_cache`, `document_stats_cache`) were already size-bounded and are left as-is.
+- `uncommitted` test(backend): added `tests/test_cache_helper.py` (10 tests: put/get roundtrip, TTL expiry on access, LRU maxsize eviction, deepcopy isolation, invalidation) and `tests/test_document_caches.py` (8 tests: per-cache size bounds + TTL eviction for the 3 refactored caches, plus boundedness regression tests for the 2 single-entry caches).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_cache_helper.py tests/test_document_caches.py -q` (`18 passed`), `cd backend && uv run ruff check app/services/documents/cache.py app/services/documents/local_document_cache.py app/services/documents/page_texts_cache.py app/services/documents/documents_list_cache.py tests/test_cache_helper.py tests/test_document_caches.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`342 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure; the 2 known pre-existing `app/worker.py` ruff errors are unrelated to this change).
 
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
