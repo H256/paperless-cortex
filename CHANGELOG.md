@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-26 (branch: agent/207-hier-summary-partial-loss)
+
+### Hierarchical summary replace no longer loses sections on partial failure
+- `uncommitted` fix(ai): changed `replace_section_summaries` in [`backend/app/services/ai/hierarchical_storage.py`](backend/app/services/ai/hierarchical_storage.py) to delete only the section rows being re-inserted (scoped by `section_key`) instead of wiping every row for the document/source, so a section whose LLM call failed and is therefore absent from the new `summaries` list keeps its previous summary rather than being permanently lost by the delete-all-then-insert cascade.
+- `uncommitted` test(backend): added [`backend/tests/test_hierarchical_summary_storage.py`](backend/tests/test_hierarchical_summary_storage.py) with `test_replace_section_summaries_keeps_previous_summary_for_failed_section` (a re-run that only re-provides one of two previously-summarized sections retains the other section's previous text — red on the old delete-all code, green after the fix) and `test_replace_section_summaries_replaces_all_provided_sections` (both provided sections are still updated, confirming the narrower delete did not regress the normal full-replace path).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_hierarchical_summary_storage.py -q` (`2 passed`), `cd backend && uv run ruff check app/services/ai/hierarchical_storage.py tests/test_hierarchical_summary_storage.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`326 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
