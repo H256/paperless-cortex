@@ -139,6 +139,7 @@ docker compose -f docker-compose.full.yml up --build
 ```
 **Important:** `LLM_BASE_URL` must be set in your `.env`. It is not set in `docker-compose.full.yml`.
 Docker uses `:8000` for the API and serves the frontend from the backend container unless you run the frontend dev server separately.
+The container entrypoint runs `alembic upgrade head` automatically on startup (with a short retry while Postgres comes up), so a fresh Postgres volume is migrated before the API/worker start — no manual migration step is needed.
 
 ### Worker-only container
 ```bash
