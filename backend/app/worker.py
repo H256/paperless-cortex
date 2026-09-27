@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import signal
 import socket
 import time
 from typing import TYPE_CHECKING, Callable
@@ -101,6 +102,9 @@ from app.services.runtime.logging_setup import (
 )
 
 if TYPE_CHECKING:
+    import threading
+    from types import FrameType
+
     from sqlalchemy.orm import Session
 
     from app.models import Document
@@ -360,6 +364,45 @@ def _build_dispatch_handler(
     )
 
 
+def _install_signal_handlers(
+    stop_event: threading.Event,
+    logger: logging.Logger,
+) -> list[signal.Signals]:
+    """Install SIGTERM/SIGINT handlers that set *stop_event* for a clean exit.
+
+    Without these handlers, a SIGTERM (container stop) or SIGINT (Ctrl-C) kills
+    the worker process immediately, mid-task, with no chance to finalize the
+    in-flight task or release the worker lock. The handlers set *stop_event* so
+    the main loop can exit at the next iteration and the ``finally`` block can
+    run ``shutdown_worker_runtime``.
+
+    Returns the list of signals that were actually installed. Signals that could
+    not be installed (e.g. running in a non-main thread) are skipped silently so
+    the worker degrades to the previous kill-on-signal behavior instead of
+    raising.
+    """
+    installed: list[signal.Signals] = []
+
+    def _handler(signum: int, _frame: FrameType | None) -> None:
+        log_event(logger, logging.INFO, "Worker received signal; stopping", signal=signum)
+        stop_event.set()
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(signum, _handler)
+            installed.append(signum)
+        except (ValueError, OSError):
+            # signal.signal raises ValueError outside the main thread; degrade
+            # gracefully rather than crash on startup.
+            log_event(
+                logger,
+                logging.DEBUG,
+                "Could not install signal handler",
+                signal=signum,
+            )
+    return installed
+
+
 def main() -> None:
     settings = load_settings()
     configure_logging(settings, service="worker")
@@ -372,8 +415,9 @@ def main() -> None:
         heartbeat_interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
         logger=logger,
     )
+    _install_signal_handlers(stop_event, logger)
     try:
-        while True:
+        while not stop_event.is_set():
             if lock_lost.is_set():
                 raise SystemExit("Worker lock lost; exiting")
             if run_worker_iteration_gate(
