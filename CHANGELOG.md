@@ -3,6 +3,9 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+
+## 2026-09-12 (branch: agent/160-weaviate-cosine-score)
+
 ## 2026-09-12 (branch: agent/164-qdrant-retrieve-404-fallback)
 
 ### Qdrant retrieve 404 propagates instead of failing upsert fallback
