@@ -5,7 +5,7 @@ import re
 
 _WS_RE = re.compile(r"[ \t]+")
 _MULTI_NL_RE = re.compile(r"\n{3,}")
-_PAGE_NUM_RE = re.compile(r"^\s*(seite|page)?\s*\d+\s*$", re.IGNORECASE)
+_PAGE_NUM_RE = re.compile(r"^\s*(seite|page)\s*\d+\s*$", re.IGNORECASE)
 _HTML_TAG_RE = re.compile(r"<\s*/?\s*[a-zA-Z][^>]*>")
 _HTML_ANY_RE = re.compile(r"<[^>]+>")
 _HTML_SCRIPT_STYLE_RE = re.compile(r"<\s*(script|style)\b[^>]*>.*?<\s*/\s*\1\s*>", re.IGNORECASE | re.DOTALL)

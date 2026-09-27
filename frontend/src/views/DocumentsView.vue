@@ -81,6 +81,7 @@
       :mode="emptyStateMode"
       @clear-filters="clearAllFilters"
       @open-processing="openPreview"
+      @retry="load"
     />
 
     <DocumentsTable
@@ -145,6 +146,7 @@ const {
   dateFrom,
   dateTo,
   documentsLoading,
+  documentsError,
   refetchDocuments,
 } = useDocumentsCatalog({ includeSummaryPreview })
 const {
@@ -175,8 +177,9 @@ const visibleDocuments = computed(() => {
     typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
   )
 })
-const emptyStateMode = computed<'filtered' | 'running_only' | 'empty'>(() => {
+const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>(() => {
   if (runningOnly.value) return 'running_only'
+  if (documentsError.value && documents.value.length === 0) return 'error'
   if (documents.value.length === 0) return 'empty'
   return 'filtered'
 })
