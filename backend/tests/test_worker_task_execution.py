@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from sqlalchemy.exc import OperationalError
+
 from app.config import load_settings
 from app.exceptions import WorkerError
 from app.models import TaskRun
+from app.services.pipeline import worker_task_execution
 from app.services.pipeline.worker_task_execution import execute_worker_task
 from app.services.runtime.metrics import snapshot_metrics
 
@@ -113,4 +116,60 @@ def test_execute_worker_task_dead_letters_non_retryable_vector_failure(
             and item["labels"].get("task") == "similarity_index"
             and item["labels"].get("outcome") == "failed"
             for item in metrics["timers"]
+        )
+
+
+def test_execute_worker_task_records_dead_letter_when_create_task_run_fails(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    """PL-002: if create_task_run raises a non-recoverable SQLAlchemyError,
+    the popped task must be recorded as a dead letter, not silently dropped."""
+    monkeypatch.setenv("WORKER_MAX_RETRIES", "2")
+    settings = load_settings()
+
+    def _raise_create_task_run(*_args: Any, **_kwargs: Any) -> Any:
+        raise OperationalError(
+            "INSERT INTO task_runs ...",
+            {},
+            RuntimeError("task_runs insert failed"),
+        )
+
+    monkeypatch.setattr(worker_task_execution, "create_task_run", _raise_create_task_run)
+
+    with session_factory() as db:
+        result = execute_worker_task(
+            settings=settings,
+            db=db,
+            worker_token="worker:test",
+            doc_id=93,
+            task_type="sync",
+            task={"doc_id": 93, "task": "sync"},
+            retry_attempt=0,
+            dispatch_worker_task_fn=lambda **_kwargs: None,
+            build_handler_fn=lambda *_args: None,
+            process_vision_ocr_force_fn=lambda *_args, **_kwargs: None,
+            process_full_doc_fn=lambda *_args, **_kwargs: None,
+            set_task_checkpoint_fn=lambda *_args, **_kwargs: None,
+            logger=logging.getLogger(__name__),
+        )
+
+        # The popped task must be recorded as lost, not silently dropped.
+        assert result["pending_retry_payload"] is None
+        assert result["pending_retry_delay_seconds"] is None
+        assert result["pending_dead_letter"] is not None
+        dead_letter = result["pending_dead_letter"]
+        assert dead_letter["task"] == {"doc_id": 93, "task": "sync"}
+        assert dead_letter["error_type"] == "WORKER_TASK_ERROR"
+        assert dead_letter["attempt"] == 1
+
+        # No TaskRun row was created (the write failed before commit).
+        rows = db.query(TaskRun).filter(TaskRun.doc_id == 93).all()
+        assert rows == []
+
+        metrics = snapshot_metrics()
+        assert any(
+            item["name"] == "worker_task_dead_letters_total"
+            and item["labels"].get("task") == "sync"
+            and item["labels"].get("error_type") == "WORKER_TASK_ERROR"
+            for item in metrics["counters"]
         )
