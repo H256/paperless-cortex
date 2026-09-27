@@ -211,8 +211,15 @@ def ocr_pdf_pages(
         raise RuntimeError("VISION_MODEL not set")
     ensure_vision_llm_ready(settings, require_model=False)
     prompt = load_prompt(settings)
+    if settings.vision_ocr_max_dim <= 0:
+        logger.warning(
+            "Vision OCR image-size capping disabled (VISION_OCR_MAX_DIM=%s); "
+            "pages render at full resolution and may produce large payloads",
+            settings.vision_ocr_max_dim,
+        )
     results: list[PageText] = []
     count = 0
+    truncated = False
     for page in iter_pdf_pages(
         pdf_bytes,
         page_numbers,
@@ -220,6 +227,7 @@ def ocr_pdf_pages(
         target_dim=settings.vision_ocr_target_dim,
     ):
         if 0 < settings.vision_ocr_max_pages <= count:
+            truncated = True
             break
         text = _vision_generate(
             settings,
@@ -232,6 +240,12 @@ def ocr_pdf_pages(
         )
         results.append(PageText(page=page.page_index + 1, text=text, source="vision_ocr"))
         count += 1
+    if truncated:
+        logger.warning(
+            "Vision OCR truncated at page cap processed=%s max_pages=%s",
+            count,
+            settings.vision_ocr_max_pages,
+        )
     logger.info(
         "Vision OCR rendering count=%s max_dim=%s target_dim=%s",
         count,

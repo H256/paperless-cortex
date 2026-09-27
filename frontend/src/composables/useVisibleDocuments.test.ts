@@ -29,17 +29,15 @@ describe('useVisibleDocuments', () => {
   it('filters analyzed docs', () => {
     const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('analyzed')
     const modelFilter = ref('')
-    const searchQuery = ref('')
-    const { visibleDocuments } = useVisibleDocuments(docs, analysisFilter, modelFilter, searchQuery)
+    const { visibleDocuments } = useVisibleDocuments(docs, analysisFilter, modelFilter)
     expect(visibleDocuments.value).toHaveLength(1)
     expect(visibleDocuments.value[0]?.id).toBe(1)
   })
 
-  it('filters by model and search query', () => {
+  it('filters by model', () => {
     const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
     const modelFilter = ref('gpt')
-    const searchQuery = ref('invoice')
-    const { visibleDocuments } = useVisibleDocuments(docs, analysisFilter, modelFilter, searchQuery)
+    const { visibleDocuments } = useVisibleDocuments(docs, analysisFilter, modelFilter)
     expect(visibleDocuments.value).toHaveLength(1)
     expect(visibleDocuments.value[0]?.title).toBe('Invoice A')
   })

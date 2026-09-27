@@ -91,20 +91,20 @@ def post_sync_followup_tasks(doc_id: int, *, settings: Settings, options: Pipeli
     if options.include_embeddings:
         if options.embeddings_mode == "paperless":
             if options.include_embeddings_paperless:
-                tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+                tasks.append({"doc_id": normalized, "task": "embeddings_paperless", "embeddings_mode": "paperless"})
         elif options.embeddings_mode == "vision":
             if options.include_embeddings_vision and use_vision:
-                tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
+                tasks.append({"doc_id": normalized, "task": "embeddings_vision", "embeddings_mode": "vision"})
         elif options.embeddings_mode == "both":
             if options.include_embeddings_paperless:
-                tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+                tasks.append({"doc_id": normalized, "task": "embeddings_paperless", "embeddings_mode": "both"})
             if options.include_embeddings_vision and use_vision:
-                tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
+                tasks.append({"doc_id": normalized, "task": "embeddings_vision", "embeddings_mode": "both"})
         else:
             if use_vision and options.include_embeddings_vision:
-                tasks.append({"doc_id": normalized, "task": "embeddings_vision"})
+                tasks.append({"doc_id": normalized, "task": "embeddings_vision", "embeddings_mode": "vision"})
             elif options.include_embeddings_paperless:
-                tasks.append({"doc_id": normalized, "task": "embeddings_paperless"})
+                tasks.append({"doc_id": normalized, "task": "embeddings_paperless", "embeddings_mode": "paperless"})
     if options.include_doc_similarity_index and options.include_embeddings:
         tasks.append({"doc_id": normalized, "task": "similarity_index"})
 
@@ -333,10 +333,11 @@ def evaluate_doc_pipeline(
             elif wants_paperless_embeddings:
                 needs_embeddings_paperless = not has_paperless_embedding
     needs_embeddings = bool(needs_embeddings_paperless or needs_embeddings_vision)
+    effective_mode = (options.embeddings_mode or "auto").strip().lower()
     if needs_embeddings_paperless:
-        tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless"})
+        tasks.append({"doc_id": int(doc.id), "task": "embeddings_paperless", "embeddings_mode": effective_mode})
     if needs_embeddings_vision:
-        tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision"})
+        tasks.append({"doc_id": int(doc.id), "task": "embeddings_vision", "embeddings_mode": effective_mode})
     has_embedding = bool(embedding_source)
     similarity_stale = similarity_indexed_at is None or (embedded_at is not None and similarity_indexed_at < embedded_at)
     needs_doc_similarity_index = bool(
