@@ -134,6 +134,7 @@ def list_documents(
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
     modified__gte: str | None = None,
+    q: str | None = None,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
     if ordering:
@@ -148,6 +149,8 @@ def list_documents(
         params["document_date__lte"] = document_date__lte
     if modified__gte:
         params["modified__gte"] = modified__gte
+    if q:
+        params["q"] = q
     with client(settings) as http:
         response = http.get("/documents/", params=params)
         response.raise_for_status()
@@ -423,5 +426,13 @@ def add_document_note(settings: Settings, doc_id: int, note: str) -> dict[str, A
 def delete_document_note(settings: Settings, doc_id: int, note_id: int) -> None:
     with client(settings) as http:
         response = http.delete(f"/documents/{doc_id}/notes/", params={"id": note_id})
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # A 404 means the note is already gone (e.g. a replayed writeback job
+            # after a partial failure where the DELETE applied but a later call
+            # failed). Treat it as success so the re-run stays idempotent and can
+            # complete instead of failing permanently on the stale DELETE.
+            if _http_status_code(exc) != 404:
+                raise
     invalidate_document_cache(int(doc_id))

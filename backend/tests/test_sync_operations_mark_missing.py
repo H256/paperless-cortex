@@ -170,3 +170,101 @@ def test_run_documents_sync_full_walk_mark_missing_still_marks(session_factory: 
         assert doc is not None
         assert doc.deleted_at is not None
         assert doc.deleted_at.startswith("DELETED in Paperless")
+
+
+def test_run_documents_sync_empty_remote_list_mark_missing_does_not_mass_delete(
+    session_factory: Any,
+) -> None:
+    """An empty remote walk must not mark every local document deleted.
+
+    Regression for BT-007: with ``mark_missing`` and a remote list that returns
+    no documents, ``seen_ids`` stays empty and ``~Document.id.in_([])`` would
+    otherwise match the entire local library. The guard skips the mark-missing
+    pass so the local documents keep their state.
+    """
+    settings = load_settings()
+    _insert_local_document(session_factory, 5301, "Local Doc A")
+    _insert_local_document(session_factory, 5302, "Local Doc B")
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        assert page == 1
+        return _page_payload(0, None, [])
+
+    db = session_factory()
+    try:
+        result = run_documents_sync(
+            db=db,
+            settings=settings,
+            page_size=50,
+            incremental=False,
+            embed=False,
+            page=1,
+            page_only=False,
+            force_embed=False,
+            mark_missing=True,
+            insert_only=False,
+            list_documents_fn=_list_documents,
+            build_task_sequence_fn=lambda *args, **kwargs: [],
+            enqueue_task_sequence_fn=lambda *args, **kwargs: None,
+        )
+    finally:
+        db.close()
+
+    # The mark-missing pass is skipped, so nothing is marked deleted.
+    assert result["marked_deleted"] == 0
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as verify_db:
+        for doc_id in (5301, 5302):
+            doc = verify_db.get(Document, doc_id)
+            assert doc is not None
+            assert doc.deleted_at is None
+
+
+def test_run_documents_sync_reduced_remote_list_mark_missing_marks_only_missing(
+    session_factory: Any,
+) -> None:
+    """A non-empty reduced remote list marks only the unseen local document."""
+    settings = load_settings()
+    _insert_local_document(session_factory, 5401, "Unseen Local Doc")
+    _insert_local_document(session_factory, 5402, "Seen Local Doc")
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        assert page == 1
+        return _page_payload(1, None, [_doc_payload(5402, "Seen Remote Doc", "remote content")])
+
+    db = session_factory()
+    try:
+        result = run_documents_sync(
+            db=db,
+            settings=settings,
+            page_size=50,
+            incremental=False,
+            embed=False,
+            page=1,
+            page_only=False,
+            force_embed=False,
+            mark_missing=True,
+            insert_only=False,
+            list_documents_fn=_list_documents,
+            build_task_sequence_fn=lambda *args, **kwargs: [],
+            enqueue_task_sequence_fn=lambda *args, **kwargs: None,
+        )
+    finally:
+        db.close()
+
+    assert result["marked_deleted"] == 1
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as verify_db:
+        missing = verify_db.get(Document, 5401)
+        seen = verify_db.get(Document, 5402)
+        assert missing is not None
+        assert missing.deleted_at is not None
+        assert missing.deleted_at.startswith("DELETED in Paperless")
+        assert seen is not None
+        assert seen.deleted_at is None
