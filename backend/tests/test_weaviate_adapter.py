@@ -552,6 +552,79 @@ def test_score_threshold_to_distance_handles_edge_values() -> None:
     assert _score_threshold_to_distance(1.0) == 0.0
 
 
+def test_weaviate_adapter_ensure_collection_raises_on_dimension_drift(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[SimpleNamespace(vector=[0.0] * 3)]
+    )
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="has size 3, but embedding size is 7"):
+        adapter.ensure_collection(settings, vector_size=7)
+
+
+def test_weaviate_adapter_ensure_collection_accepts_matching_dimension(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    fake_client.collections.existing.add("paperless_chunks_v2_centroids")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[SimpleNamespace(vector=[0.0] * 7)]
+    )
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.ensure_collection(settings, vector_size=7)
+
+    # No new collection was created (both pre-existing and verified).
+    assert fake_client.collections.created == []
+
+
+def test_weaviate_adapter_ensure_collection_allows_empty_preexisting_collection(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    fake_client.collections.existing.add("paperless_chunks_v2_centroids")
+    # Default fetch_response has no objects -> nothing to verify.
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.ensure_collection(settings, vector_size=7)
+
+    assert fake_client.collections.created == []
+
+
+def test_weaviate_adapter_ensure_collection_reads_named_vector_dimension(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    # weaviate v4 returns named vectors as a dict; use the first value's length.
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[SimpleNamespace(vector={"content": [0.0] * 5})]
+    )
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="has size 5, but embedding size is 7"):
+        adapter.ensure_collection(settings, vector_size=7)
 def test_weaviate_adapter_result_object_reports_true_cosine_similarity() -> None:
     raw_half = SimpleNamespace(
         properties={"point_id": "doc-9", "doc_id": 9, "chunk": -1, "source": "paperless", "type": "doc"},
@@ -611,3 +684,4 @@ def test_weaviate_adapter_search_points_score_threshold_keeps_only_intended_set(
     assert centroid_collection.query.near_vector_calls[0]["distance"] == 0.25
     assert [item["id"] for item in result["result"]] == ["doc-1"]
     assert result["result"][0]["score"] == 0.9
+
