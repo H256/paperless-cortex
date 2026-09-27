@@ -779,32 +779,34 @@ def test_pending_new_tags_force_needs_review(api_client: Any, monkeypatch: Any) 
 def test_list_documents_filter_without_correspondent(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
-    monkeypatch.setattr(
-        paperless,
-        "list_documents",
-        lambda *args, **kwargs: {
-            "count": 2,
-            "next": None,
-            "previous": None,
-            "results": [
-                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
-                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
-            ],
-        },
+    # The no-correspondent filter is pushed into the local SQL query, so the
+    # upstream Paperless list must NOT be consulted.
+    paperless_called = {"list": False, "cached": False}
+
+    def _record_list(*args: Any, **kwargs: Any) -> dict[str, object]:
+        paperless_called["list"] = True
+        return {"count": 0, "next": None, "previous": None, "results": []}
+
+    def _record_cached(*args: Any, **kwargs: Any) -> dict[str, object]:
+        paperless_called["cached"] = True
+        return {"count": 0, "next": None, "previous": None, "results": []}
+
+    monkeypatch.setattr(paperless, "list_documents", _record_list)
+    monkeypatch.setattr(paperless, "list_documents_cached", _record_cached)
+
+    # One doc without a correspondent, one with, and one soft-deleted without
+    # a correspondent (must be excluded by the active-document predicate).
+    _insert_local_document(doc_id=11, title="No Corr", created="2026-02-10T10:00:00+00:00")
+    _insert_local_document(
+        doc_id=12, title="Has Corr", created="2026-02-10T10:00:00+00:00", correspondent_id=3
     )
-    monkeypatch.setattr(
-        paperless,
-        "list_documents_cached",
-        lambda *args, **kwargs: {
-            "count": 2,
-            "next": None,
-            "previous": None,
-            "results": [
-                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
-                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
-            ],
-        },
-    )
+    _insert_local_document(doc_id=13, title="Deleted No Corr", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        deleted = db.get(Document, 13)
+        assert deleted is not None
+        deleted.deleted_at = "DELETED in Paperless (copy kept) @ 2026-02-10T11:00:00+00:00"
+        db.commit()
 
     response = api_client.get("/documents", params={"correspondent__id": -1})
     assert response.status_code == 200
@@ -813,6 +815,8 @@ def test_list_documents_filter_without_correspondent(api_client: Any, monkeypatc
     assert len(payload["results"]) == 1
     assert payload["results"][0]["id"] == 11
     assert payload["results"][0]["correspondent"] is None
+    # Pushdown proof: the upstream collection was never walked.
+    assert paperless_called == {"list": False, "cached": False}
 
 
 def test_document_pipeline_fanout_returns_ordered_items(api_client: Any, monkeypatch: Any) -> None:
