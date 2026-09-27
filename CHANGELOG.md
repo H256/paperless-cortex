@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/178-mark-missing-mass-delete-guard)
+
+### Sync mark_missing no longer mass-deletes the local library on an empty remote walk
+- `uncommitted` fix(sync): changed [`backend/app/services/documents/sync_operations.py`](backend/app/services/documents/sync_operations.py) so the `mark_missing` pass in `run_documents_sync` only runs when the remote document walk observed at least one document (`seen_ids` non-empty). Previously, with `mark_missing` and a remote list that returned no documents, `seen_ids` stayed empty and `~Document.id.in_([])` matched every local `Document`, so the entire local library was marked `DELETED in Paperless`. The empty-walk case now skips the mark-missing pass and logs a warning, leaving local documents untouched (an empty walk is ambiguous — a transient API gap vs. a truly emptied library).
+- `uncommitted` test(backend): added `test_run_documents_sync_empty_remote_list_mark_missing_does_not_mass_delete` (empty remote walk leaves all local documents unmarked, `marked_deleted == 0`) and `test_run_documents_sync_reduced_remote_list_mark_missing_marks_only_missing` (non-empty reduced list marks only the unseen local document, leaving seen documents untouched) to [`backend/tests/test_sync_operations_mark_missing.py`](backend/tests/test_sync_operations_mark_missing.py). The empty-list test fails on the pre-fix code (`marked_deleted == 2`) and passes after the guard.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_sync_operations_mark_missing.py tests/test_sync_documents_routes.py tests/test_process_missing_service.py tests/test_sync_operations_error_state.py -q` (`16 passed`), `cd backend && uv run ruff check app/services/documents/sync_operations.py tests/test_sync_operations_mark_missing.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/sync_operations.py` (no issues), and `cd backend && uv run pytest -q` (`326 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
 ## 2026-09-27 (branch: agent/110-writeback-replay-idempotent-delete)
 
 ### Writeback note DELETE is idempotent on 404 (replay-safe)

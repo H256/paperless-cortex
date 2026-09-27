@@ -446,7 +446,7 @@ def run_documents_sync(
         state.status = "idle"
         db.commit()
         marked_deleted = 0
-        if mark_missing_allowed:
+        if mark_missing_allowed and seen_ids:
             timestamp = datetime.now(UTC).isoformat()
             missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
             for doc in missing_docs:
@@ -456,6 +456,14 @@ def run_documents_sync(
                 marked_deleted += 1
             if marked_deleted:
                 db.commit()
+        elif mark_missing_allowed:
+            # An empty remote walk is ambiguous (transient API gap vs. a truly
+            # emptied library). Marking every local document deleted on `in_([])`
+            # would mass-delete the whole library, so skip and surface the cause.
+            logger.warning(
+                "mark_missing skipped: remote document walk returned no documents; "
+                "refusing to mass-delete the local library on an empty list"
+            )
         embedded = 0
         if embed and embed_queue:
             if settings.queue_enabled:
