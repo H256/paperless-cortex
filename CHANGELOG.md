@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-26 (branch: agent/176-worker-restart-recovery)
+
+### Worker restart recovers in-flight dedup keys (issue 176)
+- `uncommitted` fix(worker): added `recover_inflight_dedup_keys` to [`backend/app/services/pipeline/queue.py`](backend/app/services/pipeline/queue.py) so a task that was popped via `blpop` and then lost to a worker crash (dedup member left in `QUEUE_SET` with no payload in `QUEUE_KEY`/`DELAYED_QUEUE_KEY`) is re-queued on the next worker startup instead of being skipped forever by `_enqueue_task` (`sadd` → False). Recovery reconstructs the task from the `RUNNING_TASK_KEY` marker when parseable (preserving the original payload), falls back to parsing the dedup key, skips members whose payload is still in the queue or delayed queue, and stays a no-op while the previous worker's heartbeat is still fresh (a live worker cleans up its own dedup key via `finalize_worker_task`).
+- `uncommitted` fix(worker): wired the recovery into [`backend/app/services/pipeline/worker_queue_runtime.py`](backend/app/services/pipeline/worker_queue_runtime.py) — `acquire_worker_runtime` now calls `recover_inflight_dedup_keys` before `clear_running_task` (order matters: the marker is read by the recovery and then cleared).
+- `uncommitted` test(backend): added [`backend/tests/test_worker_restart_recovery.py`](backend/tests/test_worker_restart_recovery.py) with a fake-Redis crash/restart suite: crashed in-flight task is re-queued (recovered == 1, dedup member preserved for dedup), original task payload preserved when the marker survives, key-reconstruction fallback when the marker is gone (field/source suffixes), healthy queued + delayed tasks are not double-queued, fresh-previous-worker heartbeat skips recovery, no-op without dedup members, `acquire_worker_runtime` runs the recovery before clearing the marker, and the re-queued payload is accepted by the worker's `parse_worker_queue_item` blpop contract.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_worker_restart_recovery.py -q` (`8 passed`), `cd backend && uv run pytest -q -k "worker or queue"` (`66 passed`), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`332 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
 ## 2026-09-26 (branch: agent/214-page-number-regex-prefix)
 
 ### Page-number regex keeps the seite/page prefix required
