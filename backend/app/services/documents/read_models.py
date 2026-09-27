@@ -93,9 +93,91 @@ def has_local_overrides(
     return (local_ai_summary or "") != (remote_ai_summary or "")
 
 
+def _active_document_filter() -> Any:
+    """Mirror the upstream 'active document' predicate (not deleted in Paperless)."""
+    return or_(
+        Document.deleted_at.is_(None),
+        ~Document.deleted_at.like("DELETED in Paperless%"),
+    )
+
+
+def _order_by_for_local_list(ordering: str | None) -> Any:
+    """Map a Paperless-style ordering spec onto the local Document columns."""
+    field = (ordering or "").lstrip("-")
+    desc = (ordering or "").startswith("-")
+    column: Any = {
+        "id": Document.id,
+        "title": Document.title,
+        "created": Document.created,
+        "modified": Document.modified,
+        "added": Document.added,
+        "document_date": Document.document_date,
+    }.get(field, Document.id)
+    return column.desc() if desc else column.asc()
+
+
+def _list_no_correspondent_from_local(
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    ordering: str | None,
+) -> dict[str, object]:
+    """Serve the no-correspondent list from the local mirror.
+
+    The ``correspondent IS NULL`` condition is pushed into the SQL query
+    (indexed by ``ix_documents_correspondent_id``) instead of fetching the
+    whole upstream collection and filtering in memory.
+    """
+    normalized_page = max(1, page)
+    normalized_size = max(1, page_size)
+    base = (
+        db.query(Document)
+        .options(
+            load_only(
+                Document.id,
+                Document.title,
+                Document.created,
+                Document.modified,
+                Document.added,
+                Document.document_date,
+                Document.correspondent_id,
+            ),
+            selectinload(Document.tags).load_only(Tag.id),
+        )
+        .filter(Document.correspondent_id.is_(None), _active_document_filter())
+    )
+    total = base.count()
+    rows = (
+        base.order_by(_order_by_for_local_list(ordering))
+        .offset((normalized_page - 1) * normalized_size)
+        .limit(normalized_size)
+        .all()
+    )
+    results = [
+        {
+            "id": int(doc.id),
+            "title": doc.title,
+            "created": doc.created,
+            "correspondent": None,
+            "tags": [int(tag.id) for tag in doc.tags],
+        }
+        for doc in rows
+    ]
+    start = max(0, (normalized_page - 1) * normalized_size)
+    end = start + normalized_size
+    return {
+        "count": total,
+        "next": None if end >= total else "filtered",
+        "previous": None if start <= 0 else "filtered",
+        "results": results,
+    }
+
+
 def list_documents_from_paperless(
     settings: Settings,
     *,
+    db: Session | None = None,
     page: int,
     page_size: int,
     ordering: str | None,
@@ -107,6 +189,15 @@ def list_documents_from_paperless(
 ) -> dict[str, object]:
     missing_correspondent_only = correspondent__id == -1
     effective_correspondent = None if missing_correspondent_only else correspondent__id
+
+    if (
+        review_status == "all"
+        and missing_correspondent_only
+        and db is not None
+    ):
+        return _list_no_correspondent_from_local(
+            db, page=page, page_size=page_size, ordering=ordering
+        )
 
     if review_status == "all" and not missing_correspondent_only:
         return paperless.list_documents(

@@ -7,8 +7,7 @@ from fastapi import HTTPException
 
 from app.api_models import WritebackDirectExecuteResponse
 from app.models import SuggestionAudit
-from app.services.documents.documents_list_cache import invalidate_documents_list_cache
-from app.services.documents.local_document_cache import invalidate_local_document_cache
+from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.writeback.writeback_direct import (
     build_writeback_conflicts,
     execute_direct_selection,
@@ -60,8 +59,7 @@ def direct_execute_response(
         )
         db.commit()
         invalidate_writeback_preview_cache()
-        invalidate_documents_list_cache()
-        invalidate_local_document_cache(int(doc_id))
+        invalidate_document_caches(int(doc_id))
         return WritebackDirectExecuteResponse(
             status="no_changes",
             docs_changed=0,
@@ -131,8 +129,7 @@ def direct_execute_response(
         )
     db.commit()
     invalidate_writeback_preview_cache()
-    invalidate_documents_list_cache()
-    invalidate_local_document_cache(int(doc_id))
+    invalidate_document_caches(int(doc_id))
     return WritebackDirectExecuteResponse(
         status="completed",
         docs_changed=len(item.changed_fields),
