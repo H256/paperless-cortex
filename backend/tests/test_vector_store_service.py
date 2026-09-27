@@ -79,3 +79,37 @@ def test_vector_store_delegates_similarity_delete_to_qdrant(monkeypatch: Any) ->
     vector_store.delete_similarity_points(settings, doc_id=7)
 
     assert calls == [(7, "qdrant")]
+
+
+def test_vector_store_delegates_source_scoped_doc_delete_to_qdrant(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "qdrant")
+    monkeypatch.setenv("QDRANT_COLLECTION", "paperless_chunks")
+    settings = load_settings()
+    calls: list[tuple[int, str | list[str] | None]] = []
+
+    monkeypatch.setattr(
+        vector_store.qdrant_adapter,
+        "delete_points_for_doc",
+        lambda _settings, *, doc_id, source=None: calls.append((doc_id, source)),
+    )
+
+    vector_store.delete_points_for_doc(settings, doc_id=7, source=["a", "b"])
+
+    assert calls == [(7, ["a", "b"])]
+
+
+def test_vector_store_delegates_source_scoped_doc_delete_to_weaviate(monkeypatch: Any) -> None:
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate")
+    settings = load_settings()
+    calls: list[tuple[int, str | list[str] | None]] = []
+
+    monkeypatch.setattr(
+        vector_store.weaviate_adapter,
+        "delete_points_for_doc",
+        lambda _settings, *, doc_id, source=None: calls.append((doc_id, source)),
+    )
+
+    vector_store.delete_points_for_doc(settings, doc_id=7, source="vision_ocr")
+
+    assert calls == [(7, "vision_ocr")]
