@@ -5,7 +5,6 @@ export const useVisibleDocuments = (
   documents: Ref<DocumentRow[]>,
   analysisFilter: Ref<'all' | 'analyzed' | 'not_analyzed'>,
   modelFilter: Ref<string>,
-  searchQuery: Ref<string>,
 ) => {
   const hasDerived = (doc: DocumentRow) =>
     Boolean(doc.has_embeddings || doc.has_suggestions || doc.has_vision_pages)
@@ -24,13 +23,7 @@ export const useVisibleDocuments = (
           .includes(needle),
       )
     }
-    const searchNeedle = searchQuery.value.trim().toLowerCase()
-    if (!searchNeedle) return filtered
-    return filtered.filter((doc) =>
-      `${String(doc.id ?? '')} ${String(doc.title ?? '')} ${String(doc.correspondent_name ?? '')} ${String(doc.content ?? '')}`
-        .toLowerCase()
-        .includes(searchNeedle),
-    )
+    return filtered
   })
 
   return { visibleDocuments }

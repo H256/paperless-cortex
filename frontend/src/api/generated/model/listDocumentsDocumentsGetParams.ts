@@ -13,6 +13,7 @@ correspondent__id?: number | null;
 tags__id?: number | null;
 document_date__gte?: string | null;
 document_date__lte?: string | null;
+q?: string | null;
 include_derived?: boolean;
 include_summary_preview?: boolean;
 review_status?: string;
