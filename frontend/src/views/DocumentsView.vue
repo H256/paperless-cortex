@@ -145,6 +145,7 @@ const {
   selectedReviewStatus,
   dateFrom,
   dateTo,
+  searchQuery,
   documentsLoading,
   documentsError,
   refetchDocuments,
@@ -162,13 +163,11 @@ const {
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
-const searchQuery = ref('')
 const runningOnly = ref(false)
 const { visibleDocuments: filteredDocuments } = useVisibleDocuments(
   documents,
   analysisFilter,
   modelFilter,
-  searchQuery,
 )
 const { runningByDocId } = useRunningTaskProgress()
 const visibleDocuments = computed(() => {

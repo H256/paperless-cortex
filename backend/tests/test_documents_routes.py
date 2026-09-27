@@ -819,6 +819,57 @@ def test_list_documents_filter_without_correspondent(api_client: Any, monkeypatc
     assert paperless_called == {"list": False, "cached": False}
 
 
+def test_list_documents_forwards_q_param(api_client: Any, monkeypatch: Any) -> None:
+    """A search query must be forwarded to the upstream Paperless call."""
+    from app.services.integrations import paperless
+
+    captured: dict[str, Any] = {}
+
+    def _fake_list_documents(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 101,
+                    "title": "Matching Doc",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "tags": [],
+                },
+            ],
+        }
+
+    monkeypatch.setattr(paperless, "list_documents", _fake_list_documents)
+
+    response = api_client.get("/documents", params={"q": "matching"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["results"][0]["id"] == 101
+    # The search query must be forwarded to the upstream Paperless call.
+    assert captured.get("q") == "matching"
+
+
+def test_list_documents_omits_q_when_absent(api_client: Any, monkeypatch: Any) -> None:
+    """No search query means no `q` param is forwarded upstream."""
+    from app.services.integrations import paperless
+
+    captured: dict[str, Any] = {}
+
+    def _fake_list_documents(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"count": 0, "next": None, "previous": None, "results": []}
+
+    monkeypatch.setattr(paperless, "list_documents", _fake_list_documents)
+
+    response = api_client.get("/documents", params={"include_derived": True})
+    assert response.status_code == 200
+    # `q` should not be present (or should be None) when no query is supplied.
+    assert captured.get("q") is None
+
+
 def test_document_pipeline_fanout_returns_ordered_items(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
