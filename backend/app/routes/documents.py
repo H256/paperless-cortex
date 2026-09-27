@@ -173,6 +173,7 @@ def list_documents(
 
         payload = list_documents_from_paperless(
             settings,
+            db=db,
             page=page,
             page_size=page_size,
             ordering=ordering,
