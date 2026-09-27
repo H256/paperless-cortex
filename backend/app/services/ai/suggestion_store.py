@@ -9,6 +9,7 @@ from sqlalchemy import delete
 
 from app.models import Document, DocumentSuggestion, SuggestionAudit
 from app.services.ai.suggestions import normalize_suggestions_payload
+from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
@@ -88,6 +89,7 @@ def update_suggestion_field(
     )
     db.add(audit)
     db.commit()
+    invalidate_document_caches(doc_id)
     return payload
 
 

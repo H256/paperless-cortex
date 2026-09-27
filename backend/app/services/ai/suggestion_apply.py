@@ -14,6 +14,7 @@ from app.models import (
     Tag,
 )
 from app.services.ai.suggestion_operations import format_ai_summary_note
+from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.documents.note_ids import next_local_note_id
 from app.services.runtime.string_list_json import (
     dumps_normalized_string_list,
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
     from app.models import Document
 
 InvalidateAll = Callable[[], None]
-InvalidateDoc = Callable[[int | None], None]
 
 
 def apply_suggestion_to_document_payload(
@@ -40,8 +40,6 @@ def apply_suggestion_to_document_payload(
     value: object,
     get_document_or_none_fn: Callable[[Session, int], Document | None],
     audit_suggestion_run_fn: Callable[[Session, int, str, str], None],
-    invalidate_documents_list_cache_fn: InvalidateAll | None = None,
-    invalidate_local_document_cache_fn: InvalidateDoc | None = None,
     invalidate_writeback_preview_cache_fn: InvalidateAll | None = None,
 ) -> dict[str, object]:
     def find_suggestion_meta() -> tuple[str | None, str | None]:
@@ -211,10 +209,7 @@ def apply_suggestion_to_document_payload(
     if updated:
         audit_suggestion_run_fn(db, doc_id, source or "manual", f"apply_to_document:{field}")
         db.commit()
-        if invalidate_documents_list_cache_fn is not None:
-            invalidate_documents_list_cache_fn()
-        if invalidate_local_document_cache_fn is not None:
-            invalidate_local_document_cache_fn(doc_id)
+        invalidate_document_caches(doc_id)
         if invalidate_writeback_preview_cache_fn is not None:
             invalidate_writeback_preview_cache_fn()
         return {"status": "ok", "updated": True, **details}

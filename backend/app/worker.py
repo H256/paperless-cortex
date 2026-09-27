@@ -280,6 +280,7 @@ def _process_evidence_index(
 def _process_embeddings_vision(
     settings, db: Session, doc_id: int, run_id: int | None = None,
     embeddings_mode: str = "",
+    force: bool = False,
 ) -> None:
     _service_process_embeddings_vision(
         settings,
@@ -288,6 +289,7 @@ def _process_embeddings_vision(
         is_cancel_requested_fn=is_cancel_requested,
         run_id=run_id,
         embeddings_mode=embeddings_mode,
+        force=force,
     )
 
 
