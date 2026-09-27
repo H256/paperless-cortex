@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-26 (branch: agent/173-lifecycle-rerun-idempotency)
+
+### Writeback execute-pending re-run idempotency test (WB-001)
+- `uncommitted` test(backend): added `test_writeback_job_lifecycle_rerun_after_partial_failure_is_idempotent` to [`backend/tests/test_writeback_jobs_routes.py`](backend/tests/test_writeback_jobs_routes.py), closing audit finding BT-002 (leaves WB-001 undetected). The test creates one completing and one failing writeback job, runs `POST /writeback/jobs/execute-pending` (571 completes, 572 fails), snapshots the per-doc `update_document`/`add_document_note` call counts, then re-runs `execute-pending` and asserts the second pass is a no-op: `processed == 0`, no `job_ids`, and every Paperless call count frozen (no re-patch of the completed doc, no retry of the failed job, no duplicate notes). This pins the real behavior — `execute_pending_jobs_response` filters `WritebackJob.status == "pending"` and jobs become terminal `completed`/`failed` after a run, so failed jobs are not auto-retried (the audit's "failed job retried once" guess does not hold; a failed job is only re-executed via the explicit per-job `execute` route or a new pending job).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_writeback_jobs_routes.py -q` (`26 passed`), `cd backend && uv run ruff check tests/test_writeback_jobs_routes.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml tests/test_writeback_jobs_routes.py` (no issues), and `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
 ## 2026-09-26 (branch: agent/203-queue-force-flag)
 
 ### Queue mode honors the force flag on the vision-embedding step
