@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 from weaviate.classes.config import Configure, DataType, Property
 from weaviate.classes.data import DataObject
 from weaviate.classes.query import Filter, MetadataQuery
+from weaviate.exceptions import WeaviateBaseError
 
 from app.services.search import weaviate
 
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from weaviate import WeaviateClient
+    from weaviate.collections.classes.batch import BatchObjectReturn
     from weaviate.collections.collection.sync import Collection
 
     from app.config import Settings
@@ -91,6 +93,19 @@ def _to_data_object(point: dict[str, Any]) -> DataObject[dict[str, Any], None]:
     )
 
 
+def _fail_on_insert_errors(result: BatchObjectReturn, collection_name: str) -> None:
+    if not result.has_errors:
+        return
+    details = "; ".join(
+        f"[{index}] {str(error.message)[:200]}"
+        for index, error in sorted(result.errors.items())[:3]
+    )
+    raise RuntimeError(
+        f"Weaviate insert_many failed collection={collection_name} "
+        f"failed={len(result.errors)} detail={details[:500]}"
+    )
+
+
 def _combine_or(filters: list[Any]) -> Any | None:
     if not filters:
         return None
@@ -150,7 +165,11 @@ def _result_object(raw: Any, *, include_vector: bool = False) -> dict[str, Any]:
         for key in ("doc_id", "chunk", "text", "page", "source", "quality_score", "bbox", "type")
         if key in properties
     }
-    score = 1.0 / (1.0 + float(distance)) if isinstance(distance, int | float) else None
+    # Weaviate collections use the default Cosine metric, so the reported
+    # distance is 1 - cos(a, b) and the true cosine similarity is
+    # 1 - distance. Clamp to [0, 1] so scores stay on the same scale as
+    # Qdrant's cosine scores (self-provided vectors are not re-normalized).
+    score = min(1.0, max(0.0, 1.0 - float(distance))) if isinstance(distance, int | float) else None
     result: dict[str, Any] = {
         "id": properties.get("point_id") or str(getattr(raw, "uuid", "")),
         "payload": payload,
@@ -174,7 +193,10 @@ def _score_threshold_to_distance(score_threshold: float | None) -> float | None:
         return None
     if score_threshold >= 1:
         return 0.0
-    return max(0.0, (1.0 / float(score_threshold)) - 1.0)
+    # Weaviate Cosine distance is 1 - cos(a, b), so a minimum-cosine score
+    # threshold maps to a maximum-distance cap of 1 - threshold, matching
+    # Qdrant score_threshold semantics.
+    return min(1.0, max(0.0, 1.0 - float(score_threshold)))
 
 
 class WeaviateVectorStoreAdapter:
@@ -263,16 +285,33 @@ class WeaviateVectorStoreAdapter:
         chunk_points = [point for point in points if point not in centroid_points]
         with weaviate.client(settings) as client:
             if chunk_points:
-                _chunk_collection(client, settings).data.insert_many(
-                    [_to_data_object(point) for point in chunk_points]
-                )
+                chunk_collection = _chunk_collection(client, settings)
+                try:
+                    batch_result = chunk_collection.data.insert_many(
+                        [_to_data_object(point) for point in chunk_points]
+                    )
+                except WeaviateBaseError as exc:
+                    raise RuntimeError(
+                        f"Weaviate insert_many failed "
+                        f"collection={weaviate.chunk_collection_name(settings)}: {str(exc)[:500]}"
+                    ) from exc
+                _fail_on_insert_errors(batch_result, weaviate.chunk_collection_name(settings))
             if centroid_points:
                 centroid_collection = _centroid_collection(client, settings)
-                for point in centroid_points:
-                    centroid_collection.data.delete_by_id(_point_uuid(point["id"]))
-                centroid_collection.data.insert_many(
-                    [_to_data_object(point) for point in centroid_points]
-                )
+                # Pure upsert: insert_many with explicit deterministic UUIDs replaces any
+                # existing object with the same UUID (weaviate v1 batch semantics, pinned
+                # weaviate-client 4.20.4), so no pre-delete is required and the old
+                # centroid survives a failed insert.
+                try:
+                    centroid_result = centroid_collection.data.insert_many(
+                        [_to_data_object(point) for point in centroid_points]
+                    )
+                except WeaviateBaseError as exc:
+                    raise RuntimeError(
+                        f"Weaviate insert_many failed "
+                        f"collection={weaviate.centroid_collection_name(settings)}: {str(exc)[:500]}"
+                    ) from exc
+                _fail_on_insert_errors(centroid_result, weaviate.centroid_collection_name(settings))
 
     def delete_all_chunk_points(self, settings: Settings) -> None:
         self.ensure_ready(settings)

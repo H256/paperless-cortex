@@ -602,6 +602,82 @@ def clear_running_task(settings: Settings) -> None:
         return
 
 
+def _reconstruct_task_from_key(key: str) -> dict | None:
+    parts = str(key).split(":")
+    try:
+        doc_id = int(parts[0])
+    except (TypeError, ValueError):
+        return None
+    task: dict = {"doc_id": doc_id, "task": parts[1] if len(parts) > 1 else "full"}
+    if len(parts) > 2:
+        task["source"] = parts[2]
+    if len(parts) > 3:
+        task["field"] = parts[3]
+    return task
+
+
+def recover_inflight_dedup_keys(settings: Settings) -> int:
+    """Re-queue dedup set members whose payload is in neither queue.
+
+    A task popped via blpop and then lost to a worker crash leaves its dedup
+    member in QUEUE_SET with no payload in QUEUE_KEY or DELAYED_QUEUE_KEY;
+    without this pass ``_enqueue_task`` would skip it forever (sadd -> False),
+    so the task is silently dropped. Call on worker startup after acquiring
+    the lock. Skips recovery while the previous worker's heartbeat is still
+    fresh (a live worker's finalize cleans up its own dedup key).
+    """
+    client = _get_client(settings)
+    if not client:
+        return 0
+    try:
+        members = client.smembers(QUEUE_SET)
+        if not members:
+            return 0
+        heartbeat_raw = client.get(WORKER_HEARTBEAT_KEY)
+        if heartbeat_raw is not None:
+            age = max(0, int(time.time()) - int(heartbeat_raw))
+            if age <= WORKER_HEARTBEAT_TTL:
+                return 0
+        queued = [str(payload) for payload in client.lrange(QUEUE_KEY, 0, -1)]
+        delayed = [str(payload) for payload in client.zrange(DELAYED_QUEUE_KEY, 0, -1)]
+        alive: set[str] = set()
+        for payload in queued + delayed:
+            try:
+                parsed = json.loads(payload)
+            except JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                alive.add(task_key(parsed))
+        running_task: dict | None = None
+        running_raw = client.get(RUNNING_TASK_KEY)
+        if running_raw:
+            try:
+                parsed = json.loads(str(running_raw))
+            except JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("task"), dict):
+                running_task = parsed["task"]
+        recovered = 0
+        for member in members:
+            member = str(member)
+            if member in alive:
+                continue
+            task: dict | None
+            if running_task is not None and task_key(running_task) == member:
+                task = dict(running_task)
+            else:
+                task = _reconstruct_task_from_key(member)
+            if task is None:
+                continue
+            client.rpush(QUEUE_KEY, json.dumps(task))
+            recovered += 1
+        if recovered:
+            logger.info("Recovered in-flight tasks=%s after worker restart", recovered)
+    except (RedisError, RuntimeError, TypeError, ValueError):
+        return 0
+    return recovered
+
+
 def get_running_task(settings: Settings) -> dict[str, object]:
     client = _get_client(settings)
     if not client:
