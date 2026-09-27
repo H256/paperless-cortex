@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/153-worker-disabled-exit)
+
+### Worker entrypoint fails loudly when the queue is disabled
+- `uncommitted` fix(infra): changed [`docker/worker_entrypoint.sh`](docker/worker_entrypoint.sh) so the guard for `QUEUE_ENABLED != 1` now exits non-zero (`exit 1`) and writes a diagnostic to stderr instead of `exit 0`, so a worker container started against a `.env` copied from `.env.example` (`QUEUE_ENABLED=0`) is flagged as failed by `restart: unless-stopped` instead of sitting silently as `Exited (0)` while processing zero tasks. `app.worker` already exits non-zero for the same condition; the shell guard previously shadowed it.
+- `uncommitted` docs: added a note to the "Worker-only container" section of [`README.md`](README.md) stating that `docker-compose.worker.yml` requires `QUEUE_ENABLED=1` and that a disabled queue now surfaces as a failing container.
+- `uncommitted` test(backend): added [`backend/tests/test_worker_entrypoint_disabled_exit.py`](backend/tests/test_worker_entrypoint_disabled_exit.py) — `test_worker_entrypoint_exits_nonzero_when_queue_disabled` (QUEUE_ENABLED=0 → non-zero exit + stderr message), `test_worker_entrypoint_exits_nonzero_when_queue_unset` (unset → non-zero exit), and `test_worker_entrypoint_passes_guard_when_queue_enabled` (QUEUE_ENABLED=1 → the "will not start" guard is cleared).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_worker_entrypoint_disabled_exit.py -q` (`3 passed`; TDD RED confirmed — with the old `exit 0` the two non-zero assertions fail), `cd backend && uv run ruff check tests/test_worker_entrypoint_disabled_exit.py` (clean), `sh -n docker/worker_entrypoint.sh` (OK), `cd backend && uv run mypy --config-file pyproject.toml` (no issues, 196 files), and `cd backend && uv run pytest -q` (`327 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
 ## 2026-09-27 (branch: agent/206-concurrent-sync-guard)
 
 ### Concurrent document syncs are guarded by an atomic claim
