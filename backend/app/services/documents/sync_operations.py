@@ -20,14 +20,22 @@ from app.models import (
 from app.services.documents.note_ids import next_local_note_id
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.integrations import paperless
-from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.pipeline.sync_state import (
+    claim_documents_sync,
+    ensure_started,
+    get_or_create_state,
+    mark_running,
+)
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
+    average_vectors,
     chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
+    make_doc_point_id,
     make_point_id,
+    record_source_chunk_count,
     upsert_points,
 )
 
@@ -301,9 +309,11 @@ def embed_documents(
             chunks = baseline_chunks + vision_chunks
             logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
             doc_points: list[dict[str, object]] = []
+            doc_vectors: list[list[float]] = []
             for idx, chunk in enumerate(chunks):
                 chunk_text_value = str(chunk["text"])
                 vector = embed_text(settings, chunk_text_value)
+                doc_vectors.append(vector)
                 doc_points.append(
                     {
                         "id": make_point_id(doc.id, idx, embedding_source),
@@ -319,6 +329,21 @@ def embed_documents(
                         },
                     }
                 )
+            if doc_vectors:
+                doc_vector = average_vectors(doc_vectors)
+                if doc_vector:
+                    doc_points.append(
+                        {
+                            "id": make_doc_point_id(doc.id),
+                            "vector": doc_vector,
+                            "payload": {
+                                "doc_id": doc.id,
+                                "chunk": -1,
+                                "type": "doc",
+                                "source": embedding_source,
+                            },
+                        }
+                    )
             if doc_points:
                 upsert_points(settings, doc_points)
                 points.extend(doc_points)
@@ -329,11 +354,22 @@ def embed_documents(
             existing.embedding_model = settings.embedding_model
             existing.embedded_at = datetime.now(UTC).isoformat()
             previous_source = str(existing.embedding_source or "").strip().lower()
-            if previous_source == "both" or (previous_source and previous_source != embedding_source):
+            is_both = bool(
+                previous_source == "both"
+                or (previous_source and previous_source != embedding_source)
+            )
+            previous_total = int(existing.chunk_count or 0)
+            if is_both:
                 existing.embedding_source = "both"
             else:
                 existing.embedding_source = embedding_source
-            existing.chunk_count = len(chunks)
+            record_source_chunk_count(
+                existing,
+                source=embedding_source,
+                count=len(chunks),
+                both=is_both,
+                previous_total=previous_total,
+            )
             embedded += 1
             processed += 1
             state.processed = processed
@@ -370,6 +406,15 @@ def run_documents_sync(
     enqueue_task_sequence_fn: TaskEnqueuer,
 ) -> ResponseDict:
     """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
+    if not claim_documents_sync(db):
+        # A document sync is already in flight; skip without touching its state.
+        return {
+            "count": 0,
+            "upserted": 0,
+            "incremental": incremental,
+            "embedded": 0,
+            "status": "running",
+        }
     normalized_page = max(1, page)
     mark_missing_allowed = (
         mark_missing and not incremental and not page_only and normalized_page == 1

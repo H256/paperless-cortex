@@ -68,6 +68,7 @@ vi.mock('../composables/useDocumentsCatalog', () => ({
     selectedReviewStatus: ref('all'),
     dateFrom: ref(''),
     dateTo: ref(''),
+    searchQuery: ref(''),
     documentsLoading: ref(false),
     documentsError,
     refetchDocuments: refetchDocumentsMock,

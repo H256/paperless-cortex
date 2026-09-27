@@ -30,6 +30,7 @@ EmbedTextFn = Callable[[Settings, str], list[float]]
 MakePointIdFn = Callable[[int, int, str | None], int | str]
 MakeDocPointIdFn = Callable[[int], int | str]
 UpsertPointsFn = Callable[[Settings, list[PointPayload]], object]
+RecordSourceChunkCountFn = Callable[..., None]
 SearchPointsFn = Callable[..., dict[str, object]]
 
 
@@ -105,6 +106,7 @@ def ingest_embeddings_for_documents(
     make_point_id_fn: MakePointIdFn,
     make_doc_point_id_fn: MakeDocPointIdFn,
     upsert_points_fn: UpsertPointsFn,
+    record_source_chunk_count_fn: RecordSourceChunkCountFn,
 ) -> ResponseDict:
     """Run inline embedding ingest for a document batch and persist progress state."""
     if not documents:
@@ -224,11 +226,22 @@ def ingest_embeddings_for_documents(
         existing.embedding_model = settings.embedding_model
         existing.embedded_at = datetime.now(UTC).isoformat()
         previous_source = str(existing.embedding_source or "").strip().lower()
-        if previous_source == "both" or (previous_source and previous_source != embedding_source):
+        is_both = bool(
+            previous_source == "both"
+            or (previous_source and previous_source != embedding_source)
+        )
+        previous_total = int(existing.chunk_count or 0)
+        if is_both:
             existing.embedding_source = "both"
         else:
             existing.embedding_source = embedding_source
-        existing.chunk_count = len(chunks)
+        record_source_chunk_count_fn(
+            existing,
+            source=embedding_source,
+            count=len(chunks),
+            both=is_both,
+            previous_total=previous_total,
+        )
         embedded += 1
         processed += 1
         state.processed = processed
