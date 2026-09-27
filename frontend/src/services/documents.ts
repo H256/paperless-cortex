@@ -1,4 +1,5 @@
 import { unwrap } from '../api/orval'
+import { requestJson } from './http'
 import {
   cleanupTextsDocumentsCleanupTextsPost,
   enqueueDocumentTaskDocumentsDocIdOperationsEnqueueTaskPost,
@@ -323,15 +324,10 @@ export const continueDocumentPipeline = (id: number, payload: ContinuePipelinePa
 
 export const deleteSimilarityIndex = async (docId?: number): Promise<DeleteSimilarityIndexResult> => {
   const params = typeof docId === 'number' ? `?doc_id=${encodeURIComponent(String(docId))}` : ''
-  const response = await fetch(`/api/documents/delete/similarity-index${params}`, {
-    method: 'POST',
-  })
-  const body = await response.text()
-  const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : {}
-  if (!response.ok) {
-    const detail = typeof parsed.detail === 'string' ? parsed.detail : `HTTP ${response.status}`
-    throw new Error(detail)
-  }
+  const parsed = await requestJson<Record<string, unknown>>(
+    `/api/documents/delete/similarity-index${params}`,
+    { method: 'POST' },
+  )
   return {
     deleted: Number(parsed.deleted ?? 0),
     qdrant_deleted: Number(parsed.qdrant_deleted ?? 0),
@@ -340,15 +336,9 @@ export const deleteSimilarityIndex = async (docId?: number): Promise<DeleteSimil
 }
 
 export const findMissingVectorChunks = async (limit = 100): Promise<MissingVectorChunkAuditResult> => {
-  const response = await fetch(
+  const parsed = await requestJson<Record<string, unknown>>(
     `/api/documents/audit/missing-vector-chunks?limit=${encodeURIComponent(String(limit))}`,
   )
-  const body = await response.text()
-  const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : {}
-  if (!response.ok) {
-    const detail = typeof parsed.detail === 'string' ? parsed.detail : `HTTP ${response.status}`
-    throw new Error(detail)
-  }
   const rawItems = Array.isArray(parsed.items) ? parsed.items : []
   const items: MissingVectorChunkItem[] = rawItems
     .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
