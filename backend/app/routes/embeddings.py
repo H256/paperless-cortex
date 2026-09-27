@@ -30,6 +30,7 @@ from app.services.search.embeddings import (
     embed_text,
     make_doc_point_id,
     make_point_id,
+    record_source_chunk_count,
     search_points,
     upsert_points,
 )
@@ -76,6 +77,7 @@ def ingest_embeddings(
         make_point_id_fn=make_point_id,
         make_doc_point_id_fn=make_doc_point_id,
         upsert_points_fn=upsert_points,
+        record_source_chunk_count_fn=record_source_chunk_count,
     )
 
 
@@ -108,6 +110,7 @@ def ingest_documents(
         make_point_id_fn=make_point_id,
         make_doc_point_id_fn=make_doc_point_id,
         upsert_points_fn=upsert_points,
+        record_source_chunk_count_fn=record_source_chunk_count,
     )
 
 

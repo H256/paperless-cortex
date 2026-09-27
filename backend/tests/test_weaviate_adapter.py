@@ -3,15 +3,26 @@ from __future__ import annotations
 import importlib
 from contextlib import contextmanager
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
+
+import pytest
+from weaviate.classes.data import DataObject
 
 from app.config import Settings, load_settings
 from app.services.search import weaviate
 from app.services.search.vector_backends.weaviate_adapter import (
     WeaviateVectorStoreAdapter,
     _point_uuid,
+    _result_object,
     _score_threshold_to_distance,
 )
+
+
+class FakeInsertManyReturn:
+    def __init__(self, has_errors: bool, errors: dict[int, object] | None = None) -> None:
+        self.has_errors = has_errors
+        self.errors = errors or {}
+        self.uuids: dict[int, object] = {}
 
 
 class FakeDataOps:
@@ -19,9 +30,13 @@ class FakeDataOps:
         self.inserted: list[list[object]] = []
         self.deleted_ids: list[object] = []
         self.deleted_filters: list[object] = []
+        self.insert_many_error: str | None = None
 
-    def insert_many(self, objects: list[object]) -> None:
+    def insert_many(self, objects: list[object]) -> FakeInsertManyReturn:
         self.inserted.append(list(objects))
+        if self.insert_many_error is not None:
+            return FakeInsertManyReturn(True, {0: SimpleNamespace(message=self.insert_many_error)})
+        return FakeInsertManyReturn(False)
 
     def delete_by_id(self, point_id: object) -> None:
         self.deleted_ids.append(point_id)
@@ -39,7 +54,15 @@ class FakeQueryOps:
 
     def near_vector(self, **kwargs: object) -> object:
         self.near_vector_calls.append(dict(kwargs))
-        return self.near_vector_response
+        distance = cast("float | None", kwargs.get("distance"))
+        objects = list(getattr(self.near_vector_response, "objects", []))
+        if distance is not None:
+            objects = [
+                obj
+                for obj in objects
+                if getattr(getattr(obj, "metadata", None), "distance", 0.0) <= distance
+            ]
+        return SimpleNamespace(objects=objects)
 
     def fetch_objects(self, **kwargs: object) -> object:
         self.fetch_calls.append(dict(kwargs))
@@ -169,9 +192,106 @@ def test_weaviate_adapter_upsert_points_splits_chunk_and_centroid(
 
     assert len(chunk_collection.data.inserted) == 1
     assert len(chunk_collection.data.inserted[0]) == 1
-    assert centroid_collection.data.deleted_ids == [_point_uuid("doc-7")]
+    assert centroid_collection.data.deleted_ids == []
     assert len(centroid_collection.data.inserted) == 1
     assert len(centroid_collection.data.inserted[0]) == 1
+
+
+def test_weaviate_adapter_upsert_points_raises_on_centroid_insert_failure(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+    centroid_collection.data.insert_many_error = "gRPC 14 unavailable: transient"
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="Weaviate insert_many failed") as excinfo:
+        adapter.upsert_points(
+            settings,
+            [
+                {
+                    "id": "doc-7",
+                    "vector": [0.3, 0.4],
+                    "payload": {"doc_id": 7, "chunk": -1, "source": "paperless", "type": "doc"},
+                },
+            ],
+        )
+
+    assert "gRPC 14 unavailable: transient" in str(excinfo.value)
+    assert centroid_collection.data.deleted_ids == []
+    assert len(centroid_collection.data.inserted) == 1
+    assert chunk_collection.data.inserted == []
+
+
+def test_weaviate_adapter_upsert_points_raises_on_chunk_insert_failure(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+    chunk_collection.data.insert_many_error = "property validation: page must be int"
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="collection=paperless_chunks_v2") as excinfo:
+        adapter.upsert_points(
+            settings,
+            [
+                {
+                    "id": "chunk-7-0",
+                    "vector": [0.1, 0.2],
+                    "payload": {"doc_id": 7, "chunk": 0, "source": "paperless", "text": "chunk text"},
+                },
+            ],
+        )
+
+    assert "property validation: page must be int" in str(excinfo.value)
+    assert centroid_collection.data.inserted == []
+
+
+def test_weaviate_adapter_upsert_points_centroid_upserts_by_uuid_without_delete(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.upsert_points(
+        settings,
+        [
+            {
+                "id": "doc-7",
+                "vector": [0.3, 0.4],
+                "payload": {"doc_id": 7, "chunk": -1, "source": "paperless", "type": "doc"},
+            },
+        ],
+    )
+    adapter.upsert_points(
+        settings,
+        [
+            {
+                "id": "doc-7",
+                "vector": [0.5, 0.6],
+                "payload": {"doc_id": 7, "chunk": -1, "source": "vision", "type": "doc"},
+            },
+        ],
+    )
+
+    assert centroid_collection.data.deleted_ids == []
+    assert len(centroid_collection.data.inserted) == 2
+    for batch in centroid_collection.data.inserted:
+        assert len(batch) == 1
+        assert isinstance(batch[0], DataObject)
+        assert batch[0].uuid == _point_uuid("doc-7")
 
 
 def test_weaviate_adapter_search_points_routes_doc_filter_to_centroids(
@@ -202,7 +322,7 @@ def test_weaviate_adapter_search_points_routes_doc_filter_to_centroids(
     assert len(chunk_collection.query.near_vector_calls) == 0
     assert len(centroid_collection.query.near_vector_calls) == 1
     assert result["result"][0]["id"] == "doc-9"
-    assert result["result"][0]["score"] == 0.8
+    assert result["result"][0]["score"] == 0.75
 
 
 def test_weaviate_adapter_search_points_converts_score_threshold_to_distance(
@@ -219,7 +339,7 @@ def test_weaviate_adapter_search_points_converts_score_threshold_to_distance(
         settings,
         [0.9, 0.8],
         filter_payload={"must": [{"key": "type", "match": {"value": "doc"}}]},
-        score_threshold=0.8,
+        score_threshold=0.75,
     )
 
     assert len(centroid_collection.query.near_vector_calls) == 1
@@ -427,6 +547,141 @@ def test_weaviate_adapter_delete_points_for_doc_without_source_omits_source_filt
 def test_score_threshold_to_distance_handles_edge_values() -> None:
     assert _score_threshold_to_distance(None) is None
     assert _score_threshold_to_distance(0.0) is None
-    assert _score_threshold_to_distance(0.5) == 1.0
-    assert _score_threshold_to_distance(0.8) == 0.25
+    assert _score_threshold_to_distance(0.5) == 0.5
+    assert _score_threshold_to_distance(0.75) == 0.25
     assert _score_threshold_to_distance(1.0) == 0.0
+
+
+def test_weaviate_adapter_ensure_collection_raises_on_dimension_drift(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[SimpleNamespace(vector=[0.0] * 3)]
+    )
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="has size 3, but embedding size is 7"):
+        adapter.ensure_collection(settings, vector_size=7)
+
+
+def test_weaviate_adapter_ensure_collection_accepts_matching_dimension(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    fake_client.collections.existing.add("paperless_chunks_v2_centroids")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[SimpleNamespace(vector=[0.0] * 7)]
+    )
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.ensure_collection(settings, vector_size=7)
+
+    # No new collection was created (both pre-existing and verified).
+    assert fake_client.collections.created == []
+
+
+def test_weaviate_adapter_ensure_collection_allows_empty_preexisting_collection(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    fake_client.collections.existing.add("paperless_chunks_v2_centroids")
+    # Default fetch_response has no objects -> nothing to verify.
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    adapter.ensure_collection(settings, vector_size=7)
+
+    assert fake_client.collections.created == []
+
+
+def test_weaviate_adapter_ensure_collection_reads_named_vector_dimension(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    fake_client.collections.existing.add("paperless_chunks_v2")
+    chunk_collection = fake_client.collections.get("paperless_chunks_v2")
+    # weaviate v4 returns named vectors as a dict; use the first value's length.
+    chunk_collection.query.fetch_response = SimpleNamespace(
+        objects=[SimpleNamespace(vector={"content": [0.0] * 5})]
+    )
+    adapter = WeaviateVectorStoreAdapter()
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    with pytest.raises(RuntimeError, match="has size 5, but embedding size is 7"):
+        adapter.ensure_collection(settings, vector_size=7)
+def test_weaviate_adapter_result_object_reports_true_cosine_similarity() -> None:
+    raw_half = SimpleNamespace(
+        properties={"point_id": "doc-9", "doc_id": 9, "chunk": -1, "source": "paperless", "type": "doc"},
+        metadata=SimpleNamespace(distance=0.5),
+    )
+    raw_nine = SimpleNamespace(
+        properties={"point_id": "doc-9", "doc_id": 9, "chunk": -1, "source": "paperless", "type": "doc"},
+        metadata=SimpleNamespace(distance=0.1),
+    )
+
+    assert _result_object(raw_half)["score"] == 0.5
+    assert _result_object(raw_nine)["score"] == 0.9
+
+
+def test_weaviate_adapter_result_object_omits_score_without_distance() -> None:
+    raw = SimpleNamespace(
+        properties={"point_id": "1", "doc_id": 1, "chunk": 0, "source": "paperless"},
+        metadata=None,
+    )
+
+    assert "score" not in _result_object(raw)
+
+
+def test_weaviate_adapter_search_points_score_threshold_keeps_only_intended_set(
+    monkeypatch: Any,
+) -> None:
+    settings = _settings(monkeypatch)
+    fake_client = FakeClient()
+    adapter = WeaviateVectorStoreAdapter()
+    centroid_collection = fake_client.collections.get("paperless_chunks_v2_centroids")
+    centroid_collection.query.near_vector_response = SimpleNamespace(
+        objects=[
+            SimpleNamespace(
+                properties={"point_id": "doc-1", "doc_id": 1, "chunk": -1, "source": "paperless", "type": "doc"},
+                metadata=SimpleNamespace(distance=0.1),
+            ),
+            SimpleNamespace(
+                properties={"point_id": "doc-2", "doc_id": 2, "chunk": -1, "source": "paperless", "type": "doc"},
+                metadata=SimpleNamespace(distance=0.3),
+            ),
+            SimpleNamespace(
+                properties={"point_id": "doc-3", "doc_id": 3, "chunk": -1, "source": "paperless", "type": "doc"},
+                metadata=SimpleNamespace(distance=0.5),
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(weaviate, "client", lambda _settings: _client_context(fake_client))
+
+    result = adapter.search_points(
+        settings,
+        [0.9, 0.8],
+        filter_payload={"must": [{"key": "type", "match": {"value": "doc"}}]},
+        score_threshold=0.75,
+    )
+
+    assert centroid_collection.query.near_vector_calls[0]["distance"] == 0.25
+    assert [item["id"] for item in result["result"]] == ["doc-1"]
+    assert result["result"][0]["score"] == 0.9
+

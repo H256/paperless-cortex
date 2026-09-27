@@ -13,7 +13,12 @@ from alembic import op
 revision = "c4f9b8e1d2a3"
 down_revision = "0132c6a5422e"
 branch_labels = None
-depends_on = None
+# This revision ALTERs document_suggestions / document_page_texts, which are
+# created on the sibling branch that ends at 2f6e9b1a3c4d (add_suggestion_audit,
+# the tip of the add_document_suggestions / add_document_page_texts chain).
+# Without this explicit dependency, a fresh `alembic upgrade head` runs this
+# revision before those tables exist and fails with "no such table".
+depends_on = "2f6e9b1a3c4d"
 
 
 def upgrade() -> None:

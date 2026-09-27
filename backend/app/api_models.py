@@ -70,6 +70,7 @@ class StatusResponse(BaseModel):
     worker: StatusEntry
     llm: StatusEntry
     llm_text: StatusEntry
+    llm_chat: StatusEntry
     llm_embedding: StatusEntry
     llm_vision: StatusEntry
     paperless_base_url: str | None = None
