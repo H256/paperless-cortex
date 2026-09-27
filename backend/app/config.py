@@ -534,7 +534,7 @@ def _build_settings_from_env() -> Settings:
             min_chars=_env_int("VISION_OCR_MIN_CHARS", 40),
             min_score=_env_int("VISION_OCR_MIN_SCORE", 60),
             max_non_alnum_ratio=_env_float("VISION_OCR_MAX_NONALNUM_RATIO", 0.6),
-            max_pages=max(0, _env_int("VISION_OCR_MAX_PAGES", 0)),
+            max_pages=max(0, _env_int("VISION_OCR_MAX_PAGES", 50)),
             timeout_seconds=_env_int("VISION_OCR_TIMEOUT_SECONDS", 120),
             max_dim=_env_int("VISION_OCR_MAX_DIM", 1024),
             target_dim=max(0, _env_int("VISION_OCR_TARGET_DIM", 0)),
