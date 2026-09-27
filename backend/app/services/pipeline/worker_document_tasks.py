@@ -85,6 +85,26 @@ def _embedding_checkpoint_batch_size(
     return configured_batch_size
 
 
+def _purge_opposite_source(
+    settings: Settings,
+    doc_id: int,
+    embedding_source: str,
+    embeddings_mode: str | None,
+) -> None:
+    """Purge the opposite source's points when the target mode is single-source.
+
+    Re-embedding a document from a single source (``paperless`` or ``vision``)
+    must remove the opposite source's points, otherwise the document matches
+    twice in search and stale content from the old source lingers. In ``both``
+    mode the opposite source is retained because a separate task populates it.
+    """
+    mode = (embeddings_mode or "").strip().lower()
+    if mode == "both":
+        return
+    opposite = "vision" if embedding_source == "paperless" else "paperless"
+    delete_points_for_doc(settings, doc_id, source=opposite)
+
+
 def embed_with_pages(
     settings: Settings,
     db: Session,
@@ -94,6 +114,7 @@ def embed_with_pages(
     embedding_source: str,
     *,
     run_id: int | None = None,
+    embeddings_mode: str | None = None,
 ) -> None:
     content_value = clean_ocr_text(doc.content or "")
     baseline_page_list = list(baseline_pages or [])
@@ -159,6 +180,7 @@ def embed_with_pages(
     )
     start_index = max(0, min(resume_current, len(chunks)))
     if start_index <= 0:
+        _purge_opposite_source(settings, doc.id, embedding_source, embeddings_mode)
         delete_points_for_doc(settings, doc.id, source=embedding_source)
     else:
         logger.info(
@@ -293,6 +315,7 @@ def process_embeddings_paperless(
     *,
     is_cancel_requested_fn: Callable[[Settings], bool],
     run_id: int | None = None,
+    embeddings_mode: str | None = None,
 ) -> None:
     if is_cancel_requested_fn(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
@@ -313,6 +336,7 @@ def process_embeddings_paperless(
         [],
         "paperless",
         run_id=run_id,
+        embeddings_mode=embeddings_mode,
     )
 
 
@@ -354,6 +378,7 @@ def process_embeddings_vision(
     *,
     is_cancel_requested_fn: Callable[[Settings], bool],
     run_id: int | None = None,
+    embeddings_mode: str | None = None,
     force: bool = False,
 ) -> None:
     if is_cancel_requested_fn(settings):
@@ -376,6 +401,7 @@ def process_embeddings_vision(
         cast("Sequence[SupportsEmbeddingPage]", vision_pages),
         "vision",
         run_id=run_id,
+        embeddings_mode=embeddings_mode,
     )
 
 
