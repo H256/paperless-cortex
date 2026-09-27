@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/205-status-chat-health-flag)
+
+### Status endpoint surfaces the computed chat health flag
+- `6eeb48a` fix(status): changed [`backend/app/routes/status.py`](backend/app/routes/status.py) so the previously-discarded `_chat_ok`/`_chat_detail` model-status flag is now exposed as `llm_chat` in the `/status` and `/status/stream` payloads, making a degraded/broken chat backend visible to operators and the UI.
+- `6eeb48a` fix(status): added the required `llm_chat: StatusEntry` field to `StatusResponse` in [`backend/app/api_models.py`](backend/app/api_models.py) and regenerated the OpenAPI spec / orval model so the frontend type includes `llm_chat`.
+- `6eeb48a` feat(frontend): surfaced the new flag in the UI status panel as an "LLM Chat" `StatusLight` in [`frontend/src/App.vue`](frontend/src/App.vue) and wired `llm_chat`/`llm_chat_detail` through the pinia status store state, `applyStatus`, and the unreachable-error branch in [`frontend/src/stores/statusStore.ts`](frontend/src/stores/statusStore.ts).
+- `6eeb48a` test(backend): added `test_status_surfaces_chat_backend_health` to [`backend/tests/test_status_routes.py`](backend/tests/test_status_routes.py) (a not-loaded chat model yields `llm_chat.status == "DOWN"` with the model detail), and verified `cd backend && uv run pytest tests/test_status_routes.py -q` (`9 passed`), `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure), `cd backend && uv run ruff check app/api_models.py app/routes/status.py tests/test_status_routes.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues), and `cd frontend && npm run type-check && npm run lint && npm run test:run` (`84 passed`).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
