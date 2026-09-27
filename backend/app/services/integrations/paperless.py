@@ -134,6 +134,7 @@ def list_documents(
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
     modified__gte: str | None = None,
+    q: str | None = None,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
     if ordering:
@@ -148,6 +149,8 @@ def list_documents(
         params["document_date__lte"] = document_date__lte
     if modified__gte:
         params["modified__gte"] = modified__gte
+    if q:
+        params["q"] = q
     with client(settings) as http:
         response = http.get("/documents/", params=params)
         response.raise_for_status()

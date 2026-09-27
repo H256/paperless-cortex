@@ -74,10 +74,11 @@ def _documents_list_cache_key(
     tags_id: int | None,
     document_date_gte: str | None,
     document_date_lte: str | None,
+    q: str | None,
     include_derived: bool,
     include_summary_preview: bool,
     review_status: str,
-) -> tuple[int, int, str | None, int | None, int | None, str | None, str | None, bool, bool, str]:
+) -> tuple[int, int, str | None, int | None, int | None, str | None, str | None, str | None, bool, bool, str]:
     return (
         int(page),
         int(page_size),
@@ -86,6 +87,7 @@ def _documents_list_cache_key(
         tags_id,
         document_date_gte,
         document_date_lte,
+        q,
         include_derived,
         include_summary_preview,
         review_status,
@@ -101,6 +103,7 @@ def list_documents(
     tags__id: int | None = None,
     document_date__gte: str | None = None,
     document_date__lte: str | None = None,
+    q: str | None = None,
     include_derived: bool = False,
     include_summary_preview: bool = False,
     review_status: str = "all",
@@ -135,6 +138,7 @@ def list_documents(
                     tags__id=tags__id,
                     document_date__gte=document_date__gte,
                     document_date__lte=document_date__lte,
+                    q=q,
                 )
                 enriched_payload = apply_derived_fields_and_review_status(
                     payload={"results": batch_payload.get("results", []) or []},
@@ -180,6 +184,7 @@ def list_documents(
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
+            q=q,
             review_status=normalized_review_status,
         )
         return apply_derived_fields_and_review_status(
@@ -204,6 +209,7 @@ def list_documents(
             tags_id=tags__id,
             document_date_gte=document_date__gte,
             document_date_lte=document_date__lte,
+            q=q,
             include_derived=include_derived,
             include_summary_preview=include_summary_preview,
             review_status=normalized_review_status,

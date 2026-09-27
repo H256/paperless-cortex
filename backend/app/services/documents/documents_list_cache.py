@@ -14,6 +14,7 @@ DocumentsPageKey = tuple[
     int | None,
     str | None,
     str | None,
+    str | None,
     bool,
     bool,
     str,

@@ -103,6 +103,7 @@ def list_documents_from_paperless(
     tags__id: int | None,
     document_date__gte: str | None,
     document_date__lte: str | None,
+    q: str | None,
     review_status: str,
 ) -> dict[str, object]:
     missing_correspondent_only = correspondent__id == -1
@@ -118,6 +119,7 @@ def list_documents_from_paperless(
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
+            q=q,
         )
 
     all_results: list[dict[str, object]] = []
@@ -133,6 +135,7 @@ def list_documents_from_paperless(
             tags__id=tags__id,
             document_date__gte=document_date__gte,
             document_date__lte=document_date__lte,
+            q=q,
         )
         batch = _document_rows(payload.get("results", []))
         if missing_correspondent_only:
