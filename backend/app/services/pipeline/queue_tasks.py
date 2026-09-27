@@ -22,7 +22,7 @@ def build_task_sequence(
     use_vision = settings.enable_vision_ocr if include_vision_ocr is None else include_vision_ocr
     if use_vision:
         tasks.append({"doc_id": normalized_id, "task": "vision_ocr", "force": force})
-        tasks.append({"doc_id": normalized_id, "task": "embeddings_vision"})
+        tasks.append({"doc_id": normalized_id, "task": "embeddings_vision", "force": force})
         tasks.append({"doc_id": normalized_id, "task": "similarity_index"})
         tasks.append({"doc_id": normalized_id, "task": "page_notes_vision"})
         tasks.append({"doc_id": normalized_id, "task": "summary_hierarchical", "source": "vision_ocr"})
