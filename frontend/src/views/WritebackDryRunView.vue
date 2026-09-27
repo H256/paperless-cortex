@@ -559,8 +559,17 @@ const executeAllPending = async (dryRun: boolean) => {
     }
     await Promise.all([loadJobs(), loadHistory()])
   } catch (err: unknown) {
-    lastExecuteAllResults.value = []
+    // A bulk run can fail partway through after some documents were already
+    // written. Keep the prior per-job results (do not wipe the panel) and
+    // refresh job/history state so the user can see which documents landed.
     toastStore.push(err instanceof Error ? err.message : 'Run all pending failed', 'danger', 'Writeback', 3200)
+    toastStore.push(
+      'A partial write may have occurred — check the queue and per-document statuses before retrying.',
+      'warning',
+      'Writeback',
+      4200,
+    )
+    await Promise.all([loadJobs(), loadHistory()])
   }
 }
 

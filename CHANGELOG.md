@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-03 (branch: agent/168-bulk-writeback-failure-preserve-reland)
+
+### Re-land: bulk writeback failure keeps per-job results and refreshes queue state (lost merge of issue #168 / AUDIT FE-003)
+- `uncommitted` fix(frontend): the 2026-09-27 fix (commit `d695c98`, branch `agent/168-bulk-writeback-failure-preserve`) was wiped by the master history reset, so [`useWritebackManager.ts`](frontend/src/composables/useWritebackManager.ts) again has the `onError` handler that wipes `lastExecuteAllResults` on a failed bulk run (backend 500 partial-writeback failure mode, WB-003), discarding the per-job results the user needs to tell which documents were actually written. Re-landed verbatim via `git cherry-pick d695c98` onto current master (`5fd21ff`): the `onError` handler is removed so prior per-job results are preserved.
+- `uncommitted` fix(frontend): the `executeAllPending` catch in [`WritebackDryRunView.vue`](frontend/src/views/WritebackDryRunView.vue) now keeps the prior per-job results, refreshes real job/history state (mirroring the success path), and surfaces a partial-write warning toast in addition to the error toast.
+- `uncommitted` test(frontend): the cherry-pick carries the 2 regression tests from the original commit — `useWritebackManager.executeAllMutation` coverage in [`useWritebackManager.test.ts`](frontend/src/composables/useWritebackManager.test.ts) (a rejected bulk run leaves the prior per-job results intact) and a `WritebackDryRunView` integration test in [`WritebackDryRunView.integration.test.ts`](frontend/src/views/WritebackDryRunView.integration.test.ts) (a failed "Run all pending" keeps the results panel, refetches jobs/history, and shows the partial-write warning). Verified RED on base, GREEN on branch.
+
 ## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
 
 ### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
@@ -468,6 +475,14 @@ All granular implementation slices and refactors are tracked here.
 - `test(frontend)`: added [`frontend/src/services/http.test.ts`](frontend/src/services/http.test.ts) covering error normalization (4xx with `detail`, 5xx fallback message, `error_code` passthrough, empty-body 2xx, network failure → `status:0`) and the retry policy (idempotent 503/network/timeout retry-then-succeed, non-idempotent POST not retried, intentional abort not retried, retry-budget exhaustion).
 - `test(frontend)`: verified `cd frontend && npm run type-check` (clean), `cd frontend && npm run lint` (0 warnings / 0 errors), and `cd frontend && npm run test:run` (`101 passed`, including the new `http.test.ts` 17 tests and the existing `chatStream.test.ts`).
 - `chore`: a grep gate confirms the only hand-written raw `fetch` call sites are `services/http.ts` (the client itself) and `services/chatStream.ts` (streaming); all JSON calls route through `requestJson`.
+
+## 2026-09-27 (branch: agent/168-bulk-writeback-failure-preserve)
+
+### Bulk writeback failure keeps per-job results and refreshes queue state
+- `uncommitted` fix(frontend): removed the `onError` handler that wiped `lastExecuteAllResults` in [`frontend/src/composables/useWritebackManager.ts`](frontend/src/composables/useWritebackManager.ts) so a failed bulk run (backend 500 partial-writeback failure mode, WB-003) no longer discards the per-job results the user can use to tell which documents were actually written.
+- `uncommitted` fix(frontend): changed the `executeAllPending` catch in [`frontend/src/views/WritebackDryRunView.vue`](frontend/src/views/WritebackDryRunView.vue) so on failure it keeps the prior per-job results, refreshes real job/history state (`loadJobs()`/`loadHistory()`, mirroring the success path), and surfaces a partial-write warning toast in addition to the error toast.
+- `uncommitted` test(frontend): added `useWritebackManager.executeAllMutation` coverage in [`frontend/src/composables/useWritebackManager.test.ts`](frontend/src/composables/useWritebackManager.test.ts) (a rejected bulk run leaves the prior per-job results intact) and a `WritebackDryRunView` integration test in [`frontend/src/views/WritebackDryRunView.integration.test.ts`](frontend/src/views/WritebackDryRunView.integration.test.ts) (a failed "Run all pending" keeps the results panel, refetches jobs/history, and shows the partial-write warning).
+- `uncommitted` test: verified `cd frontend && npx vitest run` (`86 passed` across 29 files, including the 2 new tests), `cd frontend && npm run lint` (0 warnings, 0 errors), and `cd frontend && npm run type-check` (clean).
 
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
