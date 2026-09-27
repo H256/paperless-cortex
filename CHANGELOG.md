@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/152-dockerignore-build-context)
+
+### Docker build context is bounded and free of local secrets
+- `uncommitted` fix(infra): added [`.dockerignore`](.dockerignore) at the repo root. Without it, `docker build` uploads the entire working tree to the daemon — `frontend/node_modules` (~259M), `backend/.venv` (~156M), `.git`, and any gitignored `.env` with real `PAPERLESS_API_TOKEN` / LLM keys — and `COPY frontend/ ./` bakes the local `node_modules` into the frontend stage on top of `npm ci`. The image only needs `frontend/`, `backend/`, `docker/`, and `VERSION`, so the ignore file excludes `.git`/`.github`/`.gitea`, `.env*`/`.session*`, `frontend/node_modules`, `backend/.venv`, `__pycache__`/`*.pyc`, `data/`, `tmp`, `coverage`, and `docs`.
+- `uncommitted` test(infra): added [`backend/tests/test_dockerignore_build_context.py`](backend/tests/test_dockerignore_build_context.py) — applies the `.dockerignore` rules (gitignore-style: matching a parent directory excludes everything under it) to a representative path set and asserts the heavy/secret entries are excluded while every path the Dockerfile `COPY`s stays in the build context.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_dockerignore_build_context.py -q` (`3 passed`), `cd backend && uv run ruff check tests/test_dockerignore_build_context.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml tests/test_dockerignore_build_context.py` (no issues), and `cd backend && uv run pytest -q` (`435 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression). A real `docker build` was NOT RUN (Docker daemon not accessible in this environment: `permission denied` on `/var/run/docker.sock`); the ignore-file contract is verified by the focused test.
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
