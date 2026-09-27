@@ -186,3 +186,66 @@ def test_run_documents_sync_success_sets_idle_state(session_factory: Any) -> Non
         assert state is not None
         assert state.status == "idle"
         assert state.last_synced_at is not None
+
+
+def test_embed_documents_writes_doc_level_point(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    """Inline sync path must write the doc-level point, not only chunk points.
+
+    Regression guard for issue #217: the inline sync path previously upserted
+    only chunk points, so documents embedded via sync lacked the doc-level
+    point that the reprocess/worker paths produce.
+    """
+    import app.services.documents.sync_operations as sync_operations
+
+    monkeypatch.setenv("EMBEDDING_MODEL", "test-model")
+    settings = load_settings()
+
+    monkeypatch.setattr(
+        sync_operations, "ensure_embedding_collection", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        sync_operations, "collect_page_texts", lambda *_args, **_kwargs: (None, [], [])
+    )
+    monkeypatch.setattr(sync_operations, "delete_points_for_doc", lambda *_args, **_kwargs: None)
+
+    def _embed_text(_settings: Any, _text: str) -> list[float]:
+        return [0.5, 0.5]
+
+    monkeypatch.setattr(sync_operations, "embed_text", _embed_text)
+
+    captured: list[list[dict[str, object]]] = []
+
+    def _upsert_points(_settings: Any, points: list[dict[str, object]]) -> None:
+        captured.append(list(points))
+
+    monkeypatch.setattr(sync_operations, "upsert_points", _upsert_points)
+
+    with session_factory() as db:
+        doc = Document(id=902, title="Doc", content="some content to embed")
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
+
+        embedded = sync_operations.embed_documents(db, settings, [doc])
+
+    assert embedded == 1
+    assert captured, "upsert_points was never called"
+
+    all_points = [point for batch in captured for point in batch]
+    doc_level = [
+        point
+        for point in all_points
+        if isinstance(point["payload"], dict)
+        and point["payload"].get("type") == "doc"
+        and point["payload"].get("doc_id") == 902
+    ]
+    assert doc_level, "inline sync path did not write a doc-level point"
+    doc_point = doc_level[0]
+    payload = doc_point["payload"]
+    assert isinstance(payload, dict)
+    assert doc_point["id"] == sync_operations.make_doc_point_id(902)
+    assert payload["chunk"] == -1
+    # doc-level vector is the average of the chunk vectors
+    assert doc_point["vector"] == [0.5, 0.5]

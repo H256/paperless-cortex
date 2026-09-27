@@ -24,10 +24,13 @@ from app.services.pipeline.sync_state import ensure_started, get_or_create_state
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
+    average_vectors,
     chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
+    make_doc_point_id,
     make_point_id,
+    record_source_chunk_count,
     upsert_points,
 )
 
@@ -289,7 +292,9 @@ def embed_documents(
                     db.commit()
                 continue
             embedding_source = "vision" if vision_pages else "paperless"
+            opposite_source = "paperless" if embedding_source == "vision" else "vision"
             delete_points_for_doc(settings, doc.id, source=embedding_source)
+            delete_points_for_doc(settings, doc.id, source=opposite_source)
             baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
             vision_chunks = (
                 chunk_document_with_pages(settings, content_value, vision_pages or None)
@@ -299,9 +304,11 @@ def embed_documents(
             chunks = baseline_chunks + vision_chunks
             logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
             doc_points: list[dict[str, object]] = []
+            doc_vectors: list[list[float]] = []
             for idx, chunk in enumerate(chunks):
                 chunk_text_value = str(chunk["text"])
                 vector = embed_text(settings, chunk_text_value)
+                doc_vectors.append(vector)
                 doc_points.append(
                     {
                         "id": make_point_id(doc.id, idx, embedding_source),
@@ -317,6 +324,21 @@ def embed_documents(
                         },
                     }
                 )
+            if doc_vectors:
+                doc_vector = average_vectors(doc_vectors)
+                if doc_vector:
+                    doc_points.append(
+                        {
+                            "id": make_doc_point_id(doc.id),
+                            "vector": doc_vector,
+                            "payload": {
+                                "doc_id": doc.id,
+                                "chunk": -1,
+                                "type": "doc",
+                                "source": embedding_source,
+                            },
+                        }
+                    )
             if doc_points:
                 upsert_points(settings, doc_points)
                 points.extend(doc_points)
@@ -327,11 +349,22 @@ def embed_documents(
             existing.embedding_model = settings.embedding_model
             existing.embedded_at = datetime.now(UTC).isoformat()
             previous_source = str(existing.embedding_source or "").strip().lower()
-            if previous_source == "both" or (previous_source and previous_source != embedding_source):
+            is_both = bool(
+                previous_source == "both"
+                or (previous_source and previous_source != embedding_source)
+            )
+            previous_total = int(existing.chunk_count or 0)
+            if is_both:
                 existing.embedding_source = "both"
             else:
                 existing.embedding_source = embedding_source
-            existing.chunk_count = len(chunks)
+            record_source_chunk_count(
+                existing,
+                source=embedding_source,
+                count=len(chunks),
+                both=is_both,
+                previous_total=previous_total,
+            )
             embedded += 1
             processed += 1
             state.processed = processed
@@ -444,7 +477,7 @@ def run_documents_sync(
         state.status = "idle"
         db.commit()
         marked_deleted = 0
-        if mark_missing_allowed:
+        if mark_missing_allowed and seen_ids:
             timestamp = datetime.now(UTC).isoformat()
             missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
             for doc in missing_docs:
@@ -454,6 +487,14 @@ def run_documents_sync(
                 marked_deleted += 1
             if marked_deleted:
                 db.commit()
+        elif mark_missing_allowed:
+            # An empty remote walk is ambiguous (transient API gap vs. a truly
+            # emptied library). Marking every local document deleted on `in_([])`
+            # would mass-delete the whole library, so skip and surface the cause.
+            logger.warning(
+                "mark_missing skipped: remote document walk returned no documents; "
+                "refusing to mass-delete the local library on an empty list"
+            )
         embedded = 0
         if embed and embed_queue:
             if settings.queue_enabled:

@@ -242,6 +242,7 @@ Wichtige Variablen:
 - `LOG_LEVEL`
 - `LOG_JSON`
 - `API_SLOW_REQUEST_LOG_MS`
+- `API_TOKEN`
 - `HTTPX_VERIFY_TLS`
 - `STATUS_STREAM_INTERVAL_SECONDS`
 - `STATUS_LLM_MODELS_TTL_SECONDS`
@@ -252,6 +253,7 @@ Zweck:
 - langsame Requests sichtbar machen
 - TLS-Verifikation
 - Statusstreaming
+- optionales API-Token für den `/api`-Subapp (leer = offen, voreingestellt)
 
 ### Writeback
 
