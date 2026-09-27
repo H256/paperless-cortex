@@ -32,8 +32,6 @@ from app.services.ai.suggestion_store import (
 )
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
-from app.services.documents.documents_list_cache import invalidate_documents_list_cache
-from app.services.documents.local_document_cache import invalidate_local_document_cache
 from app.services.documents.page_text_store import upsert_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.documents.text_pages import get_page_text_layers
@@ -228,7 +226,5 @@ def apply_suggestion_to_document(
         value=value,
         get_document_or_none_fn=get_document_or_none,
         audit_suggestion_run_fn=audit_suggestion_run,
-        invalidate_documents_list_cache_fn=invalidate_documents_list_cache,
-        invalidate_local_document_cache_fn=invalidate_local_document_cache,
         invalidate_writeback_preview_cache_fn=invalidate_writeback_preview_cache,
     )

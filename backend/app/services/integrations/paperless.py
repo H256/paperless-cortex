@@ -423,5 +423,13 @@ def add_document_note(settings: Settings, doc_id: int, note: str) -> dict[str, A
 def delete_document_note(settings: Settings, doc_id: int, note_id: int) -> None:
     with client(settings) as http:
         response = http.delete(f"/documents/{doc_id}/notes/", params={"id": note_id})
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # A 404 means the note is already gone (e.g. a replayed writeback job
+            # after a partial failure where the DELETE applied but a later call
+            # failed). Treat it as success so the re-run stays idempotent and can
+            # complete instead of failing permanently on the stale DELETE.
+            if _http_status_code(exc) != 404:
+                raise
     invalidate_document_cache(int(doc_id))
