@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/110-writeback-replay-idempotent-delete)
+
+### Writeback note DELETE is idempotent on 404 (replay-safe)
+- `uncommitted` fix(writeback): changed `delete_document_note` in [`backend/app/services/integrations/paperless.py`](backend/app/services/integrations/paperless.py) so a `404` from the Paperless note-delete call is treated as success (the note is already gone) while any other status still raises. This makes a replayed writeback job idempotent: after a partial failure where the DELETE applied but a later call failed, the re-run no longer fails permanently on the stale `DELETE` 404 and can complete, leaving exactly one AI note.
+- `uncommitted` test(backend): added [`backend/tests/test_writeback_note_delete_idempotent.py`](backend/tests/test_writeback_note_delete_idempotent.py) — `test_delete_document_note_treats_404_as_success` (a 404 does not raise), `test_delete_document_note_still_raises_on_other_errors` (a 500 still raises `HTTPStatusError`), and `test_delete_document_note_succeeds_on_2xx` (a 200 succeeds).
+- `uncommitted` test(backend): verified `cd backend && uv run pytest tests/test_writeback_note_delete_idempotent.py tests/test_writeback_apply_service.py tests/test_writeback_jobs_routes.py tests/test_note_ids.py -q` (`35 passed`), `uv run ruff check app/services/integrations/paperless.py tests/test_writeback_note_delete_idempotent.py` (clean), `uv run mypy --config-file pyproject.toml app/services/integrations/paperless.py` (no issues), and `uv run pytest -q` (full suite, see run report).
 ## 2026-09-27 (branch: agent/120-provider-url-ssrf-guard)
 
 ### Provider base_url SSRF guard (discover + upsert)
