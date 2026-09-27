@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
 import re
@@ -19,6 +20,7 @@ from app.services.search.vector_backends.sources import (
 
 if TYPE_CHECKING:
     from app.config import Settings
+    from app.models import DocumentEmbedding
     from app.services.documents.page_types import PageText, WordBox
 
 logger = logging.getLogger(__name__)
@@ -35,14 +37,93 @@ def _normalize_embedding_source(source: str | None) -> str | None:
     return normalize_embedding_source(source)
 
 
+def make_doc_point_id(doc_id: int) -> int:
+    return doc_id * 1_000_000_000 + _DOC_POINT_CHUNK
+
+
+def parse_chunk_counts(raw: str | None) -> dict[str, int]:
+    """Parse a per-source chunk-count JSON blob into a ``{source: count}`` map.
+
+    Returns an empty dict when the blob is missing or malformed so callers can
+    fall back to the legacy single ``chunk_count``.
+    """
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for source, value in data.items():
+        try:
+            count = int(value)
+        except (ValueError, TypeError):
+            continue
+        if count > 0:
+            counts[str(source)] = count
+    return counts
+
+
+def record_source_chunk_count(
+    existing: DocumentEmbedding,
+    *,
+    source: str,
+    count: int,
+    both: bool = False,
+    previous_total: int = 0,
+) -> None:
+    """Record ``count`` for ``source`` while preserving other sources' counts.
+
+    This is the single point where a write path updates the per-source
+    chunk-count bookkeeping. It keeps the ``chunk_count`` column in sync as the
+    sum of all per-source counts (the total number of stored chunk points).
+
+    For a legacy row with no per-source blob yet (``both=True``), the untouched
+    source is best-effort seeded from ``previous_total`` so it is not dropped;
+    for a single-source row the untouched source stays at zero.
+    """
+    normalized_source = _normalize_embedding_source(source) or str(source).strip().lower()
+    counts = parse_chunk_counts(existing.chunk_counts_json)
+    if not counts and both:
+        for known in ("paperless", "vision"):
+            counts[known] = max(0, int(previous_total))
+    counts[normalized_source] = max(0, int(count))
+    # Drop any zero counts so the blob only tracks sources with stored chunks.
+    counts = {k: v for k, v in counts.items() if v > 0}
+    existing.chunk_counts_json = json.dumps(counts) if counts else None
+    existing.chunk_count = sum(counts.values())
+
+
+def per_source_counts(
+    embedding: DocumentEmbedding,
+    *,
+    source_hint: str | None,
+) -> dict[str, int]:
+    """Return ``{source: chunk_count}`` for the sources in ``source_hint``.
+
+    When a per-source blob exists it is authoritative; otherwise the legacy
+    single ``chunk_count`` is applied to every requested source (the historical
+    behavior, which is only correct when all sources share the same count).
+    """
+    requested: list[str] = []
+    normalized = _normalize_embedding_source(source_hint)
+    if normalized == "both":
+        requested = ["vision", "paperless"]
+    elif normalized in {"vision", "paperless"}:
+        requested = [normalized]
+    counts = parse_chunk_counts(embedding.chunk_counts_json)
+    if counts:
+        return {source: counts.get(source, 0) for source in requested}
+    legacy = int(getattr(embedding, "chunk_count", 0) or 0)
+    return dict.fromkeys(requested, legacy)
+
+
 def make_point_id(doc_id: int, chunk: int, source: str | None = None) -> int:
     normalized_source = _normalize_embedding_source(source)
     source_offset = _SOURCE_ID_OFFSETS.get(normalized_source or "", 0)
     return doc_id * 1_000_000_000 + source_offset * 1_000_000 + chunk
-
-
-def make_doc_point_id(doc_id: int) -> int:
-    return doc_id * 1_000_000_000 + _DOC_POINT_CHUNK
 
 
 def _is_context_overflow_error(exc: Exception) -> bool:
@@ -526,28 +607,43 @@ def rebuild_doc_point_from_chunks(
     settings: Settings,
     *,
     doc_id: int,
-    chunk_count: int,
+    source_counts: dict[str, int] | None = None,
+    chunk_count: int | None = None,
     source_hint: str | None = None,
 ) -> bool:
+    """Rebuild the doc-level centroid from per-source chunk vectors.
+
+    ``source_counts`` maps each source to the number of chunk points stored for
+    that source, so each source is averaged over its own index space. When it is
+    omitted, the legacy ``chunk_count`` + ``source_hint`` pair is used (the
+    single count applied to every source — only correct when all sources share
+    the same count).
+    """
     normalized_doc_id = int(doc_id)
-    normalized_chunk_count = max(0, int(chunk_count))
-    if normalized_doc_id <= 0 or normalized_chunk_count <= 0:
+    if normalized_doc_id <= 0:
         return False
-    source = _normalize_embedding_source(source_hint)
-    sources: list[str] = []
-    if source == "both":
-        sources = ["vision", "paperless"]
-    elif source in {"paperless", "vision"}:
-        sources = [source]
+    if source_counts:
+        counts = {str(src): max(0, int(cnt)) for src, cnt in source_counts.items()}
     else:
-        sources = ["vision", "paperless"]
+        normalized_chunk_count = max(0, int(chunk_count or 0))
+        source = _normalize_embedding_source(source_hint)
+        if source == "both":
+            sources = ["vision", "paperless"]
+        elif source in {"paperless", "vision"}:
+            sources = [source]
+        else:
+            sources = ["vision", "paperless"]
+        counts = dict.fromkeys(sources, normalized_chunk_count)
+    counts = {src: cnt for src, cnt in counts.items() if cnt > 0}
+    if not counts:
+        return False
 
     vectors: list[list[float]] = []
     batch_size = 128
-    for source_name in sources:
+    for source_name, count in counts.items():
         point_ids = [
             make_point_id(normalized_doc_id, chunk, source_name)
-            for chunk in range(normalized_chunk_count)
+            for chunk in range(count)
         ]
         for start in range(0, len(point_ids), batch_size):
             ids_batch = point_ids[start : start + batch_size]
@@ -585,7 +681,7 @@ def rebuild_doc_point_from_chunks(
                     "doc_id": normalized_doc_id,
                     "chunk": -1,
                     "type": "doc",
-                    "source": source or "mixed",
+                    "source": "both" if len(counts) > 1 else next(iter(counts)),
                 },
             }
         ],
