@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/206-concurrent-sync-guard)
+
+### Concurrent document syncs are guarded by an atomic claim
+- `uncommitted` fix(sync): added `claim_documents_sync` to [`backend/app/services/pipeline/sync_state.py`](backend/app/services/pipeline/sync_state.py) — a single conditional `UPDATE` that flips the `SyncState('documents')` row to `running` only when it is not already running, so exactly one caller wins the race. The winner (`rowcount > 0`) proceeds; losers return a neutral `running` skip payload without touching the in-flight state. Portable across SQLite/Postgres, and the existing terminal transitions (`idle`/`error`/`cancelled`) re-open the guard, so a stuck `running` row is still recovered by the cancel endpoint.
+- `uncommitted` fix(sync): changed `run_documents_sync` in [`backend/app/services/documents/sync_operations.py`](backend/app/services/documents/sync_operations.py) to claim first; a losing caller now skips the whole sync (no more last-writer-wins on the shared row, no more interleaved progress/total). No new exception type, so the `process_missing` consumer (which calls `run_documents_sync` without a try/except) is unaffected.
+- `uncommitted` test(backend): added `test_sync_concurrent_guard.py` — claim succeeds on a clean row, a second concurrent claim is rejected, a `running` row blocks the claim, a terminal (`idle`/`cancelled`) row re-opens it, and a full `run_documents_sync` while in-flight returns the skip payload without re-syncing.
+- `uncommitted` test: verified `cd backend && uv run pytest -q` (`328 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure), `cd backend && uv run ruff check app/services/pipeline/sync_state.py app/services/documents/sync_operations.py tests/test_sync_concurrent_guard.py` (clean), and `cd backend && uv run mypy --config-file pyproject.toml` (no issues).
 ## 2026-09-27 (branch: agent/212-reclean-streaming)
 
 ### Reclean streams page texts in bounded chunks

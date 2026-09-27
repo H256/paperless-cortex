@@ -20,7 +20,12 @@ from app.models import (
 from app.services.documents.note_ids import next_local_note_id
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.integrations import paperless
-from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.pipeline.sync_state import (
+    claim_documents_sync,
+    ensure_started,
+    get_or_create_state,
+    mark_running,
+)
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
@@ -401,6 +406,15 @@ def run_documents_sync(
     enqueue_task_sequence_fn: TaskEnqueuer,
 ) -> ResponseDict:
     """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
+    if not claim_documents_sync(db):
+        # A document sync is already in flight; skip without touching its state.
+        return {
+            "count": 0,
+            "upserted": 0,
+            "incremental": incremental,
+            "embedded": 0,
+            "status": "running",
+        }
     normalized_page = max(1, page)
     mark_missing_allowed = (
         mark_missing and not incremental and not page_only and normalized_page == 1
