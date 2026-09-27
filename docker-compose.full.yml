@@ -43,7 +43,6 @@ services:
       - REDIS_HOST=redis
       - QUEUE_ENABLED=1
       - QDRANT_URL=http://qdrant:6333
-      - LLM_BASE_URL=
     restart: unless-stopped
 
 volumes:

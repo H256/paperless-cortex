@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/147-compose-llm-base-url)
+
+### docker-compose.full.yml no longer forces LLM_BASE_URL to empty
+- `uncommitted` fix(infra): removed the empty `LLM_BASE_URL=` entry from the `cortex` service's `environment:` list in [`docker-compose.full.yml`](docker-compose.full.yml). Compose `environment:` takes precedence over `env_file:` (`.env`), and `_env_optional_str` returns `None` for an empty string — so the empty entry silently overrode the `LLM_BASE_URL` the user set in `.env`, making every LLM/embedding/suggestion task fail while the API and UI looked healthy (issue #147, AUDIT INFRA-003 / DOCX-001).
+- `uncommitted` docs: corrected the README "Full stack" note to state that `docker-compose.full.yml` does not set `LLM_BASE_URL` and to explain the compose `environment:`-over-`env_file:` precedence that made the empty entry the root cause.
+- `uncommitted` test(infra): added [`backend/tests/test_compose_env_precedence.py`](backend/tests/test_compose_env_precedence.py) — a regression guard asserting no compose file sets `LLM_BASE_URL` to an empty value in a service's `environment:` list. Verified red-on-base (fails when the empty entry is re-added) and green with the fix.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_compose_env_precedence.py -q` (`1 passed`), `cd backend && uv run pytest -q` (`433 passed`, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), and `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 files).
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
