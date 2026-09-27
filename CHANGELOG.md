@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/120-provider-url-ssrf-guard)
+
+### Provider base_url SSRF guard (discover + upsert)
+- `uncommitted` fix(settings): added `validate_provider_base_url` to [`backend/app/services/runtime/model_providers.py`](backend/app/services/runtime/model_providers.py) so a provider `base_url` is normalized and checked before any server-side request — only `http`/`https` schemes are allowed, and a host that is an IP literal (or the `localhost` name) must not be loopback, link-local (which covers the cloud metadata address `169.254.169.254`), unspecified, or multicast. Non-IP hostnames are left as-is so self-hosted LAN providers keep working.
+- `uncommitted` fix(settings): wired the guard into `discover_models` (a blocked target now returns `ok=False` with the reason instead of issuing an `httpx` GET to a caller-supplied internal host) and `upsert_provider_override` (a blocked target raises `ValueError` so the stored override is rejected instead of redirecting all LLM/embedding traffic for that role to an attacker endpoint).
+- `uncommitted` fix(settings): extended the `PUT /settings/model-providers` handler in [`backend/app/routes/settings.py`](backend/app/routes/settings.py) to catch `ValueError` alongside `RuntimeError` and return HTTP 400, so an invalid `base_url` is reported instead of an unhandled 500.
+- `uncommitted` test(backend): added [`backend/tests/test_settings_provider_url_validation.py`](backend/tests/test_settings_provider_url_validation.py) with unit coverage of `validate_provider_base_url` (accept http/https + public IP, reject non-http schemes / loopback / link-local / unspecified / missing host) and route-level regressions (discover returns `ok=False` for a loopback and a `file://` URL without a server-side request; `PUT` returns 400 for a loopback and a non-http scheme while still accepting a valid public URL).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_settings_provider_url_validation.py tests/test_settings_routes.py -q` (`15 passed`), `cd backend && uv run ruff check app/services/runtime/model_providers.py app/routes/settings.py tests/test_settings_provider_url_validation.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/runtime/model_providers.py app/routes/settings.py` (no issues), and `cd backend && uv run pytest -q` (`335 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure). No API/model/route-signature change, so no `openapi.json` re-export, no frontend client regen, no version bump.
 ## 2026-09-27 (branch: agent/145-gitea-workflows-mirror)
 
 ### CI workflows now run on the ForgeJO host via a .gitea mirror
