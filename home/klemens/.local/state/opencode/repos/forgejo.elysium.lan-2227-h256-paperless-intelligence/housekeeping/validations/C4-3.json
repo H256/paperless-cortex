@@ -1,0 +1,20 @@
+{
+  "candidate_id": "C4-3",
+  "verdict": "CONFIRMED",
+  "evidence_checked": [
+    "Grep is_low_quality_text across repo: only definition at backend/app/services/documents/text_pages.py:103",
+    "No dynamic/getattr/string references found",
+    "No test references",
+    "score_text_quality exists at line 125 and applies length < settings.vision_ocr_min_chars and non_alnum_ratio > settings.vision_ocr_max_non_alnum_ratio",
+    "Git history: introduced in b49cc37, never referenced",
+    "No star imports from text_pages"
+  ],
+  "rejections_attempted": [
+    "Checked for dynamic/reflective usage - none",
+    "Checked for star imports - none",
+    "Verified score_text_quality covers same thresholds",
+    "Checked git history for recent orphaning - function never used since introduction"
+  ],
+  "final_recommendation": "Delete is_low_quality_text; behavior is covered by score_text_quality",
+  "confidence": 0.95
+}
