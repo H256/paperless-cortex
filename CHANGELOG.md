@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-26 (branch: agent/214-page-number-regex-prefix)
+
+### Page-number regex keeps the seite/page prefix required
+- `uncommitted` fix(text_cleaning): changed `_PAGE_NUM_RE` in [`backend/app/services/documents/text_cleaning.py`](backend/app/services/documents/text_cleaning.py) so the `seite`/`page` prefix is required (removed the optional `?`), so a standalone numeric line in page text (a quantity, an id, "2026", a bare "42") is no longer matched as a page marker and silently dropped from the cleaned chunk; prefixed markers ("Seite 42", "Page 12") are still stripped.
+- `uncommitted` test(backend): added `test_clean_ocr_text_retains_standalone_numeric_lines` to [`backend/tests/test_large_doc_processing.py`](backend/tests/test_large_doc_processing.py) (standalone numeric lines "42"/"2026" are retained; a standalone prefixed marker line is still stripped).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_large_doc_processing.py -q` (`5 passed`), `cd backend && uv run ruff check app/services/documents/text_cleaning.py tests/test_large_doc_processing.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/text_cleaning.py` (no issues), and `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure; delta +1 = the new regression test).
 ## 2026-09-26 (branch: agent/173-lifecycle-rerun-idempotency)
 
 ### Writeback execute-pending re-run idempotency test (WB-001)
