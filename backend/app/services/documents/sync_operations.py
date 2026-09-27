@@ -289,7 +289,9 @@ def embed_documents(
                     db.commit()
                 continue
             embedding_source = "vision" if vision_pages else "paperless"
+            opposite_source = "paperless" if embedding_source == "vision" else "vision"
             delete_points_for_doc(settings, doc.id, source=embedding_source)
+            delete_points_for_doc(settings, doc.id, source=opposite_source)
             baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
             vision_chunks = (
                 chunk_document_with_pages(settings, content_value, vision_pages or None)
