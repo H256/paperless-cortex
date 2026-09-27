@@ -24,6 +24,7 @@ class ApiConfig:
     slow_request_log_ms: int
     status_stream_interval_seconds: int
     status_llm_models_ttl_seconds: int
+    token: str
 
 
 @dataclass(frozen=True)
@@ -247,6 +248,7 @@ _COMPAT_ATTRIBUTE_PATHS: dict[str, tuple[str, ...]] = {
     "log_level": ("logging", "level"),
     "log_json": ("logging", "json"),
     "api_slow_request_log_ms": ("api", "slow_request_log_ms"),
+    "api_token": ("api", "token"),
     "status_stream_interval_seconds": ("api", "status_stream_interval_seconds"),
     "status_llm_models_ttl_seconds": ("api", "status_llm_models_ttl_seconds"),
     "worker_max_retries": ("worker", "max_retries"),
@@ -491,6 +493,7 @@ def _build_settings_from_env() -> Settings:
             slow_request_log_ms=max(0, _env_int("API_SLOW_REQUEST_LOG_MS", 1200)),
             status_stream_interval_seconds=_env_int("STATUS_STREAM_INTERVAL_SECONDS", 5),
             status_llm_models_ttl_seconds=_env_int("STATUS_LLM_MODELS_TTL_SECONDS", 60),
+            token=_env_str("API_TOKEN", ""),
         ),
         worker=WorkerConfig(
             max_retries=max(0, _env_int("WORKER_MAX_RETRIES", 2)),

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import load_settings
 from app.db import SessionLocal
+from app.deps import verify_api_token
 from app.exceptions import ConfigurationError, DocumentNotFoundError, PaperlessIntelligenceError
 from app.routes import (
     chat,
@@ -191,7 +192,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api = FastAPI(title="Paperless-NGX Cortex API", version=API_VERSION)
+api = FastAPI(
+    title="Paperless-NGX Cortex API",
+    version=API_VERSION,
+    dependencies=[Depends(verify_api_token)],
+)
 
 
 @api.middleware("http")
