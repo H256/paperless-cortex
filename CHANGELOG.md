@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/148-e2e-backend-smoke-cwd)
+
+### frontend-ci e2e-backend-smoke now runs uv from the backend working directory
+- `uncommitted` fix(ci): changed [`.github/workflows/frontend-ci.yml`](.github/workflows/frontend-ci.yml) so the `Migrate DB` and `Start backend on :8001` steps set `working-directory: backend` and drop the `--project backend` flag (`uv run alembic upgrade head` / `uv run uvicorn app.main:app ...`). Previously the steps ran `uv run --project backend ...` from the repo root, where `uv --project` selects the project environment but does not change the working directory — so `alembic` failed with "No config file alembic.ini found" (the repo root has no `alembic.ini`; only `backend/alembic.ini` exists) and `uvicorn` could not import `app.main` (only `backend/app/` exists). The job could not pass as written.
+- `uncommitted` fix(ci): re-ran `python3 scripts/sync_gitea_workflows.py` so [`.gitea/workflows/frontend-ci.yml`](.gitea/workflows/frontend-ci.yml) mirrors the fix (the ForgeJO Actions directory).
+- `uncommitted` test(ci): verified the failure reproduces from the repo root (`uv run --project backend alembic upgrade head` → "No 'script_location' key found in configuration") and the fix works from `backend/` (`uv run alembic upgrade head` finds `alembic.ini` and runs; `uv run python -c "import app.main"` succeeds). Verified `python3 scripts/sync_gitea_workflows.py --check` (exit 0, no drift), the `.github`/`.gitea` diff shows only the 2 self-path rewrite lines, both YAML files parse, and `cd backend && uv run pytest tests/test_gitea_workflow_parity.py -q` (`2 passed`).
+- `uncommitted` test(backend): verified `cd backend && uv run pytest -q` (`421 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), and `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 files).
 ## 2026-09-27 (branch: agent/177-create-task-run-failure-test)
 
 ### Worker records dead letter when create_task_run write fails
