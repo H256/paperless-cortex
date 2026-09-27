@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: codex/259-postgres-connect-args)
+
+### PostgreSQL startup no longer passes null connection arguments
+- `1bf6cc8` fix(db): retain SQLite's `check_same_thread=False` option while passing `{}` for PostgreSQL and other non-SQLite URLs in [`backend/app/db.py`](backend/app/db.py). This prevents SQLAlchemy's `TypeError` during application startup (issue #259).
+
 ## 2026-09-27 (branch: agent/148-e2e-backend-smoke-cwd)
 
 ### frontend-ci e2e-backend-smoke now runs uv from the backend working directory
