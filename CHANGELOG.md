@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/177-create-task-run-failure-test)
+
+### Worker records dead letter when create_task_run write fails
+- `uncommitted` fix(worker): changed [`backend/app/services/pipeline/worker_task_execution.py`](backend/app/services/pipeline/worker_task_execution.py) so the outer `except SQLAlchemyError` handler in `execute_worker_task` now classifies the error and records the popped task as a dead letter (`pending_dead_letter`) plus increments `worker_task_dead_letters_total`, instead of only logging and returning with `pending_dead_letter=None` (which silently dropped the task). Also initializes `source` to `None` so it is always bound in the except handler.
+- `uncommitted` test(backend): added `test_execute_worker_task_records_dead_letter_when_create_task_run_fails` to [`backend/tests/test_worker_task_execution.py`](backend/tests/test_worker_task_execution.py) — a non-recoverable `OperationalError` raised from `create_task_run` yields a recorded dead letter (`task`, `error_type=WORKER_TASK_ERROR`, `attempt=1`), no `TaskRun` row, and the dead-letter metrics counter.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_worker_task_execution.py -q` (`3 passed`), `cd backend && uv run ruff check app/services/pipeline/worker_task_execution.py tests/test_worker_task_execution.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
