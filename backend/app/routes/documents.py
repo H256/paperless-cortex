@@ -139,6 +139,7 @@ def list_documents(
                 enriched_payload = apply_derived_fields_and_review_status(
                     payload={"results": batch_payload.get("results", []) or []},
                     db=db,
+                    settings=settings,
                     include_derived=True,
                     include_summary_preview=include_summary_preview,
                     review_status="all",
@@ -186,6 +187,7 @@ def list_documents(
         return apply_derived_fields_and_review_status(
             payload=payload,
             db=db,
+            settings=settings,
             include_derived=include_derived,
             include_summary_preview=include_summary_preview,
             review_status=normalized_review_status,
