@@ -4,6 +4,7 @@ import json
 import os
 from typing import Any
 
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -624,6 +625,53 @@ def test_delete_embeddings_invalidates_local_document_cache(
     assert after.json()["embedding_chunk_count"] == 0
 
 
+def test_delete_embeddings_doc_keeps_db_row_when_vector_delete_fails(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=48, title="Doc 48", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=48, embedding_source="paperless", chunk_count=2))
+        db.commit()
+
+    def raise_vector_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.HTTPError("vector store down")
+
+    monkeypatch.setattr(documents_actions, "delete_points_for_doc", raise_vector_error)
+
+    failed = api_client.post("/documents/delete/embeddings", params={"doc_id": 48})
+    assert failed.status_code == 200
+    payload = failed.json()
+    assert payload["deleted"] == 0
+    assert payload["qdrant_deleted"] == 0
+    assert payload["qdrant_errors"] == 1
+
+    with Session(engine) as db:
+        assert db.get(DocumentEmbedding, 48) is not None
+
+    # Recovery + retry: once the vector store is back, a retry removes the row.
+    retry_calls: list[Any] = []
+
+    def recovered_delete(*args: Any, **_kwargs: Any) -> None:
+        retry_calls.append(args)
+
+    monkeypatch.setattr(documents_actions, "delete_points_for_doc", recovered_delete)
+
+    retried = api_client.post("/documents/delete/embeddings", params={"doc_id": 48})
+    assert retried.status_code == 200
+    retry_payload = retried.json()
+    assert retry_payload["deleted"] == 1
+    assert retry_payload["qdrant_deleted"] == 1
+    assert retry_payload["qdrant_errors"] == 0
+
+    assert len(retry_calls) == 1
+    assert retry_calls[0][1] == 48
+    with Session(engine) as db:
+        assert db.get(DocumentEmbedding, 48) is None
+
+
 def test_mark_reviewed_returns_missing_when_document_not_local(api_client: Any) -> None:
     response = api_client.post("/documents/9999/review/mark")
     assert response.status_code == 200
@@ -1091,6 +1139,61 @@ def test_delete_similarity_index_clears_similarity_task_runs(
         assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
 
 
+def test_delete_similarity_index_keeps_task_runs_when_vector_delete_fails(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=77, title="Similarity Reset", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            TaskRun(
+                doc_id=77,
+                task="similarity_index",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:44+00:00",
+                finished_at="2026-02-20T09:17:16+00:00",
+                created_at="2026-02-20T09:16:44+00:00",
+                updated_at="2026-02-20T09:17:16+00:00",
+            )
+        )
+        db.add(
+            TaskRun(
+                doc_id=77,
+                task="embeddings_vision",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:00+00:00",
+                finished_at="2026-02-20T09:16:30+00:00",
+                created_at="2026-02-20T09:16:00+00:00",
+                updated_at="2026-02-20T09:16:30+00:00",
+            )
+        )
+        db.commit()
+
+    def raise_vector_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.HTTPError("vector store down")
+
+    monkeypatch.setattr(documents_actions, "delete_similarity_points", raise_vector_error)
+
+    response = api_client.post("/documents/delete/similarity-index")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deleted"] == 0
+    assert payload["qdrant_deleted"] == 0
+    assert payload["qdrant_errors"] == 1
+
+    with Session(engine) as db:
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "similarity_index").count() == 1
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
+
+
 def test_delete_embeddings_returns_success_when_vector_backend_is_empty(
     api_client: Any, monkeypatch: Any
 ) -> None:
@@ -1104,6 +1207,36 @@ def test_delete_embeddings_returns_success_when_vector_backend_is_empty(
     assert payload["deleted"] == 1
     assert payload["qdrant_deleted"] == 1
     assert payload["qdrant_errors"] == 0
+
+
+def test_delete_embeddings_all_keeps_db_rows_when_vector_delete_fails(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=50, title="Doc 50", created="2026-02-10T10:00:00+00:00")
+    _insert_local_document(doc_id=51, title="Doc 51", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=50, embedding_source="paperless", chunk_count=2))
+        db.add(DocumentEmbedding(doc_id=51, embedding_source="paperless", chunk_count=3))
+        db.commit()
+
+    def raise_vector_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.HTTPError("vector store down")
+
+    monkeypatch.setattr(documents_actions, "delete_all_chunk_points", raise_vector_error)
+
+    response = api_client.post("/documents/delete/embeddings")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deleted"] == 0
+    assert payload["qdrant_deleted"] == 0
+    assert payload["qdrant_errors"] == 1
+
+    with Session(engine) as db:
+        assert db.get(DocumentEmbedding, 50) is not None
+        assert db.get(DocumentEmbedding, 51) is not None
 
 
 def test_get_local_document_note_override_sets_needs_review(

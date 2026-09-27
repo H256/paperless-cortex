@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING, Any, cast
 from weaviate.classes.config import Configure, DataType, Property
 from weaviate.classes.data import DataObject
 from weaviate.classes.query import Filter, MetadataQuery
+from weaviate.exceptions import WeaviateBaseError
 
 from app.services.search import weaviate
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from weaviate.collections.classes.batch import BatchObjectReturn
     from weaviate.collections.collection.sync import Collection
 
     from app.config import Settings
@@ -87,6 +89,19 @@ def _to_data_object(point: dict[str, Any]) -> DataObject[dict[str, Any], None]:
         uuid=_point_uuid(point["id"]),
         properties=_properties_from_point(point),
         vector=point.get("vector"),
+    )
+
+
+def _fail_on_insert_errors(result: BatchObjectReturn, collection_name: str) -> None:
+    if not result.has_errors:
+        return
+    details = "; ".join(
+        f"[{index}] {str(error.message)[:200]}"
+        for index, error in sorted(result.errors.items())[:3]
+    )
+    raise RuntimeError(
+        f"Weaviate insert_many failed collection={collection_name} "
+        f"failed={len(result.errors)} detail={details[:500]}"
     )
 
 
@@ -231,16 +246,33 @@ class WeaviateVectorStoreAdapter:
         chunk_points = [point for point in points if point not in centroid_points]
         with weaviate.client(settings) as client:
             if chunk_points:
-                _chunk_collection(client, settings).data.insert_many(
-                    [_to_data_object(point) for point in chunk_points]
-                )
+                chunk_collection = _chunk_collection(client, settings)
+                try:
+                    batch_result = chunk_collection.data.insert_many(
+                        [_to_data_object(point) for point in chunk_points]
+                    )
+                except WeaviateBaseError as exc:
+                    raise RuntimeError(
+                        f"Weaviate insert_many failed "
+                        f"collection={weaviate.chunk_collection_name(settings)}: {str(exc)[:500]}"
+                    ) from exc
+                _fail_on_insert_errors(batch_result, weaviate.chunk_collection_name(settings))
             if centroid_points:
                 centroid_collection = _centroid_collection(client, settings)
-                for point in centroid_points:
-                    centroid_collection.data.delete_by_id(_point_uuid(point["id"]))
-                centroid_collection.data.insert_many(
-                    [_to_data_object(point) for point in centroid_points]
-                )
+                # Pure upsert: insert_many with explicit deterministic UUIDs replaces any
+                # existing object with the same UUID (weaviate v1 batch semantics, pinned
+                # weaviate-client 4.20.4), so no pre-delete is required and the old
+                # centroid survives a failed insert.
+                try:
+                    centroid_result = centroid_collection.data.insert_many(
+                        [_to_data_object(point) for point in centroid_points]
+                    )
+                except WeaviateBaseError as exc:
+                    raise RuntimeError(
+                        f"Weaviate insert_many failed "
+                        f"collection={weaviate.centroid_collection_name(settings)}: {str(exc)[:500]}"
+                    ) from exc
+                _fail_on_insert_errors(centroid_result, weaviate.centroid_collection_name(settings))
 
     def delete_all_chunk_points(self, settings: Settings) -> None:
         self.ensure_ready(settings)
