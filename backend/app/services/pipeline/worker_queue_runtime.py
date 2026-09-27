@@ -20,6 +20,7 @@ from app.services.pipeline.queue import (
     mark_worker_heartbeat,
     move_due_delayed_tasks,
     record_last_run,
+    recover_inflight_dedup_keys,
     refresh_worker_lock,
     release_worker_lock,
     set_running_task,
@@ -57,6 +58,7 @@ def acquire_worker_runtime(
         )
         time.sleep(5)
 
+    recover_inflight_dedup_keys(settings)
     clear_running_task(settings)
     worker_token_ctx = bind_log_context(worker_id=worker_token, queue=QUEUE_KEY)
     log_event(logger, logging.INFO, "Worker started")
