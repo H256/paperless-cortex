@@ -107,18 +107,17 @@ def retrieve_points(
         "with_payload": with_payload,
     }
     with client(settings, timeout=30) as http:
-        # Qdrant API versions differ here: some expose /points/retrieve,
-        # others use /points for batch retrieval by ids.
+        # Qdrant returns 200 with an empty result list when point ids are
+        # unknown; a 404 here means the collection is missing (or a very old
+        # server without the route). Propagate it: callers map 404 to "no
+        # vector". An earlier fallback re-POSTed this retrieve payload to the
+        # /points upsert endpoint (which requires {"points": [...]}), always
+        # failed with a 400 validation error, and turned the recoverable
+        # missing-collection condition into a hard error.
         response = http.post(
             f"{base}/collections/{collection}/points/retrieve",
             headers=headers(settings),
             json=payload,
         )
-        if response.status_code == 404:
-            response = http.post(
-                f"{base}/collections/{collection}/points",
-                headers=headers(settings),
-                json=payload,
-            )
         response.raise_for_status()
         return response.json()
