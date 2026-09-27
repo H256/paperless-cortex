@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/145-gitea-workflows-mirror)
+
+### CI workflows now run on the ForgeJO host via a .gitea mirror
+- `fix(infra)`: the only remote is ForgeJO, whose Actions reads `.gitea/workflows`, but all three CI workflows (`backend-ci`, `frontend-ci`, `quality-gates`) lived only in `.github/workflows` (GitHub-only), so no lint/type/test gate ever executed on push or PR. Added a mirror of the three workflows under `.gitea/workflows/` (byte-identical to their `.github` sources except the self-referential path strings, which now point at `.gitea/workflows/` so the mirrored files re-trigger themselves).
+- `chore(infra)`: added [`scripts/sync_gitea_workflows.py`](scripts/sync_gitea_workflows.py) as the single source of truth for the mirror — it copies each `.github/workflows/*.yml` into `.gitea/workflows/` and rewrites only the `.github/workflows/` → `.gitea/workflows/` path strings; `--check` mode exits non-zero on any drift so a future edit to a source workflow is caught.
+- `test(infra)`: added [`backend/tests/test_gitea_workflow_parity.py`](backend/tests/test_gitea_workflow_parity.py) pinning the mirror contract — every `.github` workflow has a byte-identical `.gitea` counterpart (modulo the path rewrite) and the sync script's `--check` reports no drift. The test drives the real script, so a transform change is caught here.
+- `chore(infra)`: added a `gitea-workflow-parity` local hook to [`.pre-commit-config.yaml`](.pre-commit-config.yaml) that runs `python scripts/sync_gitea_workflows.py --check` on any change under `.github/workflows/` or `.gitea/workflows/`, so a drifted mirror is caught at commit time (not just in CI).
+- `test`: verified `cd backend && uv run pytest tests/test_gitea_workflow_parity.py -q` (`2 passed`), the same test fails when a mirror file is manually drifted (negative case confirmed), `cd backend && uv run ruff check tests/test_gitea_workflow_parity.py` (clean), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors — UP035 + B023), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`326 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+- `docs`: no version bump (infra-only change; no API model changes, so no OpenAPI / generated-frontend-client regeneration required). Residual risk: the mirror is a generated copy, so a source workflow edited without re-running the sync script will drift — the parity test + `--check` gate that. Enabling Actions on the ForgeJO instance itself is a host-side setting outside the repo (the instance already runs Actions, per the API).
 ## 2026-09-26 (branch: agent/207-hier-summary-partial-loss)
 
 ### Hierarchical summary replace no longer loses sections on partial failure
