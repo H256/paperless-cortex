@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/212-reclean-streaming)
+
+### Reclean streams page texts in bounded chunks
+- `uncommitted` fix(documents): changed [`backend/app/services/documents/page_text_store.py`](backend/app/services/documents/page_text_store.py) so `reclean_page_texts` no longer materializes the entire `DocumentPageText` table via `.all()`; it now streams the query with `yield_per(RECLEAN_STREAM_BATCH)` and commits every chunk, so the in-memory footprint stays proportional to the chunk size (the session default `expire_on_commit=True` releases the loaded text blobs on each commit) while every row is still cleaned and persisted.
+- `uncommitted` test(backend): added [`backend/tests/test_page_text_reclean_streaming.py`](backend/tests/test_page_text_reclean_streaming.py) with three regressions — `test_reclean_streams_and_persists_beyond_one_batch` (seeds >2 batches so the loop crosses multiple mid-iteration commits and asserts every row is cleaned/persisted), `test_reclean_doc_id_filter_streams_only_matching` (doc filtering holds while streaming; other docs stay untouched), and `test_reclean_empty_table_returns_zero` (empty table returns `{"processed": 0, "updated": 0}`).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_page_text_reclean_streaming.py -q` (`3 passed`), `cd backend && uv run pytest tests/test_documents_routes.py tests/test_documents_actions_routes.py tests/test_worker_runtime.py -q` (`51 passed`), `cd backend && uv run ruff check app/services/documents/page_text_store.py tests/test_page_text_reclean_streaming.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues), and `cd backend && uv run pytest -q` (`327 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
