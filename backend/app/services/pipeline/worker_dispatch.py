@@ -38,10 +38,12 @@ def build_dispatch_handler(
             run_id=run_id,
         ),
         "embeddings_paperless": lambda: process_embeddings_paperless_fn(
-            settings, db, doc_id, run_id=run_id
+            settings, db, doc_id, run_id=run_id,
+            embeddings_mode=str((task or {}).get("embeddings_mode") or ""),
         ),
         "embeddings_vision": lambda: process_embeddings_vision_fn(
-            settings, db, doc_id, run_id=run_id
+            settings, db, doc_id, run_id=run_id,
+            embeddings_mode=str((task or {}).get("embeddings_mode") or ""),
         ),
         "similarity_index": lambda: process_similarity_index_fn(settings, db, doc_id),
         "cleanup_texts": lambda: process_cleanup_texts_fn(
