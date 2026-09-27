@@ -12,6 +12,7 @@ from app.services.search import weaviate
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from weaviate import WeaviateClient
     from weaviate.collections.collection.sync import Collection
 
     from app.config import Settings
@@ -202,7 +203,7 @@ class WeaviateVectorStoreAdapter:
     def ensure_collection(
         self, settings: Settings, *, vector_size: int, distance: str = "Cosine"
     ) -> None:
-        del vector_size, distance
+        del distance
         self.ensure_ready(settings)
         with weaviate.client(settings) as client:
             chunk_name = weaviate.chunk_collection_name(settings)
@@ -213,12 +214,43 @@ class WeaviateVectorStoreAdapter:
                     properties=_chunk_properties(),
                     vector_config=Configure.Vectors.self_provided(),
                 )
+            else:
+                self._verify_vector_dimension(client, chunk_name, vector_size)
             if not client.collections.exists(centroid_name):
                 client.collections.create(
                     centroid_name,
                     properties=_centroid_properties(),
                     vector_config=Configure.Vectors.self_provided(),
                 )
+            else:
+                self._verify_vector_dimension(client, centroid_name, vector_size)
+
+    @staticmethod
+    def _verify_vector_dimension(
+        client: WeaviateClient, collection_name: str, vector_size: int
+    ) -> None:
+        """Raise a clear error if a pre-existing collection stores a different dimension.
+
+        Self-provided Weaviate collections carry no declared vector size, so the
+        only signal of a changed embedding model is the length of a stored
+        vector. Probe one; an empty collection cannot be verified and is allowed.
+        """
+        collection = client.collections.get(collection_name)
+        response = collection.query.fetch_objects(limit=1, include_vector=True)
+        objects = getattr(response, "objects", [])
+        if not objects:
+            return
+        vector = getattr(objects[0], "vector", None)
+        if isinstance(vector, dict):
+            vector = next(iter(vector.values()), None)
+        if not vector:
+            return
+        stored_size = len(vector)
+        if stored_size != vector_size:
+            raise RuntimeError(
+                f"Weaviate collection '{collection_name}' has size {stored_size}, "
+                f"but embedding size is {vector_size}. Delete or use a new collection."
+            )
 
     def upsert_points(self, settings: Settings, points: list[dict[str, Any]]) -> None:
         self.ensure_ready(settings)
