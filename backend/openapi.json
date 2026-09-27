@@ -8838,6 +8838,9 @@
           "llm_text": {
             "$ref": "#/components/schemas/StatusEntry"
           },
+          "llm_chat": {
+            "$ref": "#/components/schemas/StatusEntry"
+          },
           "llm_embedding": {
             "$ref": "#/components/schemas/StatusEntry"
           },
@@ -9071,6 +9074,7 @@
           "worker",
           "llm",
           "llm_text",
+          "llm_chat",
           "llm_embedding",
           "llm_vision"
         ],
