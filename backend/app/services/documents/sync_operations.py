@@ -24,9 +24,11 @@ from app.services.pipeline.sync_state import ensure_started, get_or_create_state
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
+    average_vectors,
     chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
+    make_doc_point_id,
     make_point_id,
     record_source_chunk_count,
     upsert_points,
@@ -302,9 +304,11 @@ def embed_documents(
             chunks = baseline_chunks + vision_chunks
             logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
             doc_points: list[dict[str, object]] = []
+            doc_vectors: list[list[float]] = []
             for idx, chunk in enumerate(chunks):
                 chunk_text_value = str(chunk["text"])
                 vector = embed_text(settings, chunk_text_value)
+                doc_vectors.append(vector)
                 doc_points.append(
                     {
                         "id": make_point_id(doc.id, idx, embedding_source),
@@ -320,6 +324,21 @@ def embed_documents(
                         },
                     }
                 )
+            if doc_vectors:
+                doc_vector = average_vectors(doc_vectors)
+                if doc_vector:
+                    doc_points.append(
+                        {
+                            "id": make_doc_point_id(doc.id),
+                            "vector": doc_vector,
+                            "payload": {
+                                "doc_id": doc.id,
+                                "chunk": -1,
+                                "type": "doc",
+                                "source": embedding_source,
+                            },
+                        }
+                    )
             if doc_points:
                 upsert_points(settings, doc_points)
                 points.extend(doc_points)
