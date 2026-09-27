@@ -67,12 +67,18 @@ def replace_section_summaries(
     summaries: list[tuple[str, dict[str, Any]]],
     model_name: str | None = None,
 ) -> None:
-    db.execute(
-        delete(DocumentSectionSummary).where(
-            DocumentSectionSummary.doc_id == doc_id,
-            DocumentSectionSummary.source == source,
+    # Delete only the section rows we are about to re-insert. A section missing
+    # from `summaries` (e.g. its LLM call failed) keeps its previous summary
+    # instead of being wiped out, so a partial failure no longer loses data.
+    section_keys = [section_key for section_key, _ in summaries]
+    if section_keys:
+        db.execute(
+            delete(DocumentSectionSummary).where(
+                DocumentSectionSummary.doc_id == doc_id,
+                DocumentSectionSummary.source == source,
+                DocumentSectionSummary.section_key.in_(section_keys),
+            )
         )
-    )
     now = utc_now_iso()
     for section_key, payload in summaries:
         summary_text_value = _sanitize_model_output_text(

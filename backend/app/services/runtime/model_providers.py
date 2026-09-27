@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import TYPE_CHECKING, Literal
+from urllib.parse import urlparse
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -36,6 +38,44 @@ def _normalize_url(value: str | None) -> str | None:
     if not normalized:
         return None
     return normalized.rstrip("/")
+
+
+def _is_blocked_host_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return (
+        ip.is_loopback
+        or ip.is_link_local
+        or ip.is_unspecified
+        or ip.is_multicast
+    )
+
+
+def validate_provider_base_url(value: str | None) -> str | None:
+    """Normalize a provider base URL and reject SSRF-prone targets.
+
+    Only http/https are allowed. A host that is an IP literal (or the
+    ``localhost`` name) must not be loopback, link-local (which covers the
+    cloud metadata address 169.254.169.254), unspecified, or multicast.
+    Hostnames that are not IP literals are left as-is so self-hosted LAN
+    providers (e.g. ``llm.elysium.lan``) keep working.
+    """
+    normalized = _normalize_url(value)
+    if not normalized:
+        return normalized
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError(f"Unsupported scheme {parsed.scheme!r}; only http/https allowed")
+    host = parsed.hostname
+    if not host:
+        raise ValueError("Missing host in base URL")
+    if host.lower() == "localhost":
+        raise ValueError("Base URL host is loopback")
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return normalized
+    if _is_blocked_host_ip(ip):
+        raise ValueError(f"Base URL host {host} is a blocked (loopback/link-local/metadata) address")
+    return normalized
 
 
 def _mask_api_key(value: str | None) -> str | None:
@@ -215,7 +255,7 @@ def upsert_provider_override(
         if row is None:
             row = RuntimeModelProviderOverride(role=role)
             db.add(row)
-        row.base_url = _normalize_url(base_url)
+        row.base_url = validate_provider_base_url(base_url)
         row.model = str(model).strip() if model is not None and str(model).strip() else None
         if clear_api_key:
             row.api_key_encrypted = None
@@ -238,13 +278,17 @@ def discover_models(
     normalized_base_url = _normalize_url(base_url)
     if not normalized_base_url:
         return False, "Base URL not set", []
+    try:
+        validated_base_url = validate_provider_base_url(normalized_base_url)
+    except ValueError as exc:
+        return False, str(exc), []
     headers: dict[str, str] = {}
     normalized_api_key = str(api_key or "").strip()
     if normalized_api_key:
         headers["Authorization"] = f"Bearer {normalized_api_key}"
     try:
         with httpx.Client(timeout=10, verify=verify_tls) as client:
-            response = client.get(f"{normalized_base_url}/v1/models", headers=headers)
+            response = client.get(f"{validated_base_url}/v1/models", headers=headers)
             response.raise_for_status()
         payload = response.json()
         data = payload.get("data")
