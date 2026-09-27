@@ -28,6 +28,7 @@ from app.services.search.embeddings import (
     delete_points_for_doc,
     embed_text,
     make_point_id,
+    record_source_chunk_count,
     upsert_points,
 )
 
@@ -327,11 +328,22 @@ def embed_documents(
             existing.embedding_model = settings.embedding_model
             existing.embedded_at = datetime.now(UTC).isoformat()
             previous_source = str(existing.embedding_source or "").strip().lower()
-            if previous_source == "both" or (previous_source and previous_source != embedding_source):
+            is_both = bool(
+                previous_source == "both"
+                or (previous_source and previous_source != embedding_source)
+            )
+            previous_total = int(existing.chunk_count or 0)
+            if is_both:
                 existing.embedding_source = "both"
             else:
                 existing.embedding_source = embedding_source
-            existing.chunk_count = len(chunks)
+            record_source_chunk_count(
+                existing,
+                source=embedding_source,
+                count=len(chunks),
+                both=is_both,
+                previous_total=previous_total,
+            )
             embedded += 1
             processed += 1
             state.processed = processed

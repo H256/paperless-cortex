@@ -29,7 +29,9 @@ from app.services.search.embeddings import (
     enforce_embedding_chunk_budget,
     make_doc_point_id,
     make_point_id,
+    per_source_counts,
     rebuild_doc_point_from_chunks,
+    record_source_chunk_count,
     summarize_chunk_split_telemetry,
     upsert_points,
 )
@@ -224,12 +226,35 @@ def embed_with_pages(
             extra={"source": embedding_source, "batch_size": batch_size, **telemetry},
         )
 
+    existing = db.get(DocumentEmbedding, doc.id)
+    if not existing:
+        existing = DocumentEmbedding(doc_id=doc.id)
+        db.add(existing)
+    existing.content_hash = content_hash
+    existing.embedding_model = settings.embedding_model
+    existing.embedded_at = datetime.now(UTC).isoformat()
+    previous_source = str(existing.embedding_source or "").strip().lower()
+    is_both = bool(
+        previous_source == "both" or (previous_source and previous_source != embedding_source)
+    )
+    previous_total = int(existing.chunk_count or 0)
+    if is_both:
+        existing.embedding_source = "both"
+    else:
+        existing.embedding_source = embedding_source
+    record_source_chunk_count(
+        existing,
+        source=embedding_source,
+        count=len(chunks),
+        both=is_both,
+        previous_total=previous_total,
+    )
+
     if start_index > 0:
         rebuild_doc_point_from_chunks(
             settings,
             doc_id=int(doc.id),
-            chunk_count=len(chunks),
-            source_hint=embedding_source,
+            source_counts=per_source_counts(existing, source_hint=embedding_source),
         )
     elif doc_vectors:
         doc_vector = average_vectors(doc_vectors)
@@ -249,20 +274,6 @@ def embed_with_pages(
                     }
                 ],
             )
-
-    existing = db.get(DocumentEmbedding, doc.id)
-    if not existing:
-        existing = DocumentEmbedding(doc_id=doc.id)
-        db.add(existing)
-    existing.content_hash = content_hash
-    existing.embedding_model = settings.embedding_model
-    existing.embedded_at = datetime.now(UTC).isoformat()
-    previous_source = str(existing.embedding_source or "").strip().lower()
-    if previous_source == "both" or (previous_source and previous_source != embedding_source):
-        existing.embedding_source = "both"
-    else:
-        existing.embedding_source = embedding_source
-    existing.chunk_count = len(chunks)
     db.commit()
 
 
@@ -391,11 +402,11 @@ def process_similarity_index(
     embedding = db.get(DocumentEmbedding, int(doc_id))
     if not embedding or int(embedding.chunk_count or 0) <= 0:
         return
+    source_counts = per_source_counts(embedding, source_hint=str(embedding.embedding_source or ""))
     ok = rebuild_doc_point_from_chunks(
         settings,
         doc_id=int(doc_id),
-        chunk_count=int(embedding.chunk_count or 0),
-        source_hint=str(embedding.embedding_source or ""),
+        source_counts=source_counts,
     )
     if not ok:
         raise RuntimeError(
