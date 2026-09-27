@@ -66,6 +66,7 @@ def execute_worker_task(
     pending_retry_payload: dict[str, object] | None = None
     pending_retry_delay_seconds: int | None = None
     pending_dead_letter: dict[str, object] | None = None
+    source: str | None = None
     task_payload = task if isinstance(task, dict) else {"doc_id": doc_id, "task": task_type}
     task_context_token = bind_log_context(
         doc_id=doc_id,
@@ -205,14 +206,27 @@ def execute_worker_task(
                     error_message=run_error_message,
                 )
     except SQLAlchemyError as exc:
+        error_type = classify_worker_error(exc)
         log_event(
             logger,
             logging.ERROR,
             "Worker loop task bookkeeping failed",
-            error_type=classify_worker_error(exc),
+            error_type=error_type,
             error_message=str(exc),
         )
         logger.exception("Worker bookkeeping failed doc=%s task=%s", doc_id, task_type)
+        pending_dead_letter = {
+            "task": task_payload,
+            "error_type": error_type,
+            "error_message": str(exc),
+            "attempt": retry_attempt + 1,
+        }
+        increment_counter(
+            "worker_task_dead_letters_total",
+            task=task_type,
+            source=source or "unknown",
+            error_type=error_type,
+        )
     finally:
         reset_log_context(task_context_token)
     return {
