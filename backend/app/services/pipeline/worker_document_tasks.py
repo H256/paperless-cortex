@@ -354,6 +354,7 @@ def process_embeddings_vision(
     *,
     is_cancel_requested_fn: Callable[[Settings], bool],
     run_id: int | None = None,
+    force: bool = False,
 ) -> None:
     if is_cancel_requested_fn(settings):
         logger.info("Worker cancel requested; abort embeddings doc=%s", doc_id)
@@ -365,7 +366,7 @@ def process_embeddings_vision(
         settings,
         db,
         doc,
-        force_vision=False,
+        force_vision=force,
     )
     embed_with_pages(
         settings,
