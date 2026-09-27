@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/128-vision-ocr-default-page-cap)
+
+### Vision OCR gains a default page cap and truncation warnings
+- `uncommitted` fix(ai): changed [`backend/app/config.py`](backend/app/config.py) so `VISION_OCR_MAX_PAGES` defaults to `50` instead of `0` (unlimited), so a large scan no longer triggers unbounded sequential vision LLM calls by default.
+- `uncommitted` fix(ai): changed [`backend/app/services/ai/vision_ocr.py`](backend/app/services/ai/vision_ocr.py) so `ocr_pdf_pages` logs a warning when the page cap truncates a document and a warning when `VISION_OCR_MAX_DIM=0` disables image-size capping (full-resolution, potentially multi-MB payloads).
+- `uncommitted` docs: updated [`.env.example`](.env.example) to reflect the new `VISION_OCR_MAX_PAGES=50` default and the `VISION_OCR_MAX_DIM=0` full-resolution caveat.
+- `uncommitted` test(backend): added `test_vision_ocr_page_cap.py` covering the default cap value, explicit `0` staying unlimited, `ocr_pdf_pages` stopping at the cap, and unlimited processing when the cap is `0`.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_vision_ocr_page_cap.py tests/test_config.py -q` (`12 passed`), `cd backend && uv run ruff check app/config.py app/services/ai/vision_ocr.py tests/test_vision_ocr_page_cap.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/config.py app/services/ai/vision_ocr.py` (no issues), and `cd backend && uv run pytest -q` (`328 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
