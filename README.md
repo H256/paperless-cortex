@@ -144,6 +144,7 @@ Docker uses `:8000` for the API and serves the frontend from the backend contain
 ```bash
 docker compose -f docker-compose.worker.yml up --build
 ```
+**Important:** `docker-compose.worker.yml` requires `QUEUE_ENABLED=1` in your `.env`. If the queue is disabled (`QUEUE_ENABLED` unset or `0`), the worker entrypoint exits non-zero and the container is flagged as failed (it does not sit silently as `Exited (0)`).
 
 ## Configuration
 Set values in `.env`.
