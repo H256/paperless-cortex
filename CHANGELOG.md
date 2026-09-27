@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-27 (branch: agent/151-compose-ports-loopback)
+
+### Compose published ports bind to 127.0.0.1 by default
+- `uncommitted` fix(infra): changed [`docker-compose.app.yml`](docker-compose.app.yml) and [`docker-compose.full.yml`](docker-compose.full.yml) so the published API port (`8000:8000`) and the Qdrant port (`6333:6333`) are bound to `127.0.0.1` by default (`127.0.0.1:8000:8000`, `127.0.0.1:6333:6333`). Previously the compose `ports:` entries bound to `0.0.0.0`, so with the unauthenticated API (AUDIT API-001) and the keyless Qdrant service, any host on the LAN could read/write the document API and directly query/mutate the vector store (all embeddings and document text) with no credentials (issue #151).
+- `uncommitted` docs: added a note to the "Full stack" section of [`README.md`](README.md) stating that published ports are bound to `127.0.0.1` by default and how to expose them to other hosts (change the `ports:` entries to `"8000:8000"` / `"6333:6333"` or bind to a specific interface).
+- `uncommitted` test: verified all three compose files parse as valid YAML (`docker-compose.app.yml` → redis/cortex; `docker-compose.full.yml` → postgres/redis/qdrant/cortex; `docker-compose.worker.yml` → worker) and that the `127.0.0.1:` prefix is present on the API and Qdrant `ports:` entries. No backend/frontend test suite consumes the compose files, so no pytest/npm run is applicable.
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
