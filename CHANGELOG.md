@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-12 (branch: agent/164-qdrant-retrieve-404-fallback)
+
+### Qdrant retrieve 404 propagates instead of failing upsert fallback
+- `uncommitted` fix(search): removed the always-failing 404 fallback in `retrieve_points` of [`backend/app/services/search/qdrant.py`](backend/app/services/search/qdrant.py) (which re-POSTed the retrieve payload to the `/collections/{c}/points` upsert endpoint, requiring `{"points": [...]}` and therefore always failing with a 400 validation error), so a missing collection now propagates as a clean HTTP 404, which `fetch_doc_point_vector` and `rebuild_doc_point_from_chunks` already map to "no vector" instead of a hard 400 error.
+- `uncommitted` test(backend): replaced `test_retrieve_points_falls_back_to_points_endpoint_on_404` with `test_retrieve_points_propagates_404_without_points_fallback` in [`backend/tests/test_qdrant_service.py`](backend/tests/test_qdrant_service.py) (404 propagates as `httpx.HTTPStatusError` with status 404, exactly one request to `/points/retrieve`, carrying the retrieve payload) and added `test_fetch_doc_point_vector_returns_none_when_retrieve_404_via_real_adapter` to [`backend/tests/test_similarity_service.py`](backend/tests/test_similarity_service.py) (real adapter dispatch `similarity → vector_store → qdrant_adapter → qdrant.retrieve_points` with a fake client 404ing `/points/retrieve` returns `None` without raising).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_qdrant_service.py tests/test_similarity_service.py -q` (`8 passed`), `cd backend && uv run ruff check app/services/search/qdrant.py tests/test_qdrant_service.py tests/test_similarity_service.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
 ### Queue resume recovers stale cancel marker and sync failure state
