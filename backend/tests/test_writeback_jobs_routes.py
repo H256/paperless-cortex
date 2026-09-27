@@ -660,6 +660,94 @@ def test_writeback_job_lifecycle_execute_pending_and_history_with_failure(
     assert "failed" in history_statuses
 
 
+def test_writeback_job_lifecycle_rerun_after_partial_failure_is_idempotent(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """Re-running execute-pending after a partial failure must not re-apply or retry.
+
+    Pins WB-001: a second pass over the same completed/failed jobs is a no-op —
+    the completed doc is not re-patched, the failed job is not retried, and no
+    duplicate notes are written. (The audit's guess of "failed job retried once"
+    does not hold: failed jobs stay terminal and are only re-executed via an
+    explicit per-job execute or by creating a new pending job.)
+    """
+    from app.services.integrations import paperless
+
+    _insert_document(571, "Local title 571")
+    _insert_document(572, "Local title 572")
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda _settings, doc_id: {
+            "id": doc_id,
+            "title": f"Remote title {doc_id}",
+            "created": None,
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        },
+    )
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    patch_calls: dict[int, int] = {}
+    note_calls: dict[int, int] = {}
+
+    def _patch(_settings: Any, doc_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        patch_calls[int(doc_id)] = patch_calls.get(int(doc_id), 0) + 1
+        if int(doc_id) == 572:
+            raise RuntimeError("forced patch failure for lifecycle re-run test")
+        return {"id": doc_id, **payload}
+
+    def _note(_settings: Any, doc_id: int, note: str) -> dict[str, Any]:
+        note_calls[int(doc_id)] = note_calls.get(int(doc_id), 0) + 1
+        return {"id": 1}
+
+    monkeypatch.setattr(paperless, "update_document", _patch)
+    monkeypatch.setattr(paperless, "add_document_note", _note)
+    monkeypatch.setattr(paperless, "delete_document_note", lambda *args, **kwargs: None)
+
+    first = api_client.post("/writeback/jobs", json={"doc_ids": [571]})
+    second = api_client.post("/writeback/jobs", json={"doc_ids": [572]})
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    # First pass: 571 completes, 572 fails. Snapshot the Paperless call counts.
+    first_exec = api_client.post(
+        "/writeback/jobs/execute-pending", json={"dry_run": False, "limit": 0}
+    )
+    assert first_exec.status_code == 200
+    payload = first_exec.json()
+    assert payload["processed"] == 2
+    assert payload["completed"] == 1
+    assert payload["failed"] == 1
+    assert patch_calls.get(571, 0) >= 1
+    assert patch_calls.get(572, 0) >= 1
+    first_patch_571 = patch_calls.get(571, 0)
+    first_patch_572 = patch_calls.get(572, 0)
+    first_note_571 = note_calls.get(571, 0)
+    first_note_572 = note_calls.get(572, 0)
+
+    # Second pass: both jobs are terminal (completed/failed), so nothing is
+    # re-selected and no Paperless call is issued again.
+    second_exec = api_client.post(
+        "/writeback/jobs/execute-pending", json={"dry_run": False, "limit": 0}
+    )
+    assert second_exec.status_code == 200
+    second_payload = second_exec.json()
+    assert second_payload["processed"] == 0
+    assert second_payload["completed"] == 0
+    assert second_payload["failed"] == 0
+    assert second_payload["job_ids"] == []
+
+    # Idempotency assertions: no re-patch of the completed doc, no retry of the
+    # failed doc, no duplicate notes — the second pass leaves every count frozen.
+    assert patch_calls.get(571, 0) == first_patch_571
+    assert patch_calls.get(572, 0) == first_patch_572
+    assert note_calls.get(571, 0) == first_note_571
+    assert note_calls.get(572, 0) == first_note_572
+
+
 def test_writeback_execute_now_reports_httpx_status_error_partial_failure(
     api_client: Any, monkeypatch: Any
 ) -> None:

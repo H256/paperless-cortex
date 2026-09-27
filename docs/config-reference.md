@@ -6,8 +6,8 @@ Diese Seite ist eine kompakte Betriebsreferenz für die wichtigsten Konfiguratio
 
 Die produktive Konfiguration kommt primär aus:
 
-- [`.env.example`](E:\workspace\python\paperless-intelligence\.env.example)
-- [backend/app/config.py](E:\workspace\python\paperless-intelligence\backend\app\config.py)
+- [`.env.example`](.env.example)
+- [backend/app/config.py](backend/app/config.py)
 
 Diese Referenz erklärt die Gruppen und den praktischen Zweck der Variablen.
 
@@ -366,8 +366,8 @@ Folge:
 
 ## 8. Empfohlene Lesereihenfolge für Betreiber
 
-1. [docs/architecture-overview.md](E:\workspace\python\paperless-intelligence\docs\architecture-overview.md)
-2. [docs/config-reference.md](E:\workspace\python\paperless-intelligence\docs\config-reference.md)
-3. [docs/manual/15-admin-und-betrieb.md](E:\workspace\python\paperless-intelligence\docs\manual\15-admin-und-betrieb.md)
-4. [docs/manual/16-settings-und-live-model-provider.md](E:\workspace\python\paperless-intelligence\docs\manual\16-settings-und-live-model-provider.md)
-5. [`.env.example`](E:\workspace\python\paperless-intelligence\.env.example)
+1. [docs/architecture-overview.md](docs/architecture-overview.md)
+2. [docs/config-reference.md](docs/config-reference.md)
+3. [docs/manual/15-admin-und-betrieb.md](docs/manual/15-admin-und-betrieb.md)
+4. [docs/manual/16-settings-und-live-model-provider.md](docs/manual/16-settings-und-live-model-provider.md)
+5. [`.env.example`](.env.example)
