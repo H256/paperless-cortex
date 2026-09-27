@@ -274,6 +274,12 @@ class WeaviateVectorStoreAdapter:
                 f"but embedding size is {vector_size}. Delete or use a new collection."
             )
 
+    def collection_vector_size(self, settings: Settings) -> int | None:
+        # Weaviate uses self-provided vectors with no stored dimension, so the
+        # collection config carries no size to read back.
+        del settings
+        return None
+
     def upsert_points(self, settings: Settings, points: list[dict[str, Any]]) -> None:
         self.ensure_ready(settings)
         centroid_points = [
