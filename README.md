@@ -38,8 +38,8 @@ flowchart TD
   - Sync from Paperless, local storage, embeddings, semantic search, suggestions, queue/worker, manual writeback.
 - `Phase 1` (robustness + UX streamlining): **Done**
   - Pipeline hardening + triage/log observability baseline delivered.
-- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Planned / partial design only**
-  - Spec exists, full implementation not complete yet.
+- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Done**
+  - Citation evidence resolution is implemented and served by `POST /api/chat/resolve-evidence` (used by the chat UI); on-the-fly bbox resolution of citation snippets into page/word matches is included.
 
 ### Practical interpretation
 - You can use the app end-to-end today.
@@ -137,9 +137,10 @@ docker compose -f docker-compose.app.yml up --build
 ```bash
 docker compose -f docker-compose.full.yml up --build
 ```
-**Important:** `LLM_BASE_URL` must be set in your `.env`. It is not set in `docker-compose.full.yml`.
+**Important:** `LLM_BASE_URL` must be set in your `.env`. `docker-compose.full.yml` does not set it (an empty `environment:` entry would override the `.env` value, since compose `environment:` takes precedence over `env_file:`).
 Docker uses `:8000` for the API and serves the frontend from the backend container unless you run the frontend dev server separately.
 The container entrypoint runs `alembic upgrade head` automatically on startup (with a short retry while Postgres comes up), so a fresh Postgres volume is migrated before the API/worker start — no manual migration step is needed.
+Published ports are bound to `127.0.0.1` by default (API `:8000`, Qdrant `:6333`), so the API and vector store are reachable only from the host itself. To expose them to other hosts, change the compose `ports:` entries to `"8000:8000"` / `"6333:6333"` (or bind to a specific interface).
 
 ### Worker-only container
 ```bash
