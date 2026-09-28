@@ -3,10 +3,10 @@
 Thanks for your interest in contributing.
 
 ## Workflow
-1. Fork the repository on GitHub.
+1. Fork the repository (hosted on a self-hosted ForgeJO instance).
 2. Create a feature branch in your fork.
 3. Make changes with focused commits.
-4. Open a pull request against the main branch.
+4. Open a pull request against the `master` branch.
 
 ## Local development
 - Backend uses `uv` for Python deps. See `README.md` for setup.
@@ -20,8 +20,8 @@ Thanks for your interest in contributing.
 
 ## Code style
 - Backend: follow existing FastAPI and SQLAlchemy patterns.
-- Frontend: follow existing React and TypeScript patterns.
+- Frontend: follow existing Vue 3 and TypeScript patterns.
 - Keep formatting consistent with the surrounding code.
 
 ## Reporting issues
-- Use GitHub issues with a clear repro, logs, and steps to reproduce.
+- Use ForgeJO issues with a clear repro, logs, and steps to reproduce.
