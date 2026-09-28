@@ -407,3 +407,33 @@ def test_execute_direct_use_paperless_resolutions_sync_local_fields(
         ai_notes = db.query(DocumentNote).filter(DocumentNote.document_id == 1999).all()
         ai_texts = [str(note.note or "") for note in ai_notes]
         assert any("Remote summary" in text for text in ai_texts)
+
+
+def test_execute_direct_returns_404_when_remote_doc_is_gone(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    import httpx
+
+    from app.services.integrations import paperless
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=2001, title="Doc 2001"))
+        db.commit()
+
+    def _get_document_cached_404(_settings: Any, _doc_id: int) -> dict[str, Any]:
+        raise httpx.HTTPStatusError(
+            "document not found",
+            request=httpx.Request("GET", "http://paperless/api/documents/2001"),
+            response=httpx.Response(
+                404,
+                request=httpx.Request("GET", "http://paperless/api/documents/2001"),
+            ),
+        )
+
+    monkeypatch.setattr(paperless, "get_document_cached", _get_document_cached_404)
+
+    response = api_client.post("/writeback/documents/2001/execute-direct", json={})
+    assert response.status_code == 404

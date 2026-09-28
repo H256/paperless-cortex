@@ -322,6 +322,19 @@ api.include_router(settings.router)
 api.include_router(chat.router)
 api.include_router(writeback_dryrun.router)
 
+
+@app.get("/api/health")
+def health() -> dict[str, str]:
+    """Liveness probe for operators and container healthchecks.
+
+    Registered on the outer app *before* the ``/api`` sub-app mount so the
+    prefix mount does not shadow it (Starlette matches in registration order).
+    It is deliberately kept off the sub-app's ``verify_api_token`` gate so a
+    probe needs no credentials.
+    """
+    return {"status": "ok"}
+
+
 app.mount("/api", api)
 
 
@@ -339,8 +352,3 @@ static_dir_env = SETTINGS.frontend.dist_path or ""
 static_dir = Path(static_dir_env) if static_dir_env else Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if static_dir.is_dir():
     app.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="static")
-
-
-@app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
