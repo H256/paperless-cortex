@@ -52,6 +52,17 @@ def _insert_local_document(session_factory: Any, doc_id: int, title: str) -> Non
         db.commit()
 
 
+def _get_document_for_mark(
+    existing: dict[int, dict[str, Any]],
+) -> Any:
+    """Stub revalidation: return the payload if the id is known to exist, else None (404)."""
+
+    def _fn(_settings: Any, doc_id: int) -> dict[str, Any] | None:
+        return existing.get(doc_id)
+
+    return _fn
+
+
 def test_run_documents_sync_page_only_mark_missing_skips_missing_pass(session_factory: Any) -> None:
     settings = load_settings()
     _insert_local_document(session_factory, 5001, "Unseen Local Doc")
@@ -158,6 +169,7 @@ def test_run_documents_sync_full_walk_mark_missing_still_marks(session_factory: 
             list_documents_fn=_list_documents,
             build_task_sequence_fn=lambda *args, **kwargs: [],
             enqueue_task_sequence_fn=lambda *args, **kwargs: None,
+            get_document_for_mark_fn=_get_document_for_mark({}),
         )
     finally:
         db.close()
@@ -253,6 +265,7 @@ def test_run_documents_sync_reduced_remote_list_mark_missing_marks_only_missing(
             list_documents_fn=_list_documents,
             build_task_sequence_fn=lambda *args, **kwargs: [],
             enqueue_task_sequence_fn=lambda *args, **kwargs: None,
+            get_document_for_mark_fn=_get_document_for_mark({}),
         )
     finally:
         db.close()
@@ -268,3 +281,64 @@ def test_run_documents_sync_reduced_remote_list_mark_missing_marks_only_missing(
         assert missing.deleted_at.startswith("DELETED in Paperless")
         assert seen is not None
         assert seen.deleted_at is None
+
+
+def test_run_documents_sync_doc_still_in_paperless_not_marked_deleted(
+    session_factory: Any,
+) -> None:
+    """A document absent from the walk but still present in Paperless is kept.
+
+    Regression for AUDIT DOC-004: a document created in Paperless (or
+    concurrently upserted locally) after the last page was fetched is not in
+    ``seen_ids``. The mark-missing pass must revalidate it against Paperless
+    and only mark it deleted on a confirmed 404, so a live document is not
+    flagged "DELETED in Paperless (copy kept)".
+    """
+    settings = load_settings()
+    # 5501 exists locally AND in Paperless, but the walk omits it (created
+    # after the last page was fetched). 5502 is genuinely gone from Paperless.
+    _insert_local_document(session_factory, 5501, "Live Doc Created Mid-Sync")
+    _insert_local_document(session_factory, 5502, "Truly Deleted Doc")
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        assert page == 1
+        # 5503 is the only doc the walk sees, so 5501/5502 are missing candidates.
+        return _page_payload(1, None, [_doc_payload(5503, "Walk Seen Doc", "seen")])
+
+    # 5501 is still in Paperless (payload returned), 5502 is gone (None = 404).
+    live_payload = _doc_payload(5501, "Live Doc Created Mid-Sync", "still here")
+    db = session_factory()
+    try:
+        result = run_documents_sync(
+            db=db,
+            settings=settings,
+            page_size=50,
+            incremental=False,
+            embed=False,
+            page=1,
+            page_only=False,
+            force_embed=False,
+            mark_missing=True,
+            insert_only=False,
+            list_documents_fn=_list_documents,
+            build_task_sequence_fn=lambda *args, **kwargs: [],
+            enqueue_task_sequence_fn=lambda *args, **kwargs: None,
+            get_document_for_mark_fn=_get_document_for_mark({5501: live_payload}),
+        )
+    finally:
+        db.close()
+
+    # Only the genuinely-deleted 5502 is marked; live 5501 is preserved.
+    assert result["marked_deleted"] == 1
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as verify_db:
+        live = verify_db.get(Document, 5501)
+        gone = verify_db.get(Document, 5502)
+        assert live is not None
+        assert live.deleted_at is None
+        assert gone is not None
+        assert gone.deleted_at is not None
+        assert gone.deleted_at.startswith("DELETED in Paperless")

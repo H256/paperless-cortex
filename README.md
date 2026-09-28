@@ -38,8 +38,8 @@ flowchart TD
   - Sync from Paperless, local storage, embeddings, semantic search, suggestions, queue/worker, manual writeback.
 - `Phase 1` (robustness + UX streamlining): **Done**
   - Pipeline hardening + triage/log observability baseline delivered.
-- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Planned / partial design only**
-  - Spec exists, full implementation not complete yet.
+- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Done**
+  - Citation evidence resolution is implemented and served by `POST /api/chat/resolve-evidence` (used by the chat UI); on-the-fly bbox resolution of citation snippets into page/word matches is included.
 
 ### Practical interpretation
 - You can use the app end-to-end today.
@@ -137,9 +137,10 @@ docker compose -f docker-compose.app.yml up --build
 ```bash
 docker compose -f docker-compose.full.yml up --build
 ```
-**Important:** `LLM_BASE_URL` must be set in your `.env`. It is not set in `docker-compose.full.yml`.
+**Important:** `LLM_BASE_URL` must be set in your `.env`. `docker-compose.full.yml` does not set it (an empty `environment:` entry would override the `.env` value, since compose `environment:` takes precedence over `env_file:`).
 Docker uses `:8000` for the API and serves the frontend from the backend container unless you run the frontend dev server separately.
 The container entrypoint runs `alembic upgrade head` automatically on startup (with a short retry while Postgres comes up), so a fresh Postgres volume is migrated before the API/worker start — no manual migration step is needed.
+Published ports are bound to `127.0.0.1` by default (API `:8000`, Qdrant `:6333`), so the API and vector store are reachable only from the host itself. To expose them to other hosts, change the compose `ports:` entries to `"8000:8000"` / `"6333:6333"` (or bind to a specific interface).
 
 ### Worker-only container
 ```bash
@@ -186,14 +187,20 @@ Set values in `.env`.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): contribution notes
 - [`docs/execution-blueprint-large-doc-worker.md`](docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
 
+### Historical status snapshots (point-in-time, superseded by CHANGELOG.md)
+- [`docs/history/FINAL_STATUS.md`](docs/history/FINAL_STATUS.md): code-quality assessment snapshot (2026-03-13)
+- [`docs/history/CURRENT_STATUS_ANALYSIS.md`](docs/history/CURRENT_STATUS_ANALYSIS.md): comprehensive re-assessment snapshot (2026-03-13)
+
 ## API/client generation
 ```bash
 cd frontend
 ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate
 ```
 
-## Versioning (simple start, no CI)
+## Versioning (with CI)
 The root `VERSION` file is the source of truth.
+
+CI is enabled: canonical workflow definitions live in `.github/workflows/` (GitHub-Actions syntax) and are mirrored into `.gitea/workflows/` — the directory ForgeJO's Actions reads — by `python scripts/sync_gitea_workflows.py` (parity enforced by `backend/tests/test_gitea_workflow_parity.py`). The three workflows cover backend (ruff/mypy/pytest), frontend (lint/tsc/coverage/build), and quality gates.
 
 ```bash
 python scripts/sync_version.py
