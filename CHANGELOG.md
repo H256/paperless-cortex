@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
+
+### Retried worker task no longer inherits a completed run's terminal checkpoint
+- `uncommitted` fix(pipeline): added an opt-in `exclude_completed` parameter to [`find_latest_checkpoint`](backend/app/services/pipeline/task_runs.py) that filters out `TaskRun` rows with status `completed`, and wired the worker retry path in [`worker_task_execution.py`](backend/app/services/pipeline/worker_task_execution.py) to use it (issue #115 / AUDIT PL-003). Previously the function had no status filter, so on retry (`retry_attempt > 0`) it could inherit a previously-completed run's terminal checkpoint (`current == total`); the handler then resumed at `start_index == total`, the loop body never executed, and the run finished as a silent no-op success. The default (no filter) is unchanged so direct callers keep the previous "newest of any status" behavior.
+- `uncommitted` test: added [`tests/test_worker_retry_checkpoint_exclude_completed.py`](backend/tests/test_worker_retry_checkpoint_exclude_completed.py) — a completed run's terminal checkpoint is skipped on retry (RED on base, GREEN on branch), the default path still returns it, and a genuine in-progress (failed) partial checkpoint is still returned so the retry resumes from the real progress rather than a no-op.
+
 ## 2026-09-28 (branch: agent/183-contributing-workflow-fix)
 
 ### CONTRIBUTING.md now matches the actual repo (host, framework, branch)
