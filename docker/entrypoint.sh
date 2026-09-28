@@ -26,6 +26,34 @@ fi
 
 # Start worker in background (queue processing)
 python -m app.worker &
+WORKER_PID=$!
 
-# Start API (serves frontend if built)
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Start the API (serves frontend if built) as a child so the entrypoint can
+# forward stop signals to it (issue #149).
+uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" &
+API_PID=$!
+
+# Forward stop signals to the worker and the API. Without this, `docker stop`
+# signals only the foreground and the background worker is SIGKILLed mid-task
+# after the grace timeout (issue #149).
+on_stop() {
+  kill -TERM "$WORKER_PID" 2>/dev/null || true
+  kill -TERM "$API_PID" 2>/dev/null || true
+}
+trap on_stop TERM INT
+
+# The API drives the container lifetime. A trapped signal interrupts `wait`
+# (returns >128); re-wait until the API has actually exited so its shutdown
+# completes before we leave. A worker crash does not take the API down.
+set +e
+while :; do
+  wait "$API_PID" 2>/dev/null
+  status=$?
+  if [ "$status" -le 128 ] || ! kill -0 "$API_PID" 2>/dev/null; then
+    break
+  fi
+done
+set -e
+kill -TERM "$WORKER_PID" 2>/dev/null || true
+wait "$WORKER_PID" 2>/dev/null || true
+exit "$status"
