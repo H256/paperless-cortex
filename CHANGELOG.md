@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/136-llm-sdk-retry-and-jsonmode-400)
+
+### LLM SDK client fails fast (max_retries=0) and json_mode 400s no longer double-bill
+- `uncommitted` fix(ai): created the pooled OpenAI SDK client in [`llm_client.py`](backend/app/services/ai/llm_client.py) with `max_retries=0` (issue #136 / AUDIT AI-010). The client was previously built without `max_retries`, so the SDK default (2 retries with backoff) silently re-issued 429/5xx chat/embedding POSTs at up to 3x cost. Retry policy is now owned by the caller: the worker pipeline retries via `settings.worker_max_retries`; non-worker paths surface the error immediately.
+- `uncommitted` fix(ai): `chat_completion` now retries without `response_format` only when the 400 actually indicates `response_format` is unsupported (new helper `_is_response_format_unsupported` inspects the error message/body). Previously *any* `BadRequestError` while `json_mode` was set triggered a second full chat call — e.g. an invalid model name (400 "model not found") was retried once, doubling the cost of a request that could never succeed.
+- `uncommitted` test: added [`tests/test_llm_client_retries.py`](backend/tests/test_llm_client_retries.py) — the pooled client is constructed with `max_retries=0`; an invalid-model 400 with `json_mode` is re-raised after a single call (no retry); a `response_format` 400 retries once without `response_format` and succeeds; and a non-`json_mode` 400 propagates immediately.
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint
