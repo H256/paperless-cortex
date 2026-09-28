@@ -30,6 +30,13 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` test(infra): added [`backend/tests/test_dockerignore_build_context.py`](backend/tests/test_dockerignore_build_context.py) — applies the `.dockerignore` rules (gitignore-style: matching a parent directory excludes everything under it) to a representative path set and asserts the heavy/secret entries are excluded while every path the Dockerfile `COPY`s stays in the build context.
 - `uncommitted` test: verified `cd backend && uv run pytest tests/test_dockerignore_build_context.py -q` (`3 passed`), `cd backend && uv run ruff check tests/test_dockerignore_build_context.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml tests/test_dockerignore_build_context.py` (no issues), and `cd backend && uv run pytest -q` (`435 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression). A real `docker build` was NOT RUN (Docker daemon not accessible in this environment: `permission denied` on `/var/run/docker.sock`); the ignore-file contract is verified by the focused test.
 
+## 2026-09-28 (branch: agent/154-qdrant-pin)
+
+### Full-stack compose now pins the Qdrant release
+- `uncommitted` fix(infra): changed [`docker-compose.full.yml`](docker-compose.full.yml) so the `qdrant` service uses `qdrant/qdrant:v1.19.1` instead of `qdrant/qdrant:latest`, matching the pinned `postgres:16-alpine` / `redis:7-alpine` / `node:22-bookworm-slim` / `python:3.13-slim` images. A `docker compose pull && up` weeks later can no longer pull an incompatible Qdrant release and break the vector store at deploy time with no diff to review; a deliberate bump is now a reviewable, changelogged change (issue #154).
+- `uncommitted` test(infra): verified `docker compose -f docker-compose.full.yml config --images` lists only pinned tags/digests (`qdrant/qdrant:v1.19.1`, `postgres:16-alpine`, `redis:7-alpine`) plus the local `cortex` build — no `:latest` remains.
+- `uncommitted` test(infra): confirmed the app talks to Qdrant only via its stable REST API over `httpx` (`backend/app/services/search/qdrant.py`), so pinning to a recent 1.x release is API-compatible with the existing upsert/retrieve/delete call sites.
+
 ## 2026-09-28 (branch: agent/140-embedding-failure-pending-reembed)
 
 ### Embedding failure no longer leaves a doc permanently un-searchable
