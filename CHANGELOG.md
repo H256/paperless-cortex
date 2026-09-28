@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/184-readme-ci-heading)
+
+### README 'Versioning (simple start, no CI)' heading corrected to match the enabled CI
+- `967d97b` docs(readme): changed [`README.md`](README.md) so the `## Versioning (simple start, no CI)` heading — which led readers to assume changes ship without automated checks — is replaced by `## Versioning (with CI)` plus a short note stating that CI is enabled: canonical workflow definitions live in `.github/workflows/` (GitHub-Actions syntax) and are mirrored into `.gitea/workflows/` (the directory ForgeJO's Actions reads) by `python scripts/sync_gitea_workflows.py`, with parity enforced by `backend/tests/test_gitea_workflow_parity.py`. The three workflows cover backend (ruff/mypy/pytest), frontend (lint/tsc/coverage/build), and quality gates. The original audit's proposed correction ("workflows are not triggered by the current ForgeJO host") is now outdated: the `.gitea/workflows/` mirror was added 2026-09-27, so the host does trigger them.
+- `967d97b` docs: verified `python scripts/sync_gitea_workflows.py --check` (exit 0, no drift), `cd backend && uv run pytest tests/test_gitea_workflow_parity.py -q` (2 passed), and that `.github/workflows/` holds exactly the three workflow files named in the note. Docs-only change; no test suite consumes `README.md`, so no other suite run applies.
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
