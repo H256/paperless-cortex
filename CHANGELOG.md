@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/143-review-list-full-cache)
+
+### GET /documents review-status list no longer re-walks the library per page (issue #143)
+- `fix(api)`: in [`backend/app/routes/documents.py`](backend/app/routes/documents.py), the review-status branch of `list_documents` re-walked the entire Paperless library on every page request because the documents-list cache key included the `page` number — each page produced a distinct key and re-ran the full `paperless.list_documents_cached` walk plus local enrichment (N times for N pages). The expensive full-library walk is now split into `_build_review_full()` and cached under a page-independent key (`page=0` sentinel) via `get_cached_documents_page`; the requested page is sliced from the cached full list, so paging is a cache hit after the first walk. Existing invalidations (mark-reviewed, sync, mutations) already call `invalidate_documents_list_cache()`, which clears the whole cache, so correctness is preserved. No behavior change for the unfiltered path.
+- `test(api)`: added `test_list_documents_review_status_paging_does_not_rewalk` in [`backend/tests/test_documents_routes.py`](backend/tests/test_documents_routes.py) — proves page 2 is a cache hit (`list_documents_cached` called exactly once for two pages). Verified red-on-base (fails with `call_count == 2` when the fix is stashed) and green with the fix.
+- `test`: verified `cd backend && uv run pytest tests/test_documents_routes.py -q` (`49 passed`), `cd backend && uv run pytest -q` (`457 passed`, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app/routes/documents.py` (clean), and `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents.py` (no issues).
+
 ## 2026-09-28 (branch: agent/183-contributing-workflow-fix)
 
 ### CONTRIBUTING.md now matches the actual repo (host, framework, branch)
