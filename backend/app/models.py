@@ -103,6 +103,7 @@ class DocumentEmbedding(Base):
     embedding_source: Mapped[str | None] = mapped_column(String(32))
     chunk_count: Mapped[int | None] = mapped_column(Integer)
     chunk_counts_json: Mapped[str | None] = mapped_column(Text)
+    pending_reembed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class DocumentPageText(Base):
