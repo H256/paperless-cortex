@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/186-readme-phase2-evidence-locator)
+
+### README Phase 2 status now reflects the implemented evidence locator
+- `uncommitted` docs: changed [`README.md`](README.md) "Current status > Delivery phases" so `Phase 2` (advanced evidence locator / on-the-fly bbox resolution) is marked **Done** instead of "Planned / partial design only". The evidence service ([`backend/app/services/search/evidence.py`](backend/app/services/search/evidence.py), [`evidence_index.py`](backend/app/services/search/evidence_index.py)) is implemented and served by `POST /api/chat/resolve-evidence` ([`backend/app/routes/chat.py`](backend/app/routes/chat.py)) and is consumed inline by the chat answer path ([`backend/app/services/ai/chat.py`](backend/app/services/ai/chat.py) `resolve_evidence_matches`). `agents.md` (Phase 2 "In progress") is a protected agent-instruction file not editable in this run; its wording is flagged in the PR for a follow-up.
+- `uncommitted` test: verified the documented status against the code — `ls backend/app/services/search/ | grep evidence` (evidence.py, evidence_index.py present), `grep -n resolve-evidence backend/app/routes/chat.py` (endpoint at line 122), and `cd backend && uv run pytest -q -k evidence` (`19 passed`).
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments

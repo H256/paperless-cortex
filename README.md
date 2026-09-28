@@ -38,8 +38,8 @@ flowchart TD
   - Sync from Paperless, local storage, embeddings, semantic search, suggestions, queue/worker, manual writeback.
 - `Phase 1` (robustness + UX streamlining): **Done**
   - Pipeline hardening + triage/log observability baseline delivered.
-- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Planned / partial design only**
-  - Spec exists, full implementation not complete yet.
+- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Done**
+  - Citation evidence resolution is implemented and served by `POST /api/chat/resolve-evidence` (used by the chat UI); on-the-fly bbox resolution of citation snippets into page/word matches is included.
 
 ### Practical interpretation
 - You can use the app end-to-end today.
