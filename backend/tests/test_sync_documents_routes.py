@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -108,6 +109,15 @@ def test_sync_documents_marks_missing_and_queues_embed_followups(
         return len(tasks)
 
     monkeypatch.setattr(sync_routes, "enqueue_task_sequence", _enqueue_task_sequence)
+
+    # The walk omits local doc 1001; the mark-missing pass revalidates it
+    # against Paperless, which confirms it is gone (404) so it is marked.
+    def _get_document_404(_settings: Any, _doc_id: int) -> dict[str, Any]:
+        request = httpx.Request("GET", "http://paperless.local/api/documents/1001/")
+        response = httpx.Response(404, request=request)
+        raise httpx.HTTPStatusError("not found", request=request, response=response)
+
+    monkeypatch.setattr(sync_routes.paperless, "get_document", _get_document_404)
 
     response = api_client.post(
         "/sync/documents",

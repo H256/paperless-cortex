@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 @router.post("/ingest", response_model=EmbeddingIngestResponse)
 def ingest_embeddings(
     doc_id: int | None = Query(default=None),
-    limit: int = Query(default=100),
+    limit: int = Query(default=100, ge=1, le=10000),
     force: bool = Query(default=False),
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
@@ -56,7 +56,7 @@ def ingest_embeddings(
     query = db.query(Document)
     if doc_id is not None:
         query = query.filter(Document.id == doc_id)
-    documents = query.all() if limit <= 0 else query.limit(limit).all()
+    documents = query.limit(limit).all()
     if settings.queue_enabled:
         return enqueue_embedding_tasks(
             settings,
