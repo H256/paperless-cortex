@@ -3,6 +3,11 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/183-contributing-workflow-fix)
+
+### CONTRIBUTING.md now matches the actual repo (host, framework, branch)
+- `uncommitted` docs: fixed four stale statements in [`CONTRIBUTING.md`](CONTRIBUTING.md) that pointed at a host, framework, and branch that do not match the repository: "Fork the repository on GitHub" → a self-hosted ForgeJO instance (git remote origin is `forgejo.elysium.lan`, not GitHub); "Open a pull request against the main branch" → the actual default branch `master` (verified `git symbolic-ref refs/remotes/origin/HEAD` → `refs/remotes/origin/master`); "follow existing React and TypeScript patterns" → "Vue 3 and TypeScript" (frontend uses Vue 3 + pinia + vue-query; `frontend/package.json` has no React dependency); "Use GitHub issues" → ForgeJO issues (issue #183).
+- `uncommitted` test: verified the four corrected statements against the live repo — `git remote -v` (ForgeJO host), `git symbolic-ref refs/remotes/origin/HEAD` (master), `grep '"vue"|"react"' frontend/package.json` (Vue 3 present, no React), and `grep -niE 'github|react|main branch' CONTRIBUTING.md` (zero remaining stale references). Docs-only change; no test suite consumes `CONTRIBUTING.md`, so no pytest/lint run applies.
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
