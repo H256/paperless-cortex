@@ -1,5 +1,11 @@
 # Review Progress Summary
 
+> **Rolling, continuously-updated progress summary — not a point-in-time snapshot.**
+> The "Latest block" below reflects the most recent work; older blocks above it are retained
+> as a running log. For the authoritative, per-change history (with git hashes) see
+> [CHANGELOG.md](CHANGELOG.md). Frozen point-in-time status snapshots live under
+> [`docs/history/`](docs/history/).
+
 ## Latest block
 
 ### Live runtime model-provider settings are now editable in the UI

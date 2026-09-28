@@ -865,6 +865,7 @@ class WritebackFieldDiff(BaseModel):
     original: Any = None
     proposed: Any = None
     changed: bool
+    ai_generated: bool = False
 
 
 class WritebackDryRunItem(BaseModel):

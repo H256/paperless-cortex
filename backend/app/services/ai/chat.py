@@ -370,16 +370,22 @@ def answer_question(
 
     def event_stream() -> Iterable[bytes]:
         answer_chunks: list[str] = []
-        for token in llm_client.stream_chat_completion(
-            settings,
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=None,
-            purpose="chat",
-        ):
-            answer_chunks.append(token)
-            payload = json.dumps({"token": token})
-            yield f"data: {payload}\n\n".encode()
+        try:
+            for token in llm_client.stream_chat_completion(
+                settings,
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                timeout=300,
+                purpose="chat",
+            ):
+                answer_chunks.append(token)
+                payload = json.dumps({"token": token})
+                yield f"data: {payload}\n\n".encode()
+        except Exception as exc:
+            logger.warning("Chat stream error: %s", exc)
+            error_payload = json.dumps({"error": str(exc)})
+            yield f"event: error\ndata: {error_payload}\n\n".encode()
+            return
         answer = "".join(answer_chunks).strip()
         _resolve_evidence_for_sources(settings, sources, db=db)
         for citation in sources:

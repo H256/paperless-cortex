@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
+from openai import APIError
 
 from app.models import DocumentPageNote, DocumentSectionSummary
 from app.services.ai.hierarchical_summary import (
@@ -11,7 +12,7 @@ from app.services.ai.hierarchical_summary import (
     generate_section_summary,
     group_notes_into_sections,
     is_large_document,
-    replace_section_summaries,
+    upsert_section_summary,
 )
 from app.services.ai.suggestion_store import persist_suggestions
 from app.services.documents.documents import get_document_or_none
@@ -94,13 +95,17 @@ def _load_persisted_sections(
         .filter(
             DocumentSectionSummary.doc_id == doc_id,
             DocumentSectionSummary.source == source,
-            DocumentSectionSummary.status == "ok",
+            DocumentSectionSummary.status.in_(["ok", "failed"]),
         )
         .all()
     )
     payloads: dict[str, dict[str, Any]] = {}
     for row in persisted_rows:
         raw_summary = (row.summary_text or "").strip()
+        if not raw_summary and row.status != "ok":
+            # Failed section: use a placeholder so the resume check sees it
+            # as "done" without re-billing.
+            raw_summary = f"Section {row.section_key} summary failed."
         if not raw_summary:
             continue
         payloads[str(row.section_key)] = {
@@ -214,14 +219,15 @@ class HierarchicalSummaryPipeline:
                     page_notes=page_notes,
                 )
                 section_payloads.append((section_key, section_summary))
-            except (RuntimeError, ValueError, httpx.HTTPError) as exc:
-                logger.warning(
-                    "Section summary failed doc=%s section=%s error=%s",
-                    doc_id,
-                    section_key,
-                    exc,
+                upsert_section_summary(
+                    self.db,
+                    doc_id=doc_id,
+                    section_key=section_key,
+                    source=resolved_source,
+                    payload=section_summary,
+                    status="ok",
+                    model_name=self.settings.text_model,
                 )
-            finally:
                 set_task_checkpoint(
                     self.db,
                     run_id=run_id,
@@ -230,17 +236,36 @@ class HierarchicalSummaryPipeline:
                     total=len(sections),
                     extra={"source": resolved_source},
                 )
+            except (RuntimeError, ValueError, httpx.HTTPError, APIError) as exc:
+                logger.warning(
+                    "Section summary failed doc=%s section=%s error=%s",
+                    doc_id,
+                    section_key,
+                    exc,
+                )
+                upsert_section_summary(
+                    self.db,
+                    doc_id=doc_id,
+                    section_key=section_key,
+                    source=resolved_source,
+                    payload=None,
+                    status="failed",
+                    error=str(exc)[:500],
+                    model_name=self.settings.text_model,
+                )
+                # Keep checkpoint at previous section so the failed section
+                # is retried on the next run.
+                set_task_checkpoint(
+                    self.db,
+                    run_id=run_id,
+                    stage="summary_sections",
+                    current=section_index - 1,
+                    total=len(sections),
+                    extra={"source": resolved_source},
+                )
 
         if not section_payloads:
             return
-
-        replace_section_summaries(
-            self.db,
-            doc_id=doc_id,
-            source=resolved_source,
-            summaries=section_payloads,
-            model_name=self.settings.text_model,
-        )
 
         try:
             global_payload = generate_global_summary(
