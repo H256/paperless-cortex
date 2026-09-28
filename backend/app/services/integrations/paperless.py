@@ -23,6 +23,8 @@ _CLIENT_LOCK = threading.Lock()
 _CLIENTS: dict[tuple[str, str, bool], httpx.Client] = {}
 _DOC_CACHE_TTL_SECONDS = 10
 _LIST_CACHE_TTL_SECONDS = 10
+_DOC_CACHE_MAXSIZE = 256
+_LIST_CACHE_MAXSIZE = 256
 
 
 def _cache_enabled(settings: Settings, ttl_seconds: int) -> bool:
@@ -31,6 +33,34 @@ def _cache_enabled(settings: Settings, ttl_seconds: int) -> bool:
     if not settings.paperless_base_url:
         return False
     return not os.getenv("PYTEST_CURRENT_TEST")
+
+
+def _list_cache_key(kwargs: dict[str, Any]) -> str:
+    """Build a stable cache key from list query kwargs.
+
+    None values are dropped and the remaining mapping is serialized with sorted
+    keys so equivalent filters produce an identical key.
+    """
+    normalized = {key: value for key, value in kwargs.items() if value is not None}
+    return json.dumps(normalized, sort_keys=True, ensure_ascii=False)
+
+
+def _evict_cache(
+    cache: dict[Any, tuple[float, dict[str, Any]]],
+    now: float,
+    ttl: int,
+    maxsize: int,
+) -> None:
+    """Prune expired entries, then evict oldest-inserted entries past maxsize.
+
+    Must be called while holding ``_CACHE_LOCK``. The cache dict preserves
+    insertion order, so ``next(iter(cache))`` yields the oldest entry.
+    """
+    expired = [key for key, (stamp, _payload) in cache.items() if (now - stamp) >= ttl]
+    for key in expired:
+        del cache[key]
+    while len(cache) > maxsize:
+        del cache[next(iter(cache))]
 
 
 def base_url(settings: Settings) -> str | None:
@@ -170,13 +200,17 @@ def get_document_cached(
     if not _cache_enabled(settings, ttl_seconds):
         return get_document(settings, doc_id)
     now = time.time()
+    ttl = max(0, int(ttl_seconds))
     with _CACHE_LOCK:
+        _evict_cache(_DOC_CACHE, now, ttl, _DOC_CACHE_MAXSIZE)
         cached = _DOC_CACHE.get(int(doc_id))
-        if cached and (now - cached[0]) < max(0, int(ttl_seconds)):
+        if cached and (now - cached[0]) < ttl:
             return dict(cached[1])
     payload = get_document(settings, doc_id)
     with _CACHE_LOCK:
-        _DOC_CACHE[int(doc_id)] = (now, payload)
+        stamp = time.time()
+        _DOC_CACHE[int(doc_id)] = (stamp, payload)
+        _evict_cache(_DOC_CACHE, stamp, ttl, _DOC_CACHE_MAXSIZE)
     return dict(payload)
 
 
@@ -223,6 +257,7 @@ def get_documents_cached(
     cached_results: dict[int, dict[str, Any]] = {}
     missing_ids: list[int] = []
     with _CACHE_LOCK:
+        _evict_cache(_DOC_CACHE, now, ttl, _DOC_CACHE_MAXSIZE)
         for doc_id in unique_ids:
             cached = _DOC_CACHE.get(doc_id)
             if cached and (now - cached[0]) < ttl:
@@ -253,6 +288,7 @@ def get_documents_cached(
         stamp = time.time()
         for doc_id, payload in fetched_results.items():
             _DOC_CACHE[doc_id] = (stamp, payload)
+        _evict_cache(_DOC_CACHE, stamp, ttl, _DOC_CACHE_MAXSIZE)
 
     return {
         **cached_results,
@@ -273,16 +309,19 @@ def list_documents_cached(
 ) -> dict[str, Any]:
     if not _cache_enabled(settings, ttl_seconds):
         return list_documents(settings, **kwargs)
-    normalized = {key: value for key, value in kwargs.items() if value is not None}
-    cache_key = json.dumps(normalized, sort_keys=True, ensure_ascii=False)
+    cache_key = _list_cache_key(kwargs)
     now = time.time()
+    ttl = max(0, int(ttl_seconds))
     with _CACHE_LOCK:
+        _evict_cache(_LIST_CACHE, now, ttl, _LIST_CACHE_MAXSIZE)
         cached = _LIST_CACHE.get(cache_key)
-        if cached and (now - cached[0]) < max(0, int(ttl_seconds)):
+        if cached and (now - cached[0]) < ttl:
             return dict(cached[1])
     payload = list_documents(settings, **kwargs)
     with _CACHE_LOCK:
-        _LIST_CACHE[cache_key] = (now, payload)
+        stamp = time.time()
+        _LIST_CACHE[cache_key] = (stamp, payload)
+        _evict_cache(_LIST_CACHE, stamp, ttl, _LIST_CACHE_MAXSIZE)
     return dict(payload)
 
 
