@@ -187,6 +187,10 @@ Set values in `.env`.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): contribution notes
 - [`docs/execution-blueprint-large-doc-worker.md`](docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
 
+### Historical status snapshots (point-in-time, superseded by CHANGELOG.md)
+- [`docs/history/FINAL_STATUS.md`](docs/history/FINAL_STATUS.md): code-quality assessment snapshot (2026-03-13)
+- [`docs/history/CURRENT_STATUS_ANALYSIS.md`](docs/history/CURRENT_STATUS_ANALYSIS.md): comprehensive re-assessment snapshot (2026-03-13)
+
 ## API/client generation
 ```bash
 cd frontend
