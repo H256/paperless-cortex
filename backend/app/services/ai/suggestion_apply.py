@@ -14,6 +14,7 @@ from app.models import (
     Tag,
 )
 from app.services.ai.suggestion_operations import format_ai_summary_note
+from app.services.ai.suggestions import sanitize_suggested_string
 from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.documents.note_ids import next_local_note_id
 from app.services.runtime.string_list_json import (
@@ -75,10 +76,12 @@ def apply_suggestion_to_document_payload(
     details: dict[str, object] = {}
 
     if field == "title":
-        doc.title = str(value).strip() if value is not None else None
+        cleaned_title = sanitize_suggested_string(str(value), max_len=80) if value is not None else ""
+        doc.title = cleaned_title or None
         updated = True
     elif field == "date":
-        doc.document_date = str(value).strip() if value is not None else None
+        cleaned_date = sanitize_suggested_string(str(value), max_len=10) if value is not None else ""
+        doc.document_date = cleaned_date or None
         updated = True
     elif field == "correspondent":
         pending_row = (
@@ -86,7 +89,7 @@ def apply_suggestion_to_document_payload(
             .filter(DocumentPendingCorrespondent.doc_id == doc_id)
             .one_or_none()
         )
-        name = str(value).strip() if value is not None else ""
+        name = sanitize_suggested_string(str(value), max_len=120) if value is not None else ""
         if name:
             like_term = f"%{name}%"
             match = (
@@ -133,9 +136,15 @@ def apply_suggestion_to_document_payload(
             old_pending = parse_string_list_json(pending_row.names_json)
         tag_names: list[str] = []
         if isinstance(value, list):
-            tag_names = [str(v).strip() for v in value if str(v).strip()]
+            raw_items = [str(v) for v in value]
         elif isinstance(value, str):
-            tag_names = [v.strip() for v in value.split(",") if v.strip()]
+            raw_items = value.split(",")
+        else:
+            raw_items = []
+        for item in raw_items:
+            cleaned = sanitize_suggested_string(item, max_len=64)
+            if cleaned:
+                tag_names.append(cleaned)
         matched: list[Tag] = []
         unmatched: list[str] = []
         for name in tag_names:
