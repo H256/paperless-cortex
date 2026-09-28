@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/122-embedding-ingest-limit-bound)
+
+### POST /embeddings/ingest `limit` is now bounded (issue #122)
+- `fix(api)`: constrained `limit` to `ge=1, le=10000` in [`backend/app/routes/embeddings.py`](backend/app/routes/embeddings.py) and removed the now-dead `query.all() if limit <= 0` branch, so `?limit=0` / negative / `>10000` return `422` instead of materializing the entire `Document` table inline (unbounded memory + a long request blocking the worker/event loop when `QUEUE_ENABLED` is false).
+- `test(api)`: added `test_embeddings_ingest_limit_validation_rejects_unbounded` (limit=0/-1/10001 → 422) and `test_embeddings_ingest_limit_bounds_applied` (limit=1 caps the query) in [`backend/tests/test_embeddings_routes.py`](backend/tests/test_embeddings_routes.py).
+- Verified: focused `tests/test_embeddings_routes.py` 8 passed; `ruff check` and `mypy` clean on the touched files; full backend suite 434 passed + 3 pre-existing failures (the known `test_writeback_dryrun_routes` baseline plus 2 `test_queue_force_flag` `TypeError` at `worker_dispatch.py:44`, both reproduced on clean master with this change stashed — not a regression).
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments

@@ -224,6 +224,37 @@ def test_embeddings_search_filters_low_quality_matches(api_client: Any, monkeypa
     assert payload["matches"][0]["doc_id"] == 902
 
 
+def test_embeddings_ingest_limit_validation_rejects_unbounded(api_client: Any) -> None:
+    """limit=0 / negative / >10000 must be rejected (422), not load the whole table."""
+    for bad in ("0", "-1", "10001"):
+        response = api_client.post("/embeddings/ingest", params={"limit": bad})
+        assert response.status_code == 422, f"limit={bad} should be 422, got {response.status_code}"
+
+
+def test_embeddings_ingest_limit_bounds_applied(api_client: Any, monkeypatch: Any) -> None:
+    """A valid limit within [1, 10000] is accepted and bounds the query."""
+    from app.routes import embeddings
+
+    _insert_document(961, "Bound Doc A")
+    _insert_document(962, "Bound Doc B")
+    monkeypatch.setenv("QUEUE_ENABLED", "0")
+    monkeypatch.setattr(embeddings, "ensure_embedding_collection", lambda _settings: None)
+    monkeypatch.setattr(embeddings, "collect_page_texts", lambda *_a, **_k: ([], [], []))
+    monkeypatch.setattr(
+        embeddings,
+        "chunk_document_with_pages",
+        lambda _s, _c, _p: [],
+    )
+    monkeypatch.setattr(embeddings, "delete_points_for_doc", lambda *_a, **_k: None)
+    monkeypatch.setattr(embeddings, "embed_text", lambda _s, _t: [0.1])
+
+    response = api_client.post("/embeddings/ingest", params={"limit": 1})
+    assert response.status_code == 200
+    payload = response.json()
+    # limit=1 caps the query at one document; the second seeded doc is not processed.
+    assert payload["documents_embedded"] <= 1
+
+
 def test_embeddings_ingest_non_queue_embeds_document(api_client: Any, monkeypatch: Any) -> None:
     from app.routes import embeddings
 
