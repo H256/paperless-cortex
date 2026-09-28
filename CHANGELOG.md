@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/300-ensure-llm-base-ready-dead)
+
+### Deleted dead `ensure_llm_base_ready` from services/runtime/guard.py
+- `uncommitted` refactor(backend): removed the never-called `ensure_llm_base_ready` from [`backend/app/services/runtime/guard.py`](backend/app/services/runtime/guard.py) (issue #300, housekeeping F-C7-1). It was strictly subsumed by `ensure_text_llm_ready`, which checks the same `provider_base_url(settings, "text")` plus `provider_model` and is the live guard. Verified dead: repo-wide grep returns only the definition (zero references in app, tests, docs, scripts; no `__all__`/import/dynamic reference). No import updates needed. Behavior-preserving.
+- `uncommitted` test: verified `grep -rn 'ensure_llm_base_ready'` (0 matches post-removal), `uv run python -c 'import app.main, app.worker, app.services.runtime.guard'` (OK), and the full backend suite (see PR #300 verification).
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint
