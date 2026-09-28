@@ -193,8 +193,10 @@ cd frontend
 ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate
 ```
 
-## Versioning (simple start, no CI)
+## Versioning (with CI)
 The root `VERSION` file is the source of truth.
+
+CI is enabled: canonical workflow definitions live in `.github/workflows/` (GitHub-Actions syntax) and are mirrored into `.gitea/workflows/` — the directory ForgeJO's Actions reads — by `python scripts/sync_gitea_workflows.py` (parity enforced by `backend/tests/test_gitea_workflow_parity.py`). The three workflows cover backend (ruff/mypy/pytest), frontend (lint/tsc/coverage/build), and quality gates.
 
 ```bash
 python scripts/sync_version.py
