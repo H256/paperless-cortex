@@ -34,6 +34,7 @@ from app.services.ai.hierarchical_storage import (
     is_large_document,
     replace_section_summaries,
     upsert_page_note,
+    upsert_section_summary,
 )
 from app.services.runtime.guard import ensure_text_llm_ready
 
@@ -149,4 +150,5 @@ __all__ = [
     "is_large_document",
     "replace_section_summaries",
     "upsert_page_note",
+    "upsert_section_summary",
 ]

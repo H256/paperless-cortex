@@ -93,6 +93,7 @@ def execute_worker_task(
                     doc_id=doc_id,
                     task=task_type,
                     source=source,
+                    exclude_completed=True,
                 )
                 if previous_checkpoint:
                     set_task_checkpoint_fn(

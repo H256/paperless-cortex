@@ -33,6 +33,7 @@ export interface ChatMessage {
   followups?: string[]
   followupsLoading?: boolean
   followupsError?: string
+  truncated?: boolean
   createdAt: number
 }
 
@@ -206,16 +207,19 @@ export const useChatSession = (options: UseChatSessionOptions = {}) => {
           (done) => {
             message.answer = done.answer || message.answer
             message.citations = done.citations ?? []
+            message.truncated = Boolean(done.truncated)
             conversationId.value = done.conversation_id || conversationId.value
             message.conversationId = conversationId.value || undefined
             persist()
-            void fetchFollowupsForMessage(message, {
-              question: message.question,
-              answer: message.answer,
-              citations: message.citations || [],
-              doc_id: resolvedDocId,
-              relationship_mode,
-            })
+            if (!done.truncated) {
+              void fetchFollowupsForMessage(message, {
+                question: message.question,
+                answer: message.answer,
+                citations: message.citations || [],
+                doc_id: resolvedDocId,
+                relationship_mode,
+              })
+            }
           },
           (streamErr) => {
             error.value = streamErr
@@ -278,6 +282,13 @@ export const useChatSession = (options: UseChatSessionOptions = {}) => {
     question.value = seed ? `Follow-up on: ${seed}\n` : 'Follow-up: '
   }
 
+  const retryMessage = async (message: ChatMessage) => {
+    const seed = (message.question || '').trim()
+    if (!seed) return
+    question.value = seed
+    await askMutation.mutateAsync()
+  }
+
   const resetControls = () => {
     question.value = ''
     topK.value = 6
@@ -311,6 +322,7 @@ export const useChatSession = (options: UseChatSessionOptions = {}) => {
     clearConversation,
     newConversation,
     startFollowUp,
+    retryMessage,
     resetControls,
     stop,
     ask: async () => askMutation.mutateAsync(),

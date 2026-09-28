@@ -19,6 +19,7 @@ export type ChatStreamDone = {
   answer: string
   conversation_id?: string
   citations: ChatCitation[]
+  truncated?: boolean
 }
 
 export const streamChat = async (
@@ -94,7 +95,7 @@ export const streamChat = async (
   if (!doneReceived) {
     const fallbackAnswer = tokenBuffer.join('').trim()
     if (fallbackAnswer) {
-      onDone({ answer: fallbackAnswer, citations: [] })
+      onDone({ answer: fallbackAnswer, citations: [], truncated: true })
       return
     }
     onError('Chat stream ended unexpectedly. Try disabling streaming.')
