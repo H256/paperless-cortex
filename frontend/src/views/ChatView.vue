@@ -415,7 +415,13 @@ const {
   resetControls: resetChatControls,
   stop,
   ask,
-} = useChatSession()
+} = useChatSession({
+  // Opt in to localStorage persistence so the conversation (including the
+  // conversation_id used for backend context continuity) survives a reload.
+  // Explicit, documented choice (README security notes, AUDIT FE-004 / #169):
+  // the chat content embeds document corpus excerpts.
+  persist: true,
+})
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()

@@ -303,6 +303,10 @@ const {
   defaultDocId: props.docId,
   defaultDocScope: true,
   defaultRelationshipMode: 'none',
+  // Opt in to localStorage persistence so per-document chat history survives a
+  // reload. This is an explicit, documented choice (README security notes,
+  // AUDIT FE-004 / #169): the chat content embeds document corpus excerpts.
+  persist: true,
 })
 
 const now = ref(Date.now())
