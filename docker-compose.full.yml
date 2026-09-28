@@ -15,6 +15,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cortex-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
   qdrant:
@@ -30,9 +35,12 @@ services:
     build: .
     container_name: paperless-ngx-cortex
     depends_on:
-      - postgres
-      - redis
-      - qdrant
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     ports:
       - "8000:8000"
     env_file:

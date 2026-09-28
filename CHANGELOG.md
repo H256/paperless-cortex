@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/149-worker-stop-signal-redis-healthcheck)
+
+### App container forwards stop signals to the worker and gates startup on a healthy redis
+- `uncommitted` fix(infra): changed [`docker/entrypoint.sh`](docker/entrypoint.sh) so the API (uvicorn) now runs as a child instead of `exec` (PID 1), and the entrypoint traps `SIGTERM`/`SIGINT` and forwards them to both the background worker and the API. Previously `docker stop` signaled only the foreground and the in-container worker was SIGKILLed mid-task after the grace timeout (issue #149). The API drives the container lifetime: a trapped signal interrupts `wait` (returns >128) and the entrypoint re-waits until the API has actually exited, so a worker crash does not take the API (or the container) down. The worker-side SIGTERM/SIGINT handler is issue #113 (PR #250); together they cover the graceful-shutdown half of PL-001.
+- `uncommitted` fix(infra): changed [`docker-compose.full.yml`](docker-compose.full.yml) so the `redis` service declares a `redis-cli ping` healthcheck and the `cortex` service waits for `redis` with `depends_on: condition: service_healthy` (postgres/qdrant remain `service_started`). Previously `QUEUE_ENABLED=1` with no redis healthcheck/condition let the worker start before redis was ready and die silently (issue #149).
+- `uncommitted` test(backend): added `tests/test_docker_entrypoint_worker_signal.py` — executes the entrypoint with stubbed `alembic`/`python`/`uvicorn` and asserts a stop signal (SIGTERM and SIGINT) is forwarded to the worker and the API, and that a worker crash does not take the API down.
+- `uncommitted` test(backend): added `tests/test_docker_compose_redis_healthcheck.py` — loads `docker-compose.full.yml` with PyYAML and asserts the redis healthcheck and the `service_healthy` gate on redis (plus `service_started` for postgres/qdrant and that `QUEUE_ENABLED=1` is preserved).
+- `uncommitted` test: verified `bash -n docker/entrypoint.sh` (OK), `cd backend && uv run pytest tests/test_docker_entrypoint_worker_signal.py tests/test_docker_compose_redis_healthcheck.py -q` (`6 passed`), red-green (the two signal-forwarding tests fail on the pre-fix entrypoint), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), `cd backend && uv run mypy --config-file pyproject.toml` (no issues), and `cd backend && uv run pytest -q` (full suite).
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
