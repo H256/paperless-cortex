@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/185-status-docs-archive)
+
+### Point-in-time status docs moved to docs/history/ with superseded-by headers (issue #185)
+- `uncommitted` docs: moved [`docs/history/CURRENT_STATUS_ANALYSIS.md`](docs/history/CURRENT_STATUS_ANALYSIS.md) and [`docs/history/FINAL_STATUS.md`](docs/history/FINAL_STATUS.md) from the repo root into `docs/history/` and added a "point-in-time snapshot (2026-03-13) — superseded by CHANGELOG.md" header to each, so their absolute claims (192 files type-checked, 278 tests, only 2 bare `except Exception` blocks remaining, "95%+ complete") are not mistaken for the current state.
+- `uncommitted` docs: added a clarifying header to [`IMPROVEMENT_SUMMARY.md`](IMPROVEMENT_SUMMARY.md) marking it as a rolling, continuously-updated progress summary (not a point-in-time snapshot) and pointing to CHANGELOG.md for the authoritative per-change history and `docs/history/` for the frozen snapshots.
+- `uncommitted` docs: added a "Historical status snapshots" section to the Documentation map in [`README.md`](README.md) linking the two archived snapshots.
+- `uncommitted` docs: `agents.md`'s stale "Active branch: develop" and "Session handover (2026-02-14)" were identified as stale (the default branch is `master`), but `agents.md` is a protected agent-instruction file requiring approval to edit, so it is left unchanged and noted as a follow-up in the PR.
+- `uncommitted` test: verified `rg -c 'Point-in-time snapshot' docs/history/*.md` (2 matches, one per moved doc), `rg -c 'Rolling, continuously-updated' IMPROVEMENT_SUMMARY.md` (1 match), `rg -n 'docs/history' README.md` (2 matches, the two new map links), and that `git status` shows only the intended 5 doc files changed (2 renames + 3 edits).
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
