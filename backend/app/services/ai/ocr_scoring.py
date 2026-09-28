@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from app.models import Document, DocumentOcrScore, DocumentPageText
+from app.services.runtime.model_providers import provider_api_key
 from app.services.runtime.time_utils import utc_now_iso
 
 if TYPE_CHECKING:
@@ -64,10 +65,19 @@ def _shared_client(settings: Settings, url: str, timeout: int) -> httpx.Client:
         return pooled_client
 
 
+def _auth_headers(settings: Settings) -> dict[str, str]:
+    api_key = provider_api_key(settings, "text")
+    if api_key:
+        return {"Authorization": f"Bearer {api_key}"}
+    return {}
+
+
 def _post_json(
     settings: Settings, url: str, payload: dict[str, Any], timeout: int
 ) -> tuple[int, Any]:
-    response = _shared_client(settings, url, timeout).post(url, json=payload)
+    response = _shared_client(settings, url, timeout).post(
+        url, json=payload, headers=_auth_headers(settings)
+    )
     try:
         return response.status_code, response.json()
     except (JSONDecodeError, ValueError):
@@ -178,6 +188,9 @@ def try_prompt_logprob_ppl(settings: Settings, text: str, model: str | None) -> 
             timeout=settings.ocr_score_ppl_timeout_seconds,
         )
 
+        if status in (401, 403):
+            return {"supported": False, "reason": "auth failed"}
+
         if status >= 400 or (isinstance(resp, dict) and "error" in resp):
             payload["max_tokens"] = 1
             payload["stop"] = ["\n\n"]
@@ -187,6 +200,8 @@ def try_prompt_logprob_ppl(settings: Settings, text: str, model: str | None) -> 
                 payload,
                 timeout=settings.ocr_score_ppl_timeout_seconds,
             )
+            if status in (401, 403):
+                return {"supported": False, "reason": "auth failed"}
 
         if not isinstance(resp, dict):
             return {"supported": False, "reason": f"non-json response ({status})"}
