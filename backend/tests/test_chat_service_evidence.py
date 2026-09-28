@@ -363,6 +363,83 @@ def test_answer_question_falls_back_to_text_model_when_chat_model_missing(
         return "ok"
 
     monkeypatch.setattr("app.services.ai.chat.llm_client.chat_completion", _chat_completion)
-    result = answer_question(settings, question="What changed?", top_k=3)
+    result = answer_question(settings, question="What changed?")
     assert isinstance(result, dict)
     assert captured["model"] == "text-default"
+
+
+def test_answer_question_stream_emits_error_event_on_llm_failure(monkeypatch: Any) -> None:
+    import asyncio
+
+    from fastapi.responses import StreamingResponse
+
+    settings = load_settings()
+    monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _s: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _s: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _s, _t: [0.1])
+    monkeypatch.setattr("app.services.ai.chat.search_points", lambda *_a, **_k: {"result": []})
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _s: "{question}")
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", lambda *_a, **_k: [])
+
+    def _stream_chat(_s, **_kw):
+        yield "tok"
+        raise TimeoutError("stream timed out")
+
+    monkeypatch.setattr("app.services.ai.chat.llm_client.stream_chat_completion", _stream_chat)
+
+    result = answer_question(settings, question="hi", top_k=3, stream=True)
+    assert isinstance(result, StreamingResponse)
+
+    async def _collect() -> bytes:
+        chunks: list[bytes] = []
+        async for chunk in result.body_iterator:
+            if isinstance(chunk, (bytes, bytearray, memoryview)):
+                chunks.append(bytes(chunk))
+            else:
+                chunks.append(str(chunk).encode())
+        return b"".join(chunks)
+
+    body = asyncio.run(_collect())
+    assert b"event: error" in body
+    assert b"stream timed out" in body
+    assert b"event: done" not in body
+
+
+def test_answer_question_stream_emits_done_on_success(monkeypatch: Any) -> None:
+    import asyncio
+
+    from fastapi.responses import StreamingResponse
+
+    settings = load_settings()
+    monkeypatch.setattr("app.services.ai.chat.ensure_chat_llm_ready", lambda _s: None)
+    monkeypatch.setattr("app.services.ai.chat.ensure_qdrant_ready", lambda _s: None)
+    monkeypatch.setattr("app.services.ai.chat.embed_text", lambda _s, _t: [0.1])
+    monkeypatch.setattr("app.services.ai.chat.search_points", lambda *_a, **_k: {"result": []})
+    monkeypatch.setattr("app.services.ai.chat._load_prompt", lambda _s: "{question}")
+    monkeypatch.setattr("app.services.ai.chat.resolve_evidence_matches", lambda *_a, **_k: [])
+
+    captured_timeout: list[float | None] = []
+
+    def _stream_chat(_s, *, timeout: float | None = None, **_kw):
+        captured_timeout.append(timeout)
+        yield "hello "
+        yield "world"
+
+    monkeypatch.setattr("app.services.ai.chat.llm_client.stream_chat_completion", _stream_chat)
+
+    result = answer_question(settings, question="hi", top_k=3, stream=True)
+    assert isinstance(result, StreamingResponse)
+
+    async def _collect() -> bytes:
+        chunks: list[bytes] = []
+        async for chunk in result.body_iterator:
+            if isinstance(chunk, (bytes, bytearray, memoryview)):
+                chunks.append(bytes(chunk))
+            else:
+                chunks.append(str(chunk).encode())
+        return b"".join(chunks)
+
+    body = asyncio.run(_collect())
+    assert b"event: done" in body
+    assert b'"answer": "hello world"' in body
+    assert captured_timeout == [300]
