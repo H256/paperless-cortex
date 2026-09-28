@@ -41,6 +41,7 @@ const baseProps = {
   ],
   docCleanupClearFirst: false,
   docOpsMessage: '',
+  docOpsStatus: 'idle' as const,
   operationActions: [{ task: 'vision_ocr', label: 'Queue vision OCR', tooltip: 'x' }],
   toTitle: (value: string | null | undefined) => String(value || ''),
   processingBadgeClass: () => '',
