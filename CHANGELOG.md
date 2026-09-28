@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/111-writeback-direct-404)
+
+### execute-direct returns 404 when the remote Paperless document is gone
+- `uncommitted` fix(writeback): changed [`backend/app/routes/writeback_dryrun.py`](backend/app/routes/writeback_dryrun.py) so `execute_writeback_direct_for_document` now wraps the `load_direct_writeback_context` call in a `try/except httpx.HTTPStatusError` handler. When the remote document returns a 404 (deleted in Paperless), the route returns a clean `404 "Remote document no longer exists in Paperless"` instead of letting the exception propagate as a 500. Non-404 `HTTPStatusError`s are re-raised. This completes the audit WB-002 fix: the batch path (preview/execute-now/job-create) was already handled by #108 (ec8edd3); this covers the single-doc `execute-direct` path.
+- `uncommitted` test(backend): added `test_execute_direct_returns_404_when_remote_doc_is_gone` to [`backend/tests/test_writeback_dryrun_routes.py`](backend/tests/test_writeback_dryrun_routes.py) — a local doc exists, `get_document_cached` raises `httpx.HTTPStatusError` with a 404 response, and the route returns 404 (not 500).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_writeback_dryrun_routes.py::test_execute_direct_returns_404_when_remote_doc_is_gone -q` (1 passed; TDD RED confirmed — without the fix the 404 propagates as a 500), `cd backend && uv run ruff check app/routes/writeback_dryrun.py tests/test_writeback_dryrun_routes.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/routes/writeback_dryrun.py` (no issues), and `cd backend && uv run pytest -q` (433 passed; 3 failed — the known pre-existing `test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
