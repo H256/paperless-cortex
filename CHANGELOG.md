@@ -30,6 +30,13 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` test(infra): added [`backend/tests/test_dockerignore_build_context.py`](backend/tests/test_dockerignore_build_context.py) — applies the `.dockerignore` rules (gitignore-style: matching a parent directory excludes everything under it) to a representative path set and asserts the heavy/secret entries are excluded while every path the Dockerfile `COPY`s stays in the build context.
 - `uncommitted` test: verified `cd backend && uv run pytest tests/test_dockerignore_build_context.py -q` (`3 passed`), `cd backend && uv run ruff check tests/test_dockerignore_build_context.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml tests/test_dockerignore_build_context.py` (no issues), and `cd backend && uv run pytest -q` (`435 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression). A real `docker build` was NOT RUN (Docker daemon not accessible in this environment: `permission denied` on `/var/run/docker.sock`); the ignore-file contract is verified by the focused test.
 
+## 2026-09-28 (branch: agent/122-embedding-ingest-limit-bound)
+
+### POST /embeddings/ingest `limit` is now bounded (issue #122)
+- `fix(api)`: constrained `limit` to `ge=1, le=10000` in [`backend/app/routes/embeddings.py`](backend/app/routes/embeddings.py) and removed the now-dead `query.all() if limit <= 0` branch, so `?limit=0` / negative / `>10000` return `422` instead of materializing the entire `Document` table inline (unbounded memory + a long request blocking the worker/event loop when `QUEUE_ENABLED` is false).
+- `test(api)`: added `test_embeddings_ingest_limit_validation_rejects_unbounded` (limit=0/-1/10001 → 422) and `test_embeddings_ingest_limit_bounds_applied` (limit=1 caps the query) in [`backend/tests/test_embeddings_routes.py`](backend/tests/test_embeddings_routes.py).
+- Verified: focused `tests/test_embeddings_routes.py` 8 passed; `ruff check` and `mypy` clean on the touched files; full backend suite 434 passed + 3 pre-existing failures (the known `test_writeback_dryrun_routes` baseline plus 2 `test_queue_force_flag` `TypeError` at `worker_dispatch.py:44`, both reproduced on clean master with this change stashed — not a regression).
+
 ## 2026-09-28 (branch: agent/185-status-docs-archive)
 
 ### Point-in-time status docs moved to docs/history/ with superseded-by headers (issue #185)
