@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/154-qdrant-pin)
+
+### Full-stack compose now pins the Qdrant release
+- `uncommitted` fix(infra): changed [`docker-compose.full.yml`](docker-compose.full.yml) so the `qdrant` service uses `qdrant/qdrant:v1.19.1` instead of `qdrant/qdrant:latest`, matching the pinned `postgres:16-alpine` / `redis:7-alpine` / `node:22-bookworm-slim` / `python:3.13-slim` images. A `docker compose pull && up` weeks later can no longer pull an incompatible Qdrant release and break the vector store at deploy time with no diff to review; a deliberate bump is now a reviewable, changelogged change (issue #154).
+- `uncommitted` test(infra): verified `docker compose -f docker-compose.full.yml config --images` lists only pinned tags/digests (`qdrant/qdrant:v1.19.1`, `postgres:16-alpine`, `redis:7-alpine`) plus the local `cortex` build — no `:latest` remains.
+- `uncommitted` test(infra): confirmed the app talks to Qdrant only via its stable REST API over `httpx` (`backend/app/services/search/qdrant.py`), so pinning to a recent 1.x release is API-compatible with the existing upsert/retrieve/delete call sites.
 ## 2026-09-27 (branch: codex/259-postgres-connect-args)
 
 ### PostgreSQL startup no longer passes null connection arguments
