@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-28 (branch: agent/137-vision-ocr-page-clamp)
+
+### Vision OCR skips pages beyond the PDF page count instead of raising
+- `7e2cd9d` fix(ai): a requested page number exceeding the document's current page count (e.g. a re-consumed Paperless document with fewer pages while `DocumentPageText` still references the old count) caused `doc.load_page()` to raise `ValueError` in [`vision_ocr.py`](backend/app/services/ai/vision_ocr.py), which propagated through `ocr_pdf_pages` and failed the entire page-text task — so a single stale page number in a batch discarded every valid page in that batch (issue #137, AUDIT AI-011). Added `_clamp_page_indices`, which maps 1-based page numbers to 0-based indices and skips out-of-range pages with a warning; applied to both `iter_pdf_pages` (the production path used by `ocr_pdf_pages` → `worker_content_tasks` and `text_pages`) and `render_pdf_pages` (currently dead code, tracked by #289).
+- `7e2cd9d` test: added three regression tests to [`tests/test_vision_ocr_page_cap.py`](backend/tests/test_vision_ocr_page_cap.py) using a real 2-page PyMuPDF fixture — `iter_pdf_pages` with `[1, 999]` yields only page 0, `[999, 1000]` yields nothing, and `render_pdf_pages` with `[1, 2, 999]` yields pages 0 and 1. All pass; the first two fail on base (page 999 raises `ValueError` before the fix).
+- `7e2cd9d` test: verified `cd backend && uv run pytest tests/test_vision_ocr_page_cap.py -q` (`7 passed`), `cd backend && uv run pytest -q` (`488 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), and `cd backend && uv run mypy --config-file pyproject.toml app/services/ai/vision_ocr.py` (no issues).
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint
