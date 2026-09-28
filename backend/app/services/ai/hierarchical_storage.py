@@ -102,6 +102,55 @@ def replace_section_summaries(
     db.commit()
 
 
+def upsert_section_summary(
+    db: Session,
+    *,
+    doc_id: int,
+    section_key: str,
+    source: str,
+    payload: dict[str, Any] | None,
+    status: str,
+    error: str | None = None,
+    model_name: str | None = None,
+) -> None:
+    """Upsert a single section summary row (delete + insert).
+
+    Called inside the per-section loop so that completed sections are
+    immediately visible to the resume check on retry, preventing re-billing.
+    """
+    db.execute(
+        delete(DocumentSectionSummary).where(
+            DocumentSectionSummary.doc_id == doc_id,
+            DocumentSectionSummary.section_key == section_key,
+            DocumentSectionSummary.source == source,
+        )
+    )
+    summary_text_value: str | None = None
+    if isinstance(payload, dict):
+        summary_text_value = _sanitize_model_output_text(
+            str(payload.get("text") or payload.get("summary") or "")
+        )
+        if not summary_text_value:
+            summary_text_value = f"Section {section_key} summary unavailable."
+    if summary_text_value:
+        summary_text_value = summary_text_value[:12000]
+    now = utc_now_iso()
+    db.add(
+        DocumentSectionSummary(
+            doc_id=doc_id,
+            section_key=section_key,
+            source=source,
+            summary_text=summary_text_value,
+            model_name=model_name,
+            status=status,
+            error=error,
+            created_at=now,
+            processed_at=now,
+        )
+    )
+    db.commit()
+
+
 def group_page_ranges(pages: list[int], section_pages: int) -> list[tuple[int, int]]:
     section_pages = max(1, int(section_pages))
     sorted_pages = _sorted_unique_positive_pages(pages)
