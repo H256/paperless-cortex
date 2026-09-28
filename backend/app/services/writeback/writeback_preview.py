@@ -66,9 +66,7 @@ def _parse_payload_fields(payload: str) -> set[str]:
         if isinstance(value, str) and value.strip():
             fields.add(key)
     tags = data.get("tags") or data.get("suggested_tags")
-    if isinstance(tags, list) and any(str(t).strip() for t in tags if isinstance(t, str)):
-        fields.add("tags")
-    elif isinstance(tags, str) and tags.strip():
+    if (isinstance(tags, list) and any(str(t).strip() for t in tags if isinstance(t, str))) or (isinstance(tags, str) and tags.strip()):
         fields.add("tags")
     return fields
 

@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING, Any
-
 from app.services.ai.suggestions import (
     fence_untrusted_text,
     normalize_suggestions_payload,
     sanitize_suggested_string,
 )
-
-if TYPE_CHECKING:
-    from pytest import MonkeyPatch
 
 
 def test_fence_wraps_text_with_delimiters_and_data_instruction() -> None:

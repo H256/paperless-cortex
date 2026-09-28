@@ -3,10 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-import httpx
-import pytest
-
-from app.models import Document, DocumentSuggestion, Tag
+from app.models import Document, DocumentSuggestion
 from app.services.writeback.writeback_preview import (
     ai_generated_fields_for_docs,
     build_writeback_item,
