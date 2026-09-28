@@ -14,6 +14,14 @@ type UseChatSessionOptions = {
   defaultDocId?: number | null
   defaultDocScope?: boolean
   defaultRelationshipMode?: 'none' | 'chrono'
+  /**
+   * When true, the chat history (questions, answers, citations — which embed
+   * document titles/snippets and AI extractions) is persisted to `localStorage`
+   * and restored on reload. Defaults to false (in-memory only) so that document
+   * corpus excerpts are not written to plaintext storage unless a consumer
+   * explicitly opts in (see README security notes, AUDIT FE-004 / #169).
+   */
+  persist?: boolean
 }
 
 export interface ChatMessage {
@@ -109,7 +117,8 @@ const createMessage = (question: string, conversationId?: string): ChatMessage =
 
 export const useChatSession = (options: UseChatSessionOptions = {}) => {
   const storageKey = options.storageKey || 'paperless_chat_state'
-  const initialState = loadState(storageKey)
+  const persistEnabled = options.persist === true
+  const initialState = persistEnabled ? loadState(storageKey) : { messages: [], conversationId: '' }
 
   const question = ref('')
   const topK = ref(6)
@@ -127,11 +136,13 @@ export const useChatSession = (options: UseChatSessionOptions = {}) => {
   const conversationId = ref(initialState.conversationId)
   const activeAbort = ref<AbortController | null>(null)
 
-  const persist = () =>
+  const persist = () => {
+    if (!persistEnabled) return
     saveState(storageKey, {
       messages: messages.value,
       conversationId: conversationId.value,
     })
+  }
 
   const followupsMutation = useMutation({
     mutationFn: (payload: ChatFollowupsRequest) =>
