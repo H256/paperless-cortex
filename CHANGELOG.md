@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/165-vector-upsert-compensating-delete)
+
+### Qdrant upsert now rolls back partially-persisted batches on failure
+- `uncommitted` fix(search): [`upsert_points`](backend/app/services/search/vector_backends/qdrant_adapter.py) now tracks the point IDs of each successfully-persisted size-batch and, when a later batch's HTTP PUT fails, issues a compensating delete of those IDs (via the existing `POST /collections/{name}/points/delete` with `{"points": [...]}`) before re-raising (issue #165 / AUDIT SEARCH-009). Previously a partial upsert left the document's store state as a mix of newly-written chunks plus all stale chunks from the previous run when the task was abandoned (retry exhaustion to DLQ). The compensating delete is best-effort: a failed delete is logged and swallowed so the original upsert error (which drives worker retry/DLQ) always propagates.
+- `uncommitted` test: added three cases to [`tests/test_qdrant_adapter.py`](backend/tests/test_qdrant_adapter.py) — the first batch's IDs are deleted before the error propagates (RED on base, GREEN on branch), no delete is issued when the first batch fails, and a failed compensating delete does not mask the original upsert error. The fake client gained a `put` method and per-call status codes; the size chunker is stubbed to force multi-batch behavior in a unit test.
+
 ## 2026-09-28 (branch: agent/137-vision-ocr-page-clamp)
 
 ### Vision OCR skips pages beyond the PDF page count instead of raising
@@ -266,6 +272,10 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` fix(search): removed the always-failing 404 fallback in `retrieve_points` of [`backend/app/services/search/qdrant.py`](backend/app/services/search/qdrant.py) (which re-POSTed the retrieve payload to the `/collections/{c}/points` upsert endpoint, requiring `{"points": [...]}` and therefore always failing with a 400 validation error), so a missing collection now propagates as a clean HTTP 404, which `fetch_doc_point_vector` and `rebuild_doc_point_from_chunks` already map to "no vector" instead of a hard 400 error.
 - `uncommitted` test(backend): replaced `test_retrieve_points_falls_back_to_points_endpoint_on_404` with `test_retrieve_points_propagates_404_without_points_fallback` in [`backend/tests/test_qdrant_service.py`](backend/tests/test_qdrant_service.py) (404 propagates as `httpx.HTTPStatusError` with status 404, exactly one request to `/points/retrieve`, carrying the retrieve payload) and added `test_fetch_doc_point_vector_returns_none_when_retrieve_404_via_real_adapter` to [`backend/tests/test_similarity_service.py`](backend/tests/test_similarity_service.py) (real adapter dispatch `similarity → vector_store → qdrant_adapter → qdrant.retrieve_points` with a fake client 404ing `/points/retrieve` returns `None` without raising).
 - `uncommitted` test: verified `cd backend && uv run pytest tests/test_qdrant_service.py tests/test_similarity_service.py -q` (`8 passed`), `cd backend && uv run ruff check app/services/search/qdrant.py tests/test_qdrant_service.py tests/test_similarity_service.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues in 196 source files), and `cd backend && uv run pytest -q` (`325 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
+## 2026-09-26 (branch: agent/172-route-auth-contract)
+
+### Pin the intended open auth posture with contract tests
+- `uncommitted` test(backend): added [`backend/tests/test_auth_contract.py`](backend/tests/test_auth_contract.py) (issue #172 / [AUDIT BT-001]) pinning the API's intended open posture: representative endpoints across the route modules (`/documents/stats`, `/queue/status`, `/queue/clear`, `/status`, `/settings/model-providers`, `/connections`, `/embeddings/cancel`) must never answer 401/403 without credentials, plus a structural guard asserting no route module wires an auth-style dependency (`APIKeyHeader`, `OAuth2PasswordBearer`, `Depends(verify/check/auth/require/get_current/ensure…)`), so a future auth layer cannot land silently and break every existing client.
 
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 

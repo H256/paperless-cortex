@@ -303,7 +303,6 @@ def embed_documents(
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
     ensure_embedding_collection(settings)
-    points: list[dict[str, object]] = []
     embedded = 0
     processed = 0
     state = get_or_create_state(db, "embeddings")
@@ -402,7 +401,6 @@ def embed_documents(
                     )
             if doc_points:
                 upsert_points(settings, doc_points)
-                points.extend(doc_points)
             existing.pending_reembed = False
             existing.content_hash = content_hash
             existing.embedding_model = settings.embedding_model
@@ -429,8 +427,6 @@ def embed_documents(
             state.processed = processed
             if processed % 5 == 0 or processed == state.total:
                 db.commit()
-        if points:
-            db.commit()
         state.status = "idle"
         state.last_synced_at = datetime.now(UTC).isoformat()
         db.commit()
