@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/126-meta-cache-refresh-backoff)
+
+### Meta name cache no longer re-fetches the full Paperless tag/correspondent list on every request during an outage
+- `uncommitted` fix(api): added a failure backoff to [`meta_cache.py`](backend/app/services/integrations/meta_cache.py). `refresh_cache` now records `_last_refresh_failure` (via a monkeypatchable `_now()` time source) when a refresh fails and clears it on success; `ensure_cache` skips the refresh while inside the `REFRESH_BACKOFF_SECONDS` (30s) window. Previously `_loaded` stayed `False` for the whole outage, so every `get_cached_tags`/`get_cached_correspondents` call (invoked synchronously inside the suggestion routes) re-ran a full paginated `load_all_pages` fetch with 15s httpx timeouts, making the suggestion endpoints effectively unavailable (issue #126 / AUDIT API-008).
+- `uncommitted` test: added [`tests/test_meta_cache_refresh_backoff.py`](backend/tests/test_meta_cache_refresh_backoff.py) — a failed refresh is not re-attempted within the backoff window (no HTTP call on the second request), and after the window elapses the cache recovers and a successful refresh clears the failure marker. Verified red-on-base / green-with-fix.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_meta_cache_refresh_backoff.py -q` (`2 passed`), `cd backend && uv run pytest -q` (`487 passed`, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app/services/integrations/meta_cache.py tests/test_meta_cache_refresh_backoff.py` (clean), and `cd backend && uv run mypy --config-file pyproject.toml app/services/integrations/meta_cache.py` (no issues).
+
 ## 2026-09-29 (branch: agent/133-apply-suggestion-date-validation)
 
 ### apply-suggestion validates document_date before persisting
