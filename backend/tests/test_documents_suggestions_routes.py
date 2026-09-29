@@ -167,6 +167,79 @@ def test_apply_suggestion_title_invalidates_local_detail_and_writeback_candidate
         assert audit is not None
 
 
+def test_apply_suggestion_date_rejects_non_iso_date(api_client: Any) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=710, title="Doc 710", content="Inhalt"))
+        db.commit()
+
+    # A hallucinated non-ISO date must be rejected, not stored verbatim.
+    response = api_client.post(
+        "/documents/710/apply-suggestion",
+        json={"source": "paperless_ocr", "field": "date", "value": "January 2026"},
+    )
+    assert response.status_code == 400
+    assert "YYYY-MM-DD" in response.json()["detail"]
+
+    with Session(engine) as db:
+        doc = db.get(Document, 710)
+        assert doc is not None
+        assert doc.document_date is None
+
+
+def test_apply_suggestion_date_accepts_iso_date(api_client: Any) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=711, title="Doc 711", content="Inhalt"))
+        db.commit()
+
+    response = api_client.post(
+        "/documents/711/apply-suggestion",
+        json={"source": "paperless_ocr", "field": "date", "value": "2026-01-15"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+    with Session(engine) as db:
+        doc = db.get(Document, 711)
+        assert doc is not None
+        assert doc.document_date == "2026-01-15"
+
+
+def test_apply_suggestion_date_rejects_future_iso_date(api_client: Any) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=712, title="Doc 712", content="Inhalt"))
+        db.commit()
+
+    response = api_client.post(
+        "/documents/712/apply-suggestion",
+        json={"source": "paperless_ocr", "field": "date", "value": "2026-99-99"},
+    )
+    assert response.status_code == 400
+    assert "YYYY-MM-DD" in response.json()["detail"]
+
+
+def test_apply_suggestion_date_empty_string_clears_date(api_client: Any) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=713, title="Doc 713", content="Inhalt", document_date="2026-01-01"))
+        db.commit()
+
+    # An empty value clears the date (preserves pre-existing behavior).
+    response = api_client.post(
+        "/documents/713/apply-suggestion",
+        json={"source": "paperless_ocr", "field": "date", "value": ""},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+    with Session(engine) as db:
+        doc = db.get(Document, 713)
+        assert doc is not None
+        assert doc.document_date is None
+
+
 def test_suggest_field_invalid_source_returns_400(api_client: Any) -> None:
     response = api_client.post(
         "/documents/710/suggestions/field",

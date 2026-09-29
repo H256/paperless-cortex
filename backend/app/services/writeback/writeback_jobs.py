@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.api_models import WritebackDryRunCall, WritebackJobDetail, WritebackJobSummary
 from app.services.runtime.json_utils import parse_json_list
+from app.services.writeback.writeback_selection import parse_applied_call_indexes
 
 if TYPE_CHECKING:
     from app.models import WritebackJob
@@ -70,4 +71,5 @@ def job_detail(job: WritebackJob) -> WritebackJobDetail:
         **job_summary(job).model_dump(),
         doc_ids=deserialize_doc_ids(job),
         calls=deserialize_calls(job),
+        applied_calls_count=len(parse_applied_call_indexes(job.applied_call_indexes_json)),
     )
