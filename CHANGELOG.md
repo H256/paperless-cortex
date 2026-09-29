@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/124-suggestion-route-valueerror-400)
+
+### Suggestion routes return 400 (not 500) for invalid source/field
+- `uncommitted` fix(api): replaced the raw `ValueError` raises in the three suggestion routes of [`backend/app/routes/documents_suggestions.py`](backend/app/routes/documents_suggestions.py) (`suggest_field_variants`, `apply_field_suggestion`, `apply_suggestion_to_document`) with the domain `ValidationError` (issue #124 / AUDIT API-006). `ValueError` is not a `PaperlessIntelligenceError` and has no registered handler on the `/api` app, so FastAPI/Starlette converted it to an opaque 500 instead of the intended 400. `ValidationError` is a `PaperlessIntelligenceError` subclass mapped to 400 by the registered `handle_domain_error` handler, so an invalid `source`/`field` now yields a 400 with a `detail` and `error_code=VALIDATION_ERROR`.
+- `uncommitted` test: added 5 regression tests to [`backend/tests/test_documents_suggestions_routes.py`](backend/tests/test_documents_suggestions_routes.py) covering each invalid-source / invalid-field branch of the three routes (asserting 400 + detail, not 500). Verified RED on base (all 5 fail with 500) and GREEN with the fix.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_documents_suggestions_routes.py -q` (`8 passed`), `cd backend && uv run ruff check app/routes/documents_suggestions.py tests/test_documents_suggestions_routes.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/routes/documents_suggestions.py` (no issues), and `cd backend && uv run pytest -q` (`500 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint

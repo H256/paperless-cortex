@@ -165,3 +165,48 @@ def test_apply_suggestion_title_invalidates_local_detail_and_writeback_candidate
             .one_or_none()
         )
         assert audit is not None
+
+
+def test_suggest_field_invalid_source_returns_400(api_client: Any) -> None:
+    response = api_client.post(
+        "/documents/710/suggestions/field",
+        json={"source": "not_a_source", "field": "title", "count": 1},
+    )
+    assert response.status_code == 400
+    assert "Invalid source" in response.json()["detail"]
+
+
+def test_suggest_field_invalid_field_returns_400(api_client: Any) -> None:
+    response = api_client.post(
+        "/documents/711/suggestions/field",
+        json={"source": "paperless_ocr", "field": "not_a_field", "count": 1},
+    )
+    assert response.status_code == 400
+    assert "Invalid field" in response.json()["detail"]
+
+
+def test_apply_field_invalid_source_returns_400(api_client: Any) -> None:
+    response = api_client.post(
+        "/documents/712/suggestions/field/apply",
+        json={"source": "not_a_source", "field": "title", "value": "v"},
+    )
+    assert response.status_code == 400
+    assert "Invalid source" in response.json()["detail"]
+
+
+def test_apply_field_invalid_field_returns_400(api_client: Any) -> None:
+    response = api_client.post(
+        "/documents/713/suggestions/field/apply",
+        json={"source": "vision_ocr", "field": "not_a_field", "value": "v"},
+    )
+    assert response.status_code == 400
+    assert "Invalid field" in response.json()["detail"]
+
+
+def test_apply_suggestion_invalid_field_returns_400(api_client: Any) -> None:
+    response = api_client.post(
+        "/documents/714/apply-suggestion",
+        json={"source": "paperless_ocr", "field": "not_a_field", "value": "v"},
+    )
+    assert response.status_code == 400
+    assert "Invalid field" in response.json()["detail"]
