@@ -57,21 +57,6 @@ def _require(value: str | None, env_name: str) -> str:
     return value.rstrip("/")
 
 
-def base_url(settings: Settings) -> str:
-    """Get the LLM base URL from settings.
-
-    Args:
-        settings: Application settings
-
-    Returns:
-        Validated and normalized LLM base URL
-
-    Raises:
-        RuntimeError: If LLM_BASE_URL is not configured
-    """
-    return _require(provider_base_url(settings, "text"), "LLM_BASE_URL")
-
-
 def base_url_for_purpose(
     settings: Settings,
     purpose: Literal["text", "chat", "vision", "embedding"] = "text",

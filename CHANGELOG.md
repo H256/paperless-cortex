@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/290-dead-base-url-helper)
+
+### Removed dead `base_url()` helper from `services/ai/llm_client.py`
+- `uncommitted` refactor(backend): deleted the unreferenced `base_url(settings)` helper from [`llm_client.py`](backend/app/services/ai/llm_client.py) (housekeeping F-C3-7 / issue #290). It returned the text-purpose provider base URL but had zero references in app or tests; the live paths are `base_url_for_purpose` (role mapping, used by `_sdk_client`/`_require`) and `sdk_base_url` (used by `_sdk_client`). The `provider_base_url`/`provider_api_key` import and the `Settings` type remain in use by the live helpers, so no import changes were needed. Behavior-preserving.
+- `uncommitted` test: verified the deletion is dead-code-only — `grep '\bbase_url(' backend/app backend/tests` (all remaining hits are distinct `base_url` functions in `qdrant.py`/`qdrant_adapter.py`/`paperless.py`), `grep 'from app.services.ai.llm_client import ... base_url'` (0 hits), and `grep 'llm_client.base_url\b'` (0 hits). No dynamic access (no getattr/registry) references it.
+- `uncommitted` test: verified `cd backend && uv run pytest -q` (full suite, expected green except the documented pre-existing `test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id`), `cd backend && uv run ruff check app tests scripts alembic`, and `cd backend && uv run mypy --config-file pyproject.toml`.
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint
