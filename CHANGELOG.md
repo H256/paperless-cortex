@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/299-planner-redundant-disjunction)
+
+### Dropped redundant disjunction in pipeline_planner page-notes gate
+- `671dbe1` refactor(pipeline): in [`pipeline_planner.py`](backend/app/services/pipeline/pipeline_planner.py) the page-notes gate `if needs_page_notes and (options.include_page_notes or options.include_summary_hierarchical):` repeated a clause that is already subsumed — `needs_page_notes` is defined as `evaluate_page_notes and large_doc and (not notes_complete or bool(notes_stale))`, and `evaluate_page_notes` *is* that same disjunction. Simplified to `if needs_page_notes:` (issue #299 / housekeeping F-C6-8). Behavior-preserving by definition of `needs_page_notes`; `evaluate_page_notes` remains in use at the `needs_page_notes` assignment.
+- `671dbe1` test: verified via the existing planner consumers — `uv run pytest tests/test_pipeline_similarity_index.py tests/test_process_missing_service.py` (9 passed) and the full backend suite (no new failures vs. clean master: the 3 failures present are pre-existing on master). `ruff check` and `mypy` on `pipeline_planner.py` clean; the 2 ruff / 3 mypy findings elsewhere are identical on clean master.
+
 ## 2026-09-29 (branch: agent/296-dead-embedding-checkpoint-batch-size)
 
 ### Deleted dead `_embedding_checkpoint_batch_size` from `app/worker.py` (issue #296)
