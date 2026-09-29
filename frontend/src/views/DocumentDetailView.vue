@@ -119,6 +119,7 @@
         :task-runs="taskRuns as never"
         :doc-cleanup-clear-first="docCleanupClearFirst"
         :doc-ops-message="docOpsMessage"
+        :doc-ops-status="docOpsStatus"
         :operation-actions="operationActions as never"
         :to-title="toTitle"
         :processing-badge-class="processingBadgeClass"
@@ -564,6 +565,7 @@ const reloadPipelineFanout = async () => {
 
 const {
   docOpsMessage,
+  docOpsStatus,
   docCleanupClearFirst,
   resetConfirmOpen,
   continueQueuedWaiting,
