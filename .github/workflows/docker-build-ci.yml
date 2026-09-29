@@ -1,0 +1,33 @@
+name: Docker Build
+
+# issue #155 ([AUDIT INFRA-011]): the two-stage Docker build (npm ci + orval
+# codegen + vite build + uv sync --frozen) is the primary documented deploy
+# path, but no workflow ran `docker build`, and backend-ci's path filter
+# excluded Dockerfile-only changes. This job builds the image on any change to
+# the build inputs so a broken Dockerfile (bad COPY path, orval config drift,
+# lockfile mismatch) fails in CI before it lands on master.
+on:
+  push:
+    paths:
+      - "Dockerfile"
+      - "docker/**"
+      - "backend/openapi.json"
+      - "frontend/**"
+      - ".github/workflows/docker-build-ci.yml"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "docker/**"
+      - "backend/openapi.json"
+      - "frontend/**"
+      - ".github/workflows/docker-build-ci.yml"
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build .
