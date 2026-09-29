@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/296-dead-embedding-checkpoint-batch-size)
+
+### Deleted dead `_embedding_checkpoint_batch_size` from `app/worker.py` (issue #296)
+- `uncommitted` refactor(backend): removed the `_embedding_checkpoint_batch_size` helper from [`app/worker.py`](backend/app/worker.py) (13 lines). The worker's `_embed_with_pages` is a pure passthrough to `_service_embed_with_pages` and never touched batch size, so this copy had zero callers. The live batch-sizing logic moved into [`worker_document_tasks.py`](backend/app/services/pipeline/worker_document_tasks.py), which owns its own copy (defined at :76, called at :172). Removing the dead duplicate eliminates drift risk between the two copies. No references remain in `app/` or `tests/`.
+- `uncommitted` test: verified `grep -rn _embedding_checkpoint_batch_size app/worker.py` returns 0; `cd backend && uv run pytest -q tests/test_worker_runtime.py tests/test_worker_task_execution.py tests/test_worker_doc_orchestration.py tests/test_worker_resume_checkpoint.py tests/test_worker_checkpoint_recovery.py tests/test_worker_restart_recovery.py tests/test_embedding_chunk_budget.py tests/test_embedding_chunk_counts.py tests/test_embeddings_routes.py -q` (41 passed); `cd backend && uv run mypy --config-file pyproject.toml app/worker.py` (no issues); `cd backend && uv run ruff check app/worker.py` (only the 2 known pre-existing `app/worker.py` errors, UP035 + B023); `cd backend && uv run pytest -q` (485 passed, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError`, both reproduced on clean master with this change stashed, so not a regression). Behavior-preserving.
+
 ## 2026-09-29 (branch: agent/135-truncated-json-repair)
 
 ### Truncated-JSON repair no longer corrupts string content and now flags partial payloads
