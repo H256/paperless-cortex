@@ -106,43 +106,6 @@ def _clamp_page_indices(doc: fitz.Document, page_numbers: Iterable[int]) -> list
     return indices
 
 
-def render_pdf_pages(
-    pdf_bytes: bytes,
-    page_numbers: Iterable[int] | None,
-    *,
-    max_dim: int,
-    target_dim: int,
-) -> list[VisionPage]:
-    try:
-        import fitz  # PyMuPDF
-    except ImportError as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError("pymupdf is required for vision OCR") from exc
-
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    if page_numbers is None:
-        page_indices = list(range(doc.page_count))
-    else:
-        page_indices = _clamp_page_indices(doc, page_numbers)
-    logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
-    rendered: list[VisionPage] = []
-    for page_index in page_indices:
-        png_bytes, width, height = _render_page_image(
-            doc,
-            page_index,
-            max_dim=max_dim,
-            target_dim=target_dim,
-        )
-        rendered.append(
-            VisionPage(
-                page_index=page_index,
-                image_bytes=png_bytes,
-                width=width,
-                height=height,
-            )
-        )
-    return rendered
-
-
 def iter_pdf_pages(
     pdf_bytes: bytes,
     page_numbers: Iterable[int] | None,

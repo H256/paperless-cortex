@@ -109,11 +109,13 @@ def test_iter_pdf_pages_all_out_of_range_yields_nothing() -> None:
     assert pages == []
 
 
-def test_render_pdf_pages_skips_page_beyond_page_count() -> None:
-    pages = vision_ocr.render_pdf_pages(
-        _two_page_pdf(),
-        [1, 2, 999],
-        max_dim=0,
-        target_dim=0,
+def test_iter_pdf_pages_skips_trailing_page_beyond_count() -> None:
+    pages = list(
+        vision_ocr.iter_pdf_pages(
+            _two_page_pdf(),
+            [1, 2, 999],
+            max_dim=0,
+            target_dim=0,
+        )
     )
     assert [p.page_index for p in pages] == [0, 1]

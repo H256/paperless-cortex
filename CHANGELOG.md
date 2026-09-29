@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/289-dead-render-pdf-pages)
+
+### Deleted dead `render_pdf_pages` from `services/ai/vision_ocr.py` (issue #289)
+- `uncommitted` refactor(backend): removed the `render_pdf_pages` helper (37 lines) from [`vision_ocr.py`](backend/app/services/ai/vision_ocr.py). It was a byte-for-byte duplicate of the live `iter_pdf_pages` (generator) minus the yield/list conversion, with zero references in `app/` or `tests/`. The live path is `iter_pdf_pages`, consumed by `ocr_pdf_pages` → `worker_content_tasks` (x2) and `text_pages`. The `VisionPage` dataclass and `Iterable` import remain in use by `iter_pdf_pages`, so no import was dropped. Behavior-preserving.
+- `uncommitted` test: verified `grep -rn render_pdf_pages` returns 0 across the repo; `cd backend && uv run python -c "import app.services.ai.vision_ocr"` (import OK, `render_pdf_pages` gone / `iter_pdf_pages` present); `cd backend && uv run ruff check app/services/ai/vision_ocr.py` (clean) and `uv run mypy --config-file pyproject.toml app/services/ai/vision_ocr.py` (no issues); `cd backend && uv run pytest -q tests/test_vision_ocr_page_cap.py tests/test_ocr_scoring_auth.py tests/test_ocr_scoring_client_pool.py tests/test_worker_vision_suggestions.py` (15 passed); `cd backend && uv run pytest -q` (495 passed, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py`, all reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-29 (branch: agent/156-openapi-drift-gate)
 
 ### CI now fails on drift between the committed OpenAPI spec and the routes
