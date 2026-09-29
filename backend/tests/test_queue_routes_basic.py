@@ -84,6 +84,44 @@ def test_queue_status_enabled_uses_stats(api_client: Any, monkeypatch: Any) -> N
     assert "last_run_at" in payload
 
 
+def test_queue_status_enabled_reports_cancel_pending(api_client: Any, monkeypatch: Any) -> None:
+    import app.routes.queue as queue_routes
+
+    monkeypatch.setenv("QUEUE_ENABLED", "1")
+    monkeypatch.setattr(
+        queue_routes,
+        "queue_stats",
+        lambda _settings: {"length": 0, "total": 0, "in_progress": 0, "done": 0},
+    )
+    monkeypatch.setattr(queue_routes, "is_paused", lambda _settings: True)
+    monkeypatch.setattr(queue_routes, "is_cancel_requested", lambda _settings: True)
+
+    response = api_client.get("/queue/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["paused"] is True
+    assert payload["cancel_pending"] is True
+
+
+def test_queue_status_enabled_cancel_pending_default_false(api_client: Any, monkeypatch: Any) -> None:
+    import app.routes.queue as queue_routes
+
+    monkeypatch.setenv("QUEUE_ENABLED", "1")
+    monkeypatch.setattr(
+        queue_routes,
+        "queue_stats",
+        lambda _settings: {"length": 0, "total": 0, "in_progress": 0, "done": 0},
+    )
+    monkeypatch.setattr(queue_routes, "is_paused", lambda _settings: False)
+    monkeypatch.setattr(queue_routes, "is_cancel_requested", lambda _settings: False)
+
+    response = api_client.get("/queue/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["paused"] is False
+    assert payload["cancel_pending"] is False
+
+
 def test_queue_enqueue_enabled_returns_count(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.queue as queue_routes
 

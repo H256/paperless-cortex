@@ -42,6 +42,32 @@ def handle_worker_cancel_request[SettingsT](
     return True
 
 
+def run_worker_iteration_gate[SettingsT](
+    settings: SettingsT,
+    *,
+    is_paused_fn: Callable[[SettingsT], bool],
+    is_cancel_requested_fn: Callable[[SettingsT], bool],
+    clear_queue_fn: Callable[[SettingsT], object],
+    reset_stats_fn: Callable[[SettingsT], object],
+    clear_cancel_fn: Callable[[SettingsT], object],
+    log_fn: LogFn,
+    logger: logging.Logger,
+) -> bool:
+    """Honor a pending cancel before the paused state is consulted.
+
+    Returns True when the worker should sleep and re-loop this iteration.
+    A cancel requested while the queue is paused is therefore processed (queue
+    cleared, cancel flag removed) instead of being ignored until resume.
+    """
+    if is_cancel_requested_fn(settings):
+        log_fn(logger, logging.INFO, "Worker cancel requested; clearing queue")
+        clear_queue_fn(settings)
+        reset_stats_fn(settings)
+        clear_cancel_fn(settings)
+        return True
+    return bool(is_paused_fn(settings))
+
+
 def parse_worker_queue_item(
     raw_item: bytes | str,
     *,
