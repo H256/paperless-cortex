@@ -403,6 +403,20 @@ def mark_done(settings: Settings) -> None:
     client.incr(STATS_DONE)
 
 
+def release_in_progress(settings: Settings) -> None:
+    """Release the in-progress slot for a task that did NOT terminate successfully.
+
+    Retried and dead-lettered tasks still free the worker slot (decrement
+    STATS_IN_PROGRESS) but must not increment STATS_DONE, otherwise queue
+    stats report failures as completed.
+    """
+    client = _get_client(settings)
+    if not client:
+        return
+    current = int(client.get(STATS_IN_PROGRESS) or 0)
+    client.set(STATS_IN_PROGRESS, max(0, current - 1))
+
+
 def record_last_run(settings: Settings, duration_seconds: float) -> None:
     client = _get_client(settings)
     if not client:

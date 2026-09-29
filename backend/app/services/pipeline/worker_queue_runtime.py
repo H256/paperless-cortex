@@ -22,6 +22,7 @@ from app.services.pipeline.queue import (
     record_last_run,
     recover_inflight_dedup_keys,
     refresh_worker_lock,
+    release_in_progress,
     release_worker_lock,
     set_running_task,
     task_key,
@@ -118,7 +119,14 @@ def finalize_worker_task(
     pending_dead_letter: dict[str, object] | None,
 ) -> None:
     clear_running_task(settings)
-    mark_done(settings)
+    if pending_retry_payload is not None:
+        # Retried task is not terminal: free the worker slot but do NOT
+        # increment STATS_DONE, otherwise queue stats report failures as
+        # completed (see issue #117).
+        release_in_progress(settings)
+    else:
+        # Genuinely terminal outcome (success or dead-letter): count as done.
+        mark_done(settings)
     record_last_run(settings, time.time() - run_started)
     if isinstance(task, dict):
         client.srem(QUEUE_SET, task_key(task))

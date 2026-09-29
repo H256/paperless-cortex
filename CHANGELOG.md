@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/117-queue-done-counter-retry)
+
+### Retried worker tasks no longer increment the queue `done` counter
+- `uncommitted` fix(pipeline): in [`finalize_worker_task`](backend/app/services/pipeline/worker_queue_runtime.py) the `done` counter (`STATS_DONE`) was incremented unconditionally via `mark_done()` *before* the retry / dead-letter decision, so every task that failed with a retryable error was counted as "done" in `queue_stats` while it was still pending (issue #117 / AUDIT PL-005). Now a retried task releases only the in-progress slot (new [`release_in_progress`](backend/app/services/pipeline/queue.py) — decrements `STATS_IN_PROGRESS` without touching `STATS_DONE`) and is counted as `done` only on a genuinely terminal outcome (success or dead-letter, i.e. retries exhausted). The `in_progress` slot is still released in every case, so no slot leak.
+- `uncommitted` test: added [`tests/test_worker_done_counter_retry.py`](backend/tests/test_worker_done_counter_retry.py) — a retry leaves `STATS_DONE` at 0 and re-enqueues delayed, a success increments `done` to 1, and a dead-letter increments `done` to 1 and records the DLQ entry. Verified RED on base (retry path previously incremented `done`), GREEN on branch.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_worker_done_counter_retry.py -q` (`3 passed`), `cd backend && uv run pytest -q` (`498 passed`, 3 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), and `cd backend && uv run mypy --config-file pyproject.toml` (no issues in the touched files).
+
 ## 2026-09-29 (branch: agent/290-dead-base-url-helper)
 
 ### Removed dead `base_url()` helper from `services/ai/llm_client.py`
