@@ -362,7 +362,7 @@ def test_execute_direct_use_paperless_resolutions_sync_local_fields(
     monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
     monkeypatch.setattr(
         paperless,
-        "get_document_cached",
+        "get_document",
         lambda _settings, _doc_id: {
             "id": 1999,
             "title": "Remote title",
@@ -423,7 +423,7 @@ def test_execute_direct_returns_404_when_remote_doc_is_gone(
         db.add(Document(id=2001, title="Doc 2001"))
         db.commit()
 
-    def _get_document_cached_404(_settings: Any, _doc_id: int) -> dict[str, Any]:
+    def _get_document_404(_settings: Any, _doc_id: int) -> dict[str, Any]:
         raise httpx.HTTPStatusError(
             "document not found",
             request=httpx.Request("GET", "http://paperless/api/documents/2001"),
@@ -433,7 +433,57 @@ def test_execute_direct_returns_404_when_remote_doc_is_gone(
             ),
         )
 
-    monkeypatch.setattr(paperless, "get_document_cached", _get_document_cached_404)
+    monkeypatch.setattr(paperless, "get_document", _get_document_404)
 
     response = api_client.post("/writeback/documents/2001/execute-direct", json={})
     assert response.status_code == 404
+
+
+def test_execute_direct_uses_fresh_document_not_stale_cache_for_conflict_check(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=2010, title="Local title"))
+        db.commit()
+
+    monkeypatch.setenv("WRITEBACK_EXECUTE_ENABLED", "1")
+
+    # The stale cached payload matches the known modified timestamp, so a
+    # cache-based conflict check would see NO conflict. The fresh document has
+    # a different modified timestamp, so a fresh check must flag a conflict.
+    def _get_document_cached_stale(_settings: Any, _doc_id: int) -> dict[str, Any]:
+        return {
+            "id": 2010,
+            "title": "Remote title",
+            "created": "2026-02-02",
+            "modified": "2026-02-20T11:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        }
+
+    def _get_document_fresh(_settings: Any, _doc_id: int) -> dict[str, Any]:
+        return {
+            "id": 2010,
+            "title": "Remote title",
+            "created": "2026-02-02",
+            "modified": "2026-02-20T12:00:00+00:00",
+            "correspondent": None,
+            "tags": [],
+            "notes": [],
+        }
+
+    monkeypatch.setattr(paperless, "get_document_cached", _get_document_cached_stale)
+    monkeypatch.setattr(paperless, "get_document", _get_document_fresh)
+
+    response = api_client.post(
+        "/writeback/documents/2010/execute-direct",
+        json={"known_paperless_modified": "2026-02-20T11:00:00+00:00", "resolutions": {}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "conflicts"
+    assert isinstance(payload["conflicts"], list)
