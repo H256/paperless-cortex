@@ -244,7 +244,7 @@ def generate_suggestions(
         document.get("id"),
     )
     if settings.debug.llm:
-        logger.info("Suggestions prompt:\n%s", prompt)
+        logger.info("Suggestions prompt:\n%s", llm_client._snippet(prompt))
     raw_text = llm_client.chat_completion(
         settings,
         model=settings.text_model or "",
@@ -318,7 +318,7 @@ def generate_field_variants(
         document.get("id"),
     )
     if settings.debug.llm:
-        logger.info("Suggestions field prompt:\n%s", prompt)
+        logger.info("Suggestions field prompt:\n%s", llm_client._snippet(prompt))
     raw_text = llm_client.chat_completion(
         settings,
         model=settings.text_model or "",

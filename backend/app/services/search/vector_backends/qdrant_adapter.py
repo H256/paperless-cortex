@@ -75,6 +75,7 @@ class QdrantVectorStoreAdapter:
         collection = qdrant.collection_name(settings)
         headers = qdrant.headers(settings)
         logger.info("Vector upsert provider=qdrant points=%s", len(points))
+        written_ids: list[int] = []
         with qdrant.client(settings, timeout=60) as client:
             for batch in self._chunk_points_by_size(points, max_bytes=30 * 1024 * 1024):
                 response = client.put(
@@ -86,8 +87,37 @@ class QdrantVectorStoreAdapter:
                     response.raise_for_status()
                 except httpx.HTTPStatusError as exc:
                     detail = response.text[:500]
+                    self._rollback_written_points(settings, client, written_ids)
                     raise RuntimeError(f"Qdrant upsert failed: {detail}") from exc
+                written_ids.extend(int(point["id"]) for point in batch)
         logger.info("Vector upsert provider=qdrant ok")
+
+    def _rollback_written_points(
+        self, settings: Settings, client: Any, point_ids: list[int]
+    ) -> None:
+        """Compensate a partial upsert: delete point IDs already persisted this call.
+
+        Best-effort: a failed delete is logged and swallowed so the original
+        upsert error (which drives worker retry/DLQ) always propagates.
+        """
+        if not point_ids:
+            return
+        base = qdrant.base_url(settings)
+        collection = qdrant.collection_name(settings)
+        headers = qdrant.headers(settings)
+        try:
+            response = client.post(
+                f"{base}/collections/{collection}/points/delete",
+                headers=headers,
+                json={"points": point_ids},
+            )
+            response.raise_for_status()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning(
+                "Vector upsert rollback failed provider=qdrant ids=%s: %s",
+                len(point_ids),
+                exc,
+            )
 
     def delete_all_chunk_points(self, settings: Settings) -> None:
         base = qdrant.base_url(settings)
