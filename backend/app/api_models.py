@@ -973,6 +973,7 @@ class WritebackJobSummary(BaseModel):
 class WritebackJobDetail(WritebackJobSummary):
     doc_ids: list[int] = []
     calls: list[WritebackDryRunCall] = []
+    applied_calls_count: int = 0
 
 
 class WritebackJobListResponse(BaseModel):
