@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/133-apply-suggestion-date-validation)
+
+### apply-suggestion validates document_date before persisting
+- `uncommitted` fix(ai): `apply_suggestion_to_document_payload` now validates the `date` field via a new `normalize_document_date` helper in [`suggestion_apply.py`](backend/app/services/ai/suggestion_apply.py) that accepts only a real calendar date in ISO `YYYY-MM-DD` form (the date-variant prompt mandates ISO, and writeback sends the stored value verbatim as Paperless `created`). A non-ISO value (e.g. a hallucinated `January 2026`) is rejected with `status: "invalid_date"` instead of being stored verbatim, which previously corrupted writeback and silently dropped the document from chrono sorting (issue #133 / AUDIT AI-007). The `apply-suggestion` route maps that to a `400`. An empty/None value still clears the date (pre-existing behavior preserved).
+- `uncommitted` test: extended [`tests/test_documents_suggestions_routes.py`](backend/tests/test_documents_suggestions_routes.py) — non-ISO and impossible-date values are rejected with `400` (RED on base), a valid ISO date is accepted and stored, and an empty value clears the date (RED on base for the two reject cases, GREEN on branch).
+
 ## 2026-09-29 (branch: agent/301-dead-clear-log-context)
 
 ### Removed dead `clear_log_context` from the logging-context module
