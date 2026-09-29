@@ -49,8 +49,34 @@ describe('useDocumentDetailOperations', () => {
       force: true,
     })
     expect(ops.docOpsMessage.value).toContain('Queued task vision_ocr')
+    expect(ops.docOpsStatus.value).toBe('queued')
     expect(loadPipelineStatus).toHaveBeenCalled()
     expect(refreshPipelineFanout).toHaveBeenCalled()
+  })
+
+  it('marks a not-enqueued task as degraded (not success)', async () => {
+    const { ops, enqueueDocumentTaskNow } = createOps()
+    enqueueDocumentTaskNow.mockResolvedValueOnce({ enqueued: 0 })
+    await ops.enqueueDocTask({
+      task: 'vision_ocr',
+      label: 'Queue vision OCR',
+      tooltip: 'x',
+      force: true,
+    })
+    expect(ops.docOpsMessage.value).toContain('was not enqueued')
+    expect(ops.docOpsStatus.value).toBe('degraded')
+  })
+
+  it('marks a failed task as failed', async () => {
+    const { ops, enqueueDocumentTaskNow } = createOps()
+    enqueueDocumentTaskNow.mockRejectedValueOnce(new Error('boom'))
+    await ops.enqueueDocTask({
+      task: 'vision_ocr',
+      label: 'Queue vision OCR',
+      tooltip: 'x',
+      force: true,
+    })
+    expect(ops.docOpsStatus.value).toBe('failed')
   })
 
   it('handles continue pipeline when queue is disabled', async () => {
@@ -58,6 +84,7 @@ describe('useDocumentDetailOperations', () => {
     continuePipelineRequest.mockResolvedValueOnce({ enabled: false, enqueued: 0, missing_tasks: 0 })
     await ops.runContinuePipeline()
     expect(ops.docOpsMessage.value).toBe('Queue is disabled.')
+    expect(ops.docOpsStatus.value).toBe('degraded')
     expect(ops.continueQueuedWaiting.value).toBe(false)
   })
 
