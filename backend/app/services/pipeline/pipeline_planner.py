@@ -368,7 +368,7 @@ def evaluate_doc_pipeline(
     large_doc = is_large_document(page_count=doc.page_count, total_text=doc.content, threshold_pages=settings.large_doc_page_threshold)
     evaluate_page_notes = options.include_page_notes or options.include_summary_hierarchical
     needs_page_notes = evaluate_page_notes and large_doc and (not notes_complete or bool(notes_stale))
-    if needs_page_notes and (options.include_page_notes or options.include_summary_hierarchical):
+    if needs_page_notes:
         tasks.append({"doc_id": int(doc.id), "task": page_notes_task})
 
     hier_summaries: dict[int, str | None] = cache["hier_summaries"]

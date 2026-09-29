@@ -343,7 +343,7 @@ def reset_intelligence(
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    _clear_all_intelligence(db)
+    _clear_all_intelligence(db, settings)
     return {"enabled": True}
 
 
@@ -354,7 +354,7 @@ def clear_intelligence(
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    _clear_all_intelligence(db)
+    _clear_all_intelligence(db, settings)
     return {"enabled": True}
 
 

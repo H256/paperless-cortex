@@ -20,21 +20,6 @@ logger = logging.getLogger(__name__)
 
 QUEUE_KEY = "paperless_intelligence:doc_queue"
 QUEUE_SET = "paperless_intelligence:doc_queue_set"
-TASK_TYPES = [
-    "sync",
-    "evidence_index",
-    "vision_ocr",
-    "embeddings_paperless",
-    "embeddings_vision",
-    "similarity_index",
-    "cleanup_texts",
-    "page_notes_paperless",
-    "page_notes_vision",
-    "summary_hierarchical",
-    "suggestions_paperless",
-    "suggestions_vision",
-    "suggest_field",
-]
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
@@ -54,6 +39,46 @@ DLQ_KEY = "paperless_intelligence:doc_queue_dlq"
 
 _CLIENT_LOCK = Lock()
 _CLIENT_BY_URL: dict[str, object] = {}
+
+# Atomic Lua scripts for the queue/DLQ rewrite helpers. Redis executes a Lua
+# script single-threaded (atomically), so LRANGE/DEL/RPUSH (or LINDEX/LREM)
+# cannot interleave with the worker's BLPOP on the same list. This fixes the
+# snapshot->DELETE->RPUSH race in reorder_queue / remove_queue_item /
+# requeue_dead_letter_item (issue #116): a task popped by the worker between
+# the snapshot and the DELETE was previously re-inserted (duplicate execution)
+# or lost entirely.
+_REORDER_QUEUE_LUA = """
+local items = redis.call('LRANGE', KEYS[1], 0, -1)
+local n = #items
+local from = tonumber(ARGV[1])
+local to = tonumber(ARGV[2])
+if n == 0 then return 0 end
+if from < 0 or from >= n then return 0 end
+local entry = table.remove(items, from + 1)
+if to < 0 then to = 0 end
+if to > #items then to = #items end
+table.insert(items, to + 1, entry)
+redis.call('DEL', KEYS[1])
+if #items > 0 then redis.call('RPUSH', KEYS[1], unpack(items)) end
+return 1
+"""
+
+_REMOVE_QUEUE_ITEM_LUA = """
+local items = redis.call('LRANGE', KEYS[1], 0, -1)
+local idx = tonumber(ARGV[1])
+if #items == 0 or idx < 0 or idx >= #items then return 0 end
+local entry = table.remove(items, idx + 1)
+redis.call('DEL', KEYS[1])
+if #items > 0 then redis.call('RPUSH', KEYS[1], unpack(items)) end
+return entry
+"""
+
+_REQUEUE_DLQ_ITEM_LUA = """
+local entry = redis.call('LINDEX', KEYS[1], tonumber(ARGV[1]))
+if not entry then return nil end
+redis.call('LREM', KEYS[1], 1, entry)
+return entry
+"""
 
 
 def _redis_url(host: str) -> str:
@@ -271,13 +296,6 @@ def enqueue_full_sequence_front(
     return total
 
 
-def queue_length(settings: Settings) -> int | None:
-    client = _get_client(settings)
-    if not client:
-        return None
-    return int(client.llen(QUEUE_KEY))
-
-
 def queue_stats(settings: Settings) -> dict[str, int] | None:
     client = _get_client(settings)
     if not client:
@@ -482,21 +500,11 @@ def reorder_queue(settings: Settings, from_index: int, to_index: int) -> bool:
     client = _get_client(settings)
     if not client:
         return False
-    items = client.lrange(QUEUE_KEY, 0, -1)
-    if not items:
+    try:
+        result = client.eval(_REORDER_QUEUE_LUA, 1, QUEUE_KEY, from_index, to_index)
+    except (RedisError, RuntimeError):
         return False
-    if from_index < 0 or from_index >= len(items):
-        return False
-    entry = items.pop(from_index)
-    if to_index < 0:
-        to_index = 0
-    if to_index > len(items):
-        to_index = len(items)
-    items.insert(to_index, entry)
-    client.delete(QUEUE_KEY)
-    if items:
-        client.rpush(QUEUE_KEY, *items)
-    return True
+    return bool(result)
 
 
 def move_queue_item_to_top(settings: Settings, index: int) -> bool:
@@ -517,13 +525,12 @@ def remove_queue_item(settings: Settings, index: int) -> bool:
     client = _get_client(settings)
     if not client:
         return False
-    items = client.lrange(QUEUE_KEY, 0, -1)
-    if not items or index < 0 or index >= len(items):
+    try:
+        entry = client.eval(_REMOVE_QUEUE_ITEM_LUA, 1, QUEUE_KEY, index)
+    except (RedisError, RuntimeError):
         return False
-    entry = items.pop(index)
-    client.delete(QUEUE_KEY)
-    if items:
-        client.rpush(QUEUE_KEY, *items)
+    if not entry:
+        return False
     payload = _parse_queue_entry(entry)
     if payload:
         key = task_key(payload)
@@ -812,13 +819,12 @@ def requeue_dead_letter_item(settings: Settings, index: int) -> bool:
     client = _get_client(settings)
     if not client:
         return False
-    items = client.lrange(DLQ_KEY, 0, -1)
-    if not items or index < 0 or index >= len(items):
+    try:
+        entry = client.eval(_REQUEUE_DLQ_ITEM_LUA, 1, DLQ_KEY, index)
+    except (RedisError, RuntimeError):
         return False
-    entry = items.pop(index)
-    client.delete(DLQ_KEY)
-    if items:
-        client.rpush(DLQ_KEY, *items)
+    if not entry:
+        return False
     try:
         parsed = json.loads(entry)
     except JSONDecodeError:
