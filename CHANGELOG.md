@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/135-truncated-json-repair)
+
+### Truncated-JSON repair no longer corrupts string content and now flags partial payloads
+- `uncommitted` fix(ai): in [`json_extraction.py`](backend/app/services/ai/json_extraction.py), replaced the blanket `repaired.replace(",}", "}").replace(",]", "]")` with a string-aware `_strip_trailing_commas` helper that only removes a trailing comma before a `}`/`]` that sits *outside* a string literal. The old global replace corrupted any `",}"`/`",]"` substring inside a string value (e.g. a half-written summary containing `",}"` was mangled on repair) (issue #135 / AUDIT AI-009).
+- `uncommitted` fix(ai): `repair_truncated_json_object` now sets `parsed["truncated"] = True` on a recovered (truncated) object so the UI/writeback can surface it as partial rather than treating it as a complete suggestion. The marker survives the `persist_suggestions` → `parse_suggestion_payload` round-trip because the payload is a free-form dict and `normalize_suggestions_payload` preserves unknown keys via `data.update`.
+- `uncommitted` fix(ai): in `extract_json_object`, wrapped the `rfind("}")` slice `json.loads` in a `try/except json.JSONDecodeError` so a `}` inside a string value (which makes the slice invalid) falls through to the truncation repair instead of raising an uncaught `JSONDecodeError` — required for the `truncated` marker to propagate end-to-end.
+- `uncommitted` test: added [`tests/test_json_extraction.py`](backend/tests/test_json_extraction.py) — regression guards asserting a `",}"`/`",]"` substring inside a string value is preserved, a truncated object is flagged `truncated: True`, a well-formed object is *not* flagged, the marker propagates through `extract_json_object`, and a dangling trailing comma is still stripped cleanly.
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint
