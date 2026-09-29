@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/301-dead-clear-log-context)
+
+### Removed dead `clear_log_context` from the logging-context module
+- `uncommitted` refactor(backend): deleted the never-called [`clear_log_context`](backend/app/services/runtime/logging_setup.py) function (3 lines) from `app/services/runtime/logging_setup.py`. The production logging-context lifecycle is exclusively token-based (`bind_log_context` → `reset_log_context(token)` in `app/main.py` startup/request scope and the worker runtime); no code path sets the context to `None`. Verified repo-wide: `rg -c 'clear_log_context'` returns 0 matches after removal; no module (app, tests, docs, scripts) imports it, so no import updates were needed (issue #301, housekeeping F-C7-2).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_logging_setup.py -q` (green), `cd backend && uv run pytest -q` (full suite — no new failures beyond the documented pre-existing baseline), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), and `cd backend && uv run mypy --config-file pyproject.toml` (no issues).
+
 ## 2026-09-29 (branch: agent/219-typed-execution-mode-ui)
 
 ### Document operations surface a typed execution-mode outcome (queued/ok/degraded/failed)
