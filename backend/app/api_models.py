@@ -140,6 +140,7 @@ class QueueStatusResponse(BaseModel):
     in_progress: int | None = None
     done: int | None = None
     paused: bool | None = None
+    cancel_pending: bool | None = None
     last_run_seconds: float | None = None
     last_run_at: int | None = None
 
