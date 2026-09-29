@@ -8552,6 +8552,17 @@
             ],
             "title": "Paused"
           },
+          "cancel_pending": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Pending"
+          },
           "last_run_seconds": {
             "anyOf": [
               {
