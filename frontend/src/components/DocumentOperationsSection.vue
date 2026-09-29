@@ -1,5 +1,13 @@
 <template>
   <section class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div
+      v-if="docOpsMessage && docOpsStatus !== 'idle'"
+      class="rounded-lg border px-3 py-2 text-xs"
+      :class="docOpsBannerClass"
+    >
+      <span class="font-semibold">{{ docOpsBannerLabel }}</span>
+      <span class="ml-1">{{ docOpsMessage }}</span>
+    </div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Document operations</h3>
@@ -357,14 +365,11 @@
         Deletes local intelligence for this document, syncs from Paperless, then enqueues full processing.
       </p>
     </div>
-
-    <div v-if="docOpsMessage" class="text-xs text-slate-500 dark:text-slate-300">
-      {{ docOpsMessage }}
-    </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { AlertTriangle, CheckCircle, MinusCircle } from 'lucide-vue-next'
 
 type ProcessingStatusItem = {
@@ -401,7 +406,7 @@ type OperationAction = {
   tooltip: string
 }
 
-defineProps<{
+const props = defineProps<{
   continuePipelineLoading: boolean
   continueQueuedWaiting: boolean
   hasActiveTaskRuns: boolean
@@ -424,6 +429,7 @@ defineProps<{
   taskRuns: TimelineTaskRun[]
   docCleanupClearFirst: boolean
   docOpsMessage: string
+  docOpsStatus: 'idle' | 'queued' | 'ok' | 'degraded' | 'failed'
   operationActions: OperationAction[]
   toTitle: (value: string | null | undefined) => string
   processingBadgeClass: (state: 'done' | 'missing' | 'na') => string
@@ -451,4 +457,34 @@ defineEmits<{
   'enqueue-doc-task': [action: OperationAction]
   'open-reset-confirm': []
 }>()
+
+const docOpsBannerClass = computed(() => {
+  switch (props.docOpsStatus) {
+    case 'queued':
+      return 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200'
+    case 'ok':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200'
+    case 'degraded':
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200'
+    case 'failed':
+      return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200'
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300'
+  }
+})
+
+const docOpsBannerLabel = computed(() => {
+  switch (props.docOpsStatus) {
+    case 'queued':
+      return 'Queued (pending)'
+    case 'ok':
+      return 'Done'
+    case 'degraded':
+      return 'Not applied'
+    case 'failed':
+      return 'Failed'
+    default:
+      return ''
+  }
+})
 </script>

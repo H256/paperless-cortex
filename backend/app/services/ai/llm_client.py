@@ -57,6 +57,19 @@ def _require(value: str | None, env_name: str) -> str:
     return value.rstrip("/")
 
 
+def _is_response_format_unsupported(exc: BadRequestError) -> bool:
+    """Return True when a 400 indicates the server does not support
+    ``response_format`` (json mode), as opposed to another 400 such as an
+    invalid model name.
+
+    The check is intentionally narrow: it looks only for response-format
+    wording in the error message/body, so an unrelated 400 (e.g. a bad model
+    id) is re-raised instead of triggering a second paid chat call.
+    """
+    text = f"{exc.message} {exc.body}".lower()
+    return "response_format" in text
+
+
 def base_url(settings: Settings) -> str:
     """Get the LLM base URL from settings.
 
@@ -169,10 +182,16 @@ def _sdk_client(
     with _CLIENT_LOCK:
         pooled_client = _SDK_CLIENTS.get(key)
         if pooled_client is None:
+            # max_retries=0: fail fast instead of the SDK default (2 retries with
+            # backoff) silently re-issuing 429/5xx chat/embedding POSTs at up to
+            # 3x cost. Retry policy is owned by the caller: the worker pipeline
+            # retries via settings.worker_max_retries; non-worker paths surface
+            # the error immediately.
             pooled_client = OpenAI(
                 base_url=base,
                 api_key=api_key,
                 timeout=timeout,
+                max_retries=0,
             )
             _SDK_CLIENTS[key] = pooled_client
         return pooled_client
@@ -250,10 +269,15 @@ def chat_completion(
 
     try:
         response = client_sdk.chat.completions.create(**kwargs)
-    except BadRequestError:
+    except BadRequestError as exc:
         if not json_mode:
             raise
         # Some OpenAI-compatible servers do not implement response_format.
+        # Retry without it only when the 400 actually points at response_format;
+        # any other 400 (e.g. an invalid model name) is re-raised instead of
+        # triggering a second paid chat call.
+        if not _is_response_format_unsupported(exc):
+            raise
         if debug_enabled:
             logger.warning(
                 "LLM json_mode unsupported; retrying without response_format model=%s",

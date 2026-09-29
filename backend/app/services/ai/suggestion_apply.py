@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
+from datetime import date
 from typing import TYPE_CHECKING
 
 from sqlalchemy import case, func, or_
@@ -30,6 +32,30 @@ if TYPE_CHECKING:
     from app.models import Document
 
 InvalidateAll = Callable[[], None]
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def normalize_document_date(value: object) -> str | None:
+    """Validate a document date value against the ISO ``YYYY-MM-DD`` shape.
+
+    The date-variant prompt mandates ISO ``YYYY-MM-DD`` and writeback sends the
+    stored value verbatim as Paperless ``created``. A hallucinated value such as
+    ``January 2026`` would otherwise be stored verbatim, corrupting writeback and
+    silently dropping the document from chrono sorting. Returns the normalized ISO
+    string when the value is a real calendar date in ``YYYY-MM-DD`` form, else
+    ``None`` (so the caller can reject it instead of persisting garbage).
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not _ISO_DATE_RE.match(text):
+        return None
+    try:
+        date.fromisoformat(text)
+    except ValueError:
+        return None
+    return text
 
 
 def apply_suggestion_to_document_payload(
@@ -80,9 +106,15 @@ def apply_suggestion_to_document_payload(
         doc.title = cleaned_title or None
         updated = True
     elif field == "date":
-        cleaned_date = sanitize_suggested_string(str(value), max_len=10) if value is not None else ""
-        doc.document_date = cleaned_date or None
-        updated = True
+        if value is None or str(value).strip() == "":
+            doc.document_date = None
+            updated = True
+        else:
+            normalized_date = normalize_document_date(value)
+            if normalized_date is None:
+                return {"status": "invalid_date", "updated": False}
+            doc.document_date = normalized_date
+            updated = True
     elif field == "correspondent":
         pending_row = (
             db.query(DocumentPendingCorrespondent)

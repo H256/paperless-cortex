@@ -34,6 +34,7 @@ from app.services.pipeline.queue import (
     clear_dead_letters,
     enqueue_docs,
     get_running_task,
+    is_cancel_requested,
     is_paused,
     move_queue_item_to_bottom,
     move_queue_item_to_top,
@@ -104,7 +105,12 @@ def get_queue_status(settings: Settings = Depends(get_settings)) -> dict[str, ob
     if not settings.queue_enabled:
         return queue_disabled_response(length=None, paused=False)
     stats = queue_stats(settings) or {"length": 0, "total": 0, "in_progress": 0, "done": 0}
-    return {"enabled": True, **stats, "paused": is_paused(settings)}
+    return {
+        "enabled": True,
+        **stats,
+        "paused": is_paused(settings),
+        "cancel_pending": is_cancel_requested(settings),
+    }
 
 
 @router.post("/enqueue", response_model=QueueEnqueueResponse)

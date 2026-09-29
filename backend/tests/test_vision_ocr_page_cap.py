@@ -74,3 +74,46 @@ def test_ocr_pdf_pages_unlimited_when_cap_zero(monkeypatch: Any) -> None:
 
     results = vision_ocr.ocr_pdf_pages(settings, b"pdf")
     assert [p.page for p in results] == [1, 2, 3]
+
+
+def _two_page_pdf() -> bytes:
+    import fitz
+
+    doc = fitz.open()
+    doc.new_page()
+    doc.new_page()
+    return doc.tobytes()
+
+
+def test_iter_pdf_pages_skips_page_beyond_page_count() -> None:
+    pages = list(
+        vision_ocr.iter_pdf_pages(
+            _two_page_pdf(),
+            [1, 999],
+            max_dim=0,
+            target_dim=0,
+        )
+    )
+    assert [p.page_index for p in pages] == [0]
+
+
+def test_iter_pdf_pages_all_out_of_range_yields_nothing() -> None:
+    pages = list(
+        vision_ocr.iter_pdf_pages(
+            _two_page_pdf(),
+            [999, 1000],
+            max_dim=0,
+            target_dim=0,
+        )
+    )
+    assert pages == []
+
+
+def test_render_pdf_pages_skips_page_beyond_page_count() -> None:
+    pages = vision_ocr.render_pdf_pages(
+        _two_page_pdf(),
+        [1, 2, 999],
+        max_dim=0,
+        target_dim=0,
+    )
+    assert [p.page_index for p in pages] == [0, 1]
