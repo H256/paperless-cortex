@@ -108,21 +108,6 @@ logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
 
 
-def _embedding_checkpoint_batch_size(
-    *,
-    total_chunks: int,
-    configured_batch_size: int,
-) -> int:
-    # Very large chunk sets use smaller batches to report progress more often.
-    if total_chunks >= 1200:
-        return min(configured_batch_size, 4)
-    if total_chunks >= 600:
-        return min(configured_batch_size, 6)
-    if total_chunks >= 250:
-        return min(configured_batch_size, 8)
-    return configured_batch_size
-
-
 def _is_large_doc(settings, doc: Document) -> bool:
     return is_large_document(
         page_count=doc.page_count,
