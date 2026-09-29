@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/156-openapi-drift-gate)
+
+### CI now fails on drift between the committed OpenAPI spec and the routes
+- `uncommitted` fix(ci): added an **OpenAPI spec in sync** step to [`backend-ci.yml`](.github/workflows/backend-ci.yml) (mirrored to [`.gitea/workflows/backend-ci.yml`](.gitea/workflows/backend-ci.yml) via `scripts/sync_gitea_workflows.py`). The step runs `uv run python scripts/export_openapi.py` and then fails on `git diff --exit-code -- openapi.json`, so a route change that skips the manual export step can no longer silently ship stale TypeScript types to the frontend orval codegen or the Docker frontend build (issue #156 / AUDIT INFRA-012). The existing `backend/**` path filter already covers route changes.
+- `uncommitted` fix: regenerated [`backend/openapi.json`](backend/openapi.json), which was **already stale on master** — it was missing the `ai_generated` field (added by #273) and a `limit` query `maximum`/`minimum` constraint. Verified the export script is deterministic (ran twice, byte-identical), so the diff-based gate is stable.
+- `uncommitted` test: added [`tests/test_openapi_spec_sync.py`](backend/tests/test_openapi_spec_sync.py) — (1) the CI workflow and its `.gitea` mirror both contain the regenerate-and-`git diff --exit-code` gate; (2) the committed `openapi.json` is byte-identical to `json.dumps(api.openapi(), indent=2)`, the exact comparison the gate performs. Verified red-on-base (stale spec fails) and green with the regenerated spec.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_openapi_spec_sync.py -q` (`2 passed`), `cd backend && uv run pytest -q` (`497 passed`, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError`s at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app tests scripts alembic` (only the 2 known pre-existing `app/worker.py` errors), `cd backend && uv run mypy --config-file pyproject.toml` (only the 3 known pre-existing `tests/test_chat_service_evidence.py` errors; the new test is not in mypy's explicit files list, consistent with the other infra/CI tests), and `python3 scripts/sync_gitea_workflows.py --check` (no drift).
+
 ## 2026-09-29 (branch: agent/210-clear-intelligence-vector-purge-reland)
 
 ### Clearing intelligence now purges the matching vector-store points
