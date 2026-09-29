@@ -213,6 +213,10 @@ This synchronizes:
 
 `GET /api/status` exposes `app_version`, `api_version`, and `frontend_version`; the frontend footer renders them.
 
+## Security notes
+- **Unauthenticated API.** The API is intentionally open (single-user, LAN-deployed); there is no auth layer (AUDIT API-001). Keep it off untrusted networks — see the compose port-binding notes above.
+- **Chat history in `localStorage`.** The per-document and global chat views persist their conversation (questions, answers, and citations, which embed document titles/snippets and AI extractions of the document corpus) to `localStorage` so the conversation survives a page reload. This is an explicit, opt-in choice in the frontend (`useChatSession({ persist: true })`); by default chat history is in-memory only and is not written to disk. Because the API is unauthenticated and the deployment is a shared LAN box, anyone or any process with access to the browser profile (or an XSS in a future dependency) can read these plaintext excerpts. If you do not want corpus excerpts persisted in the browser, set `persist: false` (the default) when wiring `useChatSession` (AUDIT FE-004 / #169).
+
 ## License
 MIT License. See `LICENSE`.
 Provided “as is”, without warranty of any kind.

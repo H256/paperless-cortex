@@ -140,6 +140,7 @@ class QueueStatusResponse(BaseModel):
     in_progress: int | None = None
     done: int | None = None
     paused: bool | None = None
+    cancel_pending: bool | None = None
     last_run_seconds: float | None = None
     last_run_at: int | None = None
 
@@ -865,6 +866,7 @@ class WritebackFieldDiff(BaseModel):
     original: Any = None
     proposed: Any = None
     changed: bool
+    ai_generated: bool = False
 
 
 class WritebackDryRunItem(BaseModel):
@@ -972,6 +974,7 @@ class WritebackJobSummary(BaseModel):
 class WritebackJobDetail(WritebackJobSummary):
     doc_ids: list[int] = []
     calls: list[WritebackDryRunCall] = []
+    applied_calls_count: int = 0
 
 
 class WritebackJobListResponse(BaseModel):

@@ -93,6 +93,7 @@ def execute_worker_task(
                     doc_id=doc_id,
                     task=task_type,
                     source=source,
+                    exclude_completed=True,
                 )
                 if previous_checkpoint:
                     set_task_checkpoint_fn(
@@ -215,18 +216,46 @@ def execute_worker_task(
             error_message=str(exc),
         )
         logger.exception("Worker bookkeeping failed doc=%s task=%s", doc_id, task_type)
-        pending_dead_letter = {
-            "task": task_payload,
-            "error_type": error_type,
-            "error_message": str(exc),
-            "attempt": retry_attempt + 1,
-        }
-        increment_counter(
-            "worker_task_dead_letters_total",
-            task=task_type,
-            source=source or "unknown",
-            error_type=error_type,
+        # Bookkeeping-level DB failures (e.g. create_task_run) are usually
+        # transient (Postgres restart/failover, pool exhaustion). Re-enqueue
+        # the original payload delayed while retries remain so the popped task
+        # is not lost; only dead-letter once retries are exhausted.
+        bookkeeping_retry = (
+            retry_attempt < settings.worker_max_retries
+            and isinstance(task_payload, dict)
         )
+        if bookkeeping_retry:
+            retry_payload = dict(task_payload)
+            retry_payload["retry_count"] = retry_attempt + 1
+            pending_retry_payload = retry_payload
+            pending_retry_delay_seconds = min(300, 5 * (2**retry_attempt))
+            increment_counter(
+                "worker_task_retries_total",
+                task=task_type,
+                source=source or "unknown",
+                error_type=error_type,
+            )
+            log_event(
+                logger,
+                logging.WARNING,
+                "Worker bookkeeping requeued",
+                max_retries=settings.worker_max_retries,
+                error_type=error_type,
+                retry_after_seconds=pending_retry_delay_seconds,
+            )
+        else:
+            pending_dead_letter = {
+                "task": task_payload,
+                "error_type": error_type,
+                "error_message": str(exc),
+                "attempt": retry_attempt + 1,
+            }
+            increment_counter(
+                "worker_task_dead_letters_total",
+                task=task_type,
+                source=source or "unknown",
+                error_type=error_type,
+            )
     finally:
         reset_log_context(task_context_token)
     return {

@@ -245,6 +245,20 @@
         ></div>
 
         <div
+          v-if="message.truncated"
+          class="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <span>Stream interrupted — this answer may be incomplete.</span>
+          <button
+            class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+            :disabled="loading"
+            @click="retryMessage(message)"
+          >
+            Retry
+          </button>
+        </div>
+
+        <div
           class="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
         >
           <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -268,6 +282,9 @@
             >
               {{ followup }}
             </button>
+          </div>
+          <div v-else-if="message.truncated" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Follow-ups skipped (stream interrupted).
           </div>
           <div v-else class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             No follow-ups available.
@@ -394,10 +411,17 @@ const {
   clearConversation,
   newConversation,
   startFollowUp,
+  retryMessage,
   resetControls: resetChatControls,
   stop,
   ask,
-} = useChatSession()
+} = useChatSession({
+  // Opt in to localStorage persistence so the conversation (including the
+  // conversation_id used for backend context continuity) survives a reload.
+  // Explicit, documented choice (README security notes, AUDIT FE-004 / #169):
+  // the chat content embeds document corpus excerpts.
+  persist: true,
+})
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()

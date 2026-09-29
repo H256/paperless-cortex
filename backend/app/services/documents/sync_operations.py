@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from app.api_models import CorrespondentIn, DocumentIn, DocumentTypeIn, TagIn
 from app.config import Settings
 from app.models import (
@@ -49,8 +51,53 @@ TaskEnqueuer = Callable[[Settings, list[dict[str, object]]], object]
 TaskFrontEnqueuer = Callable[[Settings, list[dict[str, object]]], object]
 PaperlessListDocuments = Callable[..., dict[str, object]]
 PaperlessGetDocument = Callable[[Settings, int], dict[str, object]]
+PaperlessGetDocumentForMark = Callable[[Settings, int], dict[str, object] | None]
 
 logger = logging.getLogger(__name__)
+
+
+def _revalidate_missing(
+    settings: Settings,
+    candidate_ids: list[int],
+    get_document_for_mark_fn: PaperlessGetDocumentForMark,
+) -> set[int]:
+    """Return the subset of ``candidate_ids`` that Paperless confirms are gone.
+
+    A document absent from the paginated walk is only marked deleted once a
+    direct ``get_document`` fetch confirms a 404. This closes the race where a
+    document created in Paperless (or concurrently upserted locally) after the
+    last page was fetched would otherwise be flagged "DELETED in Paperless"
+    despite still existing. A non-404 fetch error is treated as "not confirmed
+    deleted" so a transient API failure never mass-deletes the library.
+    """
+    confirmed_missing: set[int] = set()
+    for doc_id in candidate_ids:
+        try:
+            payload = get_document_for_mark_fn(settings, doc_id)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                confirmed_missing.add(doc_id)
+            continue
+        if payload is None:
+            confirmed_missing.add(doc_id)
+    return confirmed_missing
+
+
+def _default_get_document_for_mark(
+    settings: Settings, doc_id: int
+) -> dict[str, object] | None:
+    """Revalidate one missing candidate against Paperless.
+
+    Returns the document payload if it still exists (not deleted) or ``None``
+    if Paperless reports 404 (confirmed deleted). Other HTTP errors propagate
+    so the caller can treat them as "not confirmed deleted".
+    """
+    try:
+        return paperless.get_document(settings, doc_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return None
+        raise
 
 
 def build_sync_status_payload(db: Session) -> ResponseDict:
@@ -256,7 +303,6 @@ def embed_documents(
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
     ensure_embedding_collection(settings)
-    points: list[dict[str, object]] = []
     embedded = 0
     processed = 0
     state = get_or_create_state(db, "embeddings")
@@ -355,7 +401,6 @@ def embed_documents(
                     )
             if doc_points:
                 upsert_points(settings, doc_points)
-                points.extend(doc_points)
             existing.pending_reembed = False
             existing.content_hash = content_hash
             existing.embedding_model = settings.embedding_model
@@ -382,8 +427,6 @@ def embed_documents(
             state.processed = processed
             if processed % 5 == 0 or processed == state.total:
                 db.commit()
-        if points:
-            db.commit()
         state.status = "idle"
         state.last_synced_at = datetime.now(UTC).isoformat()
         db.commit()
@@ -411,6 +454,7 @@ def run_documents_sync(
     list_documents_fn: PaperlessListDocuments,
     build_task_sequence_fn: TaskBuilder,
     enqueue_task_sequence_fn: TaskEnqueuer,
+    get_document_for_mark_fn: PaperlessGetDocumentForMark = _default_get_document_for_mark,
 ) -> ResponseDict:
     """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
     if not claim_documents_sync(db):
@@ -501,7 +545,12 @@ def run_documents_sync(
         if mark_missing_allowed and seen_ids:
             timestamp = datetime.now(UTC).isoformat()
             missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
+            confirmed_missing = _revalidate_missing(
+                settings, [doc.id for doc in missing_docs], get_document_for_mark_fn
+            )
             for doc in missing_docs:
+                if doc.id not in confirmed_missing:
+                    continue
                 if doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"):
                     continue
                 doc.deleted_at = f"DELETED in Paperless (copy kept) @ {timestamp}"
