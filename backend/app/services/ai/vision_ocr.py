@@ -86,6 +86,26 @@ def _render_page_image(
     return pix.tobytes("png"), pix.width, pix.height
 
 
+def _clamp_page_indices(doc: fitz.Document, page_numbers: Iterable[int]) -> list[int]:
+    """Map 1-based page numbers to 0-based indices, skipping out-of-range pages.
+
+    A requested page beyond the document's current page count (e.g. a re-consumed
+    Paperless document with fewer pages while DocumentPageText still references the
+    old count) is skipped with a warning instead of raising from ``doc.load_page``.
+    """
+    page_count = doc.page_count
+    indices: list[int] = []
+    for p in page_numbers:
+        index = max(0, p - 1)
+        if index >= page_count:
+            logger.warning(
+                "Skipping vision OCR page %s: beyond PDF page count %s", p, page_count
+            )
+            continue
+        indices.append(index)
+    return indices
+
+
 def render_pdf_pages(
     pdf_bytes: bytes,
     page_numbers: Iterable[int] | None,
@@ -100,9 +120,9 @@ def render_pdf_pages(
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     if page_numbers is None:
-        page_indices = list(range(len(doc)))
+        page_indices = list(range(doc.page_count))
     else:
-        page_indices = [max(0, p - 1) for p in page_numbers]
+        page_indices = _clamp_page_indices(doc, page_numbers)
     logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
     rendered: list[VisionPage] = []
     for page_index in page_indices:
@@ -137,9 +157,9 @@ def iter_pdf_pages(
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     if page_numbers is None:
-        page_indices = list(range(len(doc)))
+        page_indices = list(range(doc.page_count))
     else:
-        page_indices = [max(0, p - 1) for p in page_numbers]
+        page_indices = _clamp_page_indices(doc, page_numbers)
     logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
     for page_index in page_indices:
         png_bytes, width, height = _render_page_image(
