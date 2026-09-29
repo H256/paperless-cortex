@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/287-dead-reference-cache-alias)
+
+### Deleted dead `ReferenceCache` alias from `routes/documents_actions.py` (issue #287)
+- `uncommitted` refactor(backend): removed the unused `ReferenceCache = dict[str, set[int]]` alias from [`documents_actions.py`](backend/app/routes/documents_actions.py) (housekeeping F-C4-2 / issue #287). It was a type alias with zero references in `app/` or `tests/`; the live `ReferenceCache` symbols are the separate per-module aliases in `services/documents/sync_operations.py` and `services/documents/reprocess_request.py`, which are consumed by their own cache params. `set` (a builtin) was not used elsewhere in the route file, so no import changes were needed. Behavior-preserving.
+- `uncommitted` test: verified the deletion is dead-code-only — `grep 'ReferenceCache' app/routes/documents_actions.py` (0 hits) and `grep 'set\[' app/routes/documents_actions.py` (0 hits). No dynamic access (no getattr/registry) references it.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/ -k documents_actions -q` (`8 passed`), `cd backend && uv run pytest -q` (full suite, expected green except the documented pre-existing `test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id`), `cd backend && uv run ruff check app tests scripts alembic`, and `cd backend && uv run mypy --config-file pyproject.toml`.
+
 ## 2026-09-29 (branch: agent/124-suggestion-route-valueerror-400)
 
 ### Suggestion routes return 400 (not 500) for invalid source/field
