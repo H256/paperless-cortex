@@ -233,6 +233,7 @@ class WritebackJob(Base):
     calls_count: Mapped[int] = mapped_column(Integer, default=0)
     doc_ids_json: Mapped[str | None] = mapped_column(Text)
     calls_json: Mapped[str | None] = mapped_column(Text)
+    applied_call_indexes_json: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(String(64))
     started_at: Mapped[str | None] = mapped_column(String(64))
