@@ -15,6 +15,7 @@ from app.api_models import (
 )
 from app.db import get_db
 from app.deps import get_settings
+from app.exceptions import ValidationError
 from app.models import DocumentSuggestion
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestion_apply import apply_suggestion_to_document_payload
@@ -142,9 +143,9 @@ def suggest_field_variants(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     if payload.source not in ("paperless_ocr", "vision_ocr"):
-        raise ValueError("Invalid source")
+        raise ValidationError("Invalid source", field="source")
     if payload.field not in ("title", "date", "correspondent", "tags", "note"):
-        raise ValueError("Invalid field")
+        raise ValidationError("Invalid field", field="field")
     payload_data = generate_field_variants_payload(
         doc_id=doc_id,
         source=payload.source,
@@ -197,9 +198,9 @@ def apply_field_suggestion(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     if payload.source not in ("paperless_ocr", "vision_ocr"):
-        raise ValueError("Invalid source")
+        raise ValidationError("Invalid source", field="source")
     if payload.field not in ("title", "date", "correspondent", "tags", "note"):
-        raise ValueError("Invalid field")
+        raise ValidationError("Invalid field", field="field")
     target_field = "summary" if payload.field == "note" else payload.field
     updated = update_suggestion_field(db, doc_id, payload.source, target_field, payload.value)
     if updated is None:
@@ -217,7 +218,7 @@ def apply_suggestion_to_document(
     field = payload.field
     value = payload.value
     if field not in ("title", "date", "correspondent", "tags", "note"):
-        raise ValueError("Invalid field")
+        raise ValidationError("Invalid field", field="field")
     result = apply_suggestion_to_document_payload(
         db=db,
         doc_id=doc_id,
