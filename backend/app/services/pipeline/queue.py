@@ -20,21 +20,6 @@ logger = logging.getLogger(__name__)
 
 QUEUE_KEY = "paperless_intelligence:doc_queue"
 QUEUE_SET = "paperless_intelligence:doc_queue_set"
-TASK_TYPES = [
-    "sync",
-    "evidence_index",
-    "vision_ocr",
-    "embeddings_paperless",
-    "embeddings_vision",
-    "similarity_index",
-    "cleanup_texts",
-    "page_notes_paperless",
-    "page_notes_vision",
-    "summary_hierarchical",
-    "suggestions_paperless",
-    "suggestions_vision",
-    "suggest_field",
-]
 STATS_TOTAL = "paperless_intelligence:queue_total"
 STATS_IN_PROGRESS = "paperless_intelligence:queue_in_progress"
 STATS_DONE = "paperless_intelligence:queue_done"
@@ -269,13 +254,6 @@ def enqueue_full_sequence_front(
         tasks = build_task_sequence(settings, doc_id, include_sync=include_sync)
         total += enqueue_task_sequence_front(settings, tasks)
     return total
-
-
-def queue_length(settings: Settings) -> int | None:
-    client = _get_client(settings)
-    if not client:
-        return None
-    return int(client.llen(QUEUE_KEY))
 
 
 def queue_stats(settings: Settings) -> dict[str, int] | None:
