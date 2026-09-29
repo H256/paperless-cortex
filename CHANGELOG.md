@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/219-typed-execution-mode-ui)
+
+### Document operations surface a typed execution-mode outcome (queued/ok/degraded/failed)
+- `uncommitted` fix(frontend): the document-operations UI previously kept its outcome only as a plain string that [`DocumentOperationsSection.vue`](frontend/src/components/DocumentOperationsSection.vue) rendered as neutral "success" text, so a queued (`queued: true`) or dropped operation looked identical to a completed one (issue #219 / AUDIT fe-002). Added a typed `DocOpsStatus` (`idle | queued | ok | degraded | failed`) to [`useDocumentDetailOperations.ts`](frontend/src/composables/useDocumentDetailOperations.ts) and set it per handler: enqueued work → `queued` (pending, not done), inline-applied → `ok`, queue-disabled / duplicate / no-work → `degraded` (acknowledged but NOT applied), request error → `failed`. The component now renders a colored banner (indigo=queued pending, emerald=done, amber=not applied, rose=failed) with a status label instead of the neutral message, so a queued or dropped operation is visually distinct from success.
+- `uncommitted` test: extended [`useDocumentDetailOperations.test.ts`](frontend/src/composables/useDocumentDetailOperations.test.ts) with status assertions (queued / not-enqueued→degraded / error→failed / continue-disabled→degraded) and added the new required `docOpsStatus` prop to the integration test. Frontend `test:run` 92 passed, `lint` 0/0, `type-check` clean.
+- Prerequisite verified: the backend task contract is unified — note/field drop (#202, PR #221) and force-ignored (#203, PR #220) are merged, so a queued operation is now actually applied by the worker; this change makes the UI reflect that execution mode.
+
 ## 2026-09-29 (branch: agent/165-vector-upsert-compensating-delete)
 
 ### Qdrant upsert now rolls back partially-persisted batches on failure
