@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/210-clear-intelligence-vector-purge-reland)
+
+### Clearing intelligence now purges the matching vector-store points
+- `uncommitted` fix(search): re-landed the fix from PR #235 (issue #210 / AUDIT docs-001), whose merge commit was lost from master's history (the branch `agent/210-clear-intelligence-vector-purge` is based on an old master, so the change was not present in the current tree). `clear_all_intelligence` and `clear_document_intelligence` in [`intelligence_cleanup.py`](backend/app/services/documents/intelligence_cleanup.py) now accept an optional `settings` and, when present, delete the matching vector points (`delete_all_chunk_points` / `delete_points_for_doc`) under the same `suppress(httpx.HTTPError, RuntimeError, ValueError)` pattern the maintenance-delete and reprocess paths already use. Vector-store failure is non-fatal (warning-level, never breaks the clear). The `reset-and-reprocess` path passes no `settings` and keeps its own separate `delete_points_for_doc` call (no double-delete).
+- `uncommitted` fix(search): the `reset-intelligence` and `clear-intelligence` routes in [`documents_actions.py`](backend/app/routes/documents_actions.py) now pass `settings` through to `clear_all_intelligence`.
+- `uncommitted` test: added 5 tests to [`tests/test_documents_actions_routes.py`](backend/tests/test_documents_actions_routes.py) — clear-all purge, per-doc purge, settings-None skip (both), and vector-failure non-fatal. Verified red-on-base (the purge tests fail when the `delete_*` call is removed) and green with the fix.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_documents_actions_routes.py -q` (`8 passed`), `cd backend && uv run ruff check app/services/documents/intelligence_cleanup.py app/routes/documents_actions.py tests/test_documents_actions_routes.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/documents/intelligence_cleanup.py app/routes/documents_actions.py` (no issues), and `cd backend && uv run pytest -q` (`500 passed`, 3 failed — all 3 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, both reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-29 (branch: agent/299-planner-redundant-disjunction)
 
 ### Dropped redundant disjunction in pipeline_planner page-notes gate
