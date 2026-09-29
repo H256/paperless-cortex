@@ -182,7 +182,7 @@ def _vision_generate(
         len(image_bytes),
     )
     if settings.debug.llm:
-        logger.info("Vision OCR prompt:\n%s", prompt)
+        logger.info("Vision OCR prompt:\n%s", llm_client._snippet(prompt))
     content: list[dict[str, object]] = [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
