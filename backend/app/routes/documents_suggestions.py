@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -218,7 +218,7 @@ def apply_suggestion_to_document(
     value = payload.value
     if field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValueError("Invalid field")
-    return apply_suggestion_to_document_payload(
+    result = apply_suggestion_to_document_payload(
         db=db,
         doc_id=doc_id,
         source=payload.source,
@@ -228,3 +228,9 @@ def apply_suggestion_to_document(
         audit_suggestion_run_fn=audit_suggestion_run,
         invalidate_writeback_preview_cache_fn=invalidate_writeback_preview_cache,
     )
+    if result.get("status") == "invalid_date":
+        raise HTTPException(
+            status_code=400,
+            detail="document_date must be a valid ISO date in YYYY-MM-DD format",
+        )
+    return result
