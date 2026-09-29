@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/165-vector-upsert-compensating-delete)
+
+### Qdrant upsert now rolls back partially-persisted batches on failure
+- `uncommitted` fix(search): [`upsert_points`](backend/app/services/search/vector_backends/qdrant_adapter.py) now tracks the point IDs of each successfully-persisted size-batch and, when a later batch's HTTP PUT fails, issues a compensating delete of those IDs (via the existing `POST /collections/{name}/points/delete` with `{"points": [...]}`) before re-raising (issue #165 / AUDIT SEARCH-009). Previously a partial upsert left the document's store state as a mix of newly-written chunks plus all stale chunks from the previous run when the task was abandoned (retry exhaustion to DLQ). The compensating delete is best-effort: a failed delete is logged and swallowed so the original upsert error (which drives worker retry/DLQ) always propagates.
+- `uncommitted` test: added three cases to [`tests/test_qdrant_adapter.py`](backend/tests/test_qdrant_adapter.py) — the first batch's IDs are deleted before the error propagates (RED on base, GREEN on branch), no delete is issued when the first batch fails, and a failed compensating delete does not mask the original upsert error. The fake client gained a `put` method and per-call status codes; the size chunker is stubbed to force multi-batch behavior in a unit test.
+
 ## 2026-09-28 (branch: agent/115-stale-checkpoint-retry)
 
 ### Retried worker task no longer inherits a completed run's terminal checkpoint
