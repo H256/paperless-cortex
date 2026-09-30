@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-30 (branch: agent/288-suggestion-llm-helper)
+
+### Extract shared _run_suggestion_llm helper in services/ai/suggestions.py
+- `4f95189` refactor(backend): `generate_suggestions` and `generate_field_variants` in [`backend/app/services/ai/suggestions.py`](backend/app/services/ai/suggestions.py) shared ~90% of their body (identical 7-field `doc_meta` construction, prompt placeholder replacement, `llm_client.chat_completion` call, JSON parse fallback to `{'raw': ...}`, and the `suggestions_debug` wrapper). Extracted that shared LLM round-trip into a private `_run_suggestion_llm` helper; both functions are now thin wrappers supplying the prompt template, extra placeholders (`{count}`/`{current}`), and the three log labels. Behavior-preserving: same call parameters, same error semantics, same log message texts (the PII debug-logging test still passes).
+- `4f95189` test: added [`backend/tests/test_suggestion_llm_helper.py`](backend/tests/test_suggestion_llm_helper.py) — with a stubbed `llm_client.chat_completion`, both functions produce identical structure for a fixed template (and field variants inject the extra placeholders), and a JSON parse failure falls back to `{'raw': ...}` rather than raising.
+- `4f95189` test: verified `cd backend && uv run pytest tests/test_suggestion_llm_helper.py tests/test_ai_debug_log_pii.py tests/test_worker_suggest_field.py tests/test_documents_suggestions_routes.py -q` (`17 passed`), `cd backend && uv run ruff check app/services/ai/suggestions.py tests/test_suggestion_llm_helper.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/ai/suggestions.py tests/test_suggestion_llm_helper.py` (no issues), and `cd backend && uv run pytest -q` (`555 passed`, 4 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 pre-existing `tests/test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44` and 1 pre-existing `tests/test_openapi_spec_sync.py` drift, all reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-29 (branch: agent/124-suggestion-route-valueerror-400)
 
 ### Suggestion routes return 400 (not 500) for invalid source/field
