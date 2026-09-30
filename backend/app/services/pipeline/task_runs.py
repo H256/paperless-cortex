@@ -249,6 +249,27 @@ def list_task_runs(
     )
 
 
+def parse_checkpoint_json(raw: str | None) -> dict[str, Any] | None:
+    """Tolerantly parse a stored checkpoint JSON string into a dict.
+
+    Returns the parsed payload when it is a JSON object. Any input that is
+    missing, empty, not a ``{``/``[``-leading string, malformed JSON, or a
+    non-dict JSON value yields ``None`` so callers can treat it as "no usable
+    checkpoint". This is the single tolerant parser shared by every checkpoint
+    read path (worker, fanout, and the latest-checkpoint lookup).
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text.startswith(("{", "[")):
+        return None
+    try:
+        payload = json.loads(text)
+    except JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def find_latest_checkpoint(
     db: Session,
     *,
@@ -282,14 +303,7 @@ def find_latest_checkpoint(
         row = query.first()
         if not row or not row.checkpoint_json:
             return None
-        raw = str(row.checkpoint_json).strip()
-        if not raw.startswith(("{", "[")):
-            return None
-        try:
-            payload = json.loads(raw)
-        except JSONDecodeError:
-            return None
-        return payload if isinstance(payload, dict) else None
+        return parse_checkpoint_json(str(row.checkpoint_json))
 
     return _run_task_runs_operation(
         db,
