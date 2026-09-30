@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-30 (branch: agent/202-queue-note-field-dropped-reland)
+
+### Re-land: queue mode no longer silently drops note/field variant requests
+- `uncommitted` fix(worker): re-landed the lost-merge of PR #221 (issue #202 / AUDIT routes-001, P1). Added `note` to the field whitelist in `process_suggest_field` in [`backend/app/services/pipeline/worker_suggestion_tasks.py`](backend/app/services/pipeline/worker_suggestion_tasks.py). The route (`POST /documents/{doc_id}/suggestions/field`) and the inline path both accept `field=note` (mapped to the summary prompt via `FIELD_PROMPTS["note"]`) and the enqueue path already carries `field`/`source`/`count`/`current` in the task payload, but the worker's whitelist only listed `title`/`date`/`correspondent`/`tags` and early-returned for `note` — so a queued note/field variant request was acknowledged (`queued: true`) and then silently dropped by the worker, while the inline path generated it. Adding `note` makes queue mode process it identically to inline (persisting `pvar:note`/`vvar:note` variants). PR #221 was reported merged (merge_commit_sha 2b7a4f5) but the fix is absent from master and the merge commit is not reachable from origin/master (batch merge advanced master without including it) — same lost-merge pattern as 225→310, 210→321, 143→302.
+- `uncommitted` test(backend): re-landed `test_process_suggest_field_note_is_not_dropped_in_queue_mode` in [`backend/tests/test_worker_suggest_field.py`](backend/tests/test_worker_suggest_field.py) (a queued `field=note` task now generates and persists note variants instead of being dropped; confirmed RED on base before the fix).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_worker_suggest_field.py tests/test_worker_runtime.py tests/test_documents_suggestions_routes.py -q` (`25 passed`), `cd backend && uv run ruff check app/services/pipeline/worker_suggestion_tasks.py tests/test_worker_suggest_field.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/services/pipeline/worker_suggestion_tasks.py` (no issues). No API/model/route-signature change, so no `openapi.json` re-export, frontend client regen, or version bump.
+
 ## 2026-09-29 (branch: agent/124-suggestion-route-valueerror-400)
 
 ### Suggestion routes return 400 (not 500) for invalid source/field
