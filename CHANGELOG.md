@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
+
+### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
+- `uncommitted` fix(docs): PR #227 was reported merged (issue #215 closed 2026-09-27) but the fix is absent from master — [`compute_document_stats`](backend/app/services/documents/document_stats.py) still has no `Settings` param and unconditionally requires a `vision_ocr` `DocumentPageText` row, so `fully_processed`/`is_processed` stay false when `enable_vision_ocr` is off (audit docs-009). Re-landed via `git cherry-pick -m 1` of the original feature commit (`4c9c7b0`) onto current master (`d263fd8`). The fix threads `Settings` through `compute_document_stats` and `build_dashboard_payload`, requiring a `vision_ocr` page only when `settings.enable_vision_ocr` is true. All 3 call sites are covered: [`/documents/stats`](backend/app/routes/documents.py), [`/documents/dashboard`](backend/app/routes/documents.py), and the [`status` stream](backend/app/routes/status.py).
+- `uncommitted` test: the cherry-pick carries the 2 regression tests from the original commit — `test_document_stats_and_dashboard_gate_vision_on_setting` (vision off: doc with embedding+suggestion but no vision page is `fully_processed`) and `test_document_stats_requires_vision_page_when_enabled` (vision on: doc lacking a vision page is not). Verified RED on base, GREEN on branch.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_documents_routes.py -q` (`50 passed`), `cd backend && uv run pytest -q` (`555 passed`, 4 failed — the known pre-existing `test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus pre-existing `test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` and 2× `test_queue_force_flag.py` `TypeError` at `app/services/pipeline/worker_dispatch.py:44`, all reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app tests scripts alembic` (only the 3 known pre-existing errors in `app/worker.py`/`test_vision_ocr_page_cap.py`, none in the 5 touched files), and `cd backend && uv run mypy --config-file pyproject.toml` (only the 3 known pre-existing errors in `test_chat_service_evidence.py`, none in the touched files).
+
 ## 2026-09-29 (branch: agent/124-suggestion-route-valueerror-400)
 
 ### Suggestion routes return 400 (not 500) for invalid source/field
