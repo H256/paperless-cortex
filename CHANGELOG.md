@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-30 (branch: agent/286-answer-chat-helper)
+
+### Chat and chat-stream routes share a single `_answer_chat` helper
+- `uncommitted` refactor(backend): extracted the identical `log_event` + `asyncio.to_thread(answer_question, ...)` body of `chat` and `chat_stream` in [`backend/app/routes/chat.py`](backend/app/routes/chat.py) into a shared `_answer_chat(payload, *, stream, settings, db)` helper (issue #286 / housekeeping F-C2-3). The two routes now differ only by the `stream` flag they pass, so the 10-argument `answer_question` call and the `top_k` clamp (`max(1, min(payload.top_k, 20))`) are maintained once. Both endpoint paths, response contracts (ChatResponse JSON vs raw StreamingResponse SSE), docstrings, and dependency wiring are preserved unchanged.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_chat_routes.py -q` (`3 passed`), `cd backend && uv run ruff check app/routes/chat.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/routes/chat.py` (no issues), and `cd backend && uv run pytest -q` (`553 passed`, 4 failed — the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 3 pre-existing failures: `tests/test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` and 2 `tests/test_queue_force_flag.py` `TypeError`s at `app/services/pipeline/worker_dispatch.py:44`, all reproduced on clean master with this change stashed, so none are a regression).
+
 ## 2026-09-29 (branch: agent/124-suggestion-route-valueerror-400)
 
 ### Suggestion routes return 400 (not 500) for invalid source/field
