@@ -29,13 +29,14 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("", response_model=ChatResponse)
-async def chat(
+async def _answer_chat(
     payload: ChatRequest,
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
+    *,
+    stream: bool,
+    settings: Settings,
+    db: Session,
 ) -> Any:
-    """Answer a chat question against the local evidence/search stack."""
+    """Shared body for the chat and chat-stream endpoints (differ only by `stream`)."""
     log_event(
         logger,
         logging.INFO,
@@ -44,7 +45,7 @@ async def chat(
         top_k=payload.top_k,
         source=payload.source or "all",
         conversation_id=payload.conversation_id or "new",
-        stream=False,
+        stream=stream,
     )
     return await asyncio.to_thread(
         answer_question,
@@ -57,8 +58,19 @@ async def chat(
         relationship_mode=payload.relationship_mode,
         history=payload.history or [],
         conversation_id=payload.conversation_id,
+        stream=stream,
         db=db,
     )
+
+
+@router.post("", response_model=ChatResponse)
+async def chat(
+    payload: ChatRequest,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Answer a chat question against the local evidence/search stack."""
+    return await _answer_chat(payload, stream=False, settings=settings, db=db)
 
 
 @router.post("/stream")
@@ -68,30 +80,7 @@ async def chat_stream(
     db: Session = Depends(get_db),
 ) -> Any:
     """Start a streaming chat answer using the same retrieval path as the non-stream endpoint."""
-    log_event(
-        logger,
-        logging.INFO,
-        "Chat request received",
-        question_len=len(payload.question),
-        top_k=payload.top_k,
-        source=payload.source or "all",
-        conversation_id=payload.conversation_id or "new",
-        stream=True,
-    )
-    return await asyncio.to_thread(
-        answer_question,
-        settings,
-        question=payload.question,
-        top_k=max(1, min(payload.top_k, 20)),
-        source=payload.source,
-        min_quality=payload.min_quality,
-        doc_id=payload.doc_id,
-        relationship_mode=payload.relationship_mode,
-        history=payload.history or [],
-        conversation_id=payload.conversation_id,
-        stream=True,
-        db=db,
-    )
+    return await _answer_chat(payload, stream=True, settings=settings, db=db)
 
 
 @router.post("/followups", response_model=ChatFollowupsResponse)
