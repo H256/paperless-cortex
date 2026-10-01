@@ -246,15 +246,25 @@ def list_documents(
 
 
 @router.get("/stats", response_model=DocumentStatsResponse)
-def get_document_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
+def get_document_stats(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
     """Return aggregate processing counters for the local document cache."""
-    return get_cached_document_stats(db, build_payload=compute_document_stats)
+    return get_cached_document_stats(
+        db, build_payload=lambda session: compute_document_stats(session, settings)
+    )
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
-def get_dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
+def get_dashboard(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
     """Return the cached dashboard payload used by the operations views."""
-    return get_cached_dashboard_payload(db, build_payload=build_dashboard_payload)
+    return get_cached_dashboard_payload(
+        db, build_payload=lambda session: build_dashboard_payload(session, settings)
+    )
 
 
 @router.get("/{doc_id}", response_model=PaperlessDocument)

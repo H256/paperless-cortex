@@ -14,11 +14,15 @@ from app.services.documents.active_document_stats import (
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from app.config import Settings
 
-def build_dashboard_payload(db: Session) -> dict[str, object]:
+
+def build_dashboard_payload(db: Session, settings: Settings) -> dict[str, object]:
     """Build the document operations dashboard payload from local aggregates."""
     active_document = active_document_filter()
-    embedding_exists, vision_exists, suggestion_exists, is_processed = coverage_exprs()
+    embedding_exists, vision_exists, suggestion_exists, is_processed = coverage_exprs(
+        settings.enable_vision_ocr
+    )
 
     aggregate_row = db.query(
         func.count(Document.id).label("total"),

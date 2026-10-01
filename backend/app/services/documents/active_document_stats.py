@@ -22,7 +22,7 @@ def active_document_filter() -> Any:
     )
 
 
-def coverage_exprs() -> tuple[Any, Any, Any, Any]:
+def coverage_exprs(require_vision: bool = True) -> tuple[Any, Any, Any, Any]:
     """Shared coverage subqueries.
 
     Returns (embedding_exists, vision_exists, suggestion_exists, is_processed)
@@ -33,7 +33,10 @@ def coverage_exprs() -> tuple[Any, Any, Any, Any]:
         and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")
     )
     suggestion_exists = exists().where(DocumentSuggestion.doc_id == Document.id)
-    is_processed = and_(embedding_exists, vision_exists, suggestion_exists)
+    if require_vision:
+        is_processed = and_(embedding_exists, vision_exists, suggestion_exists)
+    else:
+        is_processed = and_(embedding_exists, suggestion_exists)
     return embedding_exists, vision_exists, suggestion_exists, is_processed
 
 
@@ -56,9 +59,9 @@ def build_stats_dict(
     }
 
 
-def active_document_stats(db: Session) -> dict[str, int]:
+def active_document_stats(db: Session, require_vision: bool = True) -> dict[str, int]:
     """Compute the 7-key active-document stats dict (single source of shape)."""
-    embedding_exists, vision_exists, suggestion_exists, is_processed = coverage_exprs()
+    embedding_exists, vision_exists, suggestion_exists, is_processed = coverage_exprs(require_vision)
     stmt = select(
         func.count(Document.id).label("total"),
         func.sum(case((embedding_exists, 1), else_=0)).label("embeddings"),

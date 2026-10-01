@@ -259,6 +259,85 @@ def test_document_stats_cache_invalidates_after_suggestion_delete(api_client: An
     assert second.json()["suggestions"] == 0
 
 
+def test_document_stats_and_dashboard_gate_vision_on_setting(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """fully_processed must not require a vision_ocr page when vision OCR is disabled."""
+    from app.services.documents import dashboard_cache, document_stats_cache
+
+    monkeypatch.setenv("ENABLE_VISION_OCR", "0")
+    document_stats_cache.invalidate_document_stats_cache()
+    dashboard_cache.invalidate_dashboard_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        # 7401: embedding + suggestion, NO vision_ocr page -> processed when vision off
+        db.add(Document(id=7401, title="No Vision Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7401, embedding_source="paperless", chunk_count=1))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7401,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        # 7402: embedding + vision_ocr page, NO suggestion -> unprocessed (suggestion required)
+        db.add(Document(id=7402, title="Vision Only Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7402, embedding_source="vision", chunk_count=1))
+        db.add(
+            DocumentPageText(
+                doc_id=7402,
+                page=1,
+                source="vision_ocr",
+                text="vision text",
+                raw_text="vision text",
+                clean_text="vision text",
+            )
+        )
+        db.commit()
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    body = stats.json()
+    assert body["fully_processed"] == 1
+    assert body["vision"] == 1
+    assert body["unprocessed"] == 1
+
+    dashboard = api_client.get("/documents/dashboard")
+    assert dashboard.status_code == 200
+    dash_stats = dashboard.json()["stats"]
+    assert dash_stats["fully_processed"] == 1
+    assert dash_stats["unprocessed"] == 1
+
+
+def test_document_stats_requires_vision_page_when_enabled(api_client: Any) -> None:
+    """With vision OCR enabled, a document lacking a vision_ocr page is not fully processed."""
+    from app.services.documents import document_stats_cache
+
+    document_stats_cache.invalidate_document_stats_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7403, title="Vision Required Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7403, embedding_source="paperless", chunk_count=1))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7403,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    assert stats.json()["fully_processed"] == 0
+
+
 def test_dashboard_excludes_deleted_paperless_copies_from_operational_counts(api_client: Any) -> None:
     from app.services.documents import dashboard_cache, document_stats_cache
 
