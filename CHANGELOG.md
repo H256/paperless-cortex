@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/285-dead-suggestion-payload)
+
+### Deleted dead `SuggestionPayload` model from `api_models.py` (issue #285)
+- `da0d687` refactor(backend): deleted the unreferenced `SuggestionPayload` model (fields `raw`, `parsed`; `extra=allow`) from [`api_models.py`](backend/app/api_models.py) (housekeeping F-C1-5 / issue #285). It was defined but referenced from nowhere: not nested in any model, not used in any route, not an OpenAPI component. The `ConfigDict` import remains in use by 5 other models, so no import change was needed. Behavior-preserving.
+- `da0d687` test: verified the deletion is dead-code-only — `grep -rn SuggestionPayload --include=*.py` (0 matches post-removal), `uv run python -c "import app.api_models, app.main"` (OK, `SuggestionPayload` gone from the namespace), `uv run ruff check app/api_models.py` (All checks passed), `uv run mypy --config-file pyproject.toml app/api_models.py` (no issues), and `uv run pytest -q` (`553 passed`, 4 failed — all 4 pre-existing: `tests/test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` plus 2 `tests/test_queue_force_flag.py` `TypeError`s at `app/services/pipeline/worker_dispatch.py:44` plus the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id`, all reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-29 (branch: agent/287-dead-reference-cache-alias)
 
 ### Deleted dead `ReferenceCache` alias from `routes/documents_actions.py` (issue #287)
