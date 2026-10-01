@@ -427,6 +427,71 @@ def test_list_documents_review_status_unreviewed(api_client: Any, monkeypatch: A
     assert payload["results"][0]["review_status"] == "unreviewed"
 
 
+def test_list_documents_review_status_paging_does_not_rewalk(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """Paging a review-status list must not re-walk the Paperless library.
+
+    The expensive full-library walk is cached under a page-independent key, so
+    requesting page 2 after page 1 is a cache hit and must not call
+    ``list_documents_cached`` again.
+    """
+    from app.services.integrations import paperless
+
+    call_count = 0
+
+    def _fake_list_cached(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "count": 250,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": f"Doc {doc_id}",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "tags": [],
+                }
+                for doc_id in range(1, 251)
+            ],
+        }
+
+    monkeypatch.setattr(paperless, "list_documents_cached", _fake_list_cached)
+
+    page1 = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "page": 1,
+            "page_size": 100,
+        },
+    )
+    assert page1.status_code == 200
+    page1_payload = page1.json()
+    assert page1_payload["count"] == 250
+    assert len(page1_payload["results"]) == 100
+    assert page1_payload["results"][0]["id"] == 1
+
+    page2 = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "page": 2,
+            "page_size": 100,
+        },
+    )
+    assert page2.status_code == 200
+    page2_payload = page2.json()
+    assert len(page2_payload["results"]) == 100
+    assert page2_payload["results"][0]["id"] == 101
+
+    assert call_count == 1
+
+
 def test_mark_reviewed_moves_document_out_of_unreviewed(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
