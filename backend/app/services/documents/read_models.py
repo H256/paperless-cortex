@@ -328,10 +328,18 @@ def apply_derived_fields_and_review_status(
     local_by_id = {int(doc.id): doc for doc in local_docs}
     cached_doc_ids = [doc_id for doc_id in doc_ids if doc_id in local_by_id]
     remote_notes_by_doc: dict[int, list[dict[str, Any]]] = {}
-    if cached_doc_ids:
+    # The Paperless list payload already carries `notes`; only fall back to a
+    # per-document fetch for rows that lack it, so a full-library walk does not
+    # issue one request per document.
+    for doc in results:
+        raw_id = doc.get("id")
+        if isinstance(raw_id, int | str) and isinstance(doc.get("notes"), list):
+            remote_notes_by_doc[int(raw_id)] = doc["notes"]
+    fetch_ids = [doc_id for doc_id in cached_doc_ids if doc_id not in remote_notes_by_doc]
+    if fetch_ids:
         try:
             remote_docs = paperless.get_documents_cached(
-                settings, cached_doc_ids, skip_not_found=True
+                settings, fetch_ids, skip_not_found=True
             )
         except (RuntimeError, httpx.HTTPError):
             remote_docs = {}

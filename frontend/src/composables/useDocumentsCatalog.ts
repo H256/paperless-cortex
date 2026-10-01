@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import { keepPreviousData, useQuery } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import { getCorrespondents, getTags, listDocuments, type DocumentRow } from '../services/documents'
 import { toOptionalNumber } from '../utils/number'
 
@@ -13,6 +13,20 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
   const dateFrom = ref('')
   const dateTo = ref('')
   const searchQuery = ref('')
+
+  // Mirrors queryKey entries after [name, page, pageSize].
+  const currentFilterKey = computed(() =>
+    [
+      ordering.value,
+      selectedTag.value,
+      selectedCorrespondent.value,
+      selectedReviewStatus.value,
+      dateFrom.value,
+      dateTo.value,
+      searchQuery.value.trim(),
+      options?.includeSummaryPreview?.value ?? false,
+    ].join('|'),
+  )
 
   const listQuery = useQuery({
     queryKey: computed(() => [
@@ -42,7 +56,14 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
         include_summary_preview: options?.includeSummaryPreview?.value ?? false,
         review_status: selectedReviewStatus.value,
       }),
-    placeholderData: keepPreviousData,
+    // Keep the old rows only while paging/ordering within the same filter set;
+    // a filter change must never show rows that do not match the new filter.
+    placeholderData: (previousData, previousQuery) => {
+      const prevKey = previousQuery?.queryKey
+      if (!previousData || !prevKey) return undefined
+      const sameFilters = prevKey.slice(3).join('|') === currentFilterKey.value
+      return sameFilters ? previousData : undefined
+    },
     staleTime: 10_000,
   })
 
