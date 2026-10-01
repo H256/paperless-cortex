@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-30 (branch: agent/284-dead-exception-classes)
+
+### Removed 14 never-referenced exception classes from `app/exceptions.py` (issue #284)
+- `uncommitted` refactor(backend): deleted 14 dead exception classes from [`exceptions.py`](backend/app/exceptions.py) (housekeeping F-C1-4 / issue #284) — `IntegrationError`, `PaperlessAPIError`, `QdrantError`, `LLMError`, `InvalidDocumentError`, `OCRProcessingError`, `EmbeddingError`, `SuggestionGenerationError`, `QueueDisabledError`, `TaskNotFoundError`, `WritebackError`, `WritebackDisabledError`, `WritebackValidationError`, `WritebackConflictError` — plus the dormant `ConfigurationError` (referenced only by a `main.py` import + `isinstance` branch, never raised; the import and branch were removed together). Kept: `PaperlessIntelligenceError`, `ProcessingError`, `DocumentNotFoundError`, `QueueError`, `WorkerError`. **Deviation from the issue:** the issue listed `ValidationError` as dead, but it is live — `documents_suggestions.py` imports it and raises it 5× — so it was kept. `exceptions.py` is a leaf module; `main.py` is the only consumer; no live behavior changes. Behavior-preserving.
+- `uncommitted` test: verified dead-code-only — word-boundary grep of each removed name across `app/` + `tests/` (0 refs outside `exceptions.py`/`main.py`), `grep 'from app.exceptions import'` (only `DocumentNotFoundError`, `WorkerError`, `ValidationError` — all kept), `cd backend && uv run python -c "import app.main"` (app boots; kept classes import OK).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_api_error_responses.py tests/test_worker_error_types.py tests/test_worker_task_execution.py -q` (`12 passed`), `cd backend && uv run ruff check app/exceptions.py app/main.py` (clean), `cd backend && uv run mypy --config-file pyproject.toml app/exceptions.py app/main.py` (no issues), and `cd backend && uv run pytest -q` (`553 passed`, 4 failed — all 4 pre-existing: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 2 `tests/test_queue_force_flag.py` `TypeError`s at `app/services/pipeline/worker_dispatch.py:44` and `tests/test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes`, all reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-30 (branch: agent/292-legacy-prompts-dir-fallback)
 
 ### Removed dead `LEGACY_PROMPTS_DIR` fallback from prompt loaders (issue #292)
