@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
-from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, or_
 
 from app.models import TaskRun
+from app.services.pipeline.task_runs import parse_checkpoint_json
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -57,14 +56,7 @@ def fanout_status_from_run(*, is_missing: bool, run: TaskRun | None) -> str:
 def _checkpoint_from_run(run: TaskRun | None) -> dict[str, Any] | None:
     if not run or not run.checkpoint_json:
         return None
-    raw = str(run.checkpoint_json).strip()
-    if not raw.startswith(("{", "[")):
-        return None
-    try:
-        parsed = json.loads(raw)
-    except JSONDecodeError:
-        return None
-    return parsed if isinstance(parsed, dict) else None
+    return parse_checkpoint_json(str(run.checkpoint_json))
 
 
 def build_pipeline_fanout_items(

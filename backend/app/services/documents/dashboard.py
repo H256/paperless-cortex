@@ -2,17 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, case, exists, func, or_
+from sqlalchemy import and_, case, func, or_
 
-from app.models import (
-    Correspondent,
-    Document,
-    DocumentEmbedding,
-    DocumentPageText,
-    DocumentSuggestion,
-    DocumentType,
-    Tag,
-    document_tags,
+from app.models import Correspondent, Document, DocumentType, Tag, document_tags
+from app.services.documents.active_document_stats import (
+    active_document_filter,
+    build_stats_dict,
+    coverage_exprs,
 )
 
 if TYPE_CHECKING:
@@ -23,19 +19,10 @@ if TYPE_CHECKING:
 
 def build_dashboard_payload(db: Session, settings: Settings) -> dict[str, object]:
     """Build the document operations dashboard payload from local aggregates."""
-    active_document = or_(
-        Document.deleted_at.is_(None),
-        ~Document.deleted_at.like("DELETED in Paperless%"),
+    active_document = active_document_filter()
+    embedding_exists, vision_exists, suggestion_exists, is_processed = coverage_exprs(
+        settings.enable_vision_ocr
     )
-    embedding_exists = exists().where(DocumentEmbedding.doc_id == Document.id)
-    vision_exists = exists().where(
-        and_(DocumentPageText.doc_id == Document.id, DocumentPageText.source == "vision_ocr")
-    )
-    suggestion_exists = exists().where(DocumentSuggestion.doc_id == Document.id)
-    if settings.enable_vision_ocr:
-        is_processed = and_(embedding_exists, vision_exists, suggestion_exists)
-    else:
-        is_processed = and_(embedding_exists, suggestion_exists)
 
     aggregate_row = db.query(
         func.count(Document.id).label("total"),
@@ -57,16 +44,13 @@ def build_dashboard_payload(db: Session, settings: Settings) -> dict[str, object
         func.sum(case((Document.page_count >= 100, 1), else_=0)).label("p100p"),
     ).filter(active_document).one()
     total_docs = int(aggregate_row.total or 0)
-    fully_processed = int(aggregate_row.fully_processed or 0)
-    stats = {
-        "total": total_docs,
-        "processed": int(aggregate_row.embeddings or 0),
-        "unprocessed": max(0, total_docs - fully_processed),
-        "embeddings": int(aggregate_row.embeddings or 0),
-        "vision": int(aggregate_row.vision or 0),
-        "suggestions": int(aggregate_row.suggestions or 0),
-        "fully_processed": fully_processed,
-    }
+    stats = build_stats_dict(
+        total_docs,
+        int(aggregate_row.embeddings or 0),
+        int(aggregate_row.vision or 0),
+        int(aggregate_row.suggestions or 0),
+        int(aggregate_row.fully_processed or 0),
+    )
 
     correspondents_rows = (
         db.query(

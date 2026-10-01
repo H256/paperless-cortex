@@ -151,22 +151,6 @@ def upsert_section_summary(
     db.commit()
 
 
-def group_page_ranges(pages: list[int], section_pages: int) -> list[tuple[int, int]]:
-    section_pages = max(1, int(section_pages))
-    sorted_pages = _sorted_unique_positive_pages(pages)
-    if not sorted_pages:
-        return []
-    ranges: list[tuple[int, int]] = []
-    for i in range(0, len(sorted_pages), section_pages):
-        chunk = sorted_pages[i : i + section_pages]
-        ranges.append((chunk[0], chunk[-1]))
-    return ranges
-
-
-def _sorted_unique_positive_pages(pages: list[int]) -> list[int]:
-    return sorted({int(page) for page in pages if int(page) > 0})
-
-
 def group_notes_into_sections(
     notes: list[tuple[int, dict[str, Any]]],
     *,
