@@ -206,14 +206,24 @@ def _load_field_prompt(field: str) -> str:
     return text
 
 
-def generate_suggestions(
+def _run_suggestion_llm(
     settings: Settings,
     document: dict[str, Any],
-    text: str,
+    *,
+    prompt_template: str,
     tags: list[str],
     correspondents: list[str],
+    text: str,
+    extra_replacements: dict[str, str] | None = None,
+    debug_prompt_label: str,
+    response_label: str,
+    parse_warning_label: str,
 ) -> dict[str, Any]:
-    ensure_text_llm_ready(settings)
+    """Shared LLM round-trip for suggestion generation.
+
+    Prompt assembly, LLM call, JSON parse fallback, and debug wrapper,
+    shared by generate_suggestions and generate_field_variants.
+    """
     doc_meta = {
         "id": document.get("id"),
         "title": document.get("title"),
@@ -223,37 +233,59 @@ def generate_suggestions(
         "document_type": document.get("document_type"),
         "tags": document.get("tags"),
     }
-    trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
-    prompt_template = _load_prompt(settings)
     prompt = (
         prompt_template.replace("{metadata}", json.dumps(doc_meta, ensure_ascii=False))
         .replace("{tags}", json.dumps(tags, ensure_ascii=False))
         .replace("{correspondents}", json.dumps(correspondents, ensure_ascii=False))
-        .replace("{text}", fence_untrusted_text(trimmed))
+        .replace("{text}", fence_untrusted_text(text))
     )
-    logger.info(
-        "Suggestions request model=%s chars=%s doc_id=%s",
-        settings.text_model,
-        len(trimmed),
-        document.get("id"),
-    )
+    for key, value in (extra_replacements or {}).items():
+        prompt = prompt.replace(key, value)
     if settings.debug.llm:
-        logger.info("Suggestions prompt:\n%s", llm_client._snippet(prompt))
+        logger.info(f"{debug_prompt_label}:\n%s", llm_client._snippet(prompt))
     raw_text = llm_client.chat_completion(
         settings,
         model=settings.text_model or "",
         messages=[{"role": "user", "content": prompt}],
         timeout=120,
     )
-    logger.info("Suggestions response len=%s", len(raw_text))
+    logger.info(f"{response_label} len=%s", len(raw_text))
     try:
         parsed = extract_json_object(raw_text)
     except ValueError as exc:
-        logger.warning("Suggestions JSON parse failed: %s", exc)
+        logger.warning(f"{parse_warning_label} JSON parse failed: %s", exc)
         parsed = {"raw": raw_text}
     if settings.suggestions_debug:
         parsed = {"raw": raw_text, "parsed": parsed}
     return parsed
+
+
+def generate_suggestions(
+    settings: Settings,
+    document: dict[str, Any],
+    text: str,
+    tags: list[str],
+    correspondents: list[str],
+) -> dict[str, Any]:
+    ensure_text_llm_ready(settings)
+    trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
+    logger.info(
+        "Suggestions request model=%s chars=%s doc_id=%s",
+        settings.text_model,
+        len(trimmed),
+        document.get("id"),
+    )
+    return _run_suggestion_llm(
+        settings,
+        document,
+        prompt_template=_load_prompt(settings),
+        tags=tags,
+        correspondents=correspondents,
+        text=trimmed,
+        debug_prompt_label="Suggestions prompt",
+        response_label="Suggestions response",
+        parse_warning_label="Suggestions",
+    )
 
 
 def generate_normalized_suggestions(
@@ -285,25 +317,7 @@ def generate_field_variants(
     current_value: object | None = None,
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
-    doc_meta = {
-        "id": document.get("id"),
-        "title": document.get("title"),
-        "document_date": document.get("document_date"),
-        "created": document.get("created"),
-        "correspondent": document.get("correspondent"),
-        "document_type": document.get("document_type"),
-        "tags": document.get("tags"),
-    }
     trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
-    prompt_template = _load_field_prompt(field)
-    prompt = (
-        prompt_template.replace("{metadata}", json.dumps(doc_meta, ensure_ascii=False))
-        .replace("{tags}", json.dumps(tags, ensure_ascii=False))
-        .replace("{correspondents}", json.dumps(correspondents, ensure_ascii=False))
-        .replace("{text}", fence_untrusted_text(trimmed))
-        .replace("{count}", str(count))
-        .replace("{current}", json.dumps(current_value, ensure_ascii=False))
-    )
     logger.info(
         "Suggestions field request model=%s field=%s count=%s doc_id=%s",
         settings.text_model,
@@ -311,22 +325,18 @@ def generate_field_variants(
         count,
         document.get("id"),
     )
-    if settings.debug.llm:
-        logger.info("Suggestions field prompt:\n%s", llm_client._snippet(prompt))
-    raw_text = llm_client.chat_completion(
+    return _run_suggestion_llm(
         settings,
-        model=settings.text_model or "",
-        messages=[{"role": "user", "content": prompt}],
-        timeout=120,
+        document,
+        prompt_template=_load_field_prompt(field),
+        tags=tags,
+        correspondents=correspondents,
+        text=trimmed,
+        extra_replacements={
+            "{count}": str(count),
+            "{current}": json.dumps(current_value, ensure_ascii=False),
+        },
+        debug_prompt_label="Suggestions field prompt",
+        response_label="Suggestions field response",
+        parse_warning_label="Suggestions field",
     )
-    logger.info("Suggestions field response len=%s", len(raw_text))
-    try:
-        parsed = extract_json_object(raw_text)
-    except ValueError as exc:
-        logger.warning("Suggestions field JSON parse failed: %s", exc)
-        parsed = {"raw": raw_text}
-    if settings.suggestions_debug:
-        parsed = {"raw": raw_text, "parsed": parsed}
-    return parsed
-
-
