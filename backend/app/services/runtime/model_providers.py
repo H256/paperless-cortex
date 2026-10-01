@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
-from app.config import ModelProviderRuntime, ModelProvidersRuntime
+from app.config import ModelProviderRuntime, ModelProvidersRuntime, reset_settings_cache
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -267,6 +267,10 @@ def upsert_provider_override(
                 row.api_key_hint = _mask_api_key(normalized_key)
         row.updated_at = datetime.now(UTC).isoformat()
         db.commit()
+    # The override rows changed but the process env did not, so the env
+    # fingerprint is unchanged; clear the cache so the next load_settings()
+    # re-reads the RuntimeModelProviderOverride rows from the DB.
+    reset_settings_cache()
 
 
 def discover_models(

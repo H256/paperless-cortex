@@ -505,12 +505,6 @@ class DocumentOcrScoresResponse(BaseModel):
     scores: list[DocumentOcrScoreOut] = []
 
 
-class SuggestionPayload(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    raw: str | None = None
-    parsed: dict[str, Any] | None = None
-
-
 class SuggestionsResponse(BaseModel):
     doc_id: int
     suggestions: dict[str, Any] = {}
