@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-30 (branch: agent/300-ensure-llm-base-ready-reland)
+
+### Re-landed deletion of dead `ensure_llm_base_ready` from services/runtime/guard.py
+- `uncommitted` refactor(backend): re-landed the fix from PR #307 (issue #300 / housekeeping F-C7-1), whose merge commit was lost from master's history (the function is still present at `guard.py:12` on current master `d263fd8`). Deleted the never-called [`ensure_llm_base_ready`](backend/app/services/runtime/guard.py) (4 lines). It is strictly subsumed by `ensure_text_llm_ready`, which checks the same `provider_base_url(settings, "text")` plus `provider_model` and is the live guard (many external references). Verified dead: repo-wide grep returns only the definition before removal (zero references in app, tests, docs, scripts; no `__all__`/import/dynamic reference). No import updates needed — `provider_base_url`/`provider_model` remain in use by the live guards. Behavior-preserving.
+- `uncommitted` test: verified `grep -rn 'ensure_llm_base_ready'` (0 matches post-removal), `uv run python -c 'import app.main, app.worker, app.services.runtime.guard'` (OK), and the full backend suite (see PR verification).
+
 ## 2026-09-29 (branch: agent/291-dead-group-page-ranges)
 
 ### Deleted dead `group_page_ranges` (+ orphaned `_sorted_unique_positive_pages`) from hierarchical storage + facade (issue #291)
