@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 DEFAULT_PROMPT_PATH = PROMPTS_DIR / "chat.txt"
 CHRONO_PROMPT_PATH = PROMPTS_DIR / "chat_chrono.txt"
 FOLLOWUPS_PROMPT_PATH = PROMPTS_DIR / "chat_followups.txt"
@@ -42,10 +41,6 @@ MAX_HISTORY_CHARS = 1600
 
 def _load_prompt_from(path: Path) -> str:
     prompt_path = path
-    if not prompt_path.is_file():
-        legacy = LEGACY_PROMPTS_DIR / prompt_path.name
-        if legacy.is_file():
-            prompt_path = legacy
     key = str(path)
     if key in _prompt_cache:
         return _prompt_cache[key]
