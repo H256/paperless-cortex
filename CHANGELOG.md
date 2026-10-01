@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-09-29 (branch: agent/291-dead-group-page-ranges)
+
+### Deleted dead `group_page_ranges` (+ orphaned `_sorted_unique_positive_pages`) from hierarchical storage + facade (issue #291)
+- `uncommitted` refactor(backend): removed the unreferenced `group_page_ranges` helper (10 lines) from [`hierarchical_storage.py`](backend/app/services/ai/hierarchical_storage.py) and its facade re-export in [`hierarchical_summary.py`](backend/app/services/ai/hierarchical_summary.py) (housekeeping F-C3-8 / issue #291). It chunked sorted unique pages into `(first,last)` ranges but had zero consumers — only its definition and the facade `__all__` re-export existed; the live sectioning path is `group_notes_into_sections` (token/page-budget based, used by `HierarchicalSummaryPipeline`). Removing it orphaned `_sorted_unique_positive_pages` (its only caller), so that helper (2 lines) and its facade re-export were removed too. Behavior-preserving.
+- `uncommitted` test: verified the deletion is dead-code-only — `grep 'group_page_ranges'` and `grep '_sorted_unique_positive_pages'` (0 hits in `app/` and `tests/` after removal, excluding caches); no dynamic access (no getattr/registry) references either. The live `group_notes_into_sections` import and `__all__` entry remain intact.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_hierarchical_summary_storage.py tests/test_hierarchical_summary_parsing.py tests/test_hierarchical_summary_pipeline_resume.py tests/test_large_doc_processing.py -q` (`26 passed`), `cd backend && uv run pytest -q` (`553 passed`, 4 failed — the known pre-existing `test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus 3 pre-existing failures (`test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` and 2× `test_queue_force_flag.py` `TypeError` at `worker_dispatch.py:44`), all reproduced on clean master with this change stashed, so not a regression), `cd backend && uv run ruff check app/services/ai/hierarchical_storage.py app/services/ai/hierarchical_summary.py` (clean), and `cd backend && uv run mypy --config-file pyproject.toml app/services/ai/hierarchical_storage.py app/services/ai/hierarchical_summary.py` (no issues).
+
 ## 2026-09-29 (branch: agent/285-dead-suggestion-payload)
 
 ### Deleted dead `SuggestionPayload` model from `api_models.py` (issue #285)
