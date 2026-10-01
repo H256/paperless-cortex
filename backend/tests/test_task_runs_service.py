@@ -12,6 +12,7 @@ from app.services.pipeline.task_runs import (
     find_latest_checkpoint,
     finish_task_run,
     list_task_runs,
+    parse_checkpoint_json,
 )
 
 if TYPE_CHECKING:
@@ -217,3 +218,28 @@ def test_list_task_runs_reports_total_for_empty_page_offset(session_factory: Any
         total, rows = list_task_runs(db, task="sync", limit=1, offset=10)
         assert total == 2
         assert rows == []
+
+
+def test_parse_checkpoint_json_valid_dict() -> None:
+    assert parse_checkpoint_json('{"stage":"vision_ocr","current":10,"total":37}') == {
+        "stage": "vision_ocr",
+        "current": 10,
+        "total": 37,
+    }
+
+
+def test_parse_checkpoint_json_strips_surrounding_whitespace() -> None:
+    assert parse_checkpoint_json('  {"a":1}\n') == {"a": 1}
+
+
+def test_parse_checkpoint_json_rejects_non_dict_json() -> None:
+    assert parse_checkpoint_json("[1, 2]") is None
+    assert parse_checkpoint_json('"text"') is None
+    assert parse_checkpoint_json("42") is None
+
+
+def test_parse_checkpoint_json_rejects_malformed_and_empty() -> None:
+    assert parse_checkpoint_json("not-json") is None
+    assert parse_checkpoint_json("{bad") is None
+    assert parse_checkpoint_json("") is None
+    assert parse_checkpoint_json(None) is None
