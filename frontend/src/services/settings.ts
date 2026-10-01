@@ -1,3 +1,5 @@
+import { requestJson } from './http'
+
 export type ModelProviderRole = 'text' | 'chat' | 'embedding' | 'vision'
 
 export type ModelProviderSettingsItem = {
@@ -29,31 +31,11 @@ export type ModelProviderDiscoveryResult = {
   models: string[]
 }
 
-const parseJson = async (response: Response) => {
-  const text = await response.text()
-  return text ? JSON.parse(text) : {}
-}
-
-const request = async <T>(input: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(input, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
+const request = async <T>(input: string, init?: RequestInit): Promise<T> =>
+  requestJson<T>(input, {
     ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers as Record<string, string>) },
   })
-  const parsed = await parseJson(response)
-  if (!response.ok) {
-    const detail =
-      typeof parsed?.detail === 'string'
-        ? parsed.detail
-        : typeof parsed?.error_code === 'string'
-          ? parsed.error_code
-          : `Request failed (${response.status})`
-    throw new Error(detail)
-  }
-  return parsed as T
-}
 
 export const fetchModelProviderSettings = () =>
   request<ModelProviderSettingsResponse>('/api/settings/model-providers')
