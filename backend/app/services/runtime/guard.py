@@ -9,11 +9,6 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 
-def ensure_llm_base_ready(settings: Settings) -> None:
-    if not provider_base_url(settings, "text"):
-        raise RuntimeError("LLM_BASE_URL not set")
-
-
 def ensure_text_llm_ready(settings: Settings) -> None:
     if not provider_base_url(settings, "text"):
         raise RuntimeError("TEXT LLM base URL not set")
