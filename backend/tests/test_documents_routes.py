@@ -259,6 +259,85 @@ def test_document_stats_cache_invalidates_after_suggestion_delete(api_client: An
     assert second.json()["suggestions"] == 0
 
 
+def test_document_stats_and_dashboard_gate_vision_on_setting(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """fully_processed must not require a vision_ocr page when vision OCR is disabled."""
+    from app.services.documents import dashboard_cache, document_stats_cache
+
+    monkeypatch.setenv("ENABLE_VISION_OCR", "0")
+    document_stats_cache.invalidate_document_stats_cache()
+    dashboard_cache.invalidate_dashboard_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        # 7401: embedding + suggestion, NO vision_ocr page -> processed when vision off
+        db.add(Document(id=7401, title="No Vision Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7401, embedding_source="paperless", chunk_count=1))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7401,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        # 7402: embedding + vision_ocr page, NO suggestion -> unprocessed (suggestion required)
+        db.add(Document(id=7402, title="Vision Only Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7402, embedding_source="vision", chunk_count=1))
+        db.add(
+            DocumentPageText(
+                doc_id=7402,
+                page=1,
+                source="vision_ocr",
+                text="vision text",
+                raw_text="vision text",
+                clean_text="vision text",
+            )
+        )
+        db.commit()
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    body = stats.json()
+    assert body["fully_processed"] == 1
+    assert body["vision"] == 1
+    assert body["unprocessed"] == 1
+
+    dashboard = api_client.get("/documents/dashboard")
+    assert dashboard.status_code == 200
+    dash_stats = dashboard.json()["stats"]
+    assert dash_stats["fully_processed"] == 1
+    assert dash_stats["unprocessed"] == 1
+
+
+def test_document_stats_requires_vision_page_when_enabled(api_client: Any) -> None:
+    """With vision OCR enabled, a document lacking a vision_ocr page is not fully processed."""
+    from app.services.documents import document_stats_cache
+
+    document_stats_cache.invalidate_document_stats_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7403, title="Vision Required Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7403, embedding_source="paperless", chunk_count=1))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7403,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    assert stats.json()["fully_processed"] == 0
+
+
 def test_dashboard_excludes_deleted_paperless_copies_from_operational_counts(api_client: Any) -> None:
     from app.services.documents import dashboard_cache, document_stats_cache
 
@@ -425,6 +504,71 @@ def test_list_documents_review_status_unreviewed(api_client: Any, monkeypatch: A
     assert len(payload["results"]) == 1
     assert payload["results"][0]["id"] == 1
     assert payload["results"][0]["review_status"] == "unreviewed"
+
+
+def test_list_documents_review_status_paging_does_not_rewalk(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """Paging a review-status list must not re-walk the Paperless library.
+
+    The expensive full-library walk is cached under a page-independent key, so
+    requesting page 2 after page 1 is a cache hit and must not call
+    ``list_documents_cached`` again.
+    """
+    from app.services.integrations import paperless
+
+    call_count = 0
+
+    def _fake_list_cached(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "count": 250,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": f"Doc {doc_id}",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "tags": [],
+                }
+                for doc_id in range(1, 251)
+            ],
+        }
+
+    monkeypatch.setattr(paperless, "list_documents_cached", _fake_list_cached)
+
+    page1 = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "page": 1,
+            "page_size": 100,
+        },
+    )
+    assert page1.status_code == 200
+    page1_payload = page1.json()
+    assert page1_payload["count"] == 250
+    assert len(page1_payload["results"]) == 100
+    assert page1_payload["results"][0]["id"] == 1
+
+    page2 = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "page": 2,
+            "page_size": 100,
+        },
+    )
+    assert page2.status_code == 200
+    page2_payload = page2.json()
+    assert len(page2_payload["results"]) == 100
+    assert page2_payload["results"][0]["id"] == 101
+
+    assert call_count == 1
 
 
 def test_mark_reviewed_moves_document_out_of_unreviewed(api_client: Any, monkeypatch: Any) -> None:

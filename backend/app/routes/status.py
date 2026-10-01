@@ -217,8 +217,10 @@ def _queue_status_payload(settings: Settings) -> dict[str, Any]:
     return {"enabled": True, **stats, "paused": is_paused(settings)}
 
 
-def _document_stats_payload(db: Session) -> dict[str, Any]:
-    return get_cached_document_stats(db, build_payload=compute_document_stats)
+def _document_stats_payload(db: Session, settings: Settings) -> dict[str, Any]:
+    return get_cached_document_stats(
+        db, build_payload=lambda session: compute_document_stats(session, settings)
+    )
 
 
 def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, Any]:
@@ -261,7 +263,7 @@ def _build_stream_payload(settings: Settings) -> dict[str, Any]:
             "queue": _queue_status_payload(settings),
             "sync": _sync_state_payload(db, "documents"),
             "embeddings": _embeddings_status_payload(settings, db),
-            "stats": _document_stats_payload(db),
+            "stats": _document_stats_payload(db, settings),
             "timestamp": int(time.time()),
         }
     finally:

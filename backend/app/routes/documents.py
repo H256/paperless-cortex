@@ -118,62 +118,86 @@ def list_documents(
     """
     normalized_review_status = normalize_review_status(review_status)
 
-    def _build_payload() -> dict[str, object]:
+    def _build_review_full() -> dict[str, object]:
+        """Walk every Paperless page and return the full filtered list.
+
+        This is the expensive part of the review-status path; it is cached
+        under a page-independent key so paging does not re-walk the library.
+        """
         missing_correspondent_only = correspondent__id == -1
         effective_correspondent = None if missing_correspondent_only else correspondent__id
+        current_page = 1
+        fetch_size = max(page_size, 200)
+        filtered_total = 0
+        full_results: list[dict] = []
+        while True:
+            batch_payload = paperless.list_documents_cached(
+                settings,
+                page=current_page,
+                page_size=fetch_size,
+                ordering=ordering,
+                correspondent__id=effective_correspondent,
+                tags__id=tags__id,
+                document_date__gte=document_date__gte,
+                document_date__lte=document_date__lte,
+                q=q,
+            )
+            enriched_payload = apply_derived_fields_and_review_status(
+                payload={"results": batch_payload.get("results", []) or []},
+                db=db,
+                settings=settings,
+                include_derived=True,
+                include_summary_preview=include_summary_preview,
+                review_status="all",
+                page=1,
+                page_size=fetch_size,
+            )
+            enriched_results = enriched_payload.get("results", [])
+            batch_results = [
+                row for row in enriched_results if isinstance(row, dict)
+            ] if isinstance(enriched_results, list) else []
+            if missing_correspondent_only:
+                batch_results = [row for row in batch_results if row.get("correspondent") is None]
+            matching = [
+                row for row in batch_results if row.get("review_status") == normalized_review_status
+            ]
+            batch_count = len(matching)
+            full_results.extend(matching)
+            filtered_total += batch_count
+            if not batch_payload.get("next"):
+                break
+            current_page += 1
+        return {"count": filtered_total, "results": full_results}
+
+    def _build_payload() -> dict[str, object]:
         if normalized_review_status != "all":
-            current_page = 1
-            fetch_size = max(page_size, 200)
+            full = get_cached_documents_page(
+                cache_key=_documents_list_cache_key(
+                    page=0,
+                    page_size=page_size,
+                    ordering=ordering,
+                    correspondent_id=correspondent__id,
+                    tags_id=tags__id,
+                    document_date_gte=document_date__gte,
+                    document_date_lte=document_date__lte,
+                    q=q,
+                    include_derived=include_derived,
+                    include_summary_preview=include_summary_preview,
+                    review_status=normalized_review_status,
+                ),
+                build_payload=_build_review_full,
+            )
             start = max(0, (max(1, page) - 1) * max(1, page_size))
             end = start + max(1, page_size)
-            filtered_total = 0
-            selected_results: list[dict] = []
-            while True:
-                batch_payload = paperless.list_documents_cached(
-                    settings,
-                    page=current_page,
-                    page_size=fetch_size,
-                    ordering=ordering,
-                    correspondent__id=effective_correspondent,
-                    tags__id=tags__id,
-                    document_date__gte=document_date__gte,
-                    document_date__lte=document_date__lte,
-                    q=q,
-                )
-                enriched_payload = apply_derived_fields_and_review_status(
-                    payload={"results": batch_payload.get("results", []) or []},
-                    db=db,
-                    settings=settings,
-                    include_derived=True,
-                    include_summary_preview=include_summary_preview,
-                    review_status="all",
-                    page=1,
-                    page_size=fetch_size,
-                )
-                enriched_results = enriched_payload.get("results", [])
-                batch_results = [
-                    row for row in enriched_results if isinstance(row, dict)
-                ] if isinstance(enriched_results, list) else []
-                if missing_correspondent_only:
-                    batch_results = [row for row in batch_results if row.get("correspondent") is None]
-                matching = [
-                    row for row in batch_results if row.get("review_status") == normalized_review_status
-                ]
-                batch_count = len(matching)
-                if batch_count > 0 and len(selected_results) < max(1, page_size):
-                    batch_start = max(0, start - filtered_total)
-                    batch_end = max(0, end - filtered_total)
-                    if batch_start < batch_count:
-                        selected_results.extend(matching[batch_start:batch_end])
-                filtered_total += batch_count
-                if not batch_payload.get("next"):
-                    break
-                current_page += 1
+            raw_count = full.get("count", 0)
+            filtered_total = int(raw_count) if isinstance(raw_count, int | float) else 0
+            results = full.get("results", [])
+            results = results if isinstance(results, list) else []
             return {
                 "count": filtered_total,
                 "next": None if end >= filtered_total else "filtered",
                 "previous": None if start <= 0 else "filtered",
-                "results": selected_results[: max(1, page_size)],
+                "results": results[start:end],
             }
 
         payload = list_documents_from_paperless(
@@ -222,15 +246,25 @@ def list_documents(
 
 
 @router.get("/stats", response_model=DocumentStatsResponse)
-def get_document_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
+def get_document_stats(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
     """Return aggregate processing counters for the local document cache."""
-    return get_cached_document_stats(db, build_payload=compute_document_stats)
+    return get_cached_document_stats(
+        db, build_payload=lambda session: compute_document_stats(session, settings)
+    )
 
 
 @router.get("/dashboard", response_model=DocumentDashboardResponse)
-def get_dashboard(db: Session = Depends(get_db)) -> dict[str, object]:
+def get_dashboard(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
     """Return the cached dashboard payload used by the operations views."""
-    return get_cached_dashboard_payload(db, build_payload=build_dashboard_payload)
+    return get_cached_dashboard_payload(
+        db, build_payload=lambda session: build_dashboard_payload(session, settings)
+    )
 
 
 @router.get("/{doc_id}", response_model=PaperlessDocument)
