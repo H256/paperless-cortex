@@ -24,7 +24,6 @@ DEFAULT_VISION_PROMPT = "Extract all readable text from this page image. Return 
 
 _prompt_cache: dict[str, str] = {}
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
 
 def load_prompt(settings: Settings) -> str:
@@ -32,10 +31,7 @@ def load_prompt(settings: Settings) -> str:
         return settings.vision_ocr_prompt
     path = settings.vision_ocr_prompt_path
     if not path:
-        prompt_path = PROMPTS_DIR / "vision_ocr.txt"
-        if not prompt_path.is_file():
-            prompt_path = LEGACY_PROMPTS_DIR / "vision_ocr.txt"
-        path = str(prompt_path)
+        path = str(PROMPTS_DIR / "vision_ocr.txt")
     if path in _prompt_cache:
         return _prompt_cache[path]
     prompt_path = Path(path)

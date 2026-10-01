@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 DEFAULT_PROMPT_PATH = PROMPTS_DIR / "suggestions.txt"
 _prompt_cache: dict[str, str] = {}
 
@@ -176,8 +175,6 @@ def _load_prompt(settings: Settings) -> str:
                 prompt_path = configured
     else:
         prompt_path = DEFAULT_PROMPT_PATH
-        if not prompt_path.is_file():
-            prompt_path = LEGACY_PROMPTS_DIR / "suggestions.txt"
     key = str(prompt_path)
     if key in _prompt_cache:
         return _prompt_cache[key]
@@ -196,9 +193,6 @@ def _load_field_prompt(field: str) -> str:
     if not filename:
         raise RuntimeError(f"Unsupported suggestion field: {field}")
     prompt_path = PROMPTS_DIR / filename
-    if not prompt_path.is_file():
-        # Backward-compatible fallback for older layouts.
-        prompt_path = LEGACY_PROMPTS_DIR / filename
     key = str(prompt_path)
     if key in _prompt_cache:
         return _prompt_cache[key]

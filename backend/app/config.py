@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,9 @@ _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off", ""}
 _ALLOWED_CHUNK_MODES = {"heuristic", "semantic", "sentence"}
 _ALLOWED_VECTOR_PROVIDERS = {"qdrant", "weaviate"}
+
+_settings_cache: dict[str, Any] = {}
+_settings_cache_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -607,13 +612,33 @@ def _build_settings_from_env() -> Settings:
     return settings
 
 
+def _env_fingerprint() -> str:
+    """Hash the process environment so unchanged env maps to a stable key."""
+    return hashlib.sha256(repr(sorted(os.environ.items())).encode("utf-8")).hexdigest()
+
+
+def reset_settings_cache() -> None:
+    """Clear the process-wide settings cache (e.g. after a runtime override change)."""
+    with _settings_cache_lock:
+        _settings_cache.clear()
+
+
 def load_settings(*, apply_runtime_overrides: bool = True) -> Settings:
-    settings = _build_settings_from_env()
     if not apply_runtime_overrides:
-        return settings
+        # db.py path: always rebuild so a changed DATABASE_URL is honored.
+        return _build_settings_from_env()
+    fingerprint = _env_fingerprint()
+    with _settings_cache_lock:
+        cached = _settings_cache.get(fingerprint)
+        if cached is not None:
+            return cached
+    settings = _build_settings_from_env()
     try:
         from app.services.runtime.model_providers import apply_runtime_model_overrides
 
-        return apply_runtime_model_overrides(settings)
+        settings = apply_runtime_model_overrides(settings)
     except ImportError:
-        return settings
+        pass
+    with _settings_cache_lock:
+        _settings_cache[fingerprint] = settings
+    return settings

@@ -91,7 +91,6 @@ require_queue_enabled = is_queue_enabled
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 ResponseDict = dict[str, object]
-ReferenceCache = dict[str, set[int]]
 
 ALLOWED_DOC_TASKS = {
     "sync",

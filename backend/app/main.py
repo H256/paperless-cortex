@@ -19,7 +19,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import load_settings
 from app.db import SessionLocal
 from app.deps import verify_api_token
-from app.exceptions import ConfigurationError, DocumentNotFoundError, PaperlessIntelligenceError
+from app.exceptions import DocumentNotFoundError, PaperlessIntelligenceError
 from app.routes import (
     chat,
     connections,
@@ -80,8 +80,6 @@ def _error_code_for_status(status_code: int) -> str:
 def _status_for_domain_error(exc: PaperlessIntelligenceError) -> int:
     if isinstance(exc, DocumentNotFoundError):
         return 404
-    if isinstance(exc, ConfigurationError):
-        return 500
     return 400
 
 
