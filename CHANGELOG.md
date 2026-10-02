@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-02 (branch: agent/2026-10-02-test-drift-and-openapi-sync)
+
+### Housekeeping: fix 3 pre-existing test/spec failures on master
+- `uncommitted` test(backend): the two `test_queue_force_flag.py` `TypeError`s at `app/services/pipeline/worker_dispatch.py:44` were test-vs-code drift — `worker_dispatch.build_dispatch_handler` now passes `embeddings_mode` to `process_embeddings_vision_fn` (added in `e18cbe7`), but the two test fakes in `test_dispatch_embeddings_vision_passes_force_to_handler` and `test_dispatch_embeddings_vision_defaults_force_to_false` only declared `force`. Added `embeddings_mode: str | None = None` to both fakes so they mirror the real `process_embeddings_vision` signature (`worker_document_tasks.py:385`). No production behavior change — test-only.
+- `uncommitted` spec(backend): `test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` failed because the committed `backend/openapi.json` was out of sync with the routes — a merged PR added the `applied_calls_count: int = 0` field to `WritebackJobDetail` (`api_models.py:971`, populated at `writeback_jobs.py:74`, covered by `test_writeback_job_replay_idempotent.py`) without re-running `scripts/export_openapi.py`. Regenerated the spec (single-field addition, no other drift).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_queue_force_flag.py tests/test_openapi_spec_sync.py -q` (`6 passed`), `cd backend && uv run ruff check tests/test_queue_force_flag.py` (clean), `cd backend && uv run mypy tests/test_queue_force_flag.py` (no issues), and `cd backend && uv run pytest -q` (`569 passed`, 1 failed — the known pre-existing `test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id`; the 3 previously-failing tests now pass, and the writeback failure was reproduced on clean master with this change stashed, so not a regression).
+
 ## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
 
 ### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
