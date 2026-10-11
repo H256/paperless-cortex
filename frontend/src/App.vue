@@ -3,7 +3,7 @@
     <header
       class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
     >
-      <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between md:py-4">
+      <div class="mx-auto flex max-w-[120rem] flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between md:py-4">
         <div>
           <h1 class="text-lg font-semibold tracking-tight">Paperless-NGX Cortex</h1>
           <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
@@ -71,12 +71,12 @@
         </div>
       </div>
     </header>
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <main class="mx-auto max-w-[120rem] px-4 py-6 sm:px-6">
       <RouterView />
     </main>
     <footer class="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div
-        class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3 text-xs text-slate-500 dark:text-slate-400"
+        class="mx-auto flex max-w-[120rem] flex-wrap items-center justify-between gap-4 px-6 py-3 text-xs text-slate-500 dark:text-slate-400"
       >
         <div class="flex flex-wrap items-center gap-4">
           <StatusLight
