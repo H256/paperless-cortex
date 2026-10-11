@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/373-text-candidates)
+
+### Deterministic date and correspondent candidates from the document text (#373, tracking #359)
+- `35205df` feat(api): [`text_candidates.py`](backend/app/services/ai/text_candidates.py) ranks date occurrences (issue / delivery / due / period, nearest keyword wins, birth dates dropped) and matches known correspondents against header lines, text and e-mail/website domains; `GET /documents/{id}/suggestions/candidates` in [`documents_suggestions.py`](backend/app/routes/documents_suggestions.py) serves them from stored page texts without OCR, LLM or queue work. OpenAPI and generated client regenerated (the client also picks up four small optional fields that were missing from the committed client).
+- `35205df` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) shows a "Candidates from text" block; a click selects a candidate for the field and feeds the existing "Apply selected" flow (source `text_candidates`, nothing preselected).
+- `35205df` test: `cd backend && uv run pytest -q tests/test_text_candidates.py tests/test_documents_suggestions_routes.py tests/test_openapi_spec_sync.py` and `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+- `35205df` note: `tests/test_documents_routes.py::test_mark_reviewed_moves_document_out_of_unreviewed` and `::test_documents_list_cache_invalidates_after_mark_reviewed` fail when a developer `.env` is present in the repository root (verified on a clean `develop` worktree with the same `.env`); they pass without it.
+
 ## 2026-10-11 (branch: agent/359-suggestion-implausibility-warnings)
 
 ### Suggestion UI shows advisory warnings for implausible suggested values
