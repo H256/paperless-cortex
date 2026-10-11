@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/422-pick-table-cells)
+
+### Pick any value from the comparison table (#422)
+- `1943ec7` feat(frontend): in [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) every cell with a value is a toggle (one value per field, switching to another column replaces it), tag chips of all columns combine into one set, the "Similar docs" column offers only correspondent and tags (no title/date) and is selectable too, and "Suggest new" sits in each OCR cell instead of one row-level button with an implicit source. Nothing is preselected; "Apply selected" stays the only way to write.
+- `1943ec7` test: 6 new tests in `DocumentSuggestionsSection.test.ts`; `cd frontend && npx vitest run` -> `218 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked in a browser.
+- docs: manual section 5.1.
+
 ## 2026-10-11 (branch: agent/release-0.9.2)
 
 ### Release 0.9.2
