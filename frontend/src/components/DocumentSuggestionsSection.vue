@@ -360,18 +360,20 @@
                   <template v-if="field.key === 'tags'">
                     <div v-if="column.tagsFor(field.key).length" class="flex flex-wrap gap-1.5">
                       <component
-                        :is="column.allowActions ? 'button' : 'span'"
+                        :is="'button'"
                         v-for="tag in column.tagsFor(field.key)"
                         :key="`tag-${column.key}-${field.key}-${tag}`"
-                        :type="column.allowActions ? 'button' : undefined"
+                        type="button"
+                        :aria-pressed="isTagSelected(column.sourceKey, tag)"
+                        :data-testid="`tag-${column.key}-${tag}`"
                         class="rounded-full border px-2 py-0.5 text-xs font-semibold"
                         :class="
                           isTagSelected(column.sourceKey, tag)
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
                             : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
                         "
-                        :title="column.allowActions ? 'Select tag for Apply selected' : undefined"
-                        @click="column.allowActions && toggleTag(column.sourceKey, tag)"
+                        title="Select tag for Apply selected (tags of several sources can be combined)"
+                        @click="toggleTag(column.sourceKey, tag)"
                       >
                         {{ tag }}
                       </component>
@@ -379,10 +381,41 @@
                     <span v-else class="text-xs text-slate-400 dark:text-slate-500">No tags suggested</span>
                   </template>
                   <template v-else>
-                    <span class="break-words text-slate-900 dark:text-slate-100">{{
-                      column.valueFor(field.key)
-                    }}</span>
+                    <button
+                      type="button"
+                      class="w-full break-words rounded-md border px-2 py-1 text-left"
+                      :class="
+                        isCellSelected(column.sourceKey, field.key)
+                          ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100'
+                          : 'border-transparent text-slate-900 hover:border-slate-300 dark:text-slate-100 dark:hover:border-slate-600'
+                      "
+                      :aria-pressed="isCellSelected(column.sourceKey, field.key)"
+                      :disabled="suggestionsLoading || applying"
+                      title="Select this value for Apply selected"
+                      :data-testid="`pick-${column.key}-${field.key}`"
+                      @click="pickCell(column.sourceKey, field.key, column.suggestion?.data ?? {})"
+                    >
+                      {{ column.valueFor(field.key) }}
+                    </button>
                   </template>
+                  <div v-if="column.allowActions" class="mt-1">
+                    <button
+                      type="button"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                      :disabled="suggestionsLoading || isVariantLoading(column.source, field.key)"
+                      :data-testid="`suggest-${column.key}-${field.key}`"
+                      @click="requestSuggest(column.source, field.key)"
+                    >
+                      <span
+                        v-if="isVariantLoading(column.source, field.key)"
+                        class="inline-flex items-center gap-1"
+                      >
+                        <Loader2 class="h-3 w-3 animate-spin" />
+                        {{ waitLabel(column.source, field.key) }}
+                      </span>
+                      <span v-else>Suggest new</span>
+                    </button>
+                  </div>
                   <div
                     v-if="field.key === 'date' && column.pageFor(field.key)"
                     class="mt-1"
@@ -439,21 +472,6 @@
               </td>
               <td class="px-3 py-2 align-top">
                 <div class="flex items-start gap-2">
-                  <button
-                    v-if="field.suggestSource"
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    :disabled="suggestionsLoading || isVariantLoading(field.suggestSource, field.key)"
-                    @click="requestSuggest(field.suggestSource, field.key)"
-                  >
-                    <span
-                      v-if="isVariantLoading(field.suggestSource, field.key)"
-                      class="inline-flex items-center gap-2"
-                    >
-                      <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                      {{ waitLabel(field.suggestSource, field.key) }}
-                    </span>
-                    <span v-else>Suggest new</span>
-                  </button>
                   <button
                     v-if="field.saveSource"
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
@@ -698,7 +716,10 @@ const columns = computed(() =>
       ...column,
       sourceKey: column.key,
       suggestion: base,
-      hasField: (field: string) => columnHasField({ suggestion: base }, field),
+      // "Similar docs" can only offer a correspondent and tags.
+      hasField: (field: string) =>
+        (column.key !== 'similar_docs' || field === 'correspondent' || field === 'tags') &&
+        columnHasField({ suggestion: base }, field),
       valueFor: (field: string) => columnValueFor({ suggestion: base }, field),
       tagsFor: (field: string) => columnTagsFor({ suggestion: base }, field),
       pageFor: (field: string) => columnPageFor({ suggestion: base }, field),
@@ -899,8 +920,24 @@ const hasSuggestedValue = (data: SuggestionPayload, field: string) => {
   return value !== null && value !== undefined && value !== ''
 }
 
-const isTagSelected = (source: string, tag: string) =>
-  selection.value.tags?.source === source && Boolean(selection.value.tags.tags?.includes(tag))
+// Tags of all sources can be combined into one set, so a chip counts as selected whichever
+// column it was clicked in.
+const isTagSelected = (_source: string, tag: string) =>
+  Boolean(selection.value.tags?.tags?.includes(tag))
+
+const isCellSelected = (source: string, field: string) => selection.value[field]?.source === source
+
+// Picking a cell selects that source's value for the field; clicking it again clears the choice,
+// clicking another column's cell switches to that value.
+const pickCell = (source: string, field: string, data: SuggestionPayload) => {
+  const next = { ...selection.value }
+  if (next[field]?.source === source) {
+    delete next[field]
+  } else {
+    next[field] = { source, value: suggestedValue(data, field) }
+  }
+  selection.value = next
+}
 
 const toggleField = (source: string, field: string, data: SuggestionPayload) => {
   const next = { ...selection.value }
@@ -917,12 +954,13 @@ const toggleField = (source: string, field: string, data: SuggestionPayload) => 
 const toggleTag = (source: string, tag: string) => {
   const current = selection.value.tags
   const next = { ...selection.value }
-  if (!current || current.source !== source) {
+  if (!current) {
     next.tags = { source, tags: [tag] }
   } else {
     const tags = current.tags || []
     const updated = tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]
-    if (updated.length) next.tags = { source, tags: updated }
+    // the set may mix several sources; it keeps the source of the first chosen tag for the audit
+    if (updated.length) next.tags = { source: current.source, tags: updated }
     else delete next.tags
   }
   selection.value = next
