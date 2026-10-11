@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/398-list-ux)
+
+### Documents list: preset counters, attention badges, leaner row actions (#398, slice 1)
+- `13f06b6` feat(frontend): [`DocumentsPresetBar.vue`](frontend/src/components/DocumentsPresetBar.vue) shows library-wide counters from the review summary; new [`DocumentAttentionBadges.vue`](frontend/src/components/DocumentAttentionBadges.vue) flags "No correspondent" and "Date = import date" on not-reviewed documents in table and cards; the redundant "Open" row button is gone and every not-reviewed document gets the "Review" shortcut ([`DocumentsTable.vue`](frontend/src/components/DocumentsTable.vue)).
+- `13f06b6` fix(frontend): tooltips explain "Showing X of Y synced" (deleted in Paperless) and "Processed*" (= embeddings).
+- `13f06b6` test: `cd frontend && npx vitest run` -> `189 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. No backend change.
+- docs: plan [`2026-10-11-list-ux.md`](docs/plans/2026-10-11-list-ux.md), manual section 1.4. Remaining slices of #398: compact header, merged presets/filters, last preset, page size.
+
 ## 2026-10-11 (branch: agent/399-feedback)
 
 ### Reliable feedback for queued "Suggest new" (#399, slice 1)
