@@ -29,7 +29,9 @@
     <div v-if="showLoading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-4">
       <div
-        :class="splitActive ? 'grid gap-4 xl:grid-cols-2 xl:items-start' : 'space-y-6'"
+        :class="splitActive
+            ? 'grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start'
+            : 'space-y-6'"
         data-testid="detail-layout"
       >
       <div class="min-w-0 space-y-4">
@@ -95,6 +97,7 @@
         @apply-variant-to-document="applyVariantToDocumentAction"
         @apply-to-document="applyToDocument"
         @apply-selected="applySelectedAction"
+        @jump-to-page="onPdfPageChange"
       />
 
       <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="docId" />

@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/410-table-fixes)
+
+### Comparison table (#400, #410) with follow-ups (#412)
+- `d865051` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) shows the suggestions as a comparison table (Current | Vision OCR | Paperless OCR | Similar docs) with per-column Refresh/Generate variants, per-cell "Suggest new", merged identical values, an agreement indicator per field and "Jump to page" for date candidates; `ed88915` drops the then orphaned `suggestionAgreement` util. The original PR (#410) came from a deleted fork and could not be merged, so this branch carries those commits.
+- `7d6ca91` fix(frontend): [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) handles `jump-to-page` from the suggestions section (the buttons in the table did nothing), the split view gives the suggestions column 3:2 of the width, and [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) uses a 600 px table minimum in compact mode instead of 760 px.
+- `7d6ca91` test: jump handler (`DocumentDetailView.integration.test.ts`), compact table minimum; `cd frontend && npx vitest run` -> `196 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked visually.
+
 ## 2026-10-11 (branch: agent/413-keep-selection-on-reload)
 
 ### Keep the ticked suggestions when the document reloads (#413)
