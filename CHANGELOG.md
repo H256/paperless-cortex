@@ -5,6 +5,12 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
 
+### Review fix for the import-date preset in the Suggestions tab (#383)
+- feat(api): `GET /documents/{id}/local` now returns the import timestamp `added` ([`read_models.py`](backend/app/services/documents/read_models.py), [`api_models.py`](backend/app/api_models.py)); the preset "Issue date = import date" in [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) used `created` (Paperless' issue date) as "import date", which would have been a no-op in most cases.
+- test: [`test_documents_routes.py`](backend/tests/test_documents_routes.py) covers the new field; OpenAPI and client updated.
+
+## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
+
 ### Suggestion presets: "No correspondent" and "Issue date = import date" (#359 follow-up)
 - `uncommitted` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) adds a Presets toolbar: "No correspondent" clears the correspondent (and pending correspondent) via the existing `applyToDocument` path, and "Issue date = import date" sets the issue date to the date part of the document import timestamp (disabled when unavailable). No backend change: `apply-suggestion` already clears the correspondent on an empty value and validates/sets ISO dates; the route does not validate `source`, so `source="preset"` flows through and is recorded in the audit log.
 - `uncommitted` test(frontend): `cd frontend && npx vitest run` (`125 passed`), `npx vue-tsc --build` and lint clean. Backend suite `601 passed`, 1 pre-existing failure (unrelated).

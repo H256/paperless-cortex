@@ -5664,6 +5664,17 @@
             ],
             "title": "Modified"
           },
+          "added": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
           "correspondent": {
             "anyOf": [
               {

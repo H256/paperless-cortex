@@ -2062,3 +2062,27 @@ def test_issue_date_import_filter_combines_with_review_status_and_paging(
     )
     assert after.status_code == 200
     assert after.json()["count"] == 0
+
+
+def test_local_document_payload_exposes_the_import_date(api_client: Any, monkeypatch: Any) -> None:
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=61, title="Doc 61", created="2026-09-05")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        doc = db.get(Document, 61)
+        assert doc is not None
+        doc.added = "2026-09-20T08:00:00+00:00"
+        db.commit()
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda *_a, **_k: {"id": 61, "title": "Doc 61", "created": "2026-09-05", "tags": []},
+    )
+
+    response = api_client.get("/documents/61/local")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["added"] == "2026-09-20T08:00:00+00:00"
+    assert payload["created"] == "2026-09-05"

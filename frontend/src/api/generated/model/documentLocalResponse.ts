@@ -13,6 +13,7 @@ export interface DocumentLocalResponse {
   document_date?: string | null;
   created?: string | null;
   modified?: string | null;
+  added?: string | null;
   correspondent?: number | null;
   correspondent_name?: string | null;
   document_type?: number | null;

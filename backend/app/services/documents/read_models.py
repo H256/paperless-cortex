@@ -703,6 +703,7 @@ def build_local_document_payload(
         "document_date": doc.document_date,
         "created": doc.created,
         "modified": doc.modified,
+        "added": doc.added,
         "correspondent": doc.correspondent_id,
         "correspondent_name": (
             doc.correspondent.name if doc.correspondent else (pending_correspondent_name or None)
