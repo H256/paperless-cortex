@@ -2086,3 +2086,16 @@ def test_local_document_payload_exposes_the_import_date(api_client: Any, monkeyp
     payload = response.json()
     assert payload["added"] == "2026-09-20T08:00:00+00:00"
     assert payload["created"] == "2026-09-05"
+
+
+def test_review_summary_route_counts_library_in_one_walk(api_client: Any, monkeypatch: Any) -> None:
+    _mock_import_date_rows(monkeypatch)
+
+    response = api_client.get("/documents/review-summary")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 3
+    assert payload["reviewed"] == 0
+    assert payload["unreviewed"] + payload["needs_review"] == 3
+    assert payload["issue_date_is_import_date"] == 1

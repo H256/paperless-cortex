@@ -56,4 +56,26 @@ describe('DocumentsPresetBar filter presets', () => {
     ])
     wrapper.unmount()
   })
+  it('shows library-wide counters on the presets that have one', () => {
+    const wrapper = mount(DocumentsPresetBar, {
+      props: {
+        ...baseProps,
+        counts: { unreviewed: 120, needs_review: 3, no_correspondent: 7, import_date: 4 },
+      },
+    })
+    expect(wrapper.get('[data-testid="preset-count-unreviewed"]').text()).toBe('120')
+    expect(wrapper.get('[data-testid="preset-count-needs_review"]').text()).toBe('3')
+    expect(wrapper.get('[data-testid="preset-count-no_correspondent"]').text()).toBe('7')
+    expect(wrapper.get('[data-testid="preset-count-import_date"]').text()).toBe('4')
+    // no counter is known for these
+    expect(wrapper.find('[data-testid="preset-count-not_analyzed"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="preset-count-inbox"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows no counters while the summary is not available', () => {
+    const wrapper = mount(DocumentsPresetBar, { props: baseProps })
+    expect(wrapper.find('[data-testid^="preset-count-"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

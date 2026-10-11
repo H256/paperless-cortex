@@ -444,4 +444,71 @@ describe('DocumentDetailView', () => {
       query: { tab: 'pages', page: '8', keep: '1', foo: 'bar' },
     })
   })
+
+  it('shows the PDF next to the suggestions and lets the reviewer switch back to stacked', async () => {
+    const store = new Map<string, string>()
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => void store.set(key, value),
+        removeItem: (key: string) => void store.delete(key),
+      },
+    })
+    route.query = { tab: 'suggestions' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: { template: '<div data-test="suggestions-section" />' },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+
+    const layout = () => wrapper.get('[data-testid="detail-layout"]').classes().join(' ')
+    expect(layout()).toContain('xl:grid-cols-2')
+    expect(wrapper.get('[data-testid="detail-pdf"]').classes().join(' ')).toContain('xl:sticky')
+
+    await wrapper.get('[data-testid="split-view-toggle"]').setValue(false)
+    expect(layout()).not.toContain('xl:grid-cols-2')
+    await nextTick()
+    expect(store.get('document_detail_split_view')).toBe('0')
+    wrapper.unmount()
+  })
+
+  it('keeps the stacked layout on other tabs', async () => {
+    route.query = { tab: 'operations' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: true,
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="detail-layout"]').classes().join(' ')).not.toContain(
+      'xl:grid-cols-2',
+    )
+    expect(wrapper.find('[data-testid="split-view-toggle"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

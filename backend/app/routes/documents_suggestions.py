@@ -261,10 +261,16 @@ def get_field_variants(
         .one_or_none()
     )
     if not row:
-        return {"doc_id": doc_id, "source": source, "field": field, "variants": []}
+        return {"doc_id": doc_id, "source": source, "field": field, "variants": [], "updated_at": None}
     payload_json = parse_json_object(row.payload)
     variants = payload_json.get("variants") or []
-    return {"doc_id": doc_id, "source": source, "field": field, "variants": variants}
+    return {
+        "doc_id": doc_id,
+        "source": source,
+        "field": field,
+        "variants": variants,
+        "updated_at": row.processed_at or row.created_at,
+    }
 
 
 @router.post("/{doc_id}/suggestions/field/apply", response_model=ApplyFieldSuggestionResponse)

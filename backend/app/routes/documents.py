@@ -16,6 +16,7 @@ from app.api_models import (
     DocumentTextQualityResponse,
     PageTextsResponse,
     PaperlessDocument,
+    ReviewSummaryResponse,
 )
 from app.db import get_db
 from app.deps import get_settings
@@ -48,6 +49,10 @@ from app.services.documents.read_models import (
     build_local_document_payload,
     list_documents_from_paperless,
     normalize_review_status,
+)
+from app.services.documents.review_summary import (
+    issue_date_is_import_date,
+    summarize_review_rows,
 )
 from app.services.documents.text_pages import score_text_quality
 from app.services.integrations import paperless
@@ -98,15 +103,7 @@ def _documents_list_cache_key(
     )
 
 
-def _day_of(value: object) -> str:
-    return value[:10] if isinstance(value, str) else ""
-
-
-def _issue_date_is_import_date(row: dict) -> bool:
-    """True when the issue date falls on the import day (Paperless fell back to "today")."""
-    issue_day = _day_of(row.get("document_date")) or _day_of(row.get("created"))
-    added_day = _day_of(row.get("added"))
-    return bool(issue_day) and issue_day == added_day
+_issue_date_is_import_date = issue_date_is_import_date
 
 
 @router.get("/", response_model=DocumentsPageResponse)
@@ -288,6 +285,60 @@ def get_dashboard(
     """Return the cached dashboard payload used by the operations views."""
     return get_cached_dashboard_payload(
         db, build_payload=lambda session: build_dashboard_payload(session, settings)
+    )
+
+
+@router.get("/review-summary", response_model=ReviewSummaryResponse)
+def get_review_summary(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    """Review progress (reviewed / unreviewed / needs review) in one walk of the library.
+
+    Uses the same derivation as the document list, so the numbers match the list filters.
+    Documents deleted in Paperless are not part of the Paperless listing and are not counted.
+    """
+
+    def _build() -> dict[str, object]:
+        rows: list[dict[str, object]] = []
+        current_page = 1
+        while True:
+            batch = paperless.list_documents_cached(
+                settings, page=current_page, page_size=200, ordering=None
+            )
+            enriched = apply_derived_fields_and_review_status(
+                payload={"results": batch.get("results", []) or []},
+                db=db,
+                settings=settings,
+                include_derived=True,
+                include_summary_preview=False,
+                review_status="all",
+                page=1,
+                page_size=200,
+            )
+            results = enriched.get("results", [])
+            if isinstance(results, list):
+                rows.extend(row for row in results if isinstance(row, dict))
+            if not batch.get("next"):
+                break
+            current_page += 1
+        return dict(summarize_review_rows(rows))
+
+    return get_cached_documents_page(
+        cache_key=_documents_list_cache_key(
+            page=-1,
+            page_size=0,
+            ordering="review-summary",
+            correspondent_id=None,
+            tags_id=None,
+            document_date_gte=None,
+            document_date_lte=None,
+            q=None,
+            include_derived=True,
+            include_summary_preview=False,
+            review_status="all",
+        ),
+        build_payload=_build,
     )
 
 

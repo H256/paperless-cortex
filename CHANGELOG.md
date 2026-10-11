@@ -3,6 +3,53 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.9.0)
+
+### Release 0.9.0
+- `6bb74c5` chore(version): bumped the project version from `0.8.0` to `0.9.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.8.0:
+  - Dashboard "Review progress": reviewed share, counters that link into the filtered list, "Review open documents"; `GET /documents/review-summary` (#396).
+  - Documents list: counters on the presets, attention badges ("No correspondent", "Date = import date"), leaner row actions, tooltips for the counts (#398).
+  - Suggestions tab: PDF side by side on wide screens, source agreement indicator ("2 / 3 agree", "Only this source") (#400).
+  - Reliable feedback for queued "Suggest new": the previous batch is no longer shown as the result, elapsed time, explicit timeout message (#399).
+  - Writeback preview has explicit empty and loading states (#397).
+  - Per-correspondent learned rules for tags and document types (#389) and page restriction for "Suggest new" (#392, #393, answers 422 for invalid pages).
+  - User manual covers the review features (#390, #391).
+- Verification: `cd backend && uv run pytest -q` -> `695 passed, 5 skipped`; `cd frontend && npx vitest run` -> `200 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
+## 2026-10-11 (branch: agent/400-split-view)
+
+### Side-by-side PDF and source agreement indicator (#400, slice 1)
+- `3e9eeb6` feat(frontend): [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) shows the PDF next to the suggestions on wide screens (sticky, toggle "Side by side", remembered); stacked on narrow screens and other tabs.
+- `3e9eeb6` feat(frontend): [`suggestionAgreement.ts`](frontend/src/utils/suggestionAgreement.ts) and the badges in [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) show how many sources (incl. the document text) agree on title, date and correspondent, or flag "Only this source".
+- `3e9eeb6` test: `cd frontend && npx vitest run` -> `200 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. No backend change.
+- docs: plan [`2026-10-11-split-view-agreement.md`](docs/plans/2026-10-11-split-view-agreement.md), manual section 5.0. Remaining slices of #400: comparison table with per-cell "Suggest new", candidate click jumps to the PDF page.
+
+## 2026-10-11 (branch: agent/398-list-ux)
+
+### Documents list: preset counters, attention badges, leaner row actions (#398, slice 1)
+- `13f06b6` feat(frontend): [`DocumentsPresetBar.vue`](frontend/src/components/DocumentsPresetBar.vue) shows library-wide counters from the review summary; new [`DocumentAttentionBadges.vue`](frontend/src/components/DocumentAttentionBadges.vue) flags "No correspondent" and "Date = import date" on not-reviewed documents in table and cards; the redundant "Open" row button is gone and every not-reviewed document gets the "Review" shortcut ([`DocumentsTable.vue`](frontend/src/components/DocumentsTable.vue)).
+- `13f06b6` fix(frontend): tooltips explain "Showing X of Y synced" (deleted in Paperless) and "Processed*" (= embeddings).
+- `13f06b6` test: `cd frontend && npx vitest run` -> `189 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. No backend change.
+- docs: plan [`2026-10-11-list-ux.md`](docs/plans/2026-10-11-list-ux.md), manual section 1.4. Remaining slices of #398: compact header, merged presets/filters, last preset, page size.
+
+## 2026-10-11 (branch: agent/399-feedback)
+
+### Reliable feedback for queued "Suggest new" (#399, slice 1)
+- `c3eb091` fix(frontend): [`useDocumentSuggestions.ts`](frontend/src/composables/useDocumentSuggestions.ts) polled the variant store, which already holds the previous batch, so queued runs showed the old variants and never the new ones; it also gave up silently after ~12 s. It now waits (1.5 s steps, 120 s) for a batch with a different version stamp, shows `Generating... Ns` while waiting and an explicit message on timeout. "Refresh" shows a spinner.
+- `c3eb091` feat(api): `updated_at` on `GET /documents/{id}/suggestions/field/variants` and on the queued `POST /documents/{id}/suggestions/field` response ([`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py), [`documents_suggestions.py`](backend/app/routes/documents_suggestions.py)); OpenAPI and client regenerated.
+- `c3eb091` test: `cd backend && uv run pytest -q` -> `695 passed, 5 skipped`; `cd frontend && npx vitest run` -> `182 passed`; `npx vue-tsc --build`, `npx oxlint src`, `ruff check app tests` clean.
+- docs: plan [`2026-10-11-suggest-feedback.md`](docs/plans/2026-10-11-suggest-feedback.md). Remaining slices of #399: named status pill, skeleton states, success hints.
+
+## 2026-10-11 (branch: agent/396-review-progress)
+
+### Review progress on the dashboard and writeback empty state (#396, #397)
+- `d68e7a7` feat(api): `GET /documents/review-summary` ([`documents.py`](backend/app/routes/documents.py), [`review_summary.py`](backend/app/services/documents/review_summary.py)) counts reviewed / unreviewed / needs review plus unreviewed without correspondent and with issue date = import date in one cached walk, using the same derivation as the list.
+- `d68e7a7` feat(frontend): [`DashboardView.vue`](frontend/src/views/DashboardView.vue) gets a "Review progress" card (bar, tiles linking into the filtered list, "Review open documents"); "All correspondents" is collapsed.
+- `d68e7a7` fix(frontend): [`WritebackDryRunView.vue`](frontend/src/views/WritebackDryRunView.vue) shows explicit empty and loading states for the preview.
+- `d68e7a7` test: `cd backend && uv run pytest -q` -> `692 passed, 5 skipped`; `cd frontend && npx vitest run` -> `178 passed`; `npx vue-tsc --build`, `npx oxlint src`, `ruff check app tests` clean. OpenAPI and client regenerated.
+- docs: plan [`2026-10-11-review-progress.md`](docs/plans/2026-10-11-review-progress.md), manual section 5.1.0. Follow-ups: #398 list, #399 feedback, #400 compare + split view.
+
 ## 2026-10-11 (branch: agent/release-0.8.0)
 
 ### Release 0.8.0

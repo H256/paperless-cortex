@@ -53,6 +53,8 @@ Unter den Filtern gibt es zusätzliche Hilfen:
 - Zusätzliche Filter-Presets, die andere Filter (z. B. `Unreviewed`) beibehalten und sich ein- und ausschalten lassen:
   - `No correspondent` (`Alt+5`): nur Dokumente ohne Korrespondent.
   - `Issue date = import date` (`Alt+6`): Dokumente, deren Ausstellungsdatum auf den Importtag fällt, bei denen Paperless also vermutlich kein Datum erkannt hat.
+- Zähler an den Presets: `Unreviewed`, `Needs review`, `No correspondent` und `Issue date = import date` zeigen, wie viele Dokumente in der ganzen Bibliothek noch offen sind (`No correspondent` und `Issue date = import date` zählen nur ungeprüfte Dokumente).
+- Hinweis-Badges pro Zeile bei ungeprüften Dokumenten: `No correspondent` und `Date = import date` zeigen, warum ein Dokument Aufmerksamkeit braucht.
 - Schnellumschaltung zwischen Tabellen- und Kartenansicht
 - `Running only`, um nur Dokumente mit laufender Verarbeitung zu sehen
 - direkte Sprünge zu `Writeback` oder `Continue processing`
@@ -136,6 +138,11 @@ Wichtige Bedienideen:
 - Varianten werden direkt unter dem jeweiligen Feld gezeigt.
 - Sie können einzelne Varianten lokal anwenden.
 - Sie können Vorschläge direkt auf das Dokument übernehmen.
+
+### 5.0 PDF neben den Vorschlägen und Übereinstimmung der Quellen
+
+- **Side by side:** Auf breiten Bildschirmen zeigt der Tab `Suggestions` das PDF rechts neben den Vorschlägen (sticky, es scrollt nicht weg). Die Checkbox `Side by side` im Tab-Kopf schaltet das um, die Einstellung wird gemerkt. In schmalen Fenstern bleibt das PDF unter den Vorschlägen.
+- **Übereinstimmung:** Neben Titel, Datum und Korrespondent zeigt ein Badge, wie viele Quellen denselben Wert haben (`2 / 3 agree`), wobei der Text des Dokuments (`Candidates from text`) als zusätzliche Quelle zählt. `Only this source` markiert Werte, die nur eine Quelle liefert, also genauer hinsehen. Das ist ein Hinweis, keine Bewertung: auch übereinstimmende Werte können falsch sein, deshalb wird nie etwas automatisch übernommen.
 
 ### 5.1 Nur ausgewählte Felder übernehmen (`Apply selected`)
 

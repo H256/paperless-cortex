@@ -14,7 +14,14 @@
         @click="$emit('applyPreset', preset.key)"
         :title="`Shortcut: ${preset.shortcut}`"
       >
-        {{ preset.label }} <span class="text-[10px] opacity-70">{{ preset.shortcut }}</span>
+        {{ preset.label }}
+        <span
+          v-if="preset.count != null"
+          class="ml-1 rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+          :data-testid="`preset-count-${preset.key}`"
+          >{{ preset.count }}</span
+        >
+        <span class="text-[10px] opacity-70">{{ preset.shortcut }}</span>
       </button>
     </div>
   </section>
@@ -39,6 +46,8 @@ const props = defineProps<{
   searchQuery?: string
   selectedCorrespondent?: string
   issueDateIsImportDate?: boolean
+  /** Library-wide counters from the review summary; missing keys show no counter. */
+  counts?: Partial<Record<PresetKey, number>>
 }>()
 
 const hasSearchFilter = computed(() => Boolean(props.searchQuery?.trim()))
@@ -47,24 +56,28 @@ const presets = computed(() => [
   {
     key: 'unreviewed' as const,
     label: 'Unreviewed',
+    count: props.counts?.unreviewed,
     shortcut: 'Alt+1',
     active: !hasSearchFilter.value && props.reviewStatus === 'unreviewed' && props.analysisFilter === 'all',
   },
   {
     key: 'needs_review' as const,
     label: 'Needs review',
+    count: props.counts?.needs_review,
     shortcut: 'Alt+2',
     active: !hasSearchFilter.value && props.reviewStatus === 'needs_review' && props.analysisFilter === 'all',
   },
   {
     key: 'not_analyzed' as const,
     label: 'Not analyzed',
+    count: props.counts?.not_analyzed,
     shortcut: 'Alt+3',
     active: !hasSearchFilter.value && props.analysisFilter === 'not_analyzed' && props.reviewStatus === 'all',
   },
   {
     key: 'inbox' as const,
     label: 'Inbox (new)',
+    count: props.counts?.inbox,
     shortcut: 'Alt+4',
     active:
       !hasSearchFilter.value &&
@@ -75,12 +88,14 @@ const presets = computed(() => [
     // Filter presets: they keep the other filters (e.g. "Unreviewed") and toggle on/off.
     key: 'no_correspondent' as const,
     label: 'No correspondent',
+    count: props.counts?.no_correspondent,
     shortcut: 'Alt+5',
     active: props.selectedCorrespondent === '-1',
   },
   {
     key: 'import_date' as const,
     label: 'Issue date = import date',
+    count: props.counts?.import_date,
     shortcut: 'Alt+6',
     active: Boolean(props.issueDateIsImportDate),
   },

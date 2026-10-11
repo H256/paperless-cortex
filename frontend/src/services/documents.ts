@@ -31,6 +31,7 @@ import {
   deleteSuggestionsDocumentsDeleteSuggestionsPost,
   deleteEmbeddingsDocumentsDeleteEmbeddingsPost,
   getDashboardDocumentsDashboardGet,
+  getReviewSummaryDocumentsReviewSummaryGet,
   syncTagsSyncTagsPost,
   syncCorrespondentsSyncCorrespondentsPost,
   getDocumentPipelineFanoutDocumentsDocIdPipelineFanoutGet,
@@ -48,6 +49,7 @@ import type {
   DocumentLocalResponse,
   DocumentStatsResponse,
   DocumentDashboardResponse,
+  ReviewSummaryResponse,
   DocumentSummary,
   DocumentTextQualityResponse,
   DocumentOcrScoresResponse,
@@ -107,6 +109,7 @@ export type SyncStatus = SyncStatusResponse
 export type EmbedStatus = EmbeddingStatusResponse
 export type DocumentStats = DocumentStatsResponse
 export type DocumentDashboard = DocumentDashboardResponse
+export type ReviewSummary = ReviewSummaryResponse
 export type PageText = PageTextOut
 export type ProcessMissingParams = ProcessMissingDocumentsProcessMissingPostParams
 export type VisionProgress = {
@@ -145,6 +148,9 @@ export const getEmbedStatus = () => unwrap<EmbedStatus>(embeddingStatusEmbedding
 export const getStats = () => unwrap<DocumentStats>(getDocumentStatsDocumentsStatsGet())
 
 export const getDashboard = () => unwrap<DocumentDashboard>(getDashboardDocumentsDashboardGet())
+
+export const getReviewSummary = () =>
+  unwrap<ReviewSummary>(getReviewSummaryDocumentsReviewSummaryGet())
 
 export const getTags = (page = 1, page_size = 200) =>
   unwrap<TagsPageResponse>(listTagsTagsGet({ page, page_size }))

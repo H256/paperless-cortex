@@ -6,7 +6,10 @@
         <p class="text-sm text-slate-500">
           Manage ingestion, embedding, and review analysis status.
         </p>
-        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <p
+          class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+          title="Documents deleted in Paperless stay in Cortex but are not listed here, so this number can be lower than the synced total."
+        >
           Showing {{ visibleCount }} of {{ totalCount }} synced documents
           <template v-if="searchLabel">
             for "{{ searchLabel }}"

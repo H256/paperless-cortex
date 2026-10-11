@@ -468,6 +468,16 @@ class MonthlyProcessingBucket(BaseModel):
     unprocessed: int
 
 
+class ReviewSummaryResponse(BaseModel):
+    total: int
+    reviewed: int
+    unreviewed: int
+    needs_review: int
+    # Counted among unreviewed documents only (what is left to work through).
+    no_correspondent: int
+    issue_date_is_import_date: int
+
+
 class DocumentDashboardResponse(BaseModel):
     stats: DocumentStatsResponse
     correspondents: list[DashboardCount] = []
@@ -545,6 +555,9 @@ class SuggestFieldVariantsResponse(BaseModel):
     field: str
     variants: list[Any] = []
     queued: bool | None = None
+    # Version stamp of the stored variant batch. A queued request returns the stamp that
+    # was current at enqueue time, so a client can tell the new batch from the old one.
+    updated_at: str | None = None
 
 
 class ApplyFieldSuggestionResponse(BaseModel):

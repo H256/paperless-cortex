@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.8.0"
+    "version": "0.9.0"
   },
   "paths": {
     "/documents/": {
@@ -232,6 +232,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DocumentDashboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/review-summary": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Review Summary",
+        "description": "Review progress (reviewed / unreviewed / needs review) in one walk of the library.\n\nUses the same derivation as the document list, so the numbers match the list filters.\nDocuments deleted in Paperless are not part of the Paperless listing and are not counted.",
+        "operationId": "get_review_summary_documents_review_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSummaryResponse"
                 }
               }
             }
@@ -8866,6 +8888,44 @@
         ],
         "title": "ResetIntelligenceResponse"
       },
+      "ReviewSummaryResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "reviewed": {
+            "type": "integer",
+            "title": "Reviewed"
+          },
+          "unreviewed": {
+            "type": "integer",
+            "title": "Unreviewed"
+          },
+          "needs_review": {
+            "type": "integer",
+            "title": "Needs Review"
+          },
+          "no_correspondent": {
+            "type": "integer",
+            "title": "No Correspondent"
+          },
+          "issue_date_is_import_date": {
+            "type": "integer",
+            "title": "Issue Date Is Import Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "reviewed",
+          "unreviewed",
+          "needs_review",
+          "no_correspondent",
+          "issue_date_is_import_date"
+        ],
+        "title": "ReviewSummaryResponse"
+      },
       "SimilarDocumentMatch": {
         "properties": {
           "doc_id": {
@@ -9321,6 +9381,17 @@
               }
             ],
             "title": "Queued"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "type": "object",
