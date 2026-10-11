@@ -3,6 +3,19 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.7.0)
+
+### Release 0.7.0
+- `3ff919d` chore(version): bumped the project version from `0.6.0` to `0.7.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- `09cdb38` chore(lint): [`worker.py`](backend/app/worker.py) imports `Callable` for typing only and binds the per-iteration settings explicitly in the dispatch-handler closure (ruff `B023`/`UP035`); `tests/test_vision_ocr_page_cap.py` gets its trailing newline. `ruff check app tests` is clean.
+- Highlights since 0.6.0:
+  - Review mode: previous/next (`k`/`j`) with auto-advance, continuing across list pages, prefetching the next document (#369, #371).
+  - Deterministic date and correspondent candidates from the document text, incl. other EU date formats and languages (#373).
+  - List presets "No correspondent" and "Issue date = import date" (Alt+5/Alt+6), plus the matching action presets in the Suggestions tab (#379, #383).
+  - "Suggest new" with a marked text passage, a hint and a selectable OCR text (#381, #384).
+  - Tests: no developer `.env` leakage, no real network access, the 8 known baseline failures fixed (#375, #377).
+- Verification: `cd backend && uv run pytest -q` → `648 passed, 5 skipped, 0 failed`; `cd frontend && npx vitest run` → `172 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
 ## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
 
 ### Review fix for the import-date preset in the Suggestions tab (#383)
