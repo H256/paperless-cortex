@@ -83,6 +83,22 @@ Hinweis zur Begrifflichkeit:
 - In der Oberfläche ist damit meistens der lokale `Review`-Status gemeint, also `Unreviewed`, `Needs review` oder `Reviewed`.
 - Beim Prüfen im Tab `Similar` sollten Sie deshalb vor allem auf den Review-Status achten.
 
+## 3b. Review-Modus: die Arbeitsliste am Stück abarbeiten
+
+Der schnellste Weg für viele Dokumente:
+
+1. `Documents` öffnen und `Unreviewed` oder `Needs review` filtern. Optional die Presets `No correspondent` (`Alt+5`) oder `Issue date = import date` (`Alt+6`) dazuschalten, um gezielt Dokumente ohne Absender oder ohne erkanntes Datum zu holen.
+2. Erstes Dokument öffnen und den Tab `Suggestions` wählen.
+3. `Candidates from text` und die Vorschläge prüfen, nur sichere Felder anhaken, `Apply selected`.
+4. Bei Unsinn `Suggest new` mit Hint oder markierter Textpassage nutzen.
+5. `Mark reviewed` (oder `Writeback`). Mit eingeschaltetem `Auto-advance` geht es zum nächsten Dokument, sonst mit `j`.
+6. Mit `k` zurück, falls Sie etwas korrigieren möchten.
+
+Hinweise:
+
+- Es wird nie etwas automatisch übernommen. Nur angehakte Felder werden geschrieben.
+- Geschrieben wird zunächst lokal. Nach Paperless gelangt es erst über `Writeback`.
+
 ## 4. KI-Vorschläge sicher übernehmen
 
 Ziel: Vorschläge nutzen, ohne fehlerhafte Daten zu veröffentlichen.

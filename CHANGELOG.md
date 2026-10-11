@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/390-docs-070)
+
+### Manual update for 0.7.0 (#390)
+- `296687a` docs(manual): [`02-dokumente-und-detailansicht.md`](docs/manual/02-dokumente-und-detailansicht.md) documents selective "Apply selected", "Candidates from text", suggestion presets, "Guidance for Suggest new" (hint, marked passage, text source, no repeated variants), learned correspondent rules (#389), "Hide reviewed documents" in Similar and the review mode (`k`/`j`, auto-advance, paging); [`06-typische-arbeitsablaeufe.md`](docs/manual/06-typische-arbeitsablaeufe.md) gets the review-mode routine.
+- Release 0.7.0 additionally contains #387 (do-not-repeat list for "Suggest new") and, on `develop` afterwards, #389 (per-correspondent learned rules, next release).
+
 ## 2026-10-11 (branch: agent/release-0.7.0)
 
 ### Release 0.7.0
