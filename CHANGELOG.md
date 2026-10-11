@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.9.1)
+
+### Release 0.9.1
+- `3b65cfb` chore(version): bumped the project version from `0.9.0` to `0.9.1` via `scripts/bump_version.py patch` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Fixes since 0.9.0:
+  - Split view: the source panels and field rows are stacked in the half-width column beside the PDF, values no longer wrap one letter per line (#407, #408).
+  - The app uses up to 1920 px of width instead of 1280 px (#408).
+- 0.9.0 itself was merged to `master` before the layout fix; 0.9.1 is the version to deploy.
+- Verification: `cd backend && uv run pytest -q` -> `695 passed, 5 skipped`; `cd frontend && npx vitest run` -> `202 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
 ## 2026-10-11 (branch: agent/400-split-layout-fix)
 
 ### Split view layout fix (#407)
