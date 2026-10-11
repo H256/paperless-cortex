@@ -13,9 +13,9 @@
       :writeback-button-title="writebackButtonTitle"
       :writeback-button-label="writebackButtonLabel"
       :reloading-all="reloadingAll"
-      :queue-position="hasQueue ? position : null"
-      :has-prev="Boolean(position?.prevId)"
-      :has-next="Boolean(position?.nextId)"
+      :queue-position="hasQueue && position ? { ...position, more: hasNext && !position.nextId } : null"
+      :has-prev="hasPrev"
+      :has-next="hasNext"
       :auto-advance="autoAdvance"
       @prev="goPrev"
       @next="goNext"
@@ -474,11 +474,8 @@ const headerMetaLine = computed(() => {
   return `Document ID: ${docId.value}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
 
-const { position, hasQueue, autoAdvance, goPrev, goNext, advanceAfterReview } = useReviewQueue(
-  docId,
-  route,
-  router,
-)
+const { position, hasQueue, hasNext, hasPrev, autoAdvance, goPrev, goNext, advanceAfterReview } =
+  useReviewQueue(docId, route, router)
 
 const advanceIfReviewed = async () => {
   if (String(document.value?.review_status || '').toLowerCase() !== 'reviewed') return

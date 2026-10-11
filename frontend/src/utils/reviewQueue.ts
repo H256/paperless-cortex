@@ -1,8 +1,39 @@
-const QUEUE_KEY = 'review_queue_v1'
+const QUEUE_KEY = 'review_queue_v2'
+const LEGACY_QUEUE_KEY = 'review_queue_v1'
 const AUTO_ADVANCE_KEY = 'review_auto_advance'
 
-export type StoredReviewQueue = {
+export type ReviewListRequest = {
+  page_size: number
+  ordering?: string | null
+  correspondent__id?: number | null
+  tags__id?: number | null
+  document_date__gte?: string | null
+  document_date__lte?: string | null
+  q?: string | null
+  include_derived?: boolean
+  include_summary_preview?: boolean
+  review_status?: string
+}
+
+export type ReviewClientFilter = {
+  analysis: 'all' | 'analyzed' | 'not_analyzed'
+  model: string
+}
+
+export type ReviewQueueState = {
   ids: number[]
+  firstPage: number
+  lastPage: number
+  totalPages: number
+  /** The server list shrinks while documents are reviewed (review filters). */
+  shrinking: boolean
+  /** Request used to load the list; null disables paging beyond the stored ids. */
+  request: ReviewListRequest | null
+  clientFilter: ReviewClientFilter
+  /** No further documents were found after the last loaded one. */
+  exhaustedNext: boolean
+  /** Ids whose list row already had suggestions (safe to prefetch without generating). */
+  suggestionIds: number[]
   savedAt: number
 }
 
@@ -21,7 +52,7 @@ const safeStorage = () => {
   }
 }
 
-const normalizeIds = (ids: unknown): number[] => {
+export const normalizeIds = (ids: unknown): number[] => {
   if (!Array.isArray(ids)) return []
   const seen = new Set<number>()
   const out: number[] = []
@@ -34,35 +65,77 @@ const normalizeIds = (ids: unknown): number[] => {
   return out
 }
 
-/** Remember the ordered ids of the list the user opened a document from. */
-export const saveReviewQueue = (ids: Array<number | null | undefined>) => {
+const defaultClientFilter = (): ReviewClientFilter => ({ analysis: 'all', model: '' })
+
+/** Build a queue state; paging is only possible when a list request is provided. */
+export const createReviewQueueState = (
+  ids: Array<number | null | undefined>,
+  options: Partial<Omit<ReviewQueueState, 'ids' | 'savedAt'>> = {},
+): ReviewQueueState => {
+  const page = options.firstPage ?? 1
+  return {
+    ids: normalizeIds(ids),
+    firstPage: page,
+    lastPage: options.lastPage ?? page,
+    totalPages: options.totalPages ?? page,
+    shrinking: options.shrinking ?? false,
+    request: options.request ?? null,
+    clientFilter: options.clientFilter ?? defaultClientFilter(),
+    exhaustedNext: options.exhaustedNext ?? false,
+    suggestionIds: normalizeIds(options.suggestionIds ?? []),
+    savedAt: Date.now(),
+  }
+}
+
+export const saveReviewQueueState = (state: ReviewQueueState) => {
   const storage = safeStorage()
   if (!storage) return
-  const normalized = normalizeIds(ids)
   try {
-    if (!normalized.length) {
+    if (!state.ids.length) {
       storage.removeItem(QUEUE_KEY)
       return
     }
-    const payload: StoredReviewQueue = { ids: normalized, savedAt: Date.now() }
-    storage.setItem(QUEUE_KEY, JSON.stringify(payload))
+    storage.setItem(QUEUE_KEY, JSON.stringify({ ...state, savedAt: Date.now() }))
   } catch {
     // per-viewer convenience only
   }
 }
 
-export const loadReviewQueue = (): number[] => {
+export const loadReviewQueueState = (): ReviewQueueState | null => {
   const storage = safeStorage()
-  if (!storage) return []
+  if (!storage) return null
   try {
     const raw = storage.getItem(QUEUE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as Partial<StoredReviewQueue>
-    return normalizeIds(parsed.ids)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ReviewQueueState>
+      const ids = normalizeIds(parsed.ids)
+      if (!ids.length) return null
+      return createReviewQueueState(ids, {
+        firstPage: Number(parsed.firstPage) || 1,
+        lastPage: Number(parsed.lastPage) || 1,
+        totalPages: Number(parsed.totalPages) || 1,
+        shrinking: Boolean(parsed.shrinking),
+        request: parsed.request ?? null,
+        clientFilter: { ...defaultClientFilter(), ...parsed.clientFilter },
+        exhaustedNext: Boolean(parsed.exhaustedNext),
+        suggestionIds: normalizeIds(parsed.suggestionIds),
+      })
+    }
+    // Lists remembered by an older version only carry ids.
+    const legacy = storage.getItem(LEGACY_QUEUE_KEY)
+    if (!legacy) return null
+    const ids = normalizeIds((JSON.parse(legacy) as { ids?: unknown }).ids)
+    return ids.length ? createReviewQueueState(ids) : null
   } catch {
-    return []
+    return null
   }
 }
+
+/** Ids-only convenience wrappers (no paging information). */
+export const saveReviewQueue = (ids: Array<number | null | undefined>) =>
+  saveReviewQueueState(createReviewQueueState(ids))
+
+export const loadReviewQueue = (): number[] => loadReviewQueueState()?.ids ?? []
 
 /** Position of `docId` in the remembered list, or null if it is not part of it. */
 export const reviewQueuePosition = (

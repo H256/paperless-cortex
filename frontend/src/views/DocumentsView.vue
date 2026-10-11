@@ -127,7 +127,7 @@ import DocumentsHeaderSection from '../components/DocumentsHeaderSection.vue'
 import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
-import { saveReviewQueue } from '../utils/reviewQueue'
+import { createReviewQueueState, saveReviewQueueState } from '../utils/reviewQueue'
 
 const router = useRouter()
 const route = useRoute()
@@ -136,6 +136,7 @@ const listViewMode = ref<'table' | 'cards'>('table')
 const includeSummaryPreview = computed(() => listViewMode.value === 'cards')
 const {
   documents,
+  listRequest,
   page,
   pageSize,
   ordering,
@@ -180,11 +181,6 @@ const visibleDocuments = computed(() => {
 })
 // Keep the ordered ids of the visible list so the detail view can offer previous/next
 // (also for links opened in a new tab).
-watch(
-  () => visibleDocuments.value.map((doc) => doc.id),
-  (ids) => saveReviewQueue(ids),
-  { immediate: true },
-)
 const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>(() => {
   if (runningOnly.value) return 'running_only'
   if (documentsError.value && documents.value.length === 0) return 'error'
@@ -193,6 +189,41 @@ const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
+
+// Remember the visible list and how it was loaded so the detail view can offer
+// previous/next, continue on further pages and (for stable lists) go back a page.
+watch(
+  [
+    () => visibleDocuments.value.map((doc) => doc.id),
+    listRequest,
+    page,
+    totalPages,
+    analysisFilter,
+    modelFilter,
+    runningOnly,
+  ],
+  () => {
+    const status = selectedReviewStatus.value
+    saveReviewQueueState(
+      createReviewQueueState(
+        visibleDocuments.value.map((doc) => doc.id),
+        {
+          firstPage: page.value,
+          lastPage: page.value,
+          totalPages: totalPages.value,
+          shrinking: status === 'unreviewed' || status === 'needs_review',
+          // "Running only" depends on live task state, so paging is disabled for it.
+          request: runningOnly.value ? null : listRequest.value,
+          clientFilter: { analysis: analysisFilter.value, model: modelFilter.value },
+          suggestionIds: visibleDocuments.value
+            .filter((doc) => doc.has_suggestions && typeof doc.id === 'number')
+            .map((doc) => doc.id as number),
+        },
+      ),
+    )
+  },
+  { immediate: true },
+)
 const {
   isProcessing,
   hasQueuedWork,

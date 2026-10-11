@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
+import { takePrefetchedDocument } from '../services/prefetchCache'
 import {
   type DocumentDetail,
   type DocumentType,
@@ -43,7 +44,7 @@ export const useDocumentDetailCoreData = () => {
   const ocrScoresError = ref('')
 
   const loadDocumentMutation = useMutation({
-    mutationFn: (id: number) => getDocumentLocal(id),
+    mutationFn: (id: number) => takePrefetchedDocument(id) ?? getDocumentLocal(id),
   })
   const loadMetaMutation = useMutation({
     mutationFn: async () => {
