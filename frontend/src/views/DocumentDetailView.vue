@@ -13,6 +13,13 @@
       :writeback-button-title="writebackButtonTitle"
       :writeback-button-label="writebackButtonLabel"
       :reloading-all="reloadingAll"
+      :queue-position="hasQueue ? position : null"
+      :has-prev="Boolean(position?.prevId)"
+      :has-next="Boolean(position?.nextId)"
+      :auto-advance="autoAdvance"
+      @prev="goPrev"
+      @next="goNext"
+      @update:auto-advance="autoAdvance = $event"
       @back="navigateBackToDocuments"
       @mark-reviewed="markReviewedAction"
       @open-writeback-confirm="openWritebackConfirm"
@@ -221,6 +228,7 @@ import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useDocumentSimilarity } from '../composables/useDocumentSimilarity'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useDocumentWriteback } from '../composables/useDocumentWriteback'
+import { useReviewQueue } from '../composables/useReviewQueue'
 import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
@@ -466,6 +474,17 @@ const headerMetaLine = computed(() => {
   return `Document ID: ${docId.value}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
 
+const { position, hasQueue, autoAdvance, goPrev, goNext, advanceAfterReview } = useReviewQueue(
+  docId,
+  route,
+  router,
+)
+
+const advanceIfReviewed = async () => {
+  if (String(document.value?.review_status || '').toLowerCase() !== 'reviewed') return
+  await advanceAfterReview()
+}
+
 const navigateBackToDocuments = async () => {
   await router.push(returnToDocumentsPath.value)
 }
@@ -486,6 +505,7 @@ const markReviewedAction = async () => {
     }
     await load()
     toastStore.push('Document marked as reviewed.', 'success', 'Review', 1800)
+    await advanceIfReviewed()
   } catch (err: unknown) {
     toastStore.push(errorMessage(err, 'Failed to mark document reviewed'), 'danger', 'Review', 2800)
   }
@@ -706,7 +726,10 @@ const {
 } = useDocumentWriteback({
   docId: () => docId.value,
   document,
-  reloadAll: async () => reloadAll(),
+  reloadAll: async () => {
+    await reloadAll()
+    await advanceIfReviewed()
+  },
   toErrorMessage: errorMessage,
   pushToast: (message, level, title, timeoutMs) =>
     toastStore.push(message, level, title, timeoutMs),

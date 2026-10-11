@@ -109,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
@@ -127,6 +127,7 @@ import DocumentsHeaderSection from '../components/DocumentsHeaderSection.vue'
 import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
+import { saveReviewQueue } from '../utils/reviewQueue'
 
 const router = useRouter()
 const route = useRoute()
@@ -177,6 +178,13 @@ const visibleDocuments = computed(() => {
     typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
   )
 })
+// Keep the ordered ids of the visible list so the detail view can offer previous/next
+// (also for links opened in a new tab).
+watch(
+  () => visibleDocuments.value.map((doc) => doc.id),
+  (ids) => saveReviewQueue(ids),
+  { immediate: true },
+)
 const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>(() => {
   if (runningOnly.value) return 'running_only'
   if (documentsError.value && documents.value.length === 0) return 'error'

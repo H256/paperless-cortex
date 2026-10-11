@@ -13,6 +13,45 @@
       </p>
     </div>
     <div class="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
+      <div
+        v-if="queuePosition"
+        class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        data-testid="review-queue-nav"
+      >
+        <button
+          type="button"
+          class="rounded px-1.5 py-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800"
+          :disabled="!hasPrev"
+          title="Previous document (k)"
+          data-testid="review-prev"
+          @click="$emit('prev')"
+        >
+          <ChevronLeft class="h-4 w-4" />
+        </button>
+        <span data-testid="review-position">{{ queuePosition.index + 1 }} / {{ queuePosition.total }}</span>
+        <button
+          type="button"
+          class="rounded px-1.5 py-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800"
+          :disabled="!hasNext"
+          title="Next document (j)"
+          data-testid="review-next"
+          @click="$emit('next')"
+        >
+          <ChevronRight class="h-4 w-4" />
+        </button>
+        <label
+          class="ml-1 flex cursor-pointer items-center gap-1 border-l border-slate-200 pl-2 font-normal dark:border-slate-700"
+          title="Jump to the next document after marking reviewed or writing back"
+        >
+          <input
+            type="checkbox"
+            :checked="autoAdvance"
+            data-testid="review-auto-advance"
+            @change="$emit('update:autoAdvance', ($event.target as HTMLInputElement).checked)"
+          />
+          Auto-advance
+        </label>
+      </div>
       <button
         class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-300 sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
         @click="$emit('back')"
@@ -70,10 +109,18 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, CheckCircle, ClipboardCheck, ExternalLink, RefreshCw } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  ExternalLink,
+  RefreshCw,
+} from 'lucide-vue-next'
 import IconButton from './IconButton.vue'
 
-defineProps<{
+withDefaults(defineProps<{
   title: string
   docId: number
   headerMetaLine: string
@@ -86,12 +133,19 @@ defineProps<{
   writebackButtonTitle: string
   writebackButtonLabel: string
   reloadingAll: boolean
-}>()
+  queuePosition?: { index: number; total: number } | null
+  hasPrev?: boolean
+  hasNext?: boolean
+  autoAdvance?: boolean
+}>(), { queuePosition: null, hasPrev: false, hasNext: false, autoAdvance: true })
 
 defineEmits<{
   back: []
   'mark-reviewed': []
   'open-writeback-confirm': []
   reload: []
+  prev: []
+  next: []
+  'update:autoAdvance': [value: boolean]
 }>()
 </script>
