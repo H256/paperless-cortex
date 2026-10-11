@@ -395,7 +395,18 @@
                       :data-testid="`pick-${column.key}-${field.key}`"
                       @click="pickCell(column.sourceKey, field.key, column.suggestion?.data ?? {})"
                     >
-                      {{ column.valueFor(field.key) }}
+                      <span :class="isLongCell(column.key, field.key) ? 'line-clamp-4 block' : ''">{{
+                        column.valueFor(field.key)
+                      }}</span>
+                    </button>
+                    <button
+                      v-if="isLongText(column.valueFor(field.key))"
+                      type="button"
+                      class="mt-1 text-[11px] font-semibold text-slate-500 hover:underline dark:text-slate-400"
+                      :data-testid="`expand-${column.key}-${field.key}`"
+                      @click="toggleExpanded(column.key, field.key)"
+                    >
+                      {{ expandedCells.has(`${column.key}:${field.key}`) ? 'Show less' : 'Show full text' }}
                     </button>
                   </template>
                   <div v-if="column.allowActions" class="mt-1">
@@ -504,7 +515,7 @@
             <span class="text-slate-500 dark:text-slate-400"
               >{{ item.label }} · {{ sourceLabel(item.source) }}</span
             >
-            <span class="min-w-0 break-words text-slate-900 dark:text-slate-100">
+            <span class="min-w-0 line-clamp-3 break-words text-slate-900 dark:text-slate-100">
               <span class="text-slate-400 line-through">{{ item.current || '—' }}</span>
               →
               <span class="font-semibold">{{ item.next }}</span>
@@ -925,6 +936,18 @@ const hasSuggestedValue = (data: SuggestionPayload, field: string) => {
 // column it was clicked in.
 const isTagSelected = (_source: string, tag: string) =>
   Boolean(selection.value.tags?.tags?.includes(tag))
+
+// Long values (the summary) are clamped in the table so the rows stay scannable.
+const LONG_TEXT_CHARS = 180
+const expandedCells = ref(new Set<string>())
+const isLongText = (value: unknown) => typeof value === 'string' && value.length > LONG_TEXT_CHARS
+const isLongCell = (column: string, field: string) => !expandedCells.value.has(`${column}:${field}`)
+const toggleExpanded = (column: string, field: string) => {
+  const next = new Set(expandedCells.value)
+  const key = `${column}:${field}`
+  if (!next.delete(key)) next.add(key)
+  expandedCells.value = next
+}
 
 const isCellSelected = (source: string, field: string) => selection.value[field]?.source === source
 

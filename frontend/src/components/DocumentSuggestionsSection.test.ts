@@ -617,4 +617,27 @@ describe('DocumentSuggestionsSection summary cell', () => {
     ])
     wrapper.unmount()
   })
+
+  it('clamps a long summary and lets the reviewer expand it', async () => {
+    const long = 'Lange Zusammenfassung. '.repeat(30).trim()
+    const wrapper = mount(DocumentSuggestionsSection, {
+      props: {
+        suggestions: { vision_ocr: { parsed: { summary: long } } },
+        suggestionsError: '',
+        suggestionsLoading: false,
+        suggestionVariants: {},
+        suggestionVariantLoading: {},
+        suggestionVariantError: {},
+        currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+        currentTagList: [],
+        importDate: '',
+      },
+    })
+    const clamped = () => wrapper.get('[data-testid="pick-vision_ocr-note"] span').classes()
+    expect(clamped()).toContain('line-clamp-4')
+
+    await wrapper.get('[data-testid="expand-vision_ocr-note"]').trigger('click')
+    expect(clamped()).not.toContain('line-clamp-4')
+    wrapper.unmount()
+  })
 })
