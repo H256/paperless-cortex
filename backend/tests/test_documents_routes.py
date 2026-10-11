@@ -1968,3 +1968,96 @@ def test_list_and_detail_review_status_consistent_no_ai_summary(
     assert (
         list_payload["results"][0]["review_status"] == detail_payload["review_status"]
     )
+
+
+def _mock_import_date_rows(monkeypatch: Any) -> None:
+    from app.services.integrations import paperless
+
+    for doc_id in (51, 52, 53):
+        _insert_local_document(doc_id=doc_id, title=f"Doc {doc_id}", created="2026-09-20T08:00:00+00:00")
+    rows = [
+        # issue date (created) == import day -> Paperless fell back to the import date
+        {
+            "id": 51,
+            "title": "Doc 51",
+            "created": "2026-09-20",
+            "added": "2026-09-20T08:00:00+00:00",
+            "modified": "2026-09-20T08:00:00+00:00",
+            "tags": [],
+        },
+        # issue date differs from the import day
+        {
+            "id": 52,
+            "title": "Doc 52",
+            "created": "2026-09-05",
+            "added": "2026-09-20T08:00:00+00:00",
+            "modified": "2026-09-20T08:00:00+00:00",
+            "tags": [],
+        },
+        # a recognized document date wins over `created`
+        {
+            "id": 53,
+            "title": "Doc 53",
+            "created": "2026-09-20",
+            "document_date": "2026-09-18",
+            "added": "2026-09-20T08:00:00+00:00",
+            "modified": "2026-09-20T08:00:00+00:00",
+            "tags": [],
+        },
+    ]
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *args, **kwargs: {"count": len(rows), "next": None, "previous": None, "results": rows},
+    )
+
+
+def test_list_documents_filters_issue_date_equal_to_import_date(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    _mock_import_date_rows(monkeypatch)
+
+    everything = api_client.get("/documents", params={"include_derived": True})
+    assert everything.status_code == 200
+    assert everything.json()["count"] == 3
+
+    response = api_client.get(
+        "/documents", params={"include_derived": True, "issue_date_is_import_date": True}
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [row["id"] for row in payload["results"]] == [51]
+
+
+def test_issue_date_import_filter_combines_with_review_status_and_paging(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    _mock_import_date_rows(monkeypatch)
+
+    unreviewed = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "issue_date_is_import_date": True,
+            "page_size": 1,
+        },
+    )
+    assert unreviewed.status_code == 200
+    assert [row["id"] for row in unreviewed.json()["results"]] == [51]
+
+    marked = api_client.post("/documents/51/review/mark")
+    assert marked.status_code == 200
+
+    after = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "issue_date_is_import_date": True,
+        },
+    )
+    assert after.status_code == 200
+    assert after.json()["count"] == 0
