@@ -27,14 +27,20 @@ export const useDocumentSimilarity = (docId: () => number) => {
   const duplicateMatches = ref<SimilarMatchWithDocument[]>([])
   const loading = ref(false)
   const error = ref('')
+  const hiddenReviewed = ref(0)
   let requestToken = 0
 
-  const loadSimilarity = async (params?: { similarMinScore?: number; duplicateThreshold?: number }) => {
+  const loadSimilarity = async (params?: {
+    similarMinScore?: number
+    duplicateThreshold?: number
+    excludeReviewed?: boolean
+  }) => {
     const token = ++requestToken
     const minScoreRaw = Number(params?.similarMinScore ?? 0.5)
     const duplicateRaw = Number(params?.duplicateThreshold ?? 0.92)
     const minScore = Number.isFinite(minScoreRaw) ? Math.min(1, Math.max(0.5, minScoreRaw)) : 0.5
     const duplicate = Number.isFinite(duplicateRaw) ? Math.min(1, Math.max(0.8, duplicateRaw)) : 0.92
+    const excludeReviewed = Boolean(params?.excludeReviewed)
     loading.value = true
     error.value = ''
     try {
@@ -43,18 +49,24 @@ export const useDocumentSimilarity = (docId: () => number) => {
           getSimilarDocumentsDocumentsDocIdSimilarGet(docId(), {
             top_k: 10,
             min_score: minScore,
+            exclude_reviewed: excludeReviewed,
           }),
         ),
         unwrap<SimilarDocumentsResponse>(
           getDuplicateDocumentsDocumentsDocIdDuplicatesGet(docId(), {
             threshold: duplicate,
             top_k: 10,
+            exclude_reviewed: excludeReviewed,
           }),
         ),
       ])
       if (token !== requestToken) return
       similarMatches.value = normalizeMatches(similarResponse)
       duplicateMatches.value = normalizeMatches(duplicateResponse)
+      hiddenReviewed.value = Math.max(
+        similarResponse?.hidden_reviewed ?? 0,
+        duplicateResponse?.hidden_reviewed ?? 0,
+      )
     } catch (err: unknown) {
       if (token !== requestToken) return
       error.value = errorMessage(err, 'Failed to load similarity results')
@@ -69,9 +81,18 @@ export const useDocumentSimilarity = (docId: () => number) => {
     requestToken += 1
     similarMatches.value = []
     duplicateMatches.value = []
+    hiddenReviewed.value = 0
     error.value = ''
     loading.value = false
   }
 
-  return { similarMatches, duplicateMatches, loading, error, loadSimilarity, reset }
+  return {
+    similarMatches,
+    duplicateMatches,
+    hiddenReviewed,
+    loading,
+    error,
+    loadSimilarity,
+    reset,
+  }
 }

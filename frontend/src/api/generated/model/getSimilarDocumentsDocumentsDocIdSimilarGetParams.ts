@@ -12,4 +12,5 @@ export type GetSimilarDocumentsDocumentsDocIdSimilarGetParams = {
  */
 top_k?: number;
 min_score?: number | null;
+exclude_reviewed?: boolean;
 };

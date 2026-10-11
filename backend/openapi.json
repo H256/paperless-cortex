@@ -1893,6 +1893,16 @@
               ],
               "title": "Min Score"
             }
+          },
+          {
+            "name": "exclude_reviewed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Reviewed"
+            }
           }
         ],
         "responses": {
@@ -1958,6 +1968,16 @@
               "minimum": 1,
               "default": 10,
               "title": "Top K"
+            }
+          },
+          {
+            "name": "exclude_reviewed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Reviewed"
             }
           }
         ],
@@ -8711,6 +8731,11 @@
             "type": "array",
             "title": "Matches",
             "default": []
+          },
+          "hidden_reviewed": {
+            "type": "integer",
+            "title": "Hidden Reviewed",
+            "default": 0
           }
         },
         "type": "object",

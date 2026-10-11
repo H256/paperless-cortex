@@ -99,22 +99,47 @@ def _build_document_summary_payload(
     }
 
 
-@router.get("/{doc_id}/similar", response_model=SimilarDocumentsResponse)
-def get_similar_documents(
+_REVIEWED_POOL_FACTOR = 5
+_REVIEWED_POOL_MAX = 200
+
+
+def _similar_matches_payload(
+    *,
     doc_id: int,
-    top_k: int = Query(default=10, ge=1, le=50),
-    min_score: float | None = Query(default=None, ge=0.0),
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
+    top_k: int,
+    min_score: float | None,
+    exclude_reviewed: bool,
+    settings: Settings,
+    db: Session,
 ) -> dict[str, object]:
     vector = fetch_doc_point_vector(settings, doc_id)
     if not vector:
         raise HTTPException(status_code=404, detail="Doc embedding not found")
-    matches = search_similar_doc_points(settings, vector, top_k=top_k + 1, min_score=min_score)
-    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
-    filtered = filtered[:top_k]
-    doc_ids = [int(item["doc_id"]) for item in filtered]
-    summaries = _build_document_summary_payload(settings, db, doc_ids)
+    # Oversample when reviewed documents are hidden so the top_k cut still yields
+    # up to top_k unreviewed matches.
+    pool_size = top_k + 1
+    if exclude_reviewed:
+        pool_size = min(max(top_k * _REVIEWED_POOL_FACTOR, top_k + 1), _REVIEWED_POOL_MAX)
+    matches = search_similar_doc_points(settings, vector, top_k=pool_size, min_score=min_score)
+    candidates = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
+    hidden_reviewed = 0
+    if exclude_reviewed:
+        summaries = _build_document_summary_payload(
+            settings, db, [int(item["doc_id"]) for item in candidates]
+        )
+        kept: list[dict] = []
+        for item in candidates:
+            summary = summaries.get(int(item["doc_id"])) or {}
+            if str(summary.get("review_status") or "").lower() == "reviewed":
+                hidden_reviewed += 1
+                continue
+            kept.append(item)
+        filtered = kept[:top_k]
+    else:
+        filtered = candidates[:top_k]
+        summaries = _build_document_summary_payload(
+            settings, db, [int(item["doc_id"]) for item in filtered]
+        )
     results = [
         {
             "doc_id": int(item["doc_id"]),
@@ -123,7 +148,31 @@ def get_similar_documents(
         }
         for item in filtered
     ]
-    return {"doc_id": doc_id, "top_k": top_k, "matches": results}
+    return {
+        "doc_id": doc_id,
+        "top_k": top_k,
+        "matches": results,
+        "hidden_reviewed": hidden_reviewed,
+    }
+
+
+@router.get("/{doc_id}/similar", response_model=SimilarDocumentsResponse)
+def get_similar_documents(
+    doc_id: int,
+    top_k: int = Query(default=10, ge=1, le=50),
+    min_score: float | None = Query(default=None, ge=0.0),
+    exclude_reviewed: bool = Query(default=False),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return _similar_matches_payload(
+        doc_id=doc_id,
+        top_k=top_k,
+        min_score=min_score,
+        exclude_reviewed=exclude_reviewed,
+        settings=settings,
+        db=db,
+    )
 
 
 @router.get("/{doc_id}/duplicates", response_model=SimilarDocumentsResponse)
@@ -131,26 +180,18 @@ def get_duplicate_documents(
     doc_id: int,
     threshold: float = Query(default=0.92, ge=0.0, le=1.0),
     top_k: int = Query(default=10, ge=1, le=50),
+    exclude_reviewed: bool = Query(default=False),
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    vector = fetch_doc_point_vector(settings, doc_id)
-    if not vector:
-        raise HTTPException(status_code=404, detail="Doc embedding not found")
-    matches = search_similar_doc_points(settings, vector, top_k=top_k + 1, min_score=threshold)
-    filtered = [item for item in matches if int(item["doc_id"]) != int(doc_id)]
-    filtered = filtered[:top_k]
-    doc_ids = [int(item["doc_id"]) for item in filtered]
-    summaries = _build_document_summary_payload(settings, db, doc_ids)
-    results = [
-        {
-            "doc_id": int(item["doc_id"]),
-            "score": float(item.get("score") or 0.0),
-            "document": summaries.get(int(item["doc_id"])),
-        }
-        for item in filtered
-    ]
-    return {"doc_id": doc_id, "top_k": top_k, "matches": results}
+    return _similar_matches_payload(
+        doc_id=doc_id,
+        top_k=top_k,
+        min_score=threshold,
+        exclude_reviewed=exclude_reviewed,
+        settings=settings,
+        db=db,
+    )
 
 
 @router.get("/{doc_id}/similar-metadata", response_model=SimilarMetadataResponse)

@@ -16,4 +16,5 @@ threshold?: number;
  * @maximum 50
  */
 top_k?: number;
+exclude_reviewed?: boolean;
 };
