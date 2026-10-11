@@ -50,6 +50,9 @@ Sofort sichtbar sind:
 Unter den Filtern gibt es zusätzliche Hilfen:
 
 - Presets wie `Unreviewed`, `Needs review`, `Not analyzed` und `Inbox (new)`
+- Zusätzliche Filter-Presets, die andere Filter (z. B. `Unreviewed`) beibehalten und sich ein- und ausschalten lassen:
+  - `No correspondent` (`Alt+5`): nur Dokumente ohne Korrespondent.
+  - `Issue date = import date` (`Alt+6`): Dokumente, deren Ausstellungsdatum auf den Importtag fällt, bei denen Paperless also vermutlich kein Datum erkannt hat.
 - Schnellumschaltung zwischen Tabellen- und Kartenansicht
 - `Running only`, um nur Dokumente mit laufender Verarbeitung zu sehen
 - direkte Sprünge zu `Writeback` oder `Continue processing`

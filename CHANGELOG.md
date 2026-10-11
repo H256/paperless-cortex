@@ -3,6 +3,28 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/379-review-presets)
+
+### Presets: no correspondent and issue date = import date (#379, tracking #359)
+- `7119caa` feat(api): `GET /documents` accepts `issue_date_is_import_date`; [`documents.py`](backend/app/routes/documents.py) post-filters on the full filtered list (issue date = `document_date`, else `created`; import date = `added`), cached under a key that includes the flag, so it combines with the review status and paging. OpenAPI and client regenerated.
+- `7119caa` feat(frontend): [`DocumentsPresetBar.vue`](frontend/src/components/DocumentsPresetBar.vue) gets the toggle presets `No correspondent` (Alt+5, existing `correspondent=-1` filter) and `Issue date = import date` (Alt+6); they keep the other filters. URL parameter `import_date=1`, active-filter chip, "Clear all"/reset support; the review queue request carries the flag.
+- `7119caa` docs(manual): presets documented in [`02-dokumente-und-detailansicht.md`](docs/manual/02-dokumente-und-detailansicht.md).
+- `7119caa` test: `cd backend && uv run pytest -q tests/test_documents_routes.py tests/test_openapi_spec_sync.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean (stacked on #375/#377).
+
+## 2026-10-11 (branch: agent/377-baseline-test-failures)
+
+### Backend test suite is green: baseline failures fixed, real network blocked (#377)
+- `0d2e599` test(backend): [`conftest.py`](backend/tests/conftest.py) adds a `posix_bash` fixture (PATH `bash`, else Git for Windows; skip when none works), so the Docker entrypoint migration tests no longer run through the WSL launcher; the three signal-forwarding tests are skipped on Windows (POSIX signals).
+- `0d2e599` test(backend): [`test_writeback_dryrun_routes.py`](backend/tests/test_writeback_dryrun_routes.py) stubs `update_correspondent` and asserts the owner clearing; the unstubbed call used to send a real PATCH to the configured Paperless instance.
+- `0d2e599` test(backend): an autouse guard in `conftest.py` fails tests that would send a real HTTP request (loopback and `httpx.MockTransport` stay allowed).
+- `0d2e599` test: `cd backend && uv run pytest -q` → `615 passed, 5 skipped, 0 failed` with a developer `.env` present (stacked on #375).
+
+## 2026-10-11 (branch: agent/375-tests-ignore-dotenv)
+
+### Backend tests no longer read a developer .env (#375)
+- `79ffae7` test(backend): [`tests/conftest.py`](backend/tests/conftest.py) replaces `app.config._load_env` by a no-op for the test session, so a repository-root `.env` (Paperless URL/token, LLM and vector-store settings) cannot leak into tests; this fixed `test_mark_reviewed_moves_document_out_of_unreviewed` and `test_documents_list_cache_invalidates_after_mark_reviewed` on machines with a `.env`. New [`test_env_isolation.py`](backend/tests/test_env_isolation.py) guards it.
+- `79ffae7` test: `cd backend && uv run pytest -q` (`610 passed`, 2 skipped, 8 failed = 7× `test_docker_entrypoint_*` and 1× `test_writeback_dryrun_routes`, unchanged baseline) with a `.env` present.
+
 ## 2026-10-11 (branch: agent/373-text-candidates)
 
 ### Deterministic date and correspondent candidates from the document text (#373, tracking #359)

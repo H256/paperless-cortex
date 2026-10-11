@@ -159,6 +159,16 @@
               "default": "all",
               "title": "Review Status"
             }
+          },
+          {
+            "name": "issue_date_is_import_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Issue Date Is Import Date"
+            }
           }
         ],
         "responses": {
