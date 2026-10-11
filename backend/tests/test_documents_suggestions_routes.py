@@ -674,6 +674,6 @@ def test_suggest_field_rejects_invalid_or_missing_pages(
     response = _suggest_field_with_pages(
         api_client, monkeypatch, 833, {"source": "vision_ocr", "pages": pages}
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert "text" not in response.seen  # type: ignore[attr-defined]
 

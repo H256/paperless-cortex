@@ -240,7 +240,7 @@ def suggest_field_variants(
             enqueue_task_front_fn=enqueue_task_front,
         )
     except PageSelectionError as exc:
-        raise ValidationError(str(exc), field="pages") from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if payload_data.get("queued") is True:
         return payload_data
     audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")
