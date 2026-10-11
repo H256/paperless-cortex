@@ -336,14 +336,31 @@ def health() -> dict[str, str]:
 app.mount("/api", api)
 
 
+_IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+_REVALIDATE_CACHE = "no-cache"
+
+
 class SPAStaticFiles(StaticFiles):
+    """Serve the built SPA with cache headers that make a deploy visible immediately.
+
+    ``index.html`` (and the SPA fallback) must be revalidated on every load so a new
+    build is picked up; the content-hashed files below ``assets/`` never change and can
+    be cached forever.
+    """
+
     async def get_response(self, path: str, scope: Any) -> Any:
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
-            if exc.status_code == 404:
-                return await super().get_response("index.html", scope)
-            raise
+            if exc.status_code != 404:
+                raise
+            response = await super().get_response("index.html", scope)
+            path = "index.html"
+        is_hashed_asset = path.replace("\\", "/").lstrip("/").startswith("assets/")
+        response.headers["Cache-Control"] = (
+            _IMMUTABLE_CACHE if is_hashed_asset else _REVALIDATE_CACHE
+        )
+        return response
 
 
 static_dir_env = SETTINGS.frontend.dist_path or ""
