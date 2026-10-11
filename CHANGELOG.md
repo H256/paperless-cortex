@@ -9,6 +9,21 @@ All granular implementation slices and refactors are tracked here.
 - `79ffae7` test(backend): [`tests/conftest.py`](backend/tests/conftest.py) replaces `app.config._load_env` by a no-op for the test session, so a repository-root `.env` (Paperless URL/token, LLM and vector-store settings) cannot leak into tests; this fixed `test_mark_reviewed_moves_document_out_of_unreviewed` and `test_documents_list_cache_invalidates_after_mark_reviewed` on machines with a `.env`. New [`test_env_isolation.py`](backend/tests/test_env_isolation.py) guards it.
 - `79ffae7` test: `cd backend && uv run pytest -q` (`610 passed`, 2 skipped, 8 failed = 7× `test_docker_entrypoint_*` and 1× `test_writeback_dryrun_routes`, unchanged baseline) with a `.env` present.
 
+## 2026-10-11 (branch: agent/371-review-paging-prefetch)
+
+### Review mode continues across list pages and prefetches the next document (#371, tracking #359)
+- `84c368b` feat(frontend): the documents list remembers the list request ([`reviewQueue.ts`](frontend/src/utils/reviewQueue.ts)); [`reviewQueuePaging.ts`](frontend/src/utils/reviewQueuePaging.ts) loads further documents in the background. Stable lists continue with `page + 1` (and `page - 1`); shrinking review lists (`unreviewed` / `needs_review`) are re-scanned from page 1 and only unseen documents are appended, so none is skipped while documents are reviewed.
+- `84c368b` feat(frontend): [`prefetchCache.ts`](frontend/src/services/prefetchCache.ts) prefetches the next document and, only when it already has suggestions, its suggestions; entries are single-use with a 20 s TTL and are consumed by the detail loaders.
+- `84c368b` test: `cd frontend && npx vitest run` (`153 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
+## 2026-10-11 (branch: agent/369-review-mode-prev-next)
+
+### Review mode: previous/next inside the filtered list (#369, tracking #359)
+- `22ea3e2` feat(frontend): [`DocumentsView.vue`](frontend/src/views/DocumentsView.vue) remembers the ordered ids of the visible list ([`reviewQueue.ts`](frontend/src/utils/reviewQueue.ts), `localStorage`), so the detail view can offer **Previous / Next** with position, keyboard `k` / `j` and an **Auto-advance** toggle ([`useReviewQueue.ts`](frontend/src/composables/useReviewQueue.ts), [`DocumentDetailHeader.vue`](frontend/src/components/DocumentDetailHeader.vue)). `return_to` and the active tab are kept.
+- `22ea3e2` feat(frontend): auto-advance runs after "Mark reviewed" / "Write back" only when the document is `reviewed` afterwards; "Apply selected" never navigates.
+- `22ea3e2` docs(plan): [`docs/plans/2026-10-11-review-mode.md`](docs/plans/2026-10-11-review-mode.md).
+- `22ea3e2` test: `cd frontend && npx vitest run` (`138 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
 ## 2026-10-11 (branch: agent/359-suggestion-implausibility-warnings)
 
 ### Suggestion UI shows advisory warnings for implausible suggested values
