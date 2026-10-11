@@ -73,6 +73,7 @@
         :text-candidates="textCandidates"
         :text-sources="guidanceTextSources"
         :applying="suggestionsApplying"
+        :import-date="document?.added || ''"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"

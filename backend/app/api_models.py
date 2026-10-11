@@ -346,6 +346,7 @@ class DocumentLocalResponse(BaseModel):
     document_date: str | None = None
     created: str | None = None
     modified: str | None = None
+    added: str | None = None
     correspondent: int | None = None
     correspondent_name: str | None = None
     document_type: int | None = None
