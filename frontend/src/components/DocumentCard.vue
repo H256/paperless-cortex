@@ -1,11 +1,23 @@
 <template>
-  <button
-    class="block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
-    @click="emit('open', doc.id)"
+  <div
+    class="relative block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
   >
-    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+    <a
+      v-if="hrefFor()"
+      :href="hrefFor() ?? undefined"
+      class="block text-sm font-semibold text-slate-900 after:absolute after:inset-0 after:content-[''] dark:text-slate-100"
+      @click="onNavigate($event, 'open')"
+    >
       {{ doc.title || `Document ${doc.id ?? '-'}` }}
-    </div>
+    </a>
+    <button
+      v-else
+      type="button"
+      class="block w-full text-left text-sm font-semibold text-slate-900 after:absolute after:inset-0 after:content-[''] dark:text-slate-100"
+      @click="emit('open', doc.id)"
+    >
+      {{ doc.title || `Document ${doc.id ?? '-'}` }}
+    </button>
     <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
       {{ formatDate(doc.document_date || doc.created) || '-' }}
       <span v-if="correspondentLabel"> | {{ correspondentLabel }}</span>
@@ -27,7 +39,7 @@
       </div>
       <a
         v-if="paperlessBaseUrl"
-        class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+        class="relative inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
         :href="paperlessDocUrl(doc.id ?? 0)"
         target="_blank"
         rel="noopener"
@@ -55,7 +67,7 @@
         {{ runningLabel }}
       </div>
     </div>
-    <div v-if="showActions" class="mt-3 flex flex-wrap items-center gap-2">
+    <div v-if="showActions" class="relative mt-3 flex flex-wrap items-center gap-2">
       <button
         v-if="showCopyId"
         type="button"
@@ -64,32 +76,38 @@
       >
         {{ copied ? 'Copied' : 'Copy ID' }}
       </button>
-      <button
+      <component
+        :is="hrefFor() ? 'a' : 'button'"
         v-if="showOpen"
-        type="button"
+        :type="hrefFor() ? undefined : 'button'"
+        :href="hrefFor() ?? undefined"
         class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
-        @click.stop="emit('open', doc.id)"
+        @click="onNavigate($event, 'open')"
       >
         Open
-      </button>
-      <button
+      </component>
+      <component
+        :is="hrefFor('operations') ? 'a' : 'button'"
         v-if="showContinue"
-        type="button"
+        :type="hrefFor('operations') ? undefined : 'button'"
+        :href="hrefFor('operations') ?? undefined"
         class="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
-        @click.stop="emit('open-operations', doc.id)"
+        @click="onNavigate($event, 'open-operations', 'operations')"
       >
         Continue
-      </button>
-      <button
+      </component>
+      <component
+        :is="hrefFor('suggestions') ? 'a' : 'button'"
         v-if="showReview && needsReview"
-        type="button"
+        :type="hrefFor('suggestions') ? undefined : 'button'"
+        :href="hrefFor('suggestions') ?? undefined"
         class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
-        @click.stop="emit('open-suggestions', doc.id)"
+        @click="onNavigate($event, 'open-suggestions', 'suggestions')"
       >
         Review
-      </button>
+      </component>
     </div>
-  </button>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -97,6 +115,9 @@ import { computed } from 'vue'
 import { Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
 import type { DocumentRow } from '../services/documents'
+import { isPlainLeftClick } from '../utils/suggestionSelection'
+
+type DocTab = 'operations' | 'suggestions'
 
 const props = defineProps<{
   doc: DocumentRow
@@ -110,6 +131,7 @@ const props = defineProps<{
   showOpen?: boolean
   showContinue?: boolean
   showReview?: boolean
+  docHref?: (id: number, tab?: DocTab) => string
 }>()
 
 const emit = defineEmits<{
@@ -118,6 +140,22 @@ const emit = defineEmits<{
   (e: 'open-suggestions', id: number | null | undefined): void
   (e: 'copy-id', id: number | null | undefined): void
 }>()
+
+const hrefFor = (tab?: DocTab): string | null =>
+  props.docHref && typeof props.doc.id === 'number' ? props.docHref(props.doc.id, tab) : null
+
+const onNavigate = (
+  event: MouseEvent,
+  name: 'open' | 'open-operations' | 'open-suggestions',
+  tab?: DocTab,
+) => {
+  // Let the browser handle modifier/middle clicks (new tab) when a real link exists.
+  if (hrefFor(tab) && !isPlainLeftClick(event)) return
+  event.preventDefault()
+  if (name === 'open') emit('open', props.doc.id)
+  else if (name === 'open-operations') emit('open-operations', props.doc.id)
+  else emit('open-suggestions', props.doc.id)
+}
 
 const summaryPreview = computed(() => {
   const value = (props.doc as unknown as Record<string, unknown>).ai_summary_preview
