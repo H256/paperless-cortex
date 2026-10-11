@@ -31,6 +31,12 @@ All granular implementation slices and refactors are tracked here.
 - `uncommitted` spec(backend): `test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` failed because the committed `backend/openapi.json` was out of sync with the routes — a merged PR added the `applied_calls_count: int = 0` field to `WritebackJobDetail` (`api_models.py:971`, populated at `writeback_jobs.py:74`, covered by `test_writeback_job_replay_idempotent.py`) without re-running `scripts/export_openapi.py`. Regenerated the spec (single-field addition, no other drift).
 - `uncommitted` test: verified `cd backend && uv run pytest tests/test_queue_force_flag.py tests/test_openapi_spec_sync.py -q` (`6 passed`), `cd backend && uv run ruff check tests/test_queue_force_flag.py` (clean), `cd backend && uv run mypy tests/test_queue_force_flag.py` (no issues), and `cd backend && uv run pytest -q` (`569 passed`, 1 failed — the known pre-existing `test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id`; the 3 previously-failing tests now pass, and the writeback failure was reproduced on clean master with this change stashed, so not a regression).
 
+## 2026-10-03 (branch: agent/131-chrono-tz-normalize-reland)
+
+### Re-land: chat chrono sort normalizes naive datetimes to UTC (lost merge of issue #131 / AUDIT AI-005)
+- `uncommitted` fix(chat): the 2026-09-27 fix (commit `fa41869`, branch `agent/131-chrono-tz-normalize`) was wiped by the master history reset, so [`_parse_date`](backend/app/services/ai/chat.py) again returns bare naive datetimes (e.g. `document_date` String `'2026-01-01'`) alongside aware ones (`created` via `utc_now_iso`). `_sort_sources_chrono`'s sort key then raised `TypeError: can't compare offset-naive and offset-aware datetimes` (500) on a chrono-mode question mixing dated and undated sources. Re-landed verbatim via `git cherry-pick fa41869` onto current master (`5fd21ff`): naive timestamps are now treated as UTC before sort keys are built.
+- `uncommitted` test: the cherry-pick carries the 2 regression tests from the original commit — `test_parse_date_normalizes_naive_to_aware` and `test_sort_sources_chrono_mixed_naive_aware_no_typeerror` in [`backend/tests/test_chat_chrono_tz.py`](backend/tests/test_chat_chrono_tz.py). Verified RED on base (the sort test raises the exact `TypeError`), GREEN on branch.
+
 ## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
 
 ### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
