@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.6.0)
+
+### Release 0.6.0
+- `07ef911` chore(version): bumped the project version from `0.5.61` to `0.6.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.5.60: real document links (new tab), selective multi-field suggestion apply (#357, #358), hide-reviewed filter in the Similar tab (#361), re-landed fixes #113, #131, #161, #168, #208, #211 and the test/spec drift housekeeping (#350).
+
 ## 2026-10-11 (branch: agent/361-similar-hide-reviewed)
 
 ### Similar tab can hide reviewed documents (#361)
