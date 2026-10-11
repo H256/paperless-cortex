@@ -808,6 +808,7 @@ const fieldValue = (data: SuggestionPayload, field: string) => {
   if (field === 'correspondent')
     return asString(data.correspondent) || asString(data.suggested_correspondent)
   if (field === 'tags') return (data.tags ?? data.suggested_tags) || ''
+  if (field === 'note') return asString(data.summary) || asString(data.note)
   return data[field] ?? ''
 }
 

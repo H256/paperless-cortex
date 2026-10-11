@@ -603,3 +603,18 @@ describe('DocumentSuggestionsSection picking from the comparison table', () => {
     wrapper.unmount()
   })
 })
+
+describe('DocumentSuggestionsSection summary cell', () => {
+  it('shows the summary text in the cell and lets the reviewer pick it', async () => {
+    const wrapper = mountSection()
+    const cell = wrapper.get('[data-testid="pick-vision_ocr-note"]')
+    expect(cell.text()).toBe('Rechnung ueber Kopfhoerer.')
+
+    await cell.trigger('click')
+    await wrapper.get('[data-testid="apply-selected"]').trigger('click')
+    expect(wrapper.emitted('applySelected')?.[0]?.[0]).toEqual([
+      { source: 'vision_ocr', field: 'note', value: 'Rechnung ueber Kopfhoerer.' },
+    ])
+    wrapper.unmount()
+  })
+})
