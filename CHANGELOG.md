@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/398-merge-presets-into-filters)
+
+### Documents list: merge the preset bar into the filters panel (#398)
+- `2b9e3d9` feat(documents): the presets were a separate card below the list header; they now live inside [`DocumentsFiltersPanel.vue`](frontend/src/components/DocumentsFiltersPanel.vue) as a "Presets" section at the top of the filters card. The preset buttons, their Alt+1..6 shortcuts, active-state logic and library-wide counters moved from the removed `DocumentsPresetBar.vue`; `DocumentsView.vue` wires the preset props and `apply-preset` handler into the panel and drops the separate block.
+- `2b9e3d9` test: the preset assertions moved from the removed `DocumentsPresetBar.test.ts` into `DocumentsFiltersPanel.test.ts` (6 tests); the stale `DocumentsPresetBar` stubs were removed from `DocumentsView.integration.test.ts`.
+- Verification: `cd frontend && npx vitest run` (`220 passed`), `npx vue-tsc --build` clean. Not checked in a browser. Pre-existing, unrelated: one oxlint error in `DocumentSuggestionsSection.test.ts` (unchanged by this change).
+
 ## 2026-10-11 (branch: agent/release-0.9.4)
 
 ### Release 0.9.4
