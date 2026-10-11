@@ -25,6 +25,15 @@ All granular implementation slices and refactors are tracked here.
 - `79ffae7` test(backend): [`tests/conftest.py`](backend/tests/conftest.py) replaces `app.config._load_env` by a no-op for the test session, so a repository-root `.env` (Paperless URL/token, LLM and vector-store settings) cannot leak into tests; this fixed `test_mark_reviewed_moves_document_out_of_unreviewed` and `test_documents_list_cache_invalidates_after_mark_reviewed` on machines with a `.env`. New [`test_env_isolation.py`](backend/tests/test_env_isolation.py) guards it.
 - `79ffae7` test: `cd backend && uv run pytest -q` (`610 passed`, 2 skipped, 8 failed = 7× `test_docker_entrypoint_*` and 1× `test_writeback_dryrun_routes`, unchanged baseline) with a `.env` present.
 
+## 2026-10-11 (branch: agent/373-text-candidates)
+
+### Deterministic date and correspondent candidates from the document text (#373, tracking #359)
+- `1c5a3e6` feat(api): date rules cover about 10% of documents with other formats, mainly invoices from other EU countries: `dd-mm-yyyy`, `dd/mm/yyyy` (month-first only when unambiguous), `yyyy/mm/dd`, written months in English, French, Spanish, Italian, Dutch, Portuguese, Polish and Czech (with ordinals and "de"/"of"), and issue/due/delivery/birth keywords in these languages; invoice-number-like values (`2026-09-20-001`) are ignored.
+- `35205df` feat(api): [`text_candidates.py`](backend/app/services/ai/text_candidates.py) ranks date occurrences (issue / delivery / due / period, nearest keyword wins, birth dates dropped) and matches known correspondents against header lines, text and e-mail/website domains; `GET /documents/{id}/suggestions/candidates` in [`documents_suggestions.py`](backend/app/routes/documents_suggestions.py) serves them from stored page texts without OCR, LLM or queue work. OpenAPI and generated client regenerated (the client also picks up four small optional fields that were missing from the committed client).
+- `35205df` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) shows a "Candidates from text" block; a click selects a candidate for the field and feeds the existing "Apply selected" flow (source `text_candidates`, nothing preselected).
+- `35205df` test: `cd backend && uv run pytest -q tests/test_text_candidates.py tests/test_documents_suggestions_routes.py tests/test_openapi_spec_sync.py` and `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+- `35205df` note: `tests/test_documents_routes.py::test_mark_reviewed_moves_document_out_of_unreviewed` and `::test_documents_list_cache_invalidates_after_mark_reviewed` fail when a developer `.env` is present in the repository root (verified on a clean `develop` worktree with the same `.env`); they pass without it.
+
 ## 2026-10-11 (branch: agent/371-review-paging-prefetch)
 
 ### Review mode continues across list pages and prefetches the next document (#371, tracking #359)
