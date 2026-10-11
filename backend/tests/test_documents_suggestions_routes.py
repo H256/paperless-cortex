@@ -283,3 +283,78 @@ def test_apply_suggestion_invalid_field_returns_400(api_client: Any) -> None:
     )
     assert response.status_code == 400
     assert "Invalid field" in response.json()["detail"]
+
+
+def test_get_suggestions_attaches_implausibility_warnings(api_client: Any, monkeypatch: Any) -> None:
+    import datetime
+
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=720, title="Doc 720", content="Inhalt"))
+        # A future date, a filename-like title, and an unknown correspondent.
+        db.add(
+            DocumentSuggestion(
+                doc_id=720,
+                source="paperless_ocr",
+                payload=json.dumps(
+                    {
+                        "date": (datetime.date.today() + datetime.timedelta(days=30)).isoformat(),
+                        "title": "scan_2026-01-15.pdf",
+                        "correspondent": "Unknown Co",
+                        "tags": ["invoice"],
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(paperless, "get_document", lambda *a, **k: {"content": ""})
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: ["Acme"])
+
+    response = api_client.get("/documents/720/suggestions")
+    assert response.status_code == 200
+    payload = response.json()
+    warnings = payload["suggestions"]["paperless_ocr"]["suggestion_warnings"]
+    assert len(warnings) == 3
+    assert any("in the future" in w for w in warnings)
+    assert any("looks like a filename" in w for w in warnings)
+    assert any("not a known correspondent" in w for w in warnings)
+
+
+def test_get_suggestions_plausible_payload_has_no_warnings(api_client: Any, monkeypatch: Any) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=721, title="Doc 721", content="Inhalt"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=721,
+                source="paperless_ocr",
+                payload=json.dumps(
+                    {
+                        "date": "2026-01-15",
+                        "title": "Invoice from Acme",
+                        "correspondent": "Acme",
+                        "tags": ["invoice"],
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(paperless, "get_document", lambda *a, **k: {"content": ""})
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: ["Acme"])
+
+    response = api_client.get("/documents/721/suggestions")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["suggestions"]["paperless_ocr"]["suggestion_warnings"] == []
