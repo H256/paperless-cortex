@@ -78,7 +78,10 @@ def _documents_list_cache_key(
     include_derived: bool,
     include_summary_preview: bool,
     review_status: str,
-) -> tuple[int, int, str | None, int | None, int | None, str | None, str | None, str | None, bool, bool, str]:
+    issue_date_is_import_date: bool = False,
+) -> tuple[
+    int, int, str | None, int | None, int | None, str | None, str | None, str | None, bool, bool, str, bool
+]:
     return (
         int(page),
         int(page_size),
@@ -91,7 +94,19 @@ def _documents_list_cache_key(
         include_derived,
         include_summary_preview,
         review_status,
+        bool(issue_date_is_import_date),
     )
+
+
+def _day_of(value: object) -> str:
+    return value[:10] if isinstance(value, str) else ""
+
+
+def _issue_date_is_import_date(row: dict) -> bool:
+    """True when the issue date falls on the import day (Paperless fell back to "today")."""
+    issue_day = _day_of(row.get("document_date")) or _day_of(row.get("created"))
+    added_day = _day_of(row.get("added"))
+    return bool(issue_day) and issue_day == added_day
 
 
 @router.get("/", response_model=DocumentsPageResponse)
@@ -107,6 +122,7 @@ def list_documents(
     include_derived: bool = False,
     include_summary_preview: bool = False,
     review_status: str = "all",
+    issue_date_is_import_date: bool = False,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
@@ -159,7 +175,13 @@ def list_documents(
             if missing_correspondent_only:
                 batch_results = [row for row in batch_results if row.get("correspondent") is None]
             matching = [
-                row for row in batch_results if row.get("review_status") == normalized_review_status
+                row
+                for row in batch_results
+                if (
+                    normalized_review_status == "all"
+                    or row.get("review_status") == normalized_review_status
+                )
+                and (not issue_date_is_import_date or _issue_date_is_import_date(row))
             ]
             batch_count = len(matching)
             full_results.extend(matching)
@@ -170,7 +192,7 @@ def list_documents(
         return {"count": filtered_total, "results": full_results}
 
     def _build_payload() -> dict[str, object]:
-        if normalized_review_status != "all":
+        if normalized_review_status != "all" or issue_date_is_import_date:
             full = get_cached_documents_page(
                 cache_key=_documents_list_cache_key(
                     page=0,
@@ -184,6 +206,7 @@ def list_documents(
                     include_derived=include_derived,
                     include_summary_preview=include_summary_preview,
                     review_status=normalized_review_status,
+                    issue_date_is_import_date=issue_date_is_import_date,
                 ),
                 build_payload=_build_review_full,
             )
@@ -224,7 +247,7 @@ def list_documents(
             page_size=page_size,
         )
 
-    if not include_derived and normalized_review_status == "all":
+    if not include_derived and normalized_review_status == "all" and not issue_date_is_import_date:
         return _build_payload()
 
     return get_cached_documents_page(
@@ -240,6 +263,7 @@ def list_documents(
             include_derived=include_derived,
             include_summary_preview=include_summary_preview,
             review_status=normalized_review_status,
+            issue_date_is_import_date=issue_date_is_import_date,
         ),
         build_payload=_build_payload,
     )

@@ -70,6 +70,8 @@
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
         :current-tag-list="currentTagList"
+        :text-candidates="textCandidates"
+        :text-sources="guidanceTextSources"
         :applying="suggestionsApplying"
         :import-date="document?.created || ''"
         @refresh="refreshSuggestionsAction"
@@ -229,6 +231,7 @@ import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useDocumentSimilarity } from '../composables/useDocumentSimilarity'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useDocumentWriteback } from '../composables/useDocumentWriteback'
+import { useTextCandidates } from '../composables/useTextCandidates'
 import { useReviewQueue } from '../composables/useReviewQueue'
 import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
@@ -380,10 +383,38 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs', field: string) => {
+const suggestFieldAction = async (
+  source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
+  field: string,
+  guidance?: {
+    focus_text?: string
+    hint?: string
+    text_source?: 'paperless_ocr' | 'vision_ocr'
+  },
+) => {
   if (source === 'similar_docs') return
-  await suggestField(docId.value, source, field)
+  await suggestField(docId.value, source, field, guidance)
 }
+
+// Texts the reviewer can mark a passage in (the same text the model works with).
+const guidanceTextSources = computed(() => {
+  const labels: Record<string, string> = { paperless_ocr: 'Paperless OCR', vision_ocr: 'Vision OCR' }
+  const bySource = new Map<string, string[]>()
+  for (const page of pageTexts.value) {
+    const key = String(page.source || '')
+    if (!key || !page.text) continue
+    bySource.set(key, [...(bySource.get(key) ?? []), page.text])
+  }
+  const sources = [...bySource.entries()].map(([key, texts]) => ({
+    key,
+    label: labels[key] ?? key,
+    text: texts.join('\n\n'),
+  }))
+  if (!sources.length && document.value?.content) {
+    sources.push({ key: 'content', label: 'Document text', text: document.value.content })
+  }
+  return sources
+})
 
 const currentNotePreview = computed(() =>
   (document.value?.notes || [])
@@ -582,6 +613,20 @@ const {
 })
 
 const suggestionsApplying = ref(false)
+
+const { candidates: textCandidates, load: loadTextCandidates, reset: resetTextCandidates } =
+  useTextCandidates()
+
+watch(
+  [() => docId.value, activeTab],
+  ([id, tab], [previousId]) => {
+    // One watcher: a reset in a second watcher would invalidate the load started here.
+    if (id !== previousId) resetTextCandidates()
+    if (tab !== 'suggestions' || !Number.isFinite(id) || id <= 0) return
+    void loadTextCandidates(id)
+  },
+  { immediate: true },
+)
 
 const applySelectedAction = async (items: SuggestionApplyItem[]) => {
   if (suggestionsApplying.value || !items.length) return

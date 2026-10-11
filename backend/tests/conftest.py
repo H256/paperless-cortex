@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import uuid
@@ -18,7 +20,15 @@ if TYPE_CHECKING:
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
 
+import app.config as _app_config  # noqa: E402
 from app.models import Base  # noqa: E402
+
+# A developer `.env` in the repository root must not leak into the tests: it would set
+# PAPERLESS_BASE_URL/API token, LLM and vector-store settings, so tests could take
+# production code paths (or even talk to real services) instead of the mocked ones.
+# `load_dotenv` never overrides variables that are already set, so everything the
+# tests rely on is set explicitly in `_set_test_env` or by the individual test.
+_app_config._load_env = lambda _repo_root: None
 
 
 def _set_test_env(db_path: Path) -> None:
@@ -28,6 +38,72 @@ def _set_test_env(db_path: Path) -> None:
     os.environ["ENABLE_VISION_OCR"] = "1"
     os.environ["QDRANT_URL"] = "http://test-qdrant:6333"
     os.environ["RUNTIME_SETTINGS_MASTER_KEY"] = "xjFFDGjXcmcrwlFe0Vm9Dq4mOAcN2DERPslm9jqISqg="
+
+
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", "testserver"}
+
+
+@pytest.fixture(autouse=True)
+def _block_real_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail fast when a test would send a real HTTP request.
+
+    Tests must stub the Paperless, LLM and vector-store clients. An unstubbed call used to
+    reach whatever instance the environment points at (and was often swallowed as a 404).
+    Loopback/in-process hosts stay allowed; `httpx.MockTransport` is unaffected.
+    """
+    import httpx
+
+    original = httpx.HTTPTransport.handle_request
+
+    def _guarded(self: Any, request: Any) -> Any:
+        if request.url.host not in _LOOPBACK_HOSTS:
+            raise RuntimeError(
+                f"Real network access in a test: {request.method} {request.url}. "
+                "Stub the client (e.g. monkeypatch the paperless/llm function)."
+            )
+        return original(self, request)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _guarded)
+
+
+def _bash_candidates() -> list[str]:
+    candidates: list[str] = []
+    found = shutil.which("bash")
+    if found:
+        candidates.append(found)
+    if sys.platform == "win32":
+        # `bash` on PATH is often the WSL launcher; Git for Windows ships a real one.
+        for base in (
+            os.environ.get("PROGRAMFILES"),
+            os.environ.get("PROGRAMFILES(X86)"),
+            os.environ.get("LOCALAPPDATA") and str(Path(os.environ["LOCALAPPDATA"]) / "Programs"),
+        ):
+            if not base:
+                continue
+            for relative in ("Git/bin/bash.exe", "Git/usr/bin/bash.exe"):
+                path = Path(base) / relative
+                if path.is_file():
+                    candidates.append(str(path))
+    return candidates
+
+
+@pytest.fixture(scope="session")
+def posix_bash() -> str:
+    """Path of a working POSIX bash, or skip: the Docker entrypoint is a bash script."""
+    for candidate in _bash_candidates():
+        try:
+            result = subprocess.run(
+                [candidate, "-c", "echo ok"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode == 0 and result.stdout.strip() == "ok":
+            return candidate
+    pytest.skip("no working POSIX bash available")
 
 
 @pytest.fixture()

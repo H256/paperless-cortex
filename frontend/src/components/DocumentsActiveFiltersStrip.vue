@@ -47,6 +47,7 @@ type FilterKey =
   | 'model'
   | 'search'
   | 'running_only'
+  | 'import_date'
 
 const props = defineProps<{
   tags: Tag[]
@@ -60,6 +61,7 @@ const props = defineProps<{
   modelFilter: string
   searchQuery: string
   runningOnly: boolean
+  issueDateIsImportDate?: boolean
 }>()
 
 defineEmits<{
@@ -71,6 +73,7 @@ const findNameById = <T extends { id?: number | null; name?: string | null }>(
   items: T[],
   idValue: string,
 ): string => {
+  if (idValue === '-1') return 'Without correspondent'
   const id = Number(idValue)
   if (!Number.isFinite(id)) return idValue
   return items.find((item) => item.id === id)?.name?.trim() || idValue
@@ -125,6 +128,9 @@ const activeFilters = computed(() => {
   }
   if (props.runningOnly) {
     items.push({ key: 'running_only', label: 'State', value: 'Running only' })
+  }
+  if (props.issueDateIsImportDate) {
+    items.push({ key: 'import_date', label: 'Issue date', value: 'equals import date' })
   }
   return items
 })

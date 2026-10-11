@@ -25,12 +25,20 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 
 type AnalysisFilter = 'all' | 'analyzed' | 'not_analyzed'
 type ReviewStatus = 'all' | 'unreviewed' | 'reviewed' | 'needs_review'
-type PresetKey = 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox'
+type PresetKey =
+  | 'unreviewed'
+  | 'needs_review'
+  | 'not_analyzed'
+  | 'inbox'
+  | 'no_correspondent'
+  | 'import_date'
 
 const props = defineProps<{
   analysisFilter: AnalysisFilter
   reviewStatus: ReviewStatus
   searchQuery?: string
+  selectedCorrespondent?: string
+  issueDateIsImportDate?: boolean
 }>()
 
 const hasSearchFilter = computed(() => Boolean(props.searchQuery?.trim()))
@@ -63,6 +71,19 @@ const presets = computed(() => [
       props.reviewStatus === 'unreviewed' &&
       props.analysisFilter === 'not_analyzed',
   },
+  {
+    // Filter presets: they keep the other filters (e.g. "Unreviewed") and toggle on/off.
+    key: 'no_correspondent' as const,
+    label: 'No correspondent',
+    shortcut: 'Alt+5',
+    active: props.selectedCorrespondent === '-1',
+  },
+  {
+    key: 'import_date' as const,
+    label: 'Issue date = import date',
+    shortcut: 'Alt+6',
+    active: Boolean(props.issueDateIsImportDate),
+  },
 ])
 
 const buttonClass = (active: boolean) =>
@@ -86,6 +107,8 @@ const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === '2') emit('applyPreset', 'needs_review')
   if (event.key === '3') emit('applyPreset', 'not_analyzed')
   if (event.key === '4') emit('applyPreset', 'inbox')
+  if (event.key === '5') emit('applyPreset', 'no_correspondent')
+  if (event.key === '6') emit('applyPreset', 'import_date')
 }
 
 onMounted(() => {

@@ -17,4 +17,5 @@ q?: string | null;
 include_derived?: boolean;
 include_summary_preview?: boolean;
 review_status?: string;
+issue_date_is_import_date?: boolean;
 };

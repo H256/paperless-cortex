@@ -513,6 +513,31 @@ class SuggestionsResponse(BaseModel):
     queued: bool | None = None
 
 
+class DateCandidate(BaseModel):
+    value: str
+    label: str
+    score: float
+    context: str = ""
+    page: int | None = None
+    occurrences: int = 1
+    sources: list[str] = []
+
+
+class CorrespondentCandidate(BaseModel):
+    name: str
+    known: bool
+    score: float
+    evidence: str
+    context: str = ""
+    sources: list[str] = []
+
+
+class TextCandidatesResponse(BaseModel):
+    doc_id: int
+    dates: list[DateCandidate] = []
+    correspondents: list[CorrespondentCandidate] = []
+
+
 class SuggestFieldVariantsResponse(BaseModel):
     doc_id: int
     source: str

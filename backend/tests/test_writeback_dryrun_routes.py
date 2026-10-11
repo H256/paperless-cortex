@@ -296,11 +296,23 @@ def test_execute_direct_migrates_stale_local_correspondent_id(
         return {"id": _doc_id}
 
     monkeypatch.setattr(paperless, "update_document", _update_document)
+    # Writeback clears the owner of an existing, matched correspondent; without this
+    # stub the test would send a real PATCH to the configured Paperless instance.
+    owner_updates: list[tuple[int, dict[str, Any]]] = []
+
+    def _update_correspondent(
+        _settings: Any, correspondent_id: int, payload: dict[str, Any]
+    ) -> dict[str, int]:
+        owner_updates.append((correspondent_id, dict(payload)))
+        return {"id": correspondent_id}
+
+    monkeypatch.setattr(paperless, "update_correspondent", _update_correspondent)
 
     response = api_client.post("/writeback/documents/1869/execute-direct", json={})
     assert response.status_code == 200
     assert patch_payloads
     assert patch_payloads[0].get("correspondent") == 9010
+    assert owner_updates == [(9010, {"owner": None})]
 
     with Session(engine) as db:
         d1 = db.get(Document, 1869)
