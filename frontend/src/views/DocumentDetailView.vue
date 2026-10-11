@@ -26,7 +26,7 @@
       @reload="reloadAll"
     />
 
-    <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
+    <div v-if="showLoading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-4">
       <div
         :class="splitActive ? 'grid gap-4 xl:grid-cols-2 xl:items-start' : 'space-y-6'"
@@ -656,6 +656,11 @@ const {
 })
 
 const suggestionsApplying = ref(false)
+
+// Reloading the document that is already shown (e.g. after a preset or a single apply) must not
+// unmount the detail view: that would drop the ticked suggestions and the guidance inputs. Only the
+// first load and switching to another document show the placeholder.
+const showLoading = computed(() => loading.value && document.value?.id !== docId.value)
 
 const { candidates: textCandidates, load: loadTextCandidates, reset: resetTextCandidates } =
   useTextCandidates()
