@@ -393,3 +393,34 @@ describe('DocumentSuggestionsSection agreement indicator', () => {
   })
 })
 
+describe('DocumentSuggestionsSection compact layout', () => {
+  const baseProps = {
+    suggestions: { vision_ocr: { parsed: { title: 'Rechnung Teufel' } } },
+    suggestionsError: '',
+    suggestionsLoading: false,
+    suggestionVariants: {},
+    suggestionVariantLoading: {},
+    suggestionVariantError: {},
+    currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+    currentTagList: [],
+  }
+
+  it('lays the source panels side by side by default', () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props: baseProps })
+    const classes = wrapper.get('[data-testid="suggestion-panels"]').classes().join(' ')
+    expect(classes).toContain('lg:grid-cols-2')
+    expect(classes).not.toContain('xl:grid-cols-1')
+    wrapper.unmount()
+  })
+
+  it('stacks panels and field rows in the narrow split-view column', () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props: { ...baseProps, compact: true } })
+    expect(wrapper.get('[data-testid="suggestion-panels"]').classes().join(' ')).toContain(
+      'xl:grid-cols-1',
+    )
+    const fieldRow = wrapper.find('[data-testid="select-vision_ocr-title"]').element.closest('.grid')
+    expect(fieldRow?.className).toContain('xl:grid-cols-1')
+    wrapper.unmount()
+  })
+})
+

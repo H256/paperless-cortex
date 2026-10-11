@@ -219,12 +219,14 @@
         </div>
       </details>
 
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid gap-4" :class="compact ? 'lg:grid-cols-2 xl:grid-cols-1' : 'lg:grid-cols-2'" data-testid="suggestion-panels">
         <div
           v-for="panel in orderedPanels"
           :key="panel.key"
           class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-          :class="panel.key === 'similar_docs' ? 'lg:col-span-2' : ''"
+          :class="
+            panel.key === 'similar_docs' ? (compact ? 'lg:col-span-2 xl:col-span-1' : 'lg:col-span-2') : ''
+          "
         >
           <div class="flex items-center justify-between">
             <strong class="text-sm text-slate-900 dark:text-slate-100">{{ panel.label }}</strong>
@@ -394,7 +396,8 @@
               <div
                 v-for="field in fieldsForPanel(panel)"
                 :key="`${panel.key}-${field.key}`"
-                class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
+                class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2"
+                :class="compact ? 'md:grid-cols-[140px_1fr_auto] xl:grid-cols-1' : 'md:grid-cols-[140px_1fr_auto]'"
               >
                 <label
                   v-if="panel.allowActions && hasSuggestedValue(panel.suggestion.data, field.key)"
@@ -650,6 +653,8 @@ const props = withDefaults(defineProps<{
   }
   currentTagList?: string[]
   applying?: boolean
+  /** Beside the PDF on wide screens: stack the panels and field rows in the narrower column. */
+  compact?: boolean
   importDate?: string
   textSources?: Array<{ key: string; label: string; text: string }>
   textCandidates?: {
@@ -659,6 +664,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   currentTagList: () => [],
   applying: false,
+  compact: false,
   importDate: '',
   textCandidates: null,
   textSources: () => [],

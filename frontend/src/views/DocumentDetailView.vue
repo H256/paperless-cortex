@@ -83,6 +83,7 @@
         :suggestion-variant-error="suggestionVariantError"
         :suggestion-variant-wait="suggestionVariantWait"
         :current-values="currentValues"
+        :compact="splitActive"
         :current-tag-list="currentTagList"
         :text-candidates="textCandidates"
         :text-sources="guidanceTextSources"

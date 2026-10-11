@@ -16,7 +16,7 @@
     </div>
 
     <ContinueProcessingPanel
-      class="mx-auto w-full max-w-6xl"
+      class="mx-auto w-full max-w-[120rem]"
       :sync-status="syncStatus"
       :progress-percent="progressPercent"
       :eta-text="etaText"
