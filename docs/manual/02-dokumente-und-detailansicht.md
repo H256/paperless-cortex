@@ -53,6 +53,7 @@ Unter den Filtern gibt es zusätzliche Hilfen:
 - Zusätzliche Filter-Presets, die andere Filter (z. B. `Unreviewed`) beibehalten und sich ein- und ausschalten lassen:
   - `No correspondent` (`Alt+5`): nur Dokumente ohne Korrespondent.
   - `Issue date = import date` (`Alt+6`): Dokumente, deren Ausstellungsdatum auf den Importtag fällt, bei denen Paperless also vermutlich kein Datum erkannt hat.
+- Die Liste merkt sich die zuletzt benutzten Filter: Öffnen Sie `Documents` ohne Filter in der Adresse (z. B. über die Navigation), werden sie wiederhergestellt. `Clear all` oder `Reset` löscht sie wieder.
 - Zähler an den Presets: `Unreviewed`, `Needs review`, `No correspondent` und `Issue date = import date` zeigen, wie viele Dokumente in der ganzen Bibliothek noch offen sind (`No correspondent` und `Issue date = import date` zählen nur ungeprüfte Dokumente).
 - Hinweis-Badges pro Zeile bei ungeprüften Dokumenten: `No correspondent` und `Date = import date` zeigen, warum ein Dokument Aufmerksamkeit braucht.
 - Schnellumschaltung zwischen Tabellen- und Kartenansicht
@@ -121,6 +122,20 @@ Sie sehen dort:
 - und eine Trennung zwischen Paperless-OCR und Vision-OCR, soweit vorhanden.
 
 Nutzen Sie diesen Tab, wenn Vorschläge seltsam wirken oder Suchergebnisse unplausibel erscheinen. Häufig liegt die Ursache in einer schwachen Texterkennung.
+
+### 4.1 Lesbarkeit der OCR-Texte
+
+Der Block `Readability of the OCR texts` bewertet beide Texte auf **einer** Skala von 0 bis 100 (höher ist besser) mit Ampelfarbe:
+
+- Pro Quelle (`Paperless OCR`, `Vision OCR`) steht die Lesbarkeit mit Urteil (`good`, `borderline`, `bad`).
+- `Language model check` zeigt die Perplexität des Textes. Liefert der Modellserver keine Logprobs, steht dort `not measured` statt einer Null.
+- Unter `Penalties` stehen die Rohwerte (niedriger ist besser): Rausch-Heuristik, Perplexität und Summe.
+- `Texts agree` gibt an, welcher Anteil der Wörter in beiden Texten vorkommt. Niedrige Werte heißen: die Texte unterscheiden sich im Inhalt, dann lieber beide ansehen.
+- `Better text` nennt die Quelle, die besser lesbar ist. Sind beide etwa gleich gut, gibt es keine Empfehlung.
+
+Die Wortprüfung berücksichtigt Akzente und Sonderzeichen anderer Sprachen (z. B. é, ñ, ł), nicht nur deutsche Umlaute. Nicht erkannt werden eine falsche Lesereihenfolge oder vertauschte Spalten, dafür ist der Quellenvergleich gedacht.
+
+Die Empfehlung erscheint auch im Tab `Suggestions` unter `Guidance for "Suggest new"`. Mit `Use it` wählen Sie den besseren Text für `Text the model reads` aus. Es wird nie automatisch umgestellt.
 
 ## 5. Tab `Suggestions`
 

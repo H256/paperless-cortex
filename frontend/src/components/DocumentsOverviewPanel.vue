@@ -1,34 +1,39 @@
 <template>
   <div class="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-start">
     <div
-      class="grid w-full grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm lg:grid-cols-4 xl:w-auto dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      class="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm xl:w-auto dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      data-testid="overview-stats"
     >
-      <div class="text-slate-500">Synced</div>
-      <div class="font-semibold text-slate-900 dark:text-slate-100">{{ stats.total }}</div>
-      <div class="text-slate-500">Queued</div>
-      <div class="font-semibold text-indigo-600">{{ queuedCount }}</div>
-
-      <div class="text-slate-500">Embeddings</div>
-      <div class="font-semibold text-emerald-600">{{ stats.embeddings }}</div>
-      <div class="text-slate-500">Vision OCR</div>
-      <div class="font-semibold text-emerald-600">{{ stats.vision }}</div>
-
-      <div class="text-slate-500">Suggestions</div>
-      <div class="font-semibold text-emerald-600">{{ stats.suggestions }}</div>
-      <div class="text-slate-500">Fully processed</div>
-      <div class="font-semibold text-emerald-700 dark:text-emerald-400">
-        {{ stats.fully_processed }}
-      </div>
-
-      <div class="text-slate-500">Pending</div>
-      <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
-      <div
-        class="text-slate-500"
-        title="Documents with embeddings (same number as Embeddings)."
-      >
-        Processed*
-      </div>
-      <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
+      <span title="Documents synced from Paperless (deleted ones stay in Cortex but are not listed)">
+        <span class="text-slate-500">Synced</span>
+        <span class="ml-1 font-semibold text-slate-900 dark:text-slate-100">{{ stats.total }}</span>
+      </span>
+      <span>
+        <span class="text-slate-500">Queued</span>
+        <span class="ml-1 font-semibold text-indigo-600">{{ queuedCount }}</span>
+      </span>
+      <span title="Documents with embeddings">
+        <span class="text-slate-500">Embeddings</span>
+        <span class="ml-1 font-semibold text-emerald-600">{{ stats.embeddings }}</span>
+      </span>
+      <span>
+        <span class="text-slate-500">Vision OCR</span>
+        <span class="ml-1 font-semibold text-emerald-600">{{ stats.vision }}</span>
+      </span>
+      <span>
+        <span class="text-slate-500">Suggestions</span>
+        <span class="ml-1 font-semibold text-emerald-600">{{ stats.suggestions }}</span>
+      </span>
+      <span>
+        <span class="text-slate-500">Fully processed</span>
+        <span class="ml-1 font-semibold text-emerald-700 dark:text-emerald-400">{{
+          stats.fully_processed
+        }}</span>
+      </span>
+      <span>
+        <span class="text-slate-500">Pending</span>
+        <span class="ml-1 font-semibold text-amber-600">{{ stats.unprocessed }}</span>
+      </span>
     </div>
     <div
       v-if="isProcessing"

@@ -78,6 +78,16 @@
                 class="ml-1 text-slate-400 dark:text-slate-500"
                 >{{ candidate.occurrences }}×</span
               >
+              <button
+                v-if="candidate.page"
+                type="button"
+                class="ml-1.5 rounded border border-sky-200 bg-white px-1 py-0.5 text-[10px] font-semibold text-sky-600 hover:border-sky-300 dark:border-sky-900/50 dark:bg-slate-900 dark:text-sky-300"
+                :data-testid="`jump-page-candidate-date-${candidate.value}`"
+                title="Jump to the PDF page where this date was found"
+                @click.stop="jumpToPage(candidate.page)"
+              >
+                p.{{ candidate.page }}
+              </button>
             </button>
           </div>
         </div>
@@ -135,6 +145,25 @@
             data-testid="guidance-hint"
           />
         </label>
+        <div
+          v-if="recommendedLabel"
+          class="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
+          data-testid="recommended-text-source"
+        >
+          <span>
+            <span class="font-semibold">Better text: {{ recommendedLabel }}</span>
+            <span v-if="recommendationReason"> — {{ recommendationReason }}</span>
+          </span>
+          <button
+            v-if="canUseRecommended && modelTextSource !== recommendedTextSource"
+            type="button"
+            class="rounded-md border border-emerald-300 bg-white px-2 py-0.5 font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200"
+            data-testid="use-recommended-text-source"
+            @click="useRecommendedTextSource"
+          >
+            Use it
+          </button>
+        </div>
         <label
           v-if="textSources.length > 1"
           class="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300"
@@ -219,267 +248,170 @@
         </div>
       </details>
 
-      <div class="grid gap-4" :class="compact ? 'lg:grid-cols-2 xl:grid-cols-1' : 'lg:grid-cols-2'" data-testid="suggestion-panels">
-        <div
-          v-for="panel in orderedPanels"
-          :key="panel.key"
-          class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-          :class="
-            panel.key === 'similar_docs' ? (compact ? 'lg:col-span-2 xl:col-span-1' : 'lg:col-span-2') : ''
-          "
+      <div
+        class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700"
+        data-testid="suggestion-comparison-table"
+      >
+        <table
+          class="w-full border-collapse text-left text-sm"
+          :class="compact ? 'min-w-[600px]' : 'min-w-[760px]'"
+          data-testid="suggestion-table"
         >
-          <div class="flex items-center justify-between">
-            <strong class="text-sm text-slate-900 dark:text-slate-100">{{ panel.label }}</strong>
-            <div v-if="panel.allowActions" class="flex items-center gap-2">
-              <button
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                :disabled="suggestionsLoading || isVariantBusy(panel.source)"
-                @click="emit('refresh', panel.source)"
-              >
-                <span v-if="suggestionsLoading" class="inline-flex items-center gap-2">
-                  <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                  Refreshing...
-                </span>
-                <span v-else>Refresh</span>
-              </button>
-              <button
-                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                :disabled="suggestionsLoading || isVariantBusy(panel.source)"
-                title="Generate alternative values for all suggestion fields."
-                @click="generateAllVariants(panel.source)"
-              >
-                <span v-if="isVariantBusy(panel.source)" class="inline-flex items-center gap-2">
-                  <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                  Generating...
-                </span>
-                <span v-else>Generate variants</span>
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-if="suggestionMetaLine(panel.source)"
-            class="mt-2 text-xs text-slate-500 dark:text-slate-400"
-          >
-            {{ suggestionMetaLine(panel.source) }}
-          </div>
-
-          <div
-            v-if="warningsFor(panel.source).length"
-            class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-          >
-            <div class="font-semibold">Check these suggested values</div>
-            <ul class="mt-1 list-disc space-y-0.5 pl-4">
-              <li v-for="(warning, index) in warningsFor(panel.source)" :key="index">{{ warning }}</li>
-            </ul>
-          </div>
-
-          <div v-if="!panel.suggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            <em>No data.</em>
-          </div>
-          <div v-else class="mt-3 space-y-3">
-            <div v-if="panel.suggestion.raw">
-              <div class="text-xs font-semibold text-slate-500">Raw output</div>
-              <pre
-                class="mt-1 max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >{{ panel.suggestion.raw }}</pre
-              >
-            </div>
-
-            <div v-if="panel.suggestion.data" class="space-y-2">
-              <div v-if="panel.showSummary" class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                <div class="flex items-start gap-2">
-                  <label
-                    v-if="panel.allowActions && hasSuggestedValue(panel.suggestion.data, 'note')"
-                    class="flex cursor-pointer items-center gap-2"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="isFieldSelected(panel.sourceKey, 'note')"
-                      :disabled="suggestionsLoading || applying"
-                      :data-testid="`select-${panel.source}-note`"
-                      @change="toggleField(panel.sourceKey, 'note', panel.suggestion.data)"
-                    />
-                    <span>Summary</span>
-                  </label>
-                  <span v-else>Summary</span>
-                  <span
-                    v-if="currentValues.note"
-                    class="inline-flex items-center text-slate-400"
-                    :title="currentValues.note"
-                  >
-                    <Info class="h-3.5 w-3.5" />
+          <thead>
+            <tr class="border-b border-slate-200 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              <th class="px-3 py-2 font-semibold">Field</th>
+              <th class="px-3 py-2 font-semibold">Current</th>
+              <th v-for="column in columns" :key="`head-${column.key}`" class="px-3 py-2 font-semibold">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span>{{ column.label }}</span>
+                  <span v-if="column.allowActions" class="flex items-center gap-2">
+                    <button
+                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                      :disabled="suggestionsLoading || isVariantBusy(column.source)"
+                      @click="emit('refresh', column.source)"
+                    >
+                      <span v-if="suggestionsLoading" class="inline-flex items-center gap-2">
+                        <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                        Refreshing...
+                      </span>
+                      <span v-else>Refresh</span>
+                    </button>
+                    <button
+                      class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 hover:border-emerald-300 disabled:opacity-60 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      :disabled="suggestionsLoading || isVariantBusy(column.source)"
+                      title="Generate alternative values for all suggestion fields."
+                      @click="generateAllVariants(column.source)"
+                    >
+                      <span v-if="isVariantBusy(column.source)" class="inline-flex items-center gap-2">
+                        <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                        Generating...
+                      </span>
+                      <span v-else>Generate variants</span>
+                    </button>
                   </span>
                 </div>
-                <button
-                  v-if="panel.allowActions"
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                  :disabled="suggestionsLoading || isVariantLoading(panel.source, 'note')"
-                  @click="requestSuggest(panel.source, 'note')"
-                >
-                  <span
-                    v-if="isVariantLoading(panel.source, 'note')"
-                    class="inline-flex items-center gap-2"
-                  >
-                    <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                    {{ waitLabel(panel.source, 'note') }}
-                  </span>
-                  <span v-else>Suggest new</span>
-                </button>
-                <button
-                  v-if="panel.allowNoteSave"
-                  class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                  :disabled="suggestionsLoading"
-                  @click="openApplyDialog(panel.sourceKey, 'note', panel.suggestion.data)"
-                >
-                  Save note
-                </button>
-              </div>
-              <div v-if="panel.showSummary" class="text-sm text-slate-900 dark:text-slate-100">
-                {{ panel.suggestion.data.summary }}
-              </div>
-              <div
-                v-if="
-                  panel.allowActions &&
-                  panel.showSummary &&
-                  (variantError(panel.source, 'note') ||
-                    isVariantLoading(panel.source, 'note') ||
-                    (variantsFor(panel.source, 'note') || []).length)
-                "
-                class="rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
-              >
-                <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
-                  Summary variants
-                </div>
-                <div v-if="variantError(panel.source, 'note')" class="mt-2 text-xs text-rose-600">
-                  {{ variantError(panel.source, 'note') }}
+                <div v-if="suggestionMetaLine(column.source)" class="mt-1 text-[11px] font-normal">
+                  {{ suggestionMetaLine(column.source) }}
                 </div>
                 <div
-                  v-else-if="isVariantLoading(panel.source, 'note')"
-                  class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                  v-if="warningsFor(column.source).length"
+                  class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
                 >
-                  <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                  Generating variants...
+                  <div class="font-semibold">Check these suggested values</div>
+                  <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                    <li v-for="(warning, index) in warningsFor(column.source)" :key="index">{{ warning }}</li>
+                  </ul>
                 </div>
-                <div
-                  v-else
-                  v-for="(variant, index) in variantsFor(panel.source, 'note')"
-                  :key="`${panel.key}-note-${index}-${variant}`"
-                  class="mt-2 flex items-start justify-between gap-2 text-xs"
-                  :class="index > 0 ? 'border-t border-slate-200 pt-2 dark:border-slate-700' : ''"
-                >
-                  <span class="text-slate-700 dark:text-slate-200">{{ variant }}</span>
-                  <button
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    @click="openVariantDialog(panel.source, 'note', variant)"
-                  >
-                    Apply
-                  </button>
+                <div v-if="column.suggestion?.raw" class="mt-1">
+                  <div class="text-[11px] font-semibold">Raw output</div>
+                  <pre class="max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-white p-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">{{ column.suggestion.raw }}</pre>
                 </div>
-              </div>
-              <div v-if="panel.showMeta" class="grid gap-2">
-                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Document type</span>
-                  <span class="text-slate-900 dark:text-slate-100">{{
-                    panel.suggestion.data.documentType ||
-                    panel.suggestion.data.suggested_document_type
-                  }}</span>
-                </div>
-                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Language</span>
-                  <span class="text-slate-900 dark:text-slate-100">{{
-                    panel.suggestion.data.language
-                  }}</span>
-                </div>
-              </div>
-
-              <div
-                v-for="field in fieldsForPanel(panel)"
-                :key="`${panel.key}-${field.key}`"
-                class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2"
-                :class="compact ? 'md:grid-cols-[140px_1fr_auto] xl:grid-cols-1' : 'md:grid-cols-[140px_1fr_auto]'"
-              >
+              </th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="field in tableFields"
+              :key="`row-${field.key}`"
+              class="border-b border-slate-200 last:border-b-0 dark:border-slate-700"
+            >
+              <td class="px-3 py-2 align-top">
                 <label
-                  v-if="panel.allowActions && hasSuggestedValue(panel.suggestion.data, field.key)"
+                  v-if="field.checkbox"
                   class="flex cursor-pointer items-start gap-2 text-xs text-slate-500 dark:text-slate-400"
                 >
                   <input
                     type="checkbox"
                     class="mt-0.5"
-                    :checked="isFieldSelected(panel.sourceKey, field.key)"
+                    :checked="field.checked"
                     :disabled="suggestionsLoading || applying"
-                    :data-testid="`select-${panel.source}-${field.key}`"
-                    @change="toggleField(panel.sourceKey, field.key, panel.suggestion.data)"
+                    :data-testid="`select-${field.checkboxSource}-${field.key}`"
+                    @change="field.toggle()"
                   />
                   <span>{{ field.label }}</span>
                 </label>
-                <span v-else class="text-xs text-slate-500 dark:text-slate-400">{{
-                  field.label
-                }}</span>
-                <div class="min-w-0 text-sm text-slate-900 dark:text-slate-100">
+                <span v-else class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
+                <span
+                  v-if="field.agreement"
+                  class="mt-1 inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                  :class="
+                    field.agreement.startsWith('single')
+                      ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200'
+                  "
+                  :data-testid="`agreement-${field.key}`"
+                >
+                  {{ field.agreement }}
+                </span>
+              </td>
+              <td class="px-3 py-2 align-top text-slate-500 dark:text-slate-400">
+                <span class="break-words">{{ field.current || '—' }}</span>
+              </td>
+              <td
+                v-for="column in columns"
+                :key="`cell-${column.key}-${field.key}`"
+                class="px-3 py-2 align-top"
+              >
+                <div v-if="!column.hasField(field.key)" class="text-xs text-slate-400 dark:text-slate-500">
+                  <em>No data.</em>
+                </div>
+                <template v-else>
                   <template v-if="field.key === 'tags'">
-                    <div
-                      v-if="normalizedTags(panel.suggestion.data).length"
-                      class="flex flex-wrap gap-1.5"
-                    >
+                    <div v-if="column.tagsFor(field.key).length" class="flex flex-wrap gap-1.5">
                       <component
-                        :is="panel.allowActions ? 'button' : 'span'"
-                        v-for="tag in normalizedTags(panel.suggestion.data)"
-                        :key="`tag-${panel.key}-${tag}`"
-                        :type="panel.allowActions ? 'button' : undefined"
+                        :is="column.allowActions ? 'button' : 'span'"
+                        v-for="tag in column.tagsFor(field.key)"
+                        :key="`tag-${column.key}-${field.key}-${tag}`"
+                        :type="column.allowActions ? 'button' : undefined"
                         class="rounded-full border px-2 py-0.5 text-xs font-semibold"
                         :class="
-                          isTagSelected(panel.sourceKey, tag)
+                          isTagSelected(column.sourceKey, tag)
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
                             : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
                         "
-                        :title="panel.allowActions ? 'Select tag for Apply selected' : undefined"
-                        @click="panel.allowActions && toggleTag(panel.sourceKey, tag)"
+                        :title="column.allowActions ? 'Select tag for Apply selected' : undefined"
+                        @click="column.allowActions && toggleTag(column.sourceKey, tag)"
                       >
                         {{ tag }}
                       </component>
                     </div>
-                    <span v-else class="text-xs text-slate-400 dark:text-slate-500"
-                      >No tags suggested</span
-                    >
+                    <span v-else class="text-xs text-slate-400 dark:text-slate-500">No tags suggested</span>
                   </template>
                   <template v-else>
-                    <span class="break-words">{{ fieldValue(panel.suggestion.data, field.key) }}</span>
-                    <span
-                      v-if="agreementBadge(panel.source, field.key)"
-                      class="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 align-middle text-[11px] font-semibold"
-                      :class="agreementBadge(panel.source, field.key)?.className"
-                      :title="agreementBadge(panel.source, field.key)?.title"
-                      :data-testid="`agreement-${panel.source}-${field.key}`"
-                    >
-                      {{ agreementBadge(panel.source, field.key)?.label }}
-                    </span>
+                    <span class="break-words text-slate-900 dark:text-slate-100">{{
+                      column.valueFor(field.key)
+                    }}</span>
                   </template>
-                  <div class="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">
-                    Current:
-                    {{
-                      field.key === 'tags'
-                        ? currentValues.tags || 'No tags'
-                        : currentValueFor(field.key) || 'â€”'
-                    }}
+                  <div
+                    v-if="field.key === 'date' && column.pageFor(field.key)"
+                    class="mt-1"
+                  >
+                    <button
+                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                      :data-testid="`jump-page-${column.key}-${field.key}`"
+                      @click="jumpToPage(column.pageFor(field.key))"
+                    >
+                      Jump to page {{ column.pageFor(field.key) }}
+                    </button>
                   </div>
                   <div
                     v-if="
-                      panel.allowActions &&
-                      (variantError(panel.source, field.key) ||
-                        isVariantLoading(panel.source, field.key) ||
-                        (variantsFor(panel.source, field.key) || []).length)
+                      column.allowActions &&
+                      (variantError(column.source, field.key) ||
+                        isVariantLoading(column.source, field.key) ||
+                        (variantsFor(column.source, field.key) || []).length)
                     "
                     class="mt-2 rounded-md border border-dashed border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"
                   >
                     <div class="text-xs font-semibold text-slate-500 dark:text-slate-300">
                       Variants for {{ field.label }}
                     </div>
-                    <div v-if="variantError(panel.source, field.key)" class="mt-2 text-xs text-rose-600">
-                      {{ variantError(panel.source, field.key) }}
+                    <div v-if="variantError(column.source, field.key)" class="mt-2 text-xs text-rose-600">
+                      {{ variantError(column.source, field.key) }}
                     </div>
                     <div
-                      v-else-if="isVariantLoading(panel.source, field.key)"
+                      v-else-if="isVariantLoading(column.source, field.key)"
                       class="mt-2 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
                     >
                       <Loader2 class="h-3.5 w-3.5 animate-spin" />
@@ -487,52 +419,54 @@
                     </div>
                     <div
                       v-else
-                      v-for="(variant, index) in variantsFor(panel.source, field.key)"
-                      :key="`${panel.key}-${field.key}-${index}-${variant}`"
+                      v-for="(variant, index) in variantsFor(column.source, field.key)"
+                      :key="`${column.key}-${field.key}-${index}-${variant}`"
                       class="mt-2 flex items-center justify-between gap-2 text-xs"
                     >
                       <span class="text-slate-700 dark:text-slate-200">{{
                         Array.isArray(variant) ? variant.join(', ') : variant
                       }}</span>
                       <button
-                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
+                        class="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
                         :disabled="suggestionsLoading"
-                        @click="openVariantDialog(panel.source, field.key, variant)"
+                        @click="openVariantDialog(column.source, field.key, variant)"
                       >
                         Use
                       </button>
                     </div>
                   </div>
-                </div>
+                </template>
+              </td>
+              <td class="px-3 py-2 align-top">
                 <div class="flex items-start gap-2">
                   <button
-                    v-if="panel.allowActions"
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    :disabled="suggestionsLoading || isVariantLoading(panel.source, field.key)"
-                    @click="requestSuggest(panel.source, field.key)"
+                    v-if="field.suggestSource"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    :disabled="suggestionsLoading || isVariantLoading(field.suggestSource, field.key)"
+                    @click="requestSuggest(field.suggestSource, field.key)"
                   >
                     <span
-                      v-if="isVariantLoading(panel.source, field.key)"
+                      v-if="isVariantLoading(field.suggestSource, field.key)"
                       class="inline-flex items-center gap-2"
                     >
                       <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                      {{ waitLabel(panel.source, field.key) }}
+                      {{ waitLabel(field.suggestSource, field.key) }}
                     </span>
                     <span v-else>Suggest new</span>
                   </button>
                   <button
+                    v-if="field.saveSource"
                     class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
                     :disabled="suggestionsLoading"
-                    @click="openApplyDialog(panel.sourceKey, field.key, panel.suggestion.data)"
+                    @click="openApplyDialog(field.saveSource, field.key, field.saveData ?? {})"
                   >
                     Save
                   </button>
                 </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div
@@ -616,15 +550,10 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Info, Loader2 } from 'lucide-vue-next'
+import { Loader2 } from 'lucide-vue-next'
 import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { mergeTagNames, type SuggestionApplyItem } from '../utils/suggestionSelection'
-import {
-  computeAgreement,
-  type AgreementField,
-  type AgreementResult,
-} from '../utils/suggestionAgreement'
 import type { CorrespondentCandidate, DateCandidate } from '../api/generated/model'
 
 type SuggestionPayload = Record<string, unknown>
@@ -655,6 +584,9 @@ const props = withDefaults(defineProps<{
   applying?: boolean
   /** Beside the PDF on wide screens: stack the panels and field rows in the narrower column. */
   compact?: boolean
+  /** OCR text that reads better (from the OCR quality scores), shown as a hint in the guidance. */
+  recommendedTextSource?: string | null
+  recommendationReason?: string | null
   importDate?: string
   textSources?: Array<{ key: string; label: string; text: string }>
   textCandidates?: {
@@ -687,8 +619,8 @@ const emit = defineEmits<{
   (e: 'applyVariantToDocument', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyToDocument', source: string, field: string, value: unknown): void
   (e: 'applySelected', items: SuggestionApplyItem[]): void
+  (e: 'jumpToPage', page: number): void
 }>()
-
 const suggestionFields = [
   { key: 'title', label: 'Suggested title' },
   { key: 'date', label: 'Suggested date' },
@@ -722,107 +654,117 @@ const warningsFor = (source: SuggestionSource): string[] => {
 const panelFor = (key: 'paperless_ocr' | 'vision_ocr' | 'similar_docs') =>
   normalizeSuggestion(props.suggestions?.[key])
 
-const panels = computed(() => [
-  {
-    key: 'vision_ocr',
-    label: 'Vision OCR',
-    source: 'vision_ocr' as const,
-    sourceKey: 'vision_ocr',
-    allowActions: true,
-    allowNoteSave: true,
-    showSummary: true,
-    showMeta: true,
-    suggestion: panelFor('vision_ocr'),
-  },
-  {
-    key: 'paperless_ocr',
-    label: 'Paperless OCR',
-    source: 'paperless_ocr' as const,
-    sourceKey: 'paperless_ocr',
-    allowActions: true,
-    allowNoteSave: true,
-    showSummary: true,
-    showMeta: true,
-    suggestion: panelFor('paperless_ocr'),
-  },
-  {
-    key: 'similar_docs',
-    label: 'Similar docs',
-    source: 'similar_docs' as const,
-    sourceKey: 'similar_docs',
-    allowActions: false,
-    allowNoteSave: false,
-    showSummary: false,
-    showMeta: true,
-    suggestion: panelFor('similar_docs'),
-  },
-])
+const columnHasField = (
+  column: { suggestion: { data?: SuggestionPayload | null } | null },
+  field: string,
+) =>
+  Boolean(column.suggestion?.data && hasSuggestedValue(column.suggestion.data, field))
 
-const orderedPanels = computed(() => panels.value)
+const columnValueFor = (
+  column: { suggestion: { data?: SuggestionPayload | null } | null },
+  field: string,
+) =>
+  fieldValue(column.suggestion?.data ?? {}, field)
 
-const AGREEMENT_SOURCES = ['vision_ocr', 'paperless_ocr', 'similar_docs'] as const
-const SOURCE_LABELS: Record<string, string> = {
-  vision_ocr: 'Vision OCR',
-  paperless_ocr: 'Paperless OCR',
-  similar_docs: 'Similar docs',
+const columnTagsFor = (
+  column: { suggestion: { data?: SuggestionPayload | null } | null },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  field: string,
+) =>
+  normalizedTags(column.suggestion?.data ?? {})
+
+const columnPageFor = (
+  column: { suggestion: { data?: SuggestionPayload | null } | null },
+  field: string,
+) => {
+  const page = column.suggestion?.data?.[field === 'date' ? 'page' : field]
+  return typeof page === 'number' && page > 0 ? page : 0
 }
 
-// Do the sources (and the text itself) agree on a value? Helps to spot nonsense at a glance.
-const agreementByField = computed(() => {
-  const result: Partial<Record<AgreementField, AgreementResult>> = {}
-  const textCandidates = props.textCandidates
-  const fieldInputs: Array<[AgreementField, string[]]> = [
-    ['title', []],
-    ['date', (textCandidates?.dates ?? []).map((candidate) => candidate.value)],
-    [
-      'correspondent',
-      (textCandidates?.correspondents ?? [])
-        .filter((candidate) => candidate.known !== false)
-        .map((candidate) => candidate.name),
-    ],
-  ]
-  for (const [field, textValues] of fieldInputs) {
-    const values: Record<string, unknown> = {}
-    for (const source of AGREEMENT_SOURCES) {
-      if (field === 'title' && source === 'similar_docs') continue
-      if (field === 'date' && source === 'similar_docs') continue
-      const data = panelFor(source)?.data
-      if (data) values[source] = suggestedValue(data, field)
+const normalizeComparable = (value: unknown): string => {
+  if (value == null) return ''
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).sort().join(',')
+  return String(value).trim()
+}
+
+const columns = computed(() =>
+  ([
+    { key: 'vision_ocr', label: 'Vision OCR', source: 'vision_ocr' as const, allowActions: true },
+    { key: 'paperless_ocr', label: 'Paperless OCR', source: 'paperless_ocr' as const, allowActions: true },
+    { key: 'similar_docs', label: 'Similar docs', source: 'similar_docs' as const, allowActions: false },
+  ] as const).map((column) => {
+    const base = panelFor(column.key)
+    return {
+      ...column,
+      sourceKey: column.key,
+      suggestion: base,
+      hasField: (field: string) => columnHasField({ suggestion: base }, field),
+      valueFor: (field: string) => columnValueFor({ suggestion: base }, field),
+      tagsFor: (field: string) => columnTagsFor({ suggestion: base }, field),
+      pageFor: (field: string) => columnPageFor({ suggestion: base }, field),
     }
-    result[field] = computeAgreement(field, { values, textValues })
+  }),
+)
+
+const tableFields = computed(() => {
+  const cols = columns.value
+  const makeRow = (key: string, label: string, options: { current: string }) => {
+    const present = cols.filter((column) => columnHasField({ suggestion: column.suggestion }, key))
+    const values = present.map((column) => normalizeComparable(column.valueFor(key)))
+    const distinct = new Set(values)
+    let agreement = ''
+    if (present.length >= 2 && distinct.size === 1) {
+      agreement = `${present.length} sources agree`
+    } else if (present.length === 1) {
+      agreement = 'single source'
+    }
+    const selectedEntry = selection.value[key]
+    const hasSelection = Boolean(selectedEntry?.source)
+    const effectiveSource =
+      (hasSelection ? present.find((column) => column.sourceKey === selectedEntry?.source) : undefined) ??
+      present[0]
+    const hasSuggested = Boolean(
+      effectiveSource && columnHasField({ suggestion: effectiveSource.suggestion }, key),
+    )
+    return {
+      key,
+      label,
+      current: options.current,
+      checkbox: hasSuggested,
+      checked: hasSelection && hasSuggested,
+      checkboxSource: effectiveSource?.sourceKey ?? '',
+      toggle: () =>
+        toggleField(
+          effectiveSource?.sourceKey ?? '',
+          key,
+          effectiveSource?.suggestion?.data ?? {},
+        ),
+      suggestSource: effectiveSource ? effectiveSource.source : undefined,
+      saveSource: effectiveSource ? effectiveSource.sourceKey : undefined,
+      saveData: effectiveSource?.suggestion?.data,
+      agreement,
+    }
   }
-  return result
+
+  const rows = [
+    makeRow('title', 'Suggested title', { current: props.currentValues.title }),
+    makeRow('date', 'Suggested date', { current: props.currentValues.date }),
+    makeRow('correspondent', 'Suggested correspondent', {
+      current: props.currentValues.correspondent,
+    }),
+    makeRow('tags', 'Suggested tags', {
+      current: props.currentValues.tags || 'No tags',
+    }),
+  ]
+  const hasNote = cols.some((column) => columnHasField({ suggestion: column.suggestion }, 'note'))
+  if (hasNote) {
+    rows.push(makeRow('note', 'Summary', { current: props.currentValues.note }))
+  }
+  return rows
 })
 
-const agreementBadge = (source: string, field: string) => {
-  if (field !== 'title' && field !== 'date' && field !== 'correspondent') return null
-  const agreement = agreementByField.value[field]
-  if (!agreement || agreement.total < 2 || !(source in agreement.agreeing)) return null
-  const count = agreement.agreeing[source] ?? 0
-  const matchesText = agreement.textMatches[source]
-  if (count >= 2) {
-    return {
-      label: `${count} / ${agreement.total} agree`,
-      title: matchesText
-        ? 'Other sources and the document text contain the same value'
-        : 'Another source suggests the same value',
-      className:
-        'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200',
-    }
-  }
-  return {
-    label: 'Only this source',
-    title: `${SOURCE_LABELS[source] ?? source} is the only source with this value`,
-    className:
-      'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200',
-  }
-}
-
-const fieldsForPanel = (panel: { key: string }) => {
-  if (panel.key === 'similar_docs') {
-    return suggestionFields.filter((field) => field.key === 'correspondent' || field.key === 'tags')
-  }
-  return suggestionFields
+const jumpToPage = (page: number | null | undefined) => {
+  if (page) emit('jumpToPage', page)
 }
 
 const suggestionMetaLine = (source: string) => {
@@ -957,8 +899,6 @@ const hasSuggestedValue = (data: SuggestionPayload, field: string) => {
   return value !== null && value !== undefined && value !== ''
 }
 
-const isFieldSelected = (source: string, field: string) => selection.value[field]?.source === source
-
 const isTagSelected = (source: string, tag: string) =>
   selection.value.tags?.source === source && Boolean(selection.value.tags.tags?.includes(tag))
 
@@ -1028,6 +968,21 @@ watch(
 )
 
 const modelTextSource = ref<'' | 'paperless_ocr' | 'vision_ocr'>('')
+const SOURCE_NAMES: Record<string, string> = {
+  vision_ocr: 'Vision OCR',
+  paperless_ocr: 'Paperless OCR',
+}
+const recommendedLabel = computed(() =>
+  props.recommendedTextSource ? (SOURCE_NAMES[props.recommendedTextSource] ?? '') : '',
+)
+const canUseRecommended = computed(() =>
+  props.textSources.some((source) => source.key === props.recommendedTextSource),
+)
+// Never preselected: the reviewer opts in, like every other suggestion input.
+const useRecommendedTextSource = () => {
+  const key = props.recommendedTextSource
+  if (key === 'paperless_ocr' || key === 'vision_ocr') modelTextSource.value = key
+}
 const pagesInput = ref('')
 const pagesInvalid = computed(
   () => Boolean(pagesInput.value.trim()) && !/^\d{1,4}(-\d{1,4})?(,\d{1,4}(-\d{1,4})?)*$/.test(pagesInput.value.replace(/\s+/g, '')),

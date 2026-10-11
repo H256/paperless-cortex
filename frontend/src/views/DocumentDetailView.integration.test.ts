@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentDetailView: unknown
 const toastPush = vi.fn()
+const detailLoading = ref(false)
 const loadDocumentMock = vi.fn(async () => undefined)
 const loadMetaMock = vi.fn(async () => undefined)
 const loadPageTextsMock = vi.fn(async () => undefined)
@@ -56,7 +57,7 @@ vi.mock('../composables/useDocumentDetailData', () => ({
       pending_tag_names: [],
       original_file_name: 'doc.pdf',
     }),
-    loading: ref(false),
+    loading: detailLoading,
     tags: ref([]),
     correspondents: ref([]),
     docTypes: ref([]),
@@ -68,6 +69,7 @@ vi.mock('../composables/useDocumentDetailData', () => ({
     ocrScores: ref([]),
     ocrScoresLoading: ref(false),
     ocrScoresError: ref(''),
+    ocrComparison: ref({ agreement: null, recommendedSource: null, reason: null }),
     suggestions: ref({}),
     suggestionsLoading: ref(false),
     suggestionsError: ref(''),
@@ -475,11 +477,11 @@ describe('DocumentDetailView', () => {
     await nextTick()
 
     const layout = () => wrapper.get('[data-testid="detail-layout"]').classes().join(' ')
-    expect(layout()).toContain('xl:grid-cols-2')
+    expect(layout()).toContain('xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')
     expect(wrapper.get('[data-testid="detail-pdf"]').classes().join(' ')).toContain('xl:sticky')
 
     await wrapper.get('[data-testid="split-view-toggle"]').setValue(false)
-    expect(layout()).not.toContain('xl:grid-cols-2')
+    expect(layout()).not.toContain('xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')
     await nextTick()
     expect(store.get('document_detail_split_view')).toBe('0')
     wrapper.unmount()
@@ -506,9 +508,109 @@ describe('DocumentDetailView', () => {
     await nextTick()
 
     expect(wrapper.get('[data-testid="detail-layout"]').classes().join(' ')).not.toContain(
-      'xl:grid-cols-2',
+      'xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
     )
     expect(wrapper.find('[data-testid="split-view-toggle"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('jumps the PDF to the page requested from the suggestions table', async () => {
+    route.query = { tab: 'suggestions' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: {
+            emits: ['jumpToPage'],
+            template: `<button data-test="jump" @click="$emit('jumpToPage', 3)">jump</button>`,
+          },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+
+    await wrapper.get('[data-test="jump"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-test="pdf-viewer"]').attributes('data-page')).toBe('3')
+    wrapper.unmount()
+  })
+
+  it('keeps the suggestions mounted while the same document reloads, but not when switching', async () => {
+    route.query = { tab: 'suggestions' }
+    route.params.id = '1'
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: { template: '<div data-test="suggestions-section" />' },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+    expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(true)
+
+    // same document (id 1) is reloading: the section must stay
+    detailLoading.value = true
+    await nextTick()
+    expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Loading...')
+
+    // another document is being loaded: placeholder instead of stale content
+    route.params.id = '2'
+    await nextTick()
+    expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Loading...')
+
+    detailLoading.value = false
+    route.params.id = '1'
+    wrapper.unmount()
+  })
+  it('confirms a single apply (preset) with a toast that says it is only local', async () => {
+    route.query = { tab: 'suggestions' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: {
+            emits: ['applyToDocument'],
+            template: `<button data-test="preset" @click="$emit('applyToDocument', 'preset', 'date', '2026-10-10')">p</button>`,
+          },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+    toastPush.mockClear()
+
+    await wrapper.get('[data-test="preset"]').trigger('click')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const messages = toastPush.mock.calls.map((call) => String(call[0]))
+    expect(messages.some((m) => m.includes('Applied issue date') && m.includes('Write back'))).toBe(true)
     wrapper.unmount()
   })
 })

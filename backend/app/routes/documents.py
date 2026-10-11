@@ -20,8 +20,9 @@ from app.api_models import (
 )
 from app.db import get_db
 from app.deps import get_settings
-from app.models import SuggestionAudit
+from app.models import DocumentPageText, SuggestionAudit
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.source_comparison import recommend_source, token_agreement
 from app.services.documents.dashboard import build_dashboard_payload
 from app.services.documents.dashboard_cache import (
     get_cached_dashboard_payload,
@@ -425,7 +426,7 @@ def get_document_ocr_scores(
     if not doc:
         return {"doc_id": doc_id, "scores": []}
     sources = [source] if source else ["paperless_ocr", "vision_ocr"]
-    scores = []
+    scores: list[dict[str, object]] = []
     for src in sources:
         row = ensure_document_ocr_score(settings, db, doc, src, force=refresh)
         if not row:
@@ -445,7 +446,24 @@ def get_document_ocr_scores(
                 "processed_at": row.processed_at,
             }
         )
-    return {"doc_id": doc_id, "scores": scores}
+    if source:
+        return {"doc_id": doc_id, "scores": scores}
+    vision_pages = (
+        db.query(DocumentPageText.text)
+        .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
+        .order_by(DocumentPageText.page.asc())
+        .all()
+    )
+    vision_text = "\n\n".join(str(row[0] or "") for row in vision_pages)
+    agreement = token_agreement(doc.content, vision_text)
+    recommendation = recommend_source(scores, agreement)
+    return {
+        "doc_id": doc_id,
+        "scores": scores,
+        "agreement": agreement,
+        "recommended_source": recommendation["source"],
+        "recommendation_reason": recommendation["reason"],
+    }
 
 
 @router.get("/{doc_id}/page-texts", response_model=PageTextsResponse)

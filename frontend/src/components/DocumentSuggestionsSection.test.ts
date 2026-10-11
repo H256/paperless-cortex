@@ -340,14 +340,32 @@ describe('DocumentSuggestionsSection guidance for Suggest new', () => {
   })
 })
 
-describe('DocumentSuggestionsSection agreement indicator', () => {
-  const mountAgreement = (extra: Record<string, unknown> = {}) =>
+describe('DocumentSuggestionsSection comparison table', () => {
+  const mountComparison = () =>
     mount(DocumentSuggestionsSection, {
       props: {
         suggestions: {
-          vision_ocr: { parsed: { title: 'Rechnung Teufel', date: '2026-09-20', correspondent: 'Teufel GmbH' } },
+          vision_ocr: {
+            parsed: {
+              title: 'Rechnung Teufel',
+              date: '2026-09-20',
+              correspondent: 'Lautsprecher Teufel GmbH',
+              tags: ['Rechnung'],
+            },
+          },
           paperless_ocr: {
-            parsed: { title: 'Rechnung Teufel', date: '2026-09-21', correspondent: 'Teufel GmbH' },
+            parsed: {
+              title: 'Rechnung Teufel',
+              date: '2026-09-25',
+              correspondent: 'Lautsprecher Teufel GmbH',
+              tags: ['Rechnung', 'Einkauf'],
+            },
+          },
+          similar_docs: {
+            parsed: {
+              correspondent: 'Lautsprecher Teufel GmbH',
+              tags: ['Rechnung'],
+            },
           },
         },
         suggestionsError: '',
@@ -355,46 +373,61 @@ describe('DocumentSuggestionsSection agreement indicator', () => {
         suggestionVariants: {},
         suggestionVariantLoading: {},
         suggestionVariantError: {},
+        currentValues: { title: 'scan_001', date: '', correspondent: '', tags: '', note: '' },
+        currentTagList: [],
+        importDate: '',
+      },
+    })
+
+  it('renders the comparison table with one row per field and all source columns', () => {
+    const wrapper = mountComparison()
+    expect(wrapper.find('[data-testid="suggestion-comparison-table"]').exists()).toBe(true)
+    const header = wrapper.find('thead')
+    expect(header.text()).toContain('Current')
+    expect(header.text()).toContain('Vision OCR')
+    expect(header.text()).toContain('Paperless OCR')
+    expect(header.text()).toContain('Similar docs')
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows.length).toBe(4)
+    expect(rows[0]?.text()).toContain('Suggested title')
+    expect(rows[1]?.text()).toContain('Suggested date')
+  })
+
+  it('marks cells without data and shows the agreement indicator', () => {
+    const wrapper = mountComparison()
+    expect(wrapper.text()).toContain('No data.')
+    const titleAgreement = wrapper.find('[data-testid="agreement-title"]')
+    expect(titleAgreement.text()).toBe('2 sources agree')
+    const dateAgreement = wrapper.find('[data-testid="agreement-date"]')
+    expect(dateAgreement.exists()).toBe(false)
+    const correspondentAgreement = wrapper.find('[data-testid="agreement-correspondent"]')
+    expect(correspondentAgreement.text()).toBe('3 sources agree')
+  })
+
+  it('emits jumpToPage for date candidates with page info', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, {
+      props: {
+        suggestions: { vision_ocr: { parsed: {} } },
+        suggestionsError: '',
+        suggestionsLoading: false,
+        suggestionVariants: {},
+        suggestionVariantLoading: {},
+        suggestionVariantError: {},
         currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
         currentTagList: [],
-        ...extra,
+        importDate: '',
+        textCandidates: { dates: [{ value: '2026-09-20', label: 'Rechnungsdatum', score: 1, evidence: '', page: 2 }] },
       },
     })
-
-  it('shows how many sources agree and flags values with a single source', () => {
-    const wrapper = mountAgreement()
-
-    expect(wrapper.get('[data-testid="agreement-vision_ocr-title"]').text()).toContain('2 / 2 agree')
-    expect(wrapper.get('[data-testid="agreement-paperless_ocr-title"]').text()).toContain('2 / 2 agree')
-    expect(wrapper.get('[data-testid="agreement-vision_ocr-date"]').text()).toBe('Only this source')
-    expect(wrapper.get('[data-testid="agreement-paperless_ocr-date"]').text()).toBe('Only this source')
-    wrapper.unmount()
-  })
-
-  it('counts the document text as an additional source', () => {
-    const wrapper = mountAgreement({
-      textCandidates: {
-        dates: [{ value: '2026-09-20', label: 'issue', score: 5 }],
-        correspondents: [],
-      },
-    })
-
-    expect(wrapper.get('[data-testid="agreement-vision_ocr-date"]').text()).toContain('2 / 3 agree')
-    expect(wrapper.get('[data-testid="agreement-paperless_ocr-date"]').text()).toBe('Only this source')
-    wrapper.unmount()
-  })
-
-  it('shows no badge when only one source has a value', () => {
-    const wrapper = mountAgreement({
-      suggestions: { vision_ocr: { parsed: { title: 'Nur eine Quelle' } } },
-    })
-    expect(wrapper.find('[data-testid^="agreement-"]').exists()).toBe(false)
-    wrapper.unmount()
+    const jump = wrapper.find('[data-testid="jump-page-candidate-date-2026-09-20"]')
+    expect(jump.exists()).toBe(true)
+    await jump.trigger('click')
+    expect(wrapper.emitted('jumpToPage')).toEqual([[2]])
   })
 })
 
-describe('DocumentSuggestionsSection compact layout', () => {
-  const baseProps = {
+describe('DocumentSuggestionsSection compact table', () => {
+  const props = {
     suggestions: { vision_ocr: { parsed: { title: 'Rechnung Teufel' } } },
     suggestionsError: '',
     suggestionsLoading: false,
@@ -405,21 +438,52 @@ describe('DocumentSuggestionsSection compact layout', () => {
     currentTagList: [],
   }
 
-  it('lays the source panels side by side by default', () => {
-    const wrapper = mount(DocumentSuggestionsSection, { props: baseProps })
-    const classes = wrapper.get('[data-testid="suggestion-panels"]').classes().join(' ')
-    expect(classes).toContain('lg:grid-cols-2')
-    expect(classes).not.toContain('xl:grid-cols-1')
+  it('uses a narrower table minimum in the split-view column', () => {
+    const normal = mount(DocumentSuggestionsSection, { props })
+    expect(normal.get('[data-testid="suggestion-table"]').classes().join(' ')).toContain('min-w-[760px]')
+    normal.unmount()
+
+    const compact = mount(DocumentSuggestionsSection, { props: { ...props, compact: true } })
+    const classes = compact.get('[data-testid="suggestion-table"]').classes().join(' ')
+    expect(classes).toContain('min-w-[600px]')
+    expect(classes).not.toContain('min-w-[760px]')
+    compact.unmount()
+  })
+})
+
+describe('DocumentSuggestionsSection recommended text source', () => {
+  const props = {
+    suggestions: { vision_ocr: { parsed: { title: 'Rechnung' } } },
+    suggestionsError: '',
+    suggestionsLoading: false,
+    suggestionVariants: {},
+    suggestionVariantLoading: {},
+    suggestionVariantError: {},
+    currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+    currentTagList: [],
+    textSources: [
+      { key: 'paperless_ocr', label: 'Paperless OCR', text: 'a' },
+      { key: 'vision_ocr', label: 'Vision OCR', text: 'b' },
+    ],
+    recommendedTextSource: 'vision_ocr',
+    recommendationReason: 'Readability 94 vs 60 for the other text.',
+  }
+
+  it('hints the better text but does not preselect it', () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    expect(wrapper.get('[data-testid="recommended-text-source"]').text()).toContain('Vision OCR')
+    const select = wrapper.get('[data-testid="guidance-model-text"]').element as HTMLSelectElement
+    expect(select.value).toBe('')
     wrapper.unmount()
   })
 
-  it('stacks panels and field rows in the narrow split-view column', () => {
-    const wrapper = mount(DocumentSuggestionsSection, { props: { ...baseProps, compact: true } })
-    expect(wrapper.get('[data-testid="suggestion-panels"]').classes().join(' ')).toContain(
-      'xl:grid-cols-1',
-    )
-    const fieldRow = wrapper.find('[data-testid="select-vision_ocr-title"]').element.closest('.grid')
-    expect(fieldRow?.className).toContain('xl:grid-cols-1')
+  it('uses the recommended text only when the reviewer asks for it', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    await wrapper.get('[data-testid="use-recommended-text-source"]').trigger('click')
+
+    const select = wrapper.get('[data-testid="guidance-model-text"]').element as HTMLSelectElement
+    expect(select.value).toBe('vision_ocr')
+    expect(wrapper.find('[data-testid="use-recommended-text-source"]').exists()).toBe(false)
     wrapper.unmount()
   })
 })

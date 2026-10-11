@@ -3,6 +3,31 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.9.2)
+
+### Release 0.9.2
+- `67613ef` chore(version): bumped the project version from `0.9.1` to `0.9.2` via `scripts/bump_version.py patch` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- `6fb349b` fix(web) (#417): [`main.py`](backend/app/main.py) serves `index.html` and the SPA fallback with `Cache-Control: no-cache` and the hashed files below `assets/` as `immutable`, so a deploy is visible on the next load instead of after a manual reload.
+- `7f7993d` feat(quality) (#418): [`text_pages.py`](backend/app/services/documents/text_pages.py) counts words and vowels Unicode-aware (accents of other EU languages); new [`source_comparison.py`](backend/app/services/ai/source_comparison.py) (word agreement of Paperless vs Vision text, readability = 100 - penalty, recommended source); `GET /documents/{id}/ocr-scores` returns `agreement`, `recommended_source`, `recommendation_reason`; [`DocumentTextQualitySection.vue`](frontend/src/components/DocumentTextQualitySection.vue) shows one 0-100 scale with traffic light, "not measured" instead of `0.00`, collapsed penalties and explanation, recommended source and agreement; the Suggestions guidance hints "Better text" with an opt-in "Use it".
+- `d8ffcb4` feat(documents) (#398): the last used filters are restored when the list opens without a query ([`useDocumentsRouteState.ts`](frontend/src/composables/useDocumentsRouteState.ts)); the stats are one compact row, the duplicate "Processed*" is gone.
+- `e3a2ce4` feat(ux) (#399): the status pill names the running task ("Processing 4/10 · Vision OCR 3/12 · #2210 +1", [`App.vue`](frontend/src/App.vue), [`taskLabels.ts`](frontend/src/utils/taskLabels.ts)).
+- `a311684` feat(ux) (#399): single applies (presets, "Use" on a variant) confirm with a toast that says the change is local until "Write back"; the detail view shows a skeleton while a document loads.
+- Also in this release since 0.9.1: comparison table with jump-to-page and split-column fixes (#412, #415) and the fix that keeps the ticked suggestions when the document reloads (#413, #414).
+- docs: plan [`2026-10-11-release-092.md`](docs/plans/2026-10-11-release-092.md); manual sections 2/4.1, 2/1.4 and 5/1.00.
+
+## 2026-10-11 (branch: agent/410-table-fixes)
+
+### Comparison table (#400, #410) with follow-ups (#412)
+- `d865051` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) shows the suggestions as a comparison table (Current | Vision OCR | Paperless OCR | Similar docs) with per-column Refresh/Generate variants, per-cell "Suggest new", merged identical values, an agreement indicator per field and "Jump to page" for date candidates; `ed88915` drops the then orphaned `suggestionAgreement` util. The original PR (#410) came from a deleted fork and could not be merged, so this branch carries those commits.
+- `7d6ca91` fix(frontend): [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) handles `jump-to-page` from the suggestions section (the buttons in the table did nothing), the split view gives the suggestions column 3:2 of the width, and [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) uses a 600 px table minimum in compact mode instead of 760 px.
+- `7d6ca91` test: jump handler (`DocumentDetailView.integration.test.ts`), compact table minimum; `cd frontend && npx vitest run` -> `196 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked visually.
+
+## 2026-10-11 (branch: agent/413-keep-selection-on-reload)
+
+### Keep the ticked suggestions when the document reloads (#413)
+- `0c591d9` fix(frontend): `loadDocument` sets `loading`, and [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) rendered `v-if="loading"` / `v-else`, so every reload of the same document (the "No correspondent" / "Issue date = import date" presets, single applies, writeback) unmounted the whole detail view and dropped the ticked fields of "Apply selected" and the guidance inputs. The placeholder now only shows while no document with the current id is loaded (first load, switching documents), which also keeps resetting the state on navigation.
+- `0c591d9` test: `DocumentDetailView.integration.test.ts` (reload keeps the section, switching shows the placeholder); `cd frontend && npx vitest run` -> `203 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked in a browser.
+
 ## 2026-10-11 (branch: agent/release-0.9.1)
 
 ### Release 0.9.1
