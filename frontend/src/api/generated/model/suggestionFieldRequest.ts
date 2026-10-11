@@ -9,4 +9,6 @@ export interface SuggestionFieldRequest {
   source: string;
   field: string;
   count?: number;
+  focus_text?: string | null;
+  hint?: string | null;
 }

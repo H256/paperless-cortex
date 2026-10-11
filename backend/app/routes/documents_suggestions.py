@@ -80,6 +80,9 @@ class SuggestionFieldRequest(BaseModel):
     source: str
     field: str
     count: int = 3
+    # Reviewer input for "Suggest new": a marked passage of the document text and a short hint.
+    focus_text: str | None = None
+    hint: str | None = None
 
 
 class SuggestionFieldApply(BaseModel):
@@ -177,6 +180,8 @@ def suggest_field_variants(
         field=payload.field,
         count=payload.count,
         priority=priority,
+        focus_text=payload.focus_text,
+        hint=payload.hint,
         settings=settings,
         db=db,
         get_document_fn=paperless.get_document,

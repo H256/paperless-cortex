@@ -163,3 +163,44 @@ def test_process_suggest_field_note_is_not_dropped_in_queue_mode(
         "field_variants:note",
         {"commit": False},
     )
+
+
+def test_process_suggest_field_forwards_queued_focus_passage_and_hint(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    from app import worker as worker_mod
+
+    settings = load_settings()
+    captured: dict[str, Any] = {}
+
+    with session_factory() as db:
+        db.add(Document(id=704, title="Doc 704", content="paperless text", page_count=1))
+        db.commit()
+
+        monkeypatch.setattr(worker_mod.paperless, "get_document", lambda *_a, **_k: {"id": 704})
+        monkeypatch.setattr(worker_mod, "get_cached_tags", lambda *_a, **_k: [])
+        monkeypatch.setattr(worker_mod, "get_cached_correspondents", lambda *_a, **_k: [])
+
+        def fake_generate(_settings: Any, _document: Any, _text: str, **kwargs: Any) -> dict[str, Any]:
+            captured.update(kwargs)
+            return {"variants": ["2026-09-20"]}
+
+        monkeypatch.setattr(worker_mod, "generate_field_variants", fake_generate)
+        monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
+        monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
+
+        _process_suggest_field(
+            settings,
+            db,
+            {
+                "doc_id": 704,
+                "source": "paperless_ocr",
+                "field": "date",
+                "count": 1,
+                "focus_text": "Rechnungsdatum: 20.09.2026",
+                "hint": "Rechnungsdatum, nicht Lieferdatum",
+            },
+        )
+
+    assert captured["focus_text"] == "Rechnungsdatum: 20.09.2026"
+    assert captured["hint"] == "Rechnungsdatum, nicht Lieferdatum"

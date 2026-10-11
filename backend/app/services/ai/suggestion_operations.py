@@ -230,6 +230,8 @@ def generate_field_variants_payload(
     get_cached_tags_fn: Callable[[Settings], list[str]],
     get_cached_correspondents_fn: Callable[[Settings], Sequence[object]],
     get_document_or_none_fn: Callable[[Session, int], object | None],
+    focus_text: str | None = None,
+    hint: str | None = None,
     get_page_text_layers_fn: Callable[..., Any],
     fetch_pdf_bytes_fn: Callable[[], bytes],
     upsert_page_texts_fn: Callable[..., None],
@@ -292,9 +294,18 @@ def generate_field_variants_payload(
             "count": max(1, min(count, 5)),
             "current": current,
         }
+        if focus_text:
+            task["focus_text"] = focus_text
+        if hint:
+            task["hint"] = hint
         enqueue_task_front_fn(settings, task)
         return {"doc_id": doc_id, "source": source, "field": field, "queued": True}
 
+    guidance_kwargs: dict[str, str] = {}
+    if focus_text:
+        guidance_kwargs["focus_text"] = focus_text
+    if hint:
+        guidance_kwargs["hint"] = hint
     generated = generate_field_variants_fn(
         settings,
         raw,
@@ -304,6 +315,7 @@ def generate_field_variants_payload(
         field=field,
         count=max(1, min(count, 5)),
         current_value=current,
+        **guidance_kwargs,
     )
     variants = generated.get("variants") if isinstance(generated, dict) else generated
     if not isinstance(variants, list):

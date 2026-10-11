@@ -408,6 +408,11 @@ def process_suggest_field(
     else:
         doc = get_document_or_none(db, doc_id)
         text = clean_ocr_text(doc.content) if doc and doc.content else ""
+    guidance_kwargs: dict[str, str] = {}
+    for task_key in ("focus_text", "hint"):
+        value = task.get(task_key)
+        if isinstance(value, str) and value.strip():
+            guidance_kwargs[task_key] = value
     variants = generate_field_variants_fn(
         settings,
         raw,
@@ -417,6 +422,7 @@ def process_suggest_field(
         field=field,
         count=max(1, min(count, 5)),
         current_value=current,
+        **guidance_kwargs,
     )
     variant_source = ("pvar" if source == "paperless_ocr" else "vvar") + f":{field}"
     upsert_suggestion_fn(

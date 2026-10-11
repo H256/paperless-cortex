@@ -9210,6 +9210,28 @@
             "type": "integer",
             "title": "Count",
             "default": 3
+          },
+          "focus_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus Text"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
           }
         },
         "type": "object",
