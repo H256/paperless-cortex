@@ -14,44 +14,99 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
-_MONTHS = {
-    "januar": 1, "jan": 1, "january": 1,
-    "februar": 2, "feb": 2, "february": 2,
-    "märz": 3, "maerz": 3, "mär": 3, "mrz": 3, "march": 3, "mar": 3,
-    "april": 4, "apr": 4,
-    "mai": 5, "may": 5,
-    "juni": 6, "jun": 6, "june": 6,
-    "juli": 7, "jul": 7, "july": 7,
-    "august": 8, "aug": 8,
-    "september": 9, "sep": 9, "sept": 9,
-    "oktober": 10, "okt": 10, "october": 10, "oct": 10,
-    "november": 11, "nov": 11,
-    "dezember": 12, "dez": 12, "december": 12, "dec": 12,
+_MONTH_NAMES: dict[int, tuple[str, ...]] = {
+    1: ("januar", "jänner", "january", "janvier", "enero", "gennaio", "januari", "janeiro",
+        "stycznia", "styczeń", "ledna", "leden", "januar", "jan", "janv", "ene", "gen", "sty"),
+    2: ("februar", "february", "février", "fevrier", "febrero", "febbraio", "februari",
+        "fevereiro", "lutego", "luty", "února", "únor", "feb", "févr", "fevr", "lut", "úno"),
+    3: ("märz", "maerz", "march", "mars", "marzo", "maart", "março", "marco", "marca", "marzec",
+        "března", "březen", "mär", "mrz", "mar", "mrt", "bře"),
+    4: ("april", "avril", "abril", "aprile", "kwietnia", "kwiecień", "dubna", "duben", "apr",
+        "avr", "abr", "kwi", "dub"),
+    5: ("mai", "may", "mayo", "maggio", "mei", "maio", "maja", "maj", "května", "květen",
+        "mag", "kvě"),
+    6: ("juni", "june", "juin", "junio", "giugno", "junho", "czerwca", "czerwiec", "června",
+        "červen", "jun", "giu", "cze", "čvn"),
+    7: ("juli", "july", "juillet", "julio", "luglio", "julho", "lipca", "lipiec", "července",
+        "červenec", "jul", "juil", "lug", "lip", "čvc"),
+    8: ("august", "août", "aout", "agosto", "augustus", "sierpnia", "sierpień", "srpna",
+        "srpen", "aug", "ago", "sie", "srp"),
+    9: ("september", "septembre", "septiembre", "setiembre", "settembre", "setembro",
+        "września", "wrzesień", "wrzesnia", "září", "zari", "sep", "sept", "set", "wrz", "zář"),
+    10: ("oktober", "october", "octobre", "octubre", "ottobre", "outubro", "października",
+         "październik", "pazdziernika", "října", "říjen", "okt", "oct", "ott", "out", "paź", "paz",
+         "říj"),
+    11: ("november", "novembre", "noviembre", "novembro", "listopada", "listopad", "listopadu",
+         "nov", "lis"),
+    12: ("dezember", "december", "décembre", "decembre", "diciembre", "dicembre", "dezembro",
+         "grudnia", "grudzień", "prosince", "prosinec", "dez", "dec", "déc", "dic", "gru", "pro"),
 }
+_MONTHS = {name: number for number, names in _MONTH_NAMES.items() for name in names}
 _MONTH_ALT = "|".join(sorted((re.escape(m) for m in _MONTHS), key=len, reverse=True))
 
-_NUMERIC_DE = re.compile(r"(?<![\d.])(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4}|\d{2})(?![\d])")
-_ISO = re.compile(r"(?<![\d-])(\d{4})-(\d{2})-(\d{2})(?![\d-])")
-_SLASH = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})/(\d{4})(?![\d/])")
-_WORDY = re.compile(rf"(?<!\d)(\d{{1,2}})\.?\s+({_MONTH_ALT})\.?,?\s+(\d{{4}})(?!\d)", re.IGNORECASE)
+_SEP = r"[./-]"
+# 20.09.2026, 20-09-2026, 20/09/2026 and two-digit years (day first unless disambiguated).
+_NUMERIC = re.compile(rf"(?<![\d./-])(\d{{1,2}})({_SEP})\s?(\d{{1,2}})\2\s?(\d{{4}}|\d{{2}})(?!\d|-\d{{3,}})")
+# 2026-09-20, 2026/09/20, 2026.09.20
+_YEAR_FIRST = re.compile(rf"(?<![\d./-])(\d{{4}})({_SEP})(\d{{1,2}})\2(\d{{1,2}})(?!\d|-\d{{3,}})")
+_DAY = r"(\d{1,2})(?:st|nd|rd|th|er|e|º|ª|\.)?"
+_OF = r"(?:\s+(?:de|of|di|van|z|ze))?"
+# 20 September 2026, 20th of September, 20. Sept. 2026, 20 de septiembre de 2026
+_DAY_MONTH_YEAR = re.compile(
+    rf"(?<!\d){_DAY}{_OF}\s+({_MONTH_ALT})\.?,?{_OF}\s+(\d{{4}})(?!\d)", re.IGNORECASE
+)
+# September 20, 2026 / Sept. 20th 2026
+_MONTH_DAY_YEAR = re.compile(
+    rf"(?<![^\W\d_])({_MONTH_ALT})\.?\s+{_DAY},?\s+(\d{{4}})(?!\d)", re.IGNORECASE
+)
 
 # Keyword groups, matched against the text right before (and just after) a date.
+# German first, then the languages of the EU invoices that show up most often.
+_ISSUE_STRONG = (
+    "rechnungsdatum", "belegdatum", "ausstellungsdatum", "invoice date", "date of issue",
+    "issue date", "date d'émission", "date d\u2019émission", "date de facture", "date de la facture",
+    "fecha de emisión", "fecha de factura", "data di emissione", "data fattura",
+    "data della fattura", "factuurdatum", "data wystawienia", "data faktury",
+    "datum vystavení", "datum vydání", "fakturadato", "fakturadatum", "data de emissão",
+    "data da fatura", "invoice no. date", "tax invoice date",
+)
 _ISSUE_KEYWORDS = (
-    "rechnungsdatum", "rechnung vom", "belegdatum", "ausstellungsdatum", "ausgestellt",
-    "datum", "date", "invoice date", "bescheid vom", "schreiben vom", "bestätigung vom",
-    "gutschrift vom", "angebot vom", "ausgestellt am", "erstellt am", "vom",
+    "rechnung vom", "ausgestellt", "datum", "date", "bescheid vom", "schreiben vom",
+    "bestätigung vom", "gutschrift vom", "angebot vom", "erstellt am", "vom", "dated",
+    "issued", "fecha", "data", "dato", "dnia",
 )
 _DELIVERY_KEYWORDS = (
-    "lieferdatum", "leistungsdatum", "leistungszeitpunkt", "lieferung", "liefertermin",
-    "bestelldatum", "auftragsdatum", "bestellt am", "versand", "termin",
+    "lieferdatum", "versanddatum", "leistungsdatum", "leistungszeitpunkt", "lieferung", "liefertermin",
+    "bestelldatum", "auftragsdatum", "bestellt am", "versand", "termin", "delivery date",
+    "date of supply", "supply date", "order date", "shipping date", "dispatch date",
+    "date de livraison", "date de commande", "fecha de entrega", "fecha de pedido",
+    "data di consegna", "data dell'ordine", "leverdatum", "besteldatum", "data dostawy",
+    "data sprzedaży", "datum dodání", "datum zdanitelného plnění", "leveringsdato",
+    "leveransdatum", "data de entrega",
 )
 _DUE_KEYWORDS = (
-    "fällig", "faellig", "zahlbar bis", "zahlungsziel", "zahlungsfrist", "bis zum",
-    "spätestens", "frist", "zahlen sie bis", "due",
+    "fällig", "fälligkeit", "fälligkeitsdatum", "faellig", "zahlbar bis", "zahlungsziel", "zahlungsfrist", "bis zum",
+    "spätestens", "frist", "zahlen sie bis", "due", "pay by", "payable by", "payment due",
+    "date d'échéance", "échéance", "echeance", "à payer avant", "payable avant",
+    "fecha de vencimiento", "vencimiento", "pagar antes", "scadenza", "data di scadenza",
+    "pagabile entro", "vervaldatum", "uiterlijk", "betaaldatum", "termin płatności",
+    "termin platnosci", "płatne do", "datum splatnosti", "splatnost", "forfaldsdato",
+    "förfallodatum", "förfallodag", "data de vencimento", "vencimento",
 )
-_PERIOD_KEYWORDS = ("zeitraum", "abrechnungszeitraum", "leistungszeitraum", "von", "bis")
-_BIRTH_KEYWORDS = ("geboren", "geb.", "geburtsdatum", "geburtstag", "born", "date of birth")
-_PRINT_KEYWORDS = ("druckdatum", "gedruckt", "ausdruck", "printed")
+_PERIOD_KEYWORDS = (
+    "zeitraum", "abrechnungszeitraum", "leistungszeitraum", "von", "bis", "period",
+    "période", "periode", "periodo", "okres",
+)
+_BIRTH_KEYWORDS = (
+    "geboren", "geb.", "geburtsdatum", "geburtstag", "born", "date of birth", "dob",
+    "né le", "née le", "date de naissance", "fecha de nacimiento", "nacido",
+    "data di nascita", "nato il", "geboortedatum", "geboren op", "data urodzenia",
+    "data de nascimento", "datum narození", "fødselsdato", "födelsedatum",
+)
+_PRINT_KEYWORDS = (
+    "druckdatum", "gedruckt", "ausdruck", "printed", "print date", "date d'impression",
+    "fecha de impresión", "data di stampa", "afgedrukt",
+)
 
 _MIN_YEAR = 1950
 _FUTURE_TOLERANCE_DAYS = 366
@@ -101,32 +156,49 @@ def _make_date(day: int, month: int, year: int, today: datetime.date) -> datetim
     return value
 
 
+def _numeric_value(
+    first: int, second: int, year: int, sep: str, today: datetime.date
+) -> tuple[datetime.date | None, str]:
+    """Interpret ``first sep second sep year``; day first unless the numbers say otherwise."""
+    if sep == "/" and first <= 12 and second > 12:
+        return _make_date(second, first, year, today), "us"  # 09/20/2026
+    value = _make_date(first, second, year, today)
+    if value is not None and sep == "/" and first <= 12 and second <= 12 and first != second:
+        return value, "ambiguous"  # 03/04/2026: day/month assumed, could be month/day
+    return value, "numeric"
+
+
 def _iter_dates(line: str, today: datetime.date):
-    for match in _ISO.finditer(line):
-        value = _make_date(int(match[3]), int(match[2]), int(match[1]), today)
+    for match in _YEAR_FIRST.finditer(line):
+        value = _make_date(int(match[4]), int(match[3]), int(match[1]), today)
         if value:
             yield value, match.span(), match.group(0), "iso"
-    for match in _NUMERIC_DE.finditer(line):
-        value = _make_date(int(match[1]), int(match[2]), int(match[3]), today)
+    for match in _NUMERIC.finditer(line):
+        first, sep, second, year_raw = int(match[1]), match[2], int(match[3]), match[4]
+        if len(year_raw) == 2 and sep != ".":
+            continue  # 10-12-24 or 10/12/24 is too ambiguous to be useful
+        value, kind = _numeric_value(first, second, int(year_raw), sep, today)
         if value:
-            yield value, match.span(), match.group(0), "de"
-    for match in _WORDY.finditer(line):
+            yield value, match.span(), match.group(0), kind
+    for match in _DAY_MONTH_YEAR.finditer(line):
         month = _MONTHS.get(match[2].lower())
         if month:
             value = _make_date(int(match[1]), month, int(match[3]), today)
             if value:
                 yield value, match.span(), match.group(0), "wordy"
-    for match in _SLASH.finditer(line):
-        value = _make_date(int(match[1]), int(match[2]), int(match[3]), today)
-        if value:
-            yield value, match.span(), match.group(0), "slash"
+    for match in _MONTH_DAY_YEAR.finditer(line):
+        month = _MONTHS.get(match[1].lower())
+        if month:
+            value = _make_date(int(match[2]), month, int(match[3]), today)
+            if value:
+                yield value, match.span(), match.group(0), "wordy"
 
 
 def _last_keyword_end(window: str, keywords: tuple[str, ...]) -> int:
     """End index of the last keyword occurrence in ``window`` (-1 if none)."""
     end = -1
     for kw in keywords:
-        for match in re.finditer(rf"(?<![a-zäöü]){re.escape(kw)}", window):
+        for match in re.finditer(rf"(?<![^\W\d_]){re.escape(kw)}(?![^\W\d_])", window):
             end = max(end, match.end())
     return end
 
@@ -136,7 +208,7 @@ _GROUPS: tuple[tuple[str, float, tuple[str, ...]], ...] = (
     ("due", -0.3, _DUE_KEYWORDS),
     ("delivery", -0.1, _DELIVERY_KEYWORDS),
     ("other", -0.15, _PRINT_KEYWORDS),
-    ("issue", 0.45, ("rechnungsdatum", "belegdatum", "ausstellungsdatum", "invoice date")),
+    ("issue", 0.45, _ISSUE_STRONG),
     ("issue", 0.3, _ISSUE_KEYWORDS),
     ("period", -0.1, _PERIOD_KEYWORDS),
 )
@@ -192,7 +264,7 @@ def extract_date_candidates(
                     continue
                 label, adjustment = verdict
                 score = 0.5 + adjustment
-                if kind == "slash":
+                if kind in {"ambiguous", "us"}:
                     score -= 0.05  # DD/MM vs MM/DD is ambiguous
                 if non_empty_index < 15:
                     score += 0.1 * (1 - non_empty_index / 15)

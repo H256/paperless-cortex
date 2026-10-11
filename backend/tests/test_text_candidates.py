@@ -108,3 +108,74 @@ def test_domain_hint_matches_known_correspondent() -> None:
 def test_empty_text_yields_no_candidates() -> None:
     assert extract_date_candidates([(1, "")], today=TODAY) == []
     assert extract_correspondent_candidates([(1, "   ")], ["Hornbach"]) == []
+
+
+# --- other EU formats and languages (about 10% of the documents) -------------------
+
+EU_CASES = [
+    # (language, text, expected issue date)
+    ("en", "Acme Ltd\nInvoice date: 20 September 2026\nDue date: 04 October 2026", "2026-09-20"),
+    ("en-us-order", "Invoice Date: September 20, 2026\nPayment due: October 4, 2026", "2026-09-20"),
+    ("en-ordinal", "Date of issue: 20th September 2026\nDue date: 4th October 2026", "2026-09-20"),
+    ("fr", "Société Martin SARL\nDate de facture : 20 septembre 2026\nÉchéance : 04/10/2026", "2026-09-20"),
+    ("fr-abbr", "Date d'émission : 1er sept. 2026\nDate d'échéance : 15/10/2026", "2026-09-01"),
+    ("es", "Factura\nFecha de factura: 20 de septiembre de 2026\nVencimiento: 04/10/2026", "2026-09-20"),
+    ("it", "Fattura n. 12\nData fattura: 20 settembre 2026\nScadenza: 04/10/2026", "2026-09-20"),
+    ("nl", "Factuurdatum: 20-09-2026\nVervaldatum: 04-10-2026", "2026-09-20"),
+    ("pl", "Faktura VAT\nData wystawienia: 20 września 2026\nTermin płatności: 04.10.2026", "2026-09-20"),
+    ("cz", "Faktura\nDatum vystavení: 20. září 2026\nDatum splatnosti: 04.10.2026", "2026-09-20"),
+    ("da", "Faktura\nFakturadato: 20.09.2026\nForfaldsdato: 04.10.2026", "2026-09-20"),
+    ("year-first-slash", "Invoice date 2026/09/20", "2026-09-20"),
+]
+
+
+def test_other_languages_and_formats_find_the_issue_date() -> None:
+    for language, text, expected in EU_CASES:
+        result = extract_date_candidates([(1, text)], today=TODAY)
+        assert result, language
+        assert result[0]["value"] == expected, (language, result[:3])
+        assert result[0]["label"] == "issue", (language, result[0])
+
+
+def test_due_and_delivery_dates_are_labelled_in_other_languages() -> None:
+    text = "\n".join(
+        [
+            "Date de facture : 20 septembre 2026",
+            "Date de livraison : 18/09/2026",
+            "Date d'échéance : 04/10/2026",
+        ]
+    )
+    result = extract_date_candidates([(1, text)], today=TODAY)
+    assert _by_value(result, "2026-09-20")["label"] == "issue"
+    assert _by_value(result, "2026-09-18")["label"] == "delivery"
+    assert _by_value(result, "2026-10-04")["label"] == "due"
+
+
+def test_slash_dates_are_day_first_unless_the_numbers_say_otherwise() -> None:
+    result = extract_date_candidates(
+        [(1, "Datum 20/09/2026\nDate 09/20/2026\nDate 03/04/2026")], today=TODAY
+    )
+    values = {c["value"] for c in result}
+    assert {"2026-09-20", "2026-04-03"} <= values  # 20/09 day-first, 09/20 month-first
+    assert "2026-03-04" not in values
+    ambiguous = _by_value(result, "2026-04-03")
+    unambiguous = _by_value(result, "2026-09-20")
+    assert ambiguous["score"] <= unambiguous["score"]
+
+
+def test_birth_dates_are_dropped_in_other_languages() -> None:
+    text = "Né le 01/02/1980\nDate de naissance : 01.02.1980\nFecha de nacimiento 1 de febrero de 1980"
+    assert extract_date_candidates([(1, text)], today=TODAY) == []
+
+
+def test_numbers_that_only_look_like_dates_are_ignored() -> None:
+    text = "Tel 0531-123-4567\nRechnung 2026-09-20-001\nArtikel 12-34-56"
+    assert extract_date_candidates([(1, text)], today=TODAY) == []
+
+
+def test_two_digit_years_are_only_accepted_with_dots() -> None:
+    values = {
+        c["value"]
+        for c in extract_date_candidates([(1, "Datum 20.09.26\nDatum 20-09-26\nDatum 20/09/26")], today=TODAY)
+    }
+    assert values == {"2026-09-20"}
