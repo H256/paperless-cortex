@@ -14,6 +14,24 @@
       </button>
     </div>
 
+    <label
+      class="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+      data-testid="hide-reviewed-toggle"
+    >
+      <input
+        type="checkbox"
+        :checked="hideReviewed"
+        @change="emit('update:hide-reviewed', ($event.target as HTMLInputElement).checked)"
+      />
+      Hide reviewed documents
+      <span
+        v-if="hideReviewed && hiddenReviewed > 0"
+        class="font-normal text-slate-500 dark:text-slate-400"
+      >
+        ({{ hiddenReviewed }} hidden)
+      </span>
+    </label>
+
     <div class="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-700 dark:bg-slate-900/60 md:grid-cols-2">
       <label class="block">
         <div class="mb-1 font-semibold text-slate-700 dark:text-slate-200">
@@ -76,7 +94,11 @@
     </div>
     <div v-else-if="loading" class="text-sm text-slate-500 dark:text-slate-400">Loading...</div>
     <div v-else-if="!similarMatches.length" class="text-sm text-slate-500 dark:text-slate-400">
-      No similar documents found.
+      {{
+        hideReviewed && hiddenReviewed > 0
+          ? `No unreviewed similar documents (${hiddenReviewed} reviewed hidden).`
+          : 'No similar documents found.'
+      }}
     </div>
     <div v-else class="space-y-3">
       <DocumentCard
@@ -138,7 +160,7 @@ type SimilarMatch = {
   document: DocumentRow
 }
 
-defineProps<{
+withDefaults(defineProps<{
   similarMatches: SimilarMatch[]
   duplicateMatches: SimilarMatch[]
   loading: boolean
@@ -146,13 +168,16 @@ defineProps<{
   similarMinScore: number
   duplicateThreshold: number
   paperlessBaseUrl?: string | null
-}>()
+  hideReviewed?: boolean
+  hiddenReviewed?: number
+}>(), { hideReviewed: false, hiddenReviewed: 0 })
 
 const emit = defineEmits<{
   (e: 'refresh'): void
   (e: 'open-doc', id: number): void
   (e: 'update:similar-min-score', value: number): void
   (e: 'update:duplicate-threshold', value: number): void
+  (e: 'update:hide-reviewed', value: boolean): void
 }>()
 
 const onOpenDoc = (id: number | null | undefined) => {

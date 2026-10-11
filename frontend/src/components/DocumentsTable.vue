@@ -17,6 +17,7 @@
         :show-open="true"
         :show-continue="true"
         :show-review="true"
+        :doc-href="docHref"
         @open="onOpenDoc"
         @open-operations="onOpenDocOperations"
         @open-suggestions="onOpenDocSuggestions"
@@ -32,7 +33,7 @@
           :key="`m-${doc.id ?? `${doc.title}-${doc.created ?? ''}`}`"
           type="button"
           class="block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left dark:border-slate-700 dark:bg-slate-800"
-          @click="onOpenDoc(doc.id)"
+          @click="onRowClick($event, doc.id)"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -169,11 +170,21 @@
             tabindex="0"
             role="button"
             :aria-label="`Open document ${doc.title || doc.id || ''}`"
-            @click="onOpenDoc(doc.id)"
+            @click="onRowClick($event, doc.id)"
+            @auxclick="onRowAuxClick($event, doc.id)"
             @keydown.enter.prevent="onOpenDoc(doc.id)"
             @keydown.space.prevent="onOpenDoc(doc.id)"
           >
-            <td class="px-6 py-3 text-slate-900 dark:text-slate-100">{{ doc.title }}</td>
+            <td class="px-6 py-3 text-slate-900 dark:text-slate-100">
+              <a
+                v-if="hrefFor(doc.id)"
+                :href="hrefFor(doc.id) ?? undefined"
+                class="hover:underline"
+                @click.prevent
+                >{{ doc.title }}</a
+              >
+              <template v-else>{{ doc.title }}</template>
+            </td>
             <td class="px-6 py-3 text-slate-600">
               {{ formatDate(doc.document_date || doc.created) }}
             </td>
@@ -233,7 +244,7 @@
                   <button
                     type="button"
                     class="hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 md:inline-flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    @click.stop="onOpenDoc(doc.id)"
+                    @click.stop="onRowClick($event, doc.id)"
                   >
                     Open
                   </button>
@@ -315,6 +326,7 @@ import { ref, watch } from 'vue'
 import { ChevronDown, Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
 import DocumentCard from './DocumentCard.vue'
+import { isNewTabClick } from '../utils/suggestionSelection'
 import type { Correspondent, DocumentRow } from '../services/documents'
 
 const props = defineProps<{
@@ -327,6 +339,7 @@ const props = defineProps<{
   page: number
   totalPages: number
   lastSynced: string | null
+  docHref?: (id: number, tab?: 'operations' | 'suggestions') => string
 }>()
 
 const emit = defineEmits<{
@@ -362,6 +375,28 @@ const sortDir = (field: string) => {
   const current = props.ordering.replace('-', '')
   if (current !== field) return null
   return props.ordering.startsWith('-') ? 'desc' : 'asc'
+}
+
+const hrefFor = (id: number | null | undefined) =>
+  props.docHref && typeof id === 'number' ? props.docHref(id) : null
+
+const openInNewTab = (id: number | null | undefined) => {
+  const href = hrefFor(id)
+  if (!href) return false
+  window.open(href, '_blank', 'noopener')
+  return true
+}
+
+const onRowClick = (event: MouseEvent, id: number | null | undefined) => {
+  if (isNewTabClick(event) && openInNewTab(id)) return
+  onOpenDoc(id)
+}
+
+const onRowAuxClick = (event: MouseEvent, id: number | null | undefined) => {
+  if (event.button !== 1) return
+  // A middle click on the title anchor is already handled natively by the browser.
+  if ((event.target as HTMLElement | null)?.closest('a')) return
+  openInNewTab(id)
 }
 
 const onOpenDoc = (id: number | null | undefined) => {

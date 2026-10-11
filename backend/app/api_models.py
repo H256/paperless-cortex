@@ -318,6 +318,7 @@ class SimilarDocumentsResponse(BaseModel):
     doc_id: int
     top_k: int
     matches: list[SimilarDocumentMatch] = []
+    hidden_reviewed: int = 0
 
 
 class SimilarMetadata(BaseModel):

@@ -62,11 +62,14 @@
         :suggestion-variant-loading="suggestionVariantLoading"
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
+        :current-tag-list="currentTagList"
+        :applying="suggestionsApplying"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"
         @apply-variant-to-document="applyVariantToDocumentAction"
         @apply-to-document="applyToDocument"
+        @apply-selected="applySelectedAction"
       />
 
       <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="docId" />
@@ -78,11 +81,14 @@
         :error="similarError"
         :similar-min-score="similarMinScore"
         :duplicate-threshold="duplicateThreshold"
+        :hide-reviewed="hideReviewed"
+        :hidden-reviewed="hiddenReviewed"
         :paperless-base-url="paperlessBaseUrl"
-        @refresh="loadSimilarity({ similarMinScore, duplicateThreshold })"
+        @refresh="loadSimilarity({ similarMinScore, duplicateThreshold, excludeReviewed: hideReviewed })"
         @open-doc="openSimilarDoc"
         @update:similar-min-score="similarMinScore = $event"
         @update:duplicate-threshold="duplicateThreshold = $event"
+        @update:hide-reviewed="hideReviewed = $event"
       />
 
       <DocumentPagesSection
@@ -200,6 +206,7 @@ import DocumentDetailHeader from '../components/DocumentDetailHeader.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
+import type { SuggestionApplyItem } from '../utils/suggestionSelection'
 import DocumentChatSection from '../components/DocumentChatSection.vue'
 import DocumentSimilarSection from '../components/DocumentSimilarSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
@@ -299,9 +306,26 @@ const {
   error: similarError,
   reset: resetSimilarity,
   loadSimilarity,
+  hiddenReviewed,
 } = useDocumentSimilarity(() => docId.value)
 const similarMinScore = ref(0.5)
 const duplicateThreshold = ref(0.92)
+const HIDE_REVIEWED_STORAGE_KEY = 'similar_hide_reviewed'
+const readHideReviewed = () => {
+  try {
+    return window.localStorage.getItem(HIDE_REVIEWED_STORAGE_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+const hideReviewed = ref(readHideReviewed())
+watch(hideReviewed, (value) => {
+  try {
+    window.localStorage.setItem(HIDE_REVIEWED_STORAGE_KEY, value ? '1' : '0')
+  } catch {
+    // per-viewer convenience only
+  }
+})
 const {
   pipelineStatus,
   pipelineStatusLoading,
@@ -365,6 +389,13 @@ const currentTagNames = computed(() =>
     .map((tagId) => tags.value.find((tag) => tag.id === tagId)?.name ?? tagId)
     .join(', '),
 )
+
+const currentTagList = computed(() => [
+  ...(document.value?.tags || []).map((tagId) =>
+    String(tags.value.find((tag) => tag.id === tagId)?.name ?? tagId),
+  ),
+  ...(document.value?.pending_tag_names || []),
+])
 
 const currentCorrespondentName = computed(() => {
   if (!document.value) return ''
@@ -516,6 +547,7 @@ const {
   applyVariantOnly,
   applyVariantToDocument,
   applyToDocument,
+  applySelected,
 } = useDocumentSuggestionsApply({
   docId: () => docId.value,
   suggestions,
@@ -530,6 +562,28 @@ const {
   loadContentQualityForDoc,
   toErrorMessage: errorMessage,
 })
+
+const suggestionsApplying = ref(false)
+
+const applySelectedAction = async (items: SuggestionApplyItem[]) => {
+  if (suggestionsApplying.value || !items.length) return
+  suggestionsApplying.value = true
+  try {
+    const { applied, failed } = await applySelected(items)
+    if (failed.length) {
+      toastStore.push(
+        `Applied ${applied.length}, failed: ${failed.map((f) => f.field).join(', ')}`,
+        'warning',
+        'Suggestions',
+        3200,
+      )
+    } else {
+      toastStore.push(`Applied: ${applied.join(', ')}`, 'success', 'Suggestions', 2200)
+    }
+  } finally {
+    suggestionsApplying.value = false
+  }
+}
 
 const applyVariantAction = async (
   source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
@@ -721,13 +775,14 @@ watch(
       await loadSimilarity({
         similarMinScore: similarMinScore.value,
         duplicateThreshold: duplicateThreshold.value,
+        excludeReviewed: hideReviewed.value,
       })
     }
   },
 )
 
 let similarityReloadTimer: ReturnType<typeof setTimeout> | null = null
-watch([similarMinScore, duplicateThreshold, activeTab], ([minScore, dupThreshold, tab]) => {
+watch([similarMinScore, duplicateThreshold, hideReviewed, activeTab], ([minScore, dupThreshold, hide, tab]) => {
   if (tab !== 'similar') return
   if (similarityReloadTimer) {
     clearTimeout(similarityReloadTimer)
@@ -736,6 +791,7 @@ watch([similarMinScore, duplicateThreshold, activeTab], ([minScore, dupThreshold
     loadSimilarity({
       similarMinScore: minScore,
       duplicateThreshold: dupThreshold,
+      excludeReviewed: hide,
     })
   }, 250)
 })

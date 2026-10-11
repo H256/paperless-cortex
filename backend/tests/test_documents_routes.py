@@ -1785,6 +1785,71 @@ def test_similar_documents_preserve_reviewed_status_from_remote_fields(
     assert match["review_status"] == "reviewed"
 
 
+def test_similar_documents_exclude_reviewed_oversamples_before_top_k(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_similarity
+    from app.services.integrations import paperless
+
+    _insert_local_document(doc_id=671, title="Source Doc", created="2026-02-10T10:00:00+00:00")
+    _insert_local_document(
+        doc_id=1777, title="Rechnung 6005603054", created="2025-08-09", correspondent_id=146
+    )
+    _insert_local_document(doc_id=1778, title="Open", created="2025-08-10")
+    _insert_suggestion_audit(doc_id=1777, created_at="2026-03-15T21:03:43.775519+00:00")
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        correspondent = Correspondent(id=146, name="Example Corp")
+        tag_one = Tag(id=1, name="one", color="#111111")
+        tag_two = Tag(id=14, name="two", color="#222222")
+        doc = db.get(Document, 1777)
+        assert doc is not None
+        doc.document_date = "2025-08-11"
+        doc.correspondent = correspondent
+        doc.tags = [tag_one, tag_two]
+        db.add_all([correspondent, tag_one, tag_two])
+        db.commit()
+
+    requested: dict[str, Any] = {}
+
+    def fake_search(*_args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        requested["top_k"] = kwargs.get("top_k")
+        return [{"doc_id": 1777, "score": 0.99}, {"doc_id": 1778, "score": 0.9}]
+
+    monkeypatch.setattr(documents_similarity, "fetch_doc_point_vector", lambda *_a, **_k: [0.1])
+    monkeypatch.setattr(documents_similarity, "search_similar_doc_points", fake_search)
+    monkeypatch.setattr(
+        paperless,
+        "get_documents_cached",
+        lambda *_a, **_k: {
+            1777: {
+                "id": 1777,
+                "title": "Rechnung 6005603054",
+                "created": "2025-08-11",
+                "modified": "2026-02-20T19:18:33.894343+01:00",
+                "document_date": None,
+                "correspondent": 146,
+                "document_type": None,
+                "tags": [14, 1],
+                "notes": [{"note": "remote note"}],
+            }
+        },
+    )
+
+    all_matches = api_client.get("/documents/671/similar?top_k=1")
+    assert all_matches.status_code == 200
+    assert [m["doc_id"] for m in all_matches.json()["matches"]] == [1777]
+    assert all_matches.json()["hidden_reviewed"] == 0
+    assert requested["top_k"] == 2
+
+    filtered = api_client.get("/documents/671/similar?top_k=1&exclude_reviewed=true")
+    assert filtered.status_code == 200
+    payload = filtered.json()
+    assert [m["doc_id"] for m in payload["matches"]] == [1778]
+    assert payload["hidden_reviewed"] == 1
+    assert requested["top_k"] > 2
+
 def _mock_remote_document(monkeypatch: Any, doc_id: int, *, notes: list[dict[str, Any]]) -> None:
     from app.services.integrations import paperless
 
