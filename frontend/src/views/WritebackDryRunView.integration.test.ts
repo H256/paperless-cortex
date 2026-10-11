@@ -57,7 +57,7 @@ describe('WritebackDryRunView executeAllPending error path', () => {
     // Seed prior per-job results so the panel has data before the failed run.
     mutateAsync.mockRejectedValueOnce(new Error('upstream writeback failed'))
 
-    const wrapper = mount(WritebackDryRunView as never)
+    const wrapper = mount(WritebackDryRunView as never, { global: { stubs: { RouterLink: true } } })
     const vm = wrapper.vm as unknown as {
       lastExecuteAllResults: Array<{ job_id: number }>
     }
@@ -97,5 +97,16 @@ describe('WritebackDryRunView executeAllPending error path', () => {
     // A partial-write warning must be surfaced alongside the error toast.
     const messages = push.mock.calls.map((call) => String(call[0]))
     expect(messages.some((message) => message.includes('partial write'))).toBe(true)
+  })
+
+  it('explains an empty preview instead of showing a blank page', () => {
+    const wrapper = mount(WritebackDryRunView as never, {
+      global: { stubs: { RouterLink: true } },
+    })
+
+    const empty = wrapper.find('[data-testid="writeback-preview-empty"]')
+    expect(empty.exists()).toBe(true)
+    expect(empty.text()).toContain('No changed documents')
+    expect(wrapper.find('[data-testid="writeback-preview-loading"]').exists()).toBe(false)
   })
 })

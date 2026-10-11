@@ -101,6 +101,7 @@ import type {
   ResetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostParams,
   ResetIntelligenceResponse,
   ResetWorkerLockRouteQueueWorkerLockResetPostParams,
+  ReviewSummaryResponse,
   SearchEmbeddingsSearchGetParams,
   SimilarDocumentsResponse,
   SimilarMetadataResponse,
@@ -284,6 +285,52 @@ export const getDashboardDocumentsDashboardGet = async ( options?: RequestInit):
   
   const data: getDashboardDocumentsDashboardGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDashboardDocumentsDashboardGetResponse
+}
+
+
+
+/**
+ * Review progress (reviewed / unreviewed / needs review) in one walk of the library.
+
+Uses the same derivation as the document list, so the numbers match the list filters.
+Documents deleted in Paperless are not part of the Paperless listing and are not counted.
+ * @summary Get Review Summary
+ */
+export type getReviewSummaryDocumentsReviewSummaryGetResponse200 = {
+  data: ReviewSummaryResponse
+  status: 200
+}
+    
+export type getReviewSummaryDocumentsReviewSummaryGetResponseSuccess = (getReviewSummaryDocumentsReviewSummaryGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getReviewSummaryDocumentsReviewSummaryGetResponse = (getReviewSummaryDocumentsReviewSummaryGetResponseSuccess)
+
+export const getGetReviewSummaryDocumentsReviewSummaryGetUrl = () => {
+
+
+  
+
+  return `/api/documents/review-summary`
+}
+
+export const getReviewSummaryDocumentsReviewSummaryGet = async ( options?: RequestInit): Promise<getReviewSummaryDocumentsReviewSummaryGetResponse> => {
+  
+  const res = await fetch(getGetReviewSummaryDocumentsReviewSummaryGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getReviewSummaryDocumentsReviewSummaryGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getReviewSummaryDocumentsReviewSummaryGetResponse
 }
 
 

@@ -468,6 +468,16 @@ class MonthlyProcessingBucket(BaseModel):
     unprocessed: int
 
 
+class ReviewSummaryResponse(BaseModel):
+    total: int
+    reviewed: int
+    unreviewed: int
+    needs_review: int
+    # Counted among unreviewed documents only (what is left to work through).
+    no_correspondent: int
+    issue_date_is_import_date: int
+
+
 class DocumentDashboardResponse(BaseModel):
     stats: DocumentStatsResponse
     correspondents: list[DashboardCount] = []

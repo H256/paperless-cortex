@@ -139,6 +139,7 @@ export * from './queueWorkerLockStatusResponse';
 export * from './resetAndReprocessDocumentDocumentsDocIdOperationsResetAndReprocessPostParams';
 export * from './resetIntelligenceResponse';
 export * from './resetWorkerLockRouteQueueWorkerLockResetPostParams';
+export * from './reviewSummaryResponse';
 export * from './searchEmbeddingsSearchGetParams';
 export * from './similarDocumentMatch';
 export * from './similarDocumentsResponse';

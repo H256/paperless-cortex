@@ -13,6 +13,16 @@ Es eignet sich besonders für:
 - grobe Last- und Bestandsabschätzung,
 - Erkennen von Schwerpunkten bei Korrespondenten, Tags oder Dokumenttypen.
 
+### 1.0 Review-Fortschritt
+
+Ganz oben zeigt die Karte `Review progress`, wie weit Sie mit dem Durchsehen sind:
+
+- Prozentbalken `reviewed` von allen Dokumenten.
+- Kacheln mit Zähler, die direkt in die gefilterte Dokumentliste führen: `Unreviewed`, `Needs review`, `Unreviewed without correspondent` und `Unreviewed with date = import date`.
+- `Review open documents` öffnet die Liste mit `Unreviewed`.
+
+Die Zahlen werden wie in der Dokumentliste abgeleitet. In Paperless gelöschte Dokumente bleiben in Cortex erhalten, werden hier aber nicht mitgezählt. Die lange Liste `All correspondents` ist eingeklappt.
+
 ### 1.1 Was dort typischerweise sichtbar ist
 
 - Gesamtzahl der Dokumente

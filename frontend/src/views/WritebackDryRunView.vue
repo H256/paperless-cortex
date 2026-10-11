@@ -69,6 +69,36 @@
         {{ errorMessage }}
       </div>
 
+      <div
+        v-if="!previewLoading && !errorMessage && previewItems.length === 0"
+        class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+        data-testid="writeback-preview-empty"
+      >
+        <p class="font-semibold text-slate-700 dark:text-slate-200">
+          {{ onlyChanged ? 'No changed documents' : 'No documents in the preview' }}
+        </p>
+        <p class="mt-1">
+          {{
+            onlyChanged
+              ? 'Everything is in sync with Paperless. Apply suggestions or mark documents reviewed to prepare a writeback.'
+              : 'There is nothing to show.'
+          }}
+        </p>
+        <RouterLink
+          to="/documents"
+          class="mt-3 inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+        >
+          Go to documents
+        </RouterLink>
+      </div>
+      <div
+        v-else-if="previewLoading && previewItems.length === 0"
+        class="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+        data-testid="writeback-preview-loading"
+      >
+        Loading preview…
+      </div>
+
       <div class="space-y-3" :class="previewLoading ? 'opacity-60' : ''">
         <article
           v-for="item in previewItems"

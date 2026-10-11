@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/396-review-progress)
+
+### Review progress on the dashboard and writeback empty state (#396, #397)
+- `d68e7a7` feat(api): `GET /documents/review-summary` ([`documents.py`](backend/app/routes/documents.py), [`review_summary.py`](backend/app/services/documents/review_summary.py)) counts reviewed / unreviewed / needs review plus unreviewed without correspondent and with issue date = import date in one cached walk, using the same derivation as the list.
+- `d68e7a7` feat(frontend): [`DashboardView.vue`](frontend/src/views/DashboardView.vue) gets a "Review progress" card (bar, tiles linking into the filtered list, "Review open documents"); "All correspondents" is collapsed.
+- `d68e7a7` fix(frontend): [`WritebackDryRunView.vue`](frontend/src/views/WritebackDryRunView.vue) shows explicit empty and loading states for the preview.
+- `d68e7a7` test: `cd backend && uv run pytest -q` -> `692 passed, 5 skipped`; `cd frontend && npx vitest run` -> `178 passed`; `npx vue-tsc --build`, `npx oxlint src`, `ruff check app tests` clean. OpenAPI and client regenerated.
+- docs: plan [`2026-10-11-review-progress.md`](docs/plans/2026-10-11-review-progress.md), manual section 5.1.0. Follow-ups: #398 list, #399 feedback, #400 compare + split view.
+
 ## 2026-10-11 (branch: agent/release-0.8.0)
 
 ### Release 0.8.0
