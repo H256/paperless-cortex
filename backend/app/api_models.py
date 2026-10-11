@@ -555,6 +555,9 @@ class SuggestFieldVariantsResponse(BaseModel):
     field: str
     variants: list[Any] = []
     queued: bool | None = None
+    # Version stamp of the stored variant batch. A queued request returns the stamp that
+    # was current at enqueue time, so a client can tell the new batch from the old one.
+    updated_at: str | None = None
 
 
 class ApplyFieldSuggestionResponse(BaseModel):

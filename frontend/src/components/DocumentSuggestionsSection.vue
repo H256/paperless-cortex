@@ -234,7 +234,11 @@
                 :disabled="suggestionsLoading || isVariantBusy(panel.source)"
                 @click="emit('refresh', panel.source)"
               >
-                Refresh
+                <span v-if="suggestionsLoading" class="inline-flex items-center gap-2">
+                  <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                  Refreshing...
+                </span>
+                <span v-else>Refresh</span>
               </button>
               <button
                 class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
@@ -316,7 +320,7 @@
                     class="inline-flex items-center gap-2"
                   >
                     <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                    Generating...
+                    {{ waitLabel(panel.source, 'note') }}
                   </span>
                   <span v-else>Suggest new</span>
                 </button>
@@ -500,7 +504,7 @@
                       class="inline-flex items-center gap-2"
                     >
                       <Loader2 class="h-3.5 w-3.5 animate-spin" />
-                      Generating...
+                      {{ waitLabel(panel.source, field.key) }}
                     </span>
                     <span v-else>Suggest new</span>
                   </button>
@@ -622,6 +626,7 @@ const props = withDefaults(defineProps<{
   suggestionVariants: Record<string, unknown[]>
   suggestionVariantLoading: Record<string, boolean>
   suggestionVariantError: Record<string, string>
+  suggestionVariantWait?: Record<string, number>
   currentValues: {
     title: string
     date: string
@@ -804,6 +809,12 @@ const isVariantBusy = (source: SuggestionSource) =>
 
 const isVariantLoading = (source: SuggestionSource, field: string) =>
   Boolean(props.suggestionVariantLoading[`${source}:${field}`])
+
+// While a queued request waits for the model, show how long it has been running.
+const waitLabel = (source: SuggestionSource, field: string) => {
+  const seconds = props.suggestionVariantWait?.[`${source}:${field}`] ?? 0
+  return seconds >= 3 ? `Generating... ${seconds}s` : 'Generating...'
+}
 
 const variantsFor = (source: SuggestionSource, field: string) =>
   props.suggestionVariants[`${source}:${field}`] || []

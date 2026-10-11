@@ -11,4 +11,5 @@ export interface SuggestFieldVariantsResponse {
   field: string;
   variants?: unknown[];
   queued?: boolean | null;
+  updated_at?: string | null;
 }
