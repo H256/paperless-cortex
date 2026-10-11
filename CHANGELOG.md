@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/400-split-view)
+
+### Side-by-side PDF and source agreement indicator (#400, slice 1)
+- `3e9eeb6` feat(frontend): [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) shows the PDF next to the suggestions on wide screens (sticky, toggle "Side by side", remembered); stacked on narrow screens and other tabs.
+- `3e9eeb6` feat(frontend): [`suggestionAgreement.ts`](frontend/src/utils/suggestionAgreement.ts) and the badges in [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) show how many sources (incl. the document text) agree on title, date and correspondent, or flag "Only this source".
+- `3e9eeb6` test: `cd frontend && npx vitest run` -> `200 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. No backend change.
+- docs: plan [`2026-10-11-split-view-agreement.md`](docs/plans/2026-10-11-split-view-agreement.md), manual section 5.0. Remaining slices of #400: comparison table with per-cell "Suggest new", candidate click jumps to the PDF page.
+
 ## 2026-10-11 (branch: agent/398-list-ux)
 
 ### Documents list: preset counters, attention badges, leaner row actions (#398, slice 1)
