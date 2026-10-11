@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from app.config import load_settings
 from app.db import SessionLocal
+from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.ai.hierarchical_summary import is_large_document
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestion_store import (
@@ -17,7 +18,6 @@ from app.services.ai.suggestion_store import (
     upsert_suggestion,
 )
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
-from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.documents.documents import get_document_or_none
 from app.services.documents.page_text_store import reclean_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts

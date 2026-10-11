@@ -47,8 +47,8 @@ def _top_tag_names(db: Session, doc_ids: list[int]) -> list[str]:
     tag_ids = [int(row.tag_id) for row in rows if row.tag_id is not None]
     if not tag_ids:
         return []
-    for tag_id, name in db.query(Tag.id, Tag.name).filter(Tag.id.in_(tag_ids)).all():
-        name = str(name or "").strip()
+    for name in db.query(Tag.name).filter(Tag.id.in_(tag_ids)).all():
+        name = str(name[0] or "").strip()
         if name:
             counts[name] = counts.get(name, 0) + 1
     ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
@@ -68,10 +68,8 @@ def _top_type_names(db: Session, doc_ids: list[int]) -> list[str]:
     type_ids = [int(row.document_type_id) for row in rows if row.document_type_id is not None]
     if not type_ids:
         return []
-    for type_id, name in db.query(DocumentType.id, DocumentType.name).filter(
-        DocumentType.id.in_(type_ids)
-    ).all():
-        name = str(name or "").strip()
+    for name in db.query(DocumentType.name).filter(DocumentType.id.in_(type_ids)).all():
+        name = str(name[0] or "").strip()
         if name:
             counts[name] = counts.get(name, 0) + 1
     ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
@@ -102,10 +100,10 @@ def learn_correspondent_rules(db: Session, doc_id: int) -> dict[str, Any]:
 
 
 def compute_learned_rules(
-    learn_rules_fn: "Callable[[Session, int], dict[str, Any]]",
+    learn_rules_fn: Callable[[Session, int], dict[str, Any]],
     db: Session,
     doc_id: int,
-    logger: "logging.Logger | None" = None,
+    logger: logging.Logger | None = None,
 ) -> str:
     """Learn a document's correspondent rules and build the prompt prefix.
 
@@ -114,7 +112,7 @@ def compute_learned_rules(
     """
     try:
         return build_learned_rules_instruction(learn_rules_fn(db, doc_id))
-    except Exception as exc:  # noqa: BLE001 - a rules error must not block suggestions
+    except Exception as exc:
         if logger is not None:
             logger.warning("Learned rules failed doc=%s err=%s", doc_id, exc)
         return ""
