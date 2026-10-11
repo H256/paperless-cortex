@@ -9400,6 +9400,17 @@
               }
             ],
             "title": "Text Source"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
           }
         },
         "type": "object",

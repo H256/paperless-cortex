@@ -272,6 +272,26 @@ describe('DocumentSuggestionsSection guidance for Suggest new', () => {
     wrapper.unmount()
   })
 
+  it('sends the page restriction with whitespace removed', async () => {
+    const wrapper = mountWithText()
+    await wrapper.find('[data-testid="guidance-pages"]').setValue(' 1, 3-4 ')
+    await suggestButtons(wrapper)[0]!.trigger('click')
+
+    const calls = wrapper.emitted('suggestField') ?? []
+    expect(calls[0]?.[2]).toEqual({ pages: '1,3-4' })
+    wrapper.unmount()
+  })
+
+  it('flags a malformed page restriction', async () => {
+    const wrapper = mountWithText()
+    expect(wrapper.find('[data-testid="guidance-pages-invalid"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="guidance-pages"]').setValue('first page')
+    expect(wrapper.find('[data-testid="guidance-pages-invalid"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="guidance-pages"]').setValue('2-3')
+    expect(wrapper.find('[data-testid="guidance-pages-invalid"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('does not offer a text choice when only one text is available', () => {
     const wrapper = mount(DocumentSuggestionsSection, {
       props: {

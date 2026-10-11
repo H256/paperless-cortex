@@ -4,6 +4,7 @@ import json
 import os
 from typing import Any
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -596,3 +597,83 @@ def test_suggest_field_ignores_an_unknown_text_source(api_client: Any, monkeypat
         api_client, monkeypatch, 822, {"text_source": "similar_docs"}
     )
     assert text == "VISION TEXT"
+
+
+def _suggest_field_with_pages(
+    api_client: Any, monkeypatch: Any, doc_id: int, request_extra: dict[str, Any]
+) -> Any:
+    from app.models import DocumentPageText
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    content = "PAPER ONE\fPAPER TWO\fPAPER THREE"
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=doc_id, title=f"Doc {doc_id}", content=content))
+        for page, text in enumerate(("VISION ONE", "VISION TWO", "VISION THREE"), start=1):
+            db.add(DocumentPageText(doc_id=doc_id, page=page, source="vision_ocr", text=text))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, did: {"id": did, "content": content}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    seen: dict[str, str] = {}
+
+    def _fake_generate(_settings: Any, _document: Any, text: str, **_kwargs: Any) -> dict[str, Any]:
+        seen["text"] = text
+        return {"variants": ["x"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+    response = api_client.post(
+        f"/documents/{doc_id}/suggestions/field?priority=true",
+        json={"field": "title", "count": 1, **request_extra},
+    )
+    response.seen = seen  # type: ignore[attr-defined]
+    return response
+
+
+def test_suggest_field_restricts_vision_text_to_the_requested_pages(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    response = _suggest_field_with_pages(
+        api_client, monkeypatch, 830, {"source": "vision_ocr", "pages": "1,3"}
+    )
+    assert response.status_code == 200
+    assert response.seen["text"] == "VISION ONE\n\nVISION THREE"
+
+
+def test_suggest_field_restricts_paperless_text_to_the_requested_pages(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    response = _suggest_field_with_pages(
+        api_client, monkeypatch, 831, {"source": "paperless_ocr", "pages": "2-3"}
+    )
+    assert response.status_code == 200
+    assert response.seen["text"] == "PAPER TWO\n\nPAPER THREE"
+
+
+def test_suggest_field_page_restriction_uses_the_chosen_text_source(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    response = _suggest_field_with_pages(
+        api_client,
+        monkeypatch,
+        832,
+        {"source": "vision_ocr", "text_source": "paperless_ocr", "pages": "1"},
+    )
+    assert response.status_code == 200
+    assert response.seen["text"] == "PAPER ONE"
+
+
+@pytest.mark.parametrize("pages", ["0", "abc", "3-1", "9"])
+def test_suggest_field_rejects_invalid_or_missing_pages(
+    api_client: Any, monkeypatch: Any, pages: str
+) -> None:
+    response = _suggest_field_with_pages(
+        api_client, monkeypatch, 833, {"source": "vision_ocr", "pages": pages}
+    )
+    assert response.status_code == 400
+    assert "text" not in response.seen  # type: ignore[attr-defined]
+

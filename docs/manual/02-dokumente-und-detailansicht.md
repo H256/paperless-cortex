@@ -170,6 +170,7 @@ Wenn ein Vorschlag nicht passt, können Sie die KI gezielt noch einmal fragen. D
 - **Hint:** eine kurze Anweisung, z. B. "Rechnungsdatum, nicht Lieferdatum".
 - **Markierte Textpassage:** markieren Sie im angezeigten Text die Stelle mit der Antwort und klicken Sie `Use selected text as focus`. Mit `Clear` entfernen Sie den Fokus wieder.
 - **Text the model reads:** Auswahl zwischen `Paperless OCR` und `Vision OCR`. Das Feld erscheint nur, wenn beide Texte vorliegen.
+- **Only these pages:** schränkt den Text auf bestimmte Seiten ein, z. B. `1` oder `1-2,4`. Sinnvoll bei langen Dokumenten, wenn Datum und Absender nur auf der ersten Seite stehen und spätere Seiten (AGB, Anlagen) in die Irre führen. Es gilt für den Text, den das Modell liest. Ungültige Angaben oder Dokumente ohne Seitenstruktur werden abgelehnt, es wird nie stillschweigend der ganze Text verwendet.
 - Bereits angezeigte Varianten werden beim erneuten Fragen als "nicht wiederholen" mitgegeben. So kommen neue Werte statt derselben.
 
 `Suggest new` wendet nie etwas an und ist unabhängig von Ihrer Auswahl.
