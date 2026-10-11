@@ -10,4 +10,5 @@ export interface WritebackFieldDiff {
   original?: unknown;
   proposed?: unknown;
   changed: boolean;
+  ai_generated?: boolean;
 }

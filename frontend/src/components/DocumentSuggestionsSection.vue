@@ -19,6 +19,71 @@
       No suggestions loaded.
     </div>
     <div v-else class="mt-4 space-y-4">
+      <div
+        v-if="hasTextCandidates"
+        class="rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/50 dark:bg-sky-950/30"
+        data-testid="text-candidates"
+      >
+        <div class="flex items-center justify-between">
+          <strong class="text-sm text-slate-900 dark:text-slate-100">Candidates from text</strong>
+          <span class="text-xs text-slate-500 dark:text-slate-400"
+            >Found in the document text, no AI involved</span
+          >
+        </div>
+        <div v-if="dateCandidates.length" class="mt-3">
+          <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Date</div>
+          <div class="mt-1.5 flex flex-wrap gap-2">
+            <button
+              v-for="candidate in dateCandidates"
+              :key="`date-${candidate.value}`"
+              type="button"
+              class="rounded-lg border px-2.5 py-1 text-left text-xs"
+              :class="candidateClass(isCandidateSelected('date', candidate.value))"
+              :title="candidateTitle(candidate)"
+              :data-testid="`candidate-date-${candidate.value}`"
+              :disabled="suggestionsLoading || applying"
+              @click="toggleCandidate('date', candidate.value)"
+            >
+              <span class="font-semibold">{{ formatCandidateDate(candidate.value) }}</span>
+              <span class="ml-1.5 text-slate-500 dark:text-slate-400">{{
+                candidateLabel(candidate.label)
+              }}</span>
+              <span
+                v-if="(candidate.occurrences ?? 1) > 1"
+                class="ml-1 text-slate-400 dark:text-slate-500"
+                >{{ candidate.occurrences }}×</span
+              >
+            </button>
+          </div>
+        </div>
+        <div v-if="correspondentCandidates.length" class="mt-3">
+          <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Correspondent</div>
+          <div class="mt-1.5 flex flex-wrap gap-2">
+            <button
+              v-for="candidate in correspondentCandidates"
+              :key="`corr-${candidate.name}`"
+              type="button"
+              class="rounded-lg border px-2.5 py-1 text-left text-xs"
+              :class="candidateClass(isCandidateSelected('correspondent', candidate.name))"
+              :title="candidate.context || candidate.name"
+              :data-testid="`candidate-correspondent-${candidate.name}`"
+              :disabled="suggestionsLoading || applying"
+              @click="toggleCandidate('correspondent', candidate.name)"
+            >
+              <span class="font-semibold">{{ candidate.name }}</span>
+              <span
+                class="ml-1.5"
+                :class="
+                  candidate.known
+                    ? 'text-emerald-600 dark:text-emerald-300'
+                    : 'text-amber-600 dark:text-amber-300'
+                "
+                >{{ candidate.known ? 'known' : 'new' }}</span
+              >
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="grid gap-4 lg:grid-cols-2">
         <div
           v-for="panel in orderedPanels"
@@ -404,6 +469,7 @@ import { Info, Loader2 } from 'lucide-vue-next'
 import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { mergeTagNames, type SuggestionApplyItem } from '../utils/suggestionSelection'
+import type { CorrespondentCandidate, DateCandidate } from '../api/generated/model'
 
 type SuggestionPayload = Record<string, unknown>
 type SuggestionSource = 'paperless_ocr' | 'vision_ocr' | 'similar_docs'
@@ -430,7 +496,11 @@ const props = withDefaults(defineProps<{
   }
   currentTagList?: string[]
   applying?: boolean
-}>(), { currentTagList: () => [], applying: false })
+  textCandidates?: {
+    dates?: DateCandidate[]
+    correspondents?: CorrespondentCandidate[]
+  } | null
+}>(), { currentTagList: () => [], applying: false, textCandidates: null })
 
 const emit = defineEmits<{
   (e: 'refresh', source: SuggestionSource): void
@@ -689,7 +759,58 @@ const selectionLabels: Record<string, string> = {
   note: 'Summary',
 }
 
-const sourceLabel = (source: string) => (source === 'vision_ocr' ? 'Vision' : 'Paperless')
+const TEXT_CANDIDATES_SOURCE = 'text_candidates'
+
+const sourceLabel = (source: string) => {
+  if (source === TEXT_CANDIDATES_SOURCE) return 'Text'
+  return source === 'vision_ocr' ? 'Vision' : 'Paperless'
+}
+
+const dateCandidates = computed(() => props.textCandidates?.dates ?? [])
+const correspondentCandidates = computed(() => props.textCandidates?.correspondents ?? [])
+const hasTextCandidates = computed(
+  () => dateCandidates.value.length > 0 || correspondentCandidates.value.length > 0,
+)
+
+const isCandidateSelected = (field: string, value: string) => {
+  const entry = selection.value[field]
+  return entry?.source === TEXT_CANDIDATES_SOURCE && entry.value === value
+}
+
+const toggleCandidate = (field: 'date' | 'correspondent', value: string) => {
+  const next = { ...selection.value }
+  if (isCandidateSelected(field, value)) {
+    delete next[field]
+  } else {
+    next[field] = { source: TEXT_CANDIDATES_SOURCE, value }
+  }
+  selection.value = next
+}
+
+const candidateClass = (selected: boolean) =>
+  selected
+    ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100'
+    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+
+const CANDIDATE_LABELS: Record<string, string> = {
+  issue: 'issue date',
+  delivery: 'delivery',
+  due: 'due',
+  period: 'period',
+  other: 'other',
+}
+const candidateLabel = (label: string) => CANDIDATE_LABELS[label] ?? label
+
+const formatCandidateDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : value
+}
+
+const candidateTitle = (candidate: DateCandidate) => {
+  const parts = [candidate.context]
+  if (candidate.page) parts.push(`page ${candidate.page}`)
+  return parts.filter(Boolean).join(' · ')
+}
 
 const selectedItems = computed(() =>
   selectionFieldOrder

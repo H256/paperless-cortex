@@ -63,6 +63,7 @@
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
         :current-tag-list="currentTagList"
+        :text-candidates="textCandidates"
         :applying="suggestionsApplying"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
@@ -221,6 +222,7 @@ import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useDocumentSimilarity } from '../composables/useDocumentSimilarity'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useDocumentWriteback } from '../composables/useDocumentWriteback'
+import { useTextCandidates } from '../composables/useTextCandidates'
 import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
@@ -564,6 +566,20 @@ const {
 })
 
 const suggestionsApplying = ref(false)
+
+const { candidates: textCandidates, load: loadTextCandidates, reset: resetTextCandidates } =
+  useTextCandidates()
+
+watch(
+  [() => docId.value, activeTab],
+  ([id, tab], [previousId]) => {
+    // One watcher: a reset in a second watcher would invalidate the load started here.
+    if (id !== previousId) resetTextCandidates()
+    if (tab !== 'suggestions' || !Number.isFinite(id) || id <= 0) return
+    void loadTextCandidates(id)
+  },
+  { immediate: true },
+)
 
 const applySelectedAction = async (items: SuggestionApplyItem[]) => {
   if (suggestionsApplying.value || !items.length) return

@@ -122,6 +122,7 @@ import type {
   SyncTagsSyncTagsPostParams,
   TagsPageResponse,
   TaskRunListResponse,
+  TextCandidatesResponse,
   WritebackDirectExecuteRequest,
   WritebackDirectExecuteResponse,
   WritebackDryRunExecuteRequest,
@@ -1457,6 +1458,59 @@ export const getDocumentSuggestionsDocumentsDocIdSuggestionsGet = async (docId: 
   
   const data: getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getDocumentSuggestionsDocumentsDocIdSuggestionsGetResponse
+}
+
+
+
+/**
+ * Deterministic date/correspondent candidates from the stored document text.
+
+Reads only cached page texts (fallback: document content); it never triggers OCR,
+LLM calls or queue work.
+ * @summary Get Text Candidates
+ */
+export type getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse200 = {
+  data: TextCandidatesResponse
+  status: 200
+}
+
+export type getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponseSuccess = (getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse200) & {
+  headers: Headers;
+};
+export type getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponseError = (getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse = (getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponseSuccess | getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponseError)
+
+export const getGetTextCandidatesDocumentsDocIdSuggestionsCandidatesGetUrl = (docId: number,) => {
+
+
+  
+
+  return `/api/documents/${docId}/suggestions/candidates`
+}
+
+export const getTextCandidatesDocumentsDocIdSuggestionsCandidatesGet = async (docId: number, options?: RequestInit): Promise<getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse> => {
+  
+  const res = await fetch(getGetTextCandidatesDocumentsDocIdSuggestionsCandidatesGetUrl(docId),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getTextCandidatesDocumentsDocIdSuggestionsCandidatesGetResponse
 }
 
 
