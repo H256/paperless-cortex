@@ -138,9 +138,6 @@ export const useWritebackManager = () => {
         queryClient.invalidateQueries({ queryKey: ['writeback-history'] }),
       ])
     },
-    onError: () => {
-      lastExecuteAllResults.value = []
-    },
   })
 
   const deleteJobMutation = useMutation({

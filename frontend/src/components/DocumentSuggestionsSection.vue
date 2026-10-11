@@ -83,7 +83,20 @@
             <div v-if="panel.suggestion.data" class="space-y-2">
               <div v-if="panel.showSummary" class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <div class="flex items-start gap-2">
-                  <span>Summary</span>
+                  <label
+                    v-if="panel.allowActions && hasSuggestedValue(panel.suggestion.data, 'note')"
+                    class="flex cursor-pointer items-center gap-2"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="isFieldSelected(panel.sourceKey, 'note')"
+                      :disabled="suggestionsLoading || applying"
+                      :data-testid="`select-${panel.source}-note`"
+                      @change="toggleField(panel.sourceKey, 'note', panel.suggestion.data)"
+                    />
+                    <span>Summary</span>
+                  </label>
+                  <span v-else>Summary</span>
                   <span
                     v-if="currentValues.note"
                     class="inline-flex items-center text-slate-400"
@@ -179,20 +192,45 @@
                 :key="`${panel.key}-${field.key}`"
                 class="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 md:grid-cols-[140px_1fr_auto]"
               >
-                <span class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
+                <label
+                  v-if="panel.allowActions && hasSuggestedValue(panel.suggestion.data, field.key)"
+                  class="flex cursor-pointer items-start gap-2 text-xs text-slate-500 dark:text-slate-400"
+                >
+                  <input
+                    type="checkbox"
+                    class="mt-0.5"
+                    :checked="isFieldSelected(panel.sourceKey, field.key)"
+                    :disabled="suggestionsLoading || applying"
+                    :data-testid="`select-${panel.source}-${field.key}`"
+                    @change="toggleField(panel.sourceKey, field.key, panel.suggestion.data)"
+                  />
+                  <span>{{ field.label }}</span>
+                </label>
+                <span v-else class="text-xs text-slate-500 dark:text-slate-400">{{
+                  field.label
+                }}</span>
                 <div class="min-w-0 text-sm text-slate-900 dark:text-slate-100">
                   <template v-if="field.key === 'tags'">
                     <div
                       v-if="normalizedTags(panel.suggestion.data).length"
                       class="flex flex-wrap gap-1.5"
                     >
-                      <span
+                      <component
+                        :is="panel.allowActions ? 'button' : 'span'"
                         v-for="tag in normalizedTags(panel.suggestion.data)"
                         :key="`tag-${panel.key}-${tag}`"
-                        class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                        :type="panel.allowActions ? 'button' : undefined"
+                        class="rounded-full border px-2 py-0.5 text-xs font-semibold"
+                        :class="
+                          isTagSelected(panel.sourceKey, tag)
+                            ? 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                        "
+                        :title="panel.allowActions ? 'Select tag for Apply selected' : undefined"
+                        @click="panel.allowActions && toggleTag(panel.sourceKey, tag)"
                       >
                         {{ tag }}
-                      </span>
+                      </component>
                     </div>
                     <span v-else class="text-xs text-slate-400 dark:text-slate-500"
                       >No tags suggested</span
@@ -280,6 +318,51 @@
           </div>
         </div>
       </div>
+
+      <div
+        v-if="selectedItems.length"
+        class="sticky bottom-3 z-10 rounded-xl border border-emerald-200 bg-white p-3 shadow-lg dark:border-emerald-900/50 dark:bg-slate-900"
+        data-testid="apply-selected-bar"
+      >
+        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Selected changes (only these are written to the document)
+        </div>
+        <ul class="mt-2 space-y-1 text-xs">
+          <li
+            v-for="item in selectedItems"
+            :key="item.field"
+            class="grid grid-cols-[110px_1fr] gap-2"
+          >
+            <span class="text-slate-500 dark:text-slate-400"
+              >{{ item.label }} · {{ sourceLabel(item.source) }}</span
+            >
+            <span class="min-w-0 break-words text-slate-900 dark:text-slate-100">
+              <span class="text-slate-400 line-through">{{ item.current || '—' }}</span>
+              →
+              <span class="font-semibold">{{ item.next }}</span>
+            </span>
+          </li>
+        </ul>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="rounded-md border border-emerald-300 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+            :disabled="applying || suggestionsLoading"
+            data-testid="apply-selected"
+            @click="applySelected"
+          >
+            {{ applying ? 'Applying...' : `Apply selected (${selectedItems.length})` }}
+          </button>
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            :disabled="applying"
+            @click="clearSelection"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -316,10 +399,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Info, Loader2 } from 'lucide-vue-next'
 import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import { mergeTagNames, type SuggestionApplyItem } from '../utils/suggestionSelection'
 
 type SuggestionPayload = Record<string, unknown>
 type SuggestionSource = 'paperless_ocr' | 'vision_ocr' | 'similar_docs'
@@ -330,7 +414,7 @@ type SuggestionState = {
   suggestions_meta?: Record<string, unknown>
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   suggestions: SuggestionState | null
   suggestionsError: string
   suggestionsLoading: boolean
@@ -344,7 +428,9 @@ const props = defineProps<{
     tags: string
     note: string
   }
-}>()
+  currentTagList?: string[]
+  applying?: boolean
+}>(), { currentTagList: () => [], applying: false })
 
 const emit = defineEmits<{
   (e: 'refresh', source: SuggestionSource): void
@@ -352,6 +438,7 @@ const emit = defineEmits<{
   (e: 'applyVariant', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyVariantToDocument', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyToDocument', source: string, field: string, value: unknown): void
+  (e: 'applySelected', items: SuggestionApplyItem[]): void
 }>()
 
 const suggestionFields = [
@@ -539,13 +626,120 @@ const confirmVariantUpdateDocument = () => {
   closeVariantDialog()
 }
 
-const openApplyDialog = (source: string, field: string, data: SuggestionPayload) => {
+const suggestedValue = (data: SuggestionPayload, field: string): unknown => {
   let value: unknown = data[field]
   if (field === 'title') value = data.title || data.suggested_title || ''
   if (field === 'date') value = data.date || data.suggested_document_date || ''
   if (field === 'correspondent') value = data.correspondent || data.suggested_correspondent || ''
   if (field === 'tags') value = data.tags || data.suggested_tags || []
   if (field === 'note') value = data.summary || ''
+  return value
+}
+
+type FieldSelection = { source: string; value?: unknown; tags?: string[] }
+const selection = ref<Record<string, FieldSelection>>({})
+
+const hasSuggestedValue = (data: SuggestionPayload, field: string) => {
+  if (field === 'tags') return normalizedTags(data).length > 0
+  const value = suggestedValue(data, field)
+  return value !== null && value !== undefined && value !== ''
+}
+
+const isFieldSelected = (source: string, field: string) => selection.value[field]?.source === source
+
+const isTagSelected = (source: string, tag: string) =>
+  selection.value.tags?.source === source && Boolean(selection.value.tags.tags?.includes(tag))
+
+const toggleField = (source: string, field: string, data: SuggestionPayload) => {
+  const next = { ...selection.value }
+  if (next[field]?.source === source) {
+    delete next[field]
+  } else if (field === 'tags') {
+    next[field] = { source, tags: normalizedTags(data) }
+  } else {
+    next[field] = { source, value: suggestedValue(data, field) }
+  }
+  selection.value = next
+}
+
+const toggleTag = (source: string, tag: string) => {
+  const current = selection.value.tags
+  const next = { ...selection.value }
+  if (!current || current.source !== source) {
+    next.tags = { source, tags: [tag] }
+  } else {
+    const tags = current.tags || []
+    const updated = tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]
+    if (updated.length) next.tags = { source, tags: updated }
+    else delete next.tags
+  }
+  selection.value = next
+}
+
+const clearSelection = () => {
+  selection.value = {}
+}
+
+const selectionFieldOrder = ['title', 'date', 'correspondent', 'tags', 'note']
+const selectionLabels: Record<string, string> = {
+  title: 'Title',
+  date: 'Date',
+  correspondent: 'Correspondent',
+  tags: 'Tags',
+  note: 'Summary',
+}
+
+const sourceLabel = (source: string) => (source === 'vision_ocr' ? 'Vision' : 'Paperless')
+
+const selectedItems = computed(() =>
+  selectionFieldOrder
+    .filter((field) => selection.value[field])
+    .map((field) => {
+      const entry = selection.value[field] as FieldSelection
+      if (field === 'tags') {
+        const merged = mergeTagNames(props.currentTagList, entry.tags)
+        return {
+          field,
+          label: selectionLabels[field],
+          source: entry.source,
+          current: props.currentValues.tags,
+          next: merged.join(', '),
+          value: merged as unknown,
+        }
+      }
+      const value = entry.value
+      return {
+        field,
+        label: selectionLabels[field],
+        source: entry.source,
+        current: field === 'note' ? props.currentValues.note : currentValueFor(field),
+        next: typeof value === 'string' ? value : JSON.stringify(value),
+        value,
+      }
+    }),
+)
+
+const applySelected = () => {
+  if (!selectedItems.value.length) return
+  emit(
+    'applySelected',
+    selectedItems.value.map((item) => ({
+      source: item.source,
+      field: item.field,
+      value: item.value,
+    })),
+  )
+}
+
+watch(
+  () => props.applying,
+  (now, before) => {
+    if (before && !now) clearSelection()
+  },
+)
+
+const openApplyDialog = (source: string, field: string, data: SuggestionPayload) => {
+  const value = suggestedValue(data, field)
   if (field === 'tags' && (!Array.isArray(value) || value.length === 0)) return
   if (value === null || value === undefined || value === '') return
   const label = typeof value === 'string' ? value : JSON.stringify(value)

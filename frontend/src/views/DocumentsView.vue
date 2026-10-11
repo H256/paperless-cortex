@@ -95,6 +95,7 @@
       :total-pages="totalPages"
       :last-synced="lastSynced"
       :view-mode="listViewMode"
+      :doc-href="docHref"
       @toggle-sort="toggleSort"
       @open-doc="open"
       @open-doc-operations="openOperations"
@@ -242,6 +243,15 @@ const onJumpPage = async (targetPage: number) => {
 }
 
 const isValidDocId = (id: number) => Number.isFinite(id) && id > 0
+
+const docHref = (id: number, tab?: 'operations' | 'suggestions') =>
+  router.resolve({
+    path: `/documents/${id}`,
+    query: {
+      return_to: encodeURIComponent(route.fullPath),
+      ...(tab ? { tab } : {}),
+    },
+  }).href
 
 const open = (id: number) => {
   if (!isValidDocId(id)) {

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.5.61"
+    "version": "0.6.0"
   },
   "paths": {
     "/documents/": {
@@ -1909,6 +1909,16 @@
               ],
               "title": "Min Score"
             }
+          },
+          {
+            "name": "exclude_reviewed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Reviewed"
+            }
           }
         ],
         "responses": {
@@ -1974,6 +1984,16 @@
               "minimum": 1,
               "default": 10,
               "title": "Top K"
+            }
+          },
+          {
+            "name": "exclude_reviewed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Reviewed"
             }
           }
         ],
@@ -8740,6 +8760,11 @@
             "type": "array",
             "title": "Matches",
             "default": []
+          },
+          "hidden_reviewed": {
+            "type": "integer",
+            "title": "Hidden Reviewed",
+            "default": 0
           }
         },
         "type": "object",
@@ -10432,6 +10457,11 @@
             "type": "array",
             "title": "Calls",
             "default": []
+          },
+          "applied_calls_count": {
+            "type": "integer",
+            "title": "Applied Calls Count",
+            "default": 0
           }
         },
         "type": "object",
