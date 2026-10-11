@@ -3,6 +3,21 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.9.4)
+
+### Release 0.9.4
+- `ef975da` chore(version): bumped the project version from `0.9.3` to `0.9.4` via `scripts/bump_version.py patch` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.9.3:
+  - The Summary row of the comparison table shows the summary again; long summaries are clamped with a "Show full text" toggle (#426, #427).
+- Verification: `cd frontend && npx vitest run` (`220 passed`), `npx vue-tsc --build`, `npx oxlint src` clean; no backend code changed since 0.9.3.
+
+## 2026-10-11 (branch: agent/426-summary-cell)
+
+### Fix: summary missing in the comparison table
+- `c02e8c8` fix(suggestions): the Summary row of the comparison table read `data.note` while the payload stores `data.summary`, so the cells were empty and the summary could not be judged or picked. The cell now shows the summary (fallback `note`); added a test that shows and picks it (#426).
+- `da93247` fix(suggestions): long summaries are clamped to four lines in the table cells with a "Show full text" toggle and to three lines in the sticky "Selected changes" bar so the table keeps its shape (#426).
+- Verification: `npx vitest run src/components/DocumentSuggestionsSection.test.ts` (32 passed), `npx vue-tsc --build`, `npx oxlint src`.
+
 ## 2026-10-11 (branch: agent/release-0.9.3)
 
 ### Release 0.9.3
