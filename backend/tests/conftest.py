@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import uuid
@@ -28,6 +30,72 @@ def _set_test_env(db_path: Path) -> None:
     os.environ["ENABLE_VISION_OCR"] = "1"
     os.environ["QDRANT_URL"] = "http://test-qdrant:6333"
     os.environ["RUNTIME_SETTINGS_MASTER_KEY"] = "xjFFDGjXcmcrwlFe0Vm9Dq4mOAcN2DERPslm9jqISqg="
+
+
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", "testserver"}
+
+
+@pytest.fixture(autouse=True)
+def _block_real_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail fast when a test would send a real HTTP request.
+
+    Tests must stub the Paperless, LLM and vector-store clients. An unstubbed call used to
+    reach whatever instance the environment points at (and was often swallowed as a 404).
+    Loopback/in-process hosts stay allowed; `httpx.MockTransport` is unaffected.
+    """
+    import httpx
+
+    original = httpx.HTTPTransport.handle_request
+
+    def _guarded(self: Any, request: Any) -> Any:
+        if request.url.host not in _LOOPBACK_HOSTS:
+            raise RuntimeError(
+                f"Real network access in a test: {request.method} {request.url}. "
+                "Stub the client (e.g. monkeypatch the paperless/llm function)."
+            )
+        return original(self, request)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _guarded)
+
+
+def _bash_candidates() -> list[str]:
+    candidates: list[str] = []
+    found = shutil.which("bash")
+    if found:
+        candidates.append(found)
+    if sys.platform == "win32":
+        # `bash` on PATH is often the WSL launcher; Git for Windows ships a real one.
+        for base in (
+            os.environ.get("ProgramFiles"),
+            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("LOCALAPPDATA") and str(Path(os.environ["LOCALAPPDATA"]) / "Programs"),
+        ):
+            if not base:
+                continue
+            for relative in ("Git/bin/bash.exe", "Git/usr/bin/bash.exe"):
+                path = Path(base) / relative
+                if path.is_file():
+                    candidates.append(str(path))
+    return candidates
+
+
+@pytest.fixture(scope="session")
+def posix_bash() -> str:
+    """Path of a working POSIX bash, or skip: the Docker entrypoint is a bash script."""
+    for candidate in _bash_candidates():
+        try:
+            result = subprocess.run(
+                [candidate, "-c", "echo ok"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode == 0 and result.stdout.strip() == "ok":
+            return candidate
+    pytest.skip("no working POSIX bash available")
 
 
 @pytest.fixture()

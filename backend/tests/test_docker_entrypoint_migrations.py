@@ -29,6 +29,8 @@ def _run_entrypoint(
     tmp: Path,
     alembic_mode: str,
     remove_keys: tuple[str, ...] = (),
+    *,
+    bash: str = "bash",
 ) -> subprocess.CompletedProcess:
     """Run the entrypoint with stubbed commands; return the completed process."""
     stub_bin = tmp / "stub-bin"
@@ -69,7 +71,7 @@ def _run_entrypoint(
         env.pop(key, None)
 
     return subprocess.run(
-        ["bash", str(ENTRYPOINT)],
+        [bash, str(ENTRYPOINT)],
         env=env,
         capture_output=True,
         text=True,
@@ -77,28 +79,29 @@ def _run_entrypoint(
     )
 
 
-def test_entrypoint_runs_migrations_when_database_url_set(tmp_path: Path) -> None:
-    result = _run_entrypoint({"DATABASE_URL": "postgresql+psycopg://u:p@h:5432/db"}, tmp_path, "always_ok")
+def test_entrypoint_runs_migrations_when_database_url_set(tmp_path: Path, posix_bash: str) -> None:
+    result = _run_entrypoint({"DATABASE_URL": "postgresql+psycopg://u:p@h:5432/db"}, tmp_path, "always_ok", bash=posix_bash)
 
     assert result.returncode == 0, result.stderr
     log = (tmp_path / "alembic.log").read_text()
     assert "alembic upgrade head" in log
 
 
-def test_entrypoint_skips_migrations_when_database_url_unset(tmp_path: Path) -> None:
+def test_entrypoint_skips_migrations_when_database_url_unset(tmp_path: Path, posix_bash: str) -> None:
     # DATABASE_URL must be genuinely absent (not merely empty) for the skip path.
-    result = _run_entrypoint({}, tmp_path, "always_ok", remove_keys=("DATABASE_URL",))
+    result = _run_entrypoint({}, tmp_path, "always_ok", remove_keys=("DATABASE_URL",), bash=posix_bash)
 
     assert result.returncode == 0, result.stderr
     log_file = tmp_path / "alembic.log"
     assert not log_file.exists() or "upgrade head" not in log_file.read_text()
 
 
-def test_entrypoint_retries_transient_migration_failure(tmp_path: Path) -> None:
+def test_entrypoint_retries_transient_migration_failure(tmp_path: Path, posix_bash: str) -> None:
     result = _run_entrypoint(
         {"DATABASE_URL": "postgresql+psycopg://u:p@h:5432/db", "MAX_MIGRATION_ATTEMPTS": "5"},
         tmp_path,
         "fail_once",
+        bash=posix_bash,
     )
 
     assert result.returncode == 0, result.stderr
@@ -107,11 +110,12 @@ def test_entrypoint_retries_transient_migration_failure(tmp_path: Path) -> None:
     assert log.count("upgrade head") == 2
 
 
-def test_entrypoint_aborts_on_persistent_migration_failure(tmp_path: Path) -> None:
+def test_entrypoint_aborts_on_persistent_migration_failure(tmp_path: Path, posix_bash: str) -> None:
     result = _run_entrypoint(
         {"DATABASE_URL": "postgresql+psycopg://u:p@h:5432/db", "MAX_MIGRATION_ATTEMPTS": "3"},
         tmp_path,
         "always_fail",
+        bash=posix_bash,
     )
 
     assert result.returncode != 0
