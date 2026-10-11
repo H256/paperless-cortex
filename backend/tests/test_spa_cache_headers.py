@@ -6,14 +6,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.main import SPAStaticFiles
-
 if TYPE_CHECKING:
     from pathlib import Path
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
+    # Imported here: importing app.main while the tests are collected would configure the
+    # application (logging, settings) before the test fixtures prepare the environment.
+    from app.main import SPAStaticFiles
+
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text("<html>app</html>", encoding="utf-8")
