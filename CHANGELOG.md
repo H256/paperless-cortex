@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/357-358-selective-review-flow)
+
+### Faster, selective review: real document links and multi-field apply (#357, #358, tracking #359)
+- `a08edc2` feat(frontend): document cards and table rows expose real hrefs (`docHref` from [`DocumentsView.vue`](frontend/src/views/DocumentsView.vue)); plain click keeps SPA navigation, Ctrl/Cmd/middle click opens a new tab ([`DocumentCard.vue`](frontend/src/components/DocumentCard.vue), [`DocumentsTable.vue`](frontend/src/components/DocumentsTable.vue)).
+- `a08edc2` feat(frontend): suggestions can be applied selectively in [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue): per-field checkboxes (nothing preselected), per-tag selection merged with existing and pending tags (backend `apply-suggestion` replaces the tag set), before/after preview and a single "Apply selected" action backed by `applySelected` in [`useDocumentSuggestionsApply.ts`](frontend/src/composables/useDocumentSuggestionsApply.ts) (per-field error capture, one reload).
+- `a08edc2` docs(plan): [`docs/plans/2026-10-11-selective-review-flow.md`](docs/plans/2026-10-11-selective-review-flow.md); follow-ups (review mode, text-based candidates, passage focus for "Suggest new") are tracked in #359.
+- `a08edc2` test(frontend): `cd frontend && npx vitest run` (`93 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
 ## 2026-05-16 (branch: develop)
 
 ### Recovery state is durable across sync and queue resume
