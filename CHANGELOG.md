@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/375-tests-ignore-dotenv)
+
+### Backend tests no longer read a developer .env (#375)
+- `79ffae7` test(backend): [`tests/conftest.py`](backend/tests/conftest.py) replaces `app.config._load_env` by a no-op for the test session, so a repository-root `.env` (Paperless URL/token, LLM and vector-store settings) cannot leak into tests; this fixed `test_mark_reviewed_moves_document_out_of_unreviewed` and `test_documents_list_cache_invalidates_after_mark_reviewed` on machines with a `.env`. New [`test_env_isolation.py`](backend/tests/test_env_isolation.py) guards it.
+- `79ffae7` test: `cd backend && uv run pytest -q` (`610 passed`, 2 skipped, 8 failed = 7× `test_docker_entrypoint_*` and 1× `test_writeback_dryrun_routes`, unchanged baseline) with a `.env` present.
+
 ## 2026-10-11 (branch: agent/371-review-paging-prefetch)
 
 ### Review mode continues across list pages and prefetches the next document (#371, tracking #359)
