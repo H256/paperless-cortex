@@ -18,6 +18,7 @@ import {
   getDocumentTextQualityDocumentsDocIdTextQualityGet,
   getDocumentOcrScoresDocumentsDocIdOcrScoresGet,
   getDocumentSuggestionsDocumentsDocIdSuggestionsGet,
+  getTextCandidatesDocumentsDocIdSuggestionsCandidatesGet,
   suggestFieldVariantsDocumentsDocIdSuggestionsFieldPost,
   getFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGet,
   applyFieldSuggestionDocumentsDocIdSuggestionsFieldApplyPost,
@@ -66,6 +67,7 @@ import type {
   SuggestionFieldApply,
   SuggestionFieldRequest,
   SuggestionsResponse,
+  TextCandidatesResponse,
   ProcessMissingResponse,
   ProcessMissingDocumentsProcessMissingPostParams,
   ResetIntelligenceResponse,
@@ -176,6 +178,9 @@ export const getSuggestions = (
   id: number,
   params?: GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
 ) => unwrap<SuggestionsResponse>(getDocumentSuggestionsDocumentsDocIdSuggestionsGet(id, params))
+
+export const getTextCandidates = (id: number) =>
+  unwrap<TextCandidatesResponse>(getTextCandidatesDocumentsDocIdSuggestionsCandidatesGet(id))
 
 export const suggestFieldVariants = (
   id: number,
