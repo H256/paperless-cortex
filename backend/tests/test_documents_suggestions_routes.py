@@ -433,3 +433,66 @@ def test_suggest_field_without_guidance_keeps_the_generator_call_unchanged(
     assert response.status_code == 200
     assert "focus_text" not in captured
     assert "hint" not in captured
+
+def test_text_candidates_route_uses_stored_texts_without_side_effects(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.models import DocumentPageText
+    from app.routes import documents_suggestions as route_mod
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=808, title="scan", content="ignored because pages exist"))
+        db.add(
+            DocumentPageText(
+                doc_id=808,
+                page=1,
+                source="vision_ocr",
+                text=(
+                    "Lautsprecher Teufel GmbH\nBerlin\nRechnungsdatum: 20.09.2026\n"
+                    "Zahlbar bis 04.10.2026"
+                ),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        route_mod,
+        "get_cached_correspondents",
+        lambda settings: ["Lautsprecher Teufel GmbH", "Hornbach"],
+    )
+
+    response = api_client.get("/documents/808/suggestions/candidates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doc_id"] == 808
+    assert payload["dates"][0]["value"] == "2026-09-20"
+    assert payload["dates"][0]["label"] == "issue"
+    assert payload["dates"][0]["sources"] == ["vision_ocr"]
+    assert payload["correspondents"][0]["name"] == "Lautsprecher Teufel GmbH"
+    assert payload["correspondents"][0]["known"] is True
+
+
+def test_text_candidates_route_falls_back_to_document_content(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=809, title="scan", content="Hornbach Baumarkt\nDatum: 01.03.2026"))
+        db.commit()
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: ["Hornbach Baumarkt"])
+
+    response = api_client.get("/documents/809/suggestions/candidates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dates"][0]["value"] == "2026-03-01"
+    assert payload["dates"][0]["sources"] == ["content"]
+    assert payload["correspondents"][0]["name"] == "Hornbach Baumarkt"
+
+
+def test_text_candidates_route_unknown_document_returns_404(api_client: Any) -> None:
+    assert api_client.get("/documents/99999/suggestions/candidates").status_code == 404
