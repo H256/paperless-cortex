@@ -360,6 +360,80 @@ def test_get_suggestions_plausible_payload_has_no_warnings(api_client: Any, monk
     assert payload["suggestions"]["paperless_ocr"]["suggestion_warnings"] == []
 
 
+def test_suggest_field_passes_focus_passage_and_hint_to_the_generator(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=818, title="Doc 818", content="Inhalt"))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, doc_id: {"id": doc_id, "content": "text"}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    captured: dict[str, Any] = {}
+
+    def _fake_generate(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"variants": ["2026-09-20"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        "/documents/818/suggestions/field?priority=true",
+        json={
+            "source": "paperless_ocr",
+            "field": "date",
+            "count": 1,
+            "focus_text": "Rechnungsdatum: 20.09.2026",
+            "hint": "Rechnungsdatum, nicht Lieferdatum",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["variants"] == ["2026-09-20"]
+    assert captured["focus_text"] == "Rechnungsdatum: 20.09.2026"
+    assert captured["hint"] == "Rechnungsdatum, nicht Lieferdatum"
+
+
+def test_suggest_field_without_guidance_keeps_the_generator_call_unchanged(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=819, title="Doc 819", content="Inhalt"))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, doc_id: {"id": doc_id, "content": "text"}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    captured: dict[str, Any] = {}
+
+    def _fake_generate(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"variants": ["x"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        "/documents/819/suggestions/field?priority=true",
+        json={"source": "paperless_ocr", "field": "title", "count": 1},
+    )
+
+    assert response.status_code == 200
+    assert "focus_text" not in captured
+    assert "hint" not in captured
+
 def test_text_candidates_route_uses_stored_texts_without_side_effects(
     api_client: Any, monkeypatch: Any
 ) -> None:

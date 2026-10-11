@@ -71,6 +71,7 @@
         :current-values="currentValues"
         :current-tag-list="currentTagList"
         :text-candidates="textCandidates"
+        :text-sources="guidanceTextSources"
         :applying="suggestionsApplying"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
@@ -381,10 +382,34 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs', field: string) => {
+const suggestFieldAction = async (
+  source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
+  field: string,
+  guidance?: { focus_text?: string; hint?: string },
+) => {
   if (source === 'similar_docs') return
-  await suggestField(docId.value, source, field)
+  await suggestField(docId.value, source, field, guidance)
 }
+
+// Texts the reviewer can mark a passage in (the same text the model works with).
+const guidanceTextSources = computed(() => {
+  const labels: Record<string, string> = { paperless_ocr: 'Paperless OCR', vision_ocr: 'Vision OCR' }
+  const bySource = new Map<string, string[]>()
+  for (const page of pageTexts.value) {
+    const key = String(page.source || '')
+    if (!key || !page.text) continue
+    bySource.set(key, [...(bySource.get(key) ?? []), page.text])
+  }
+  const sources = [...bySource.entries()].map(([key, texts]) => ({
+    key,
+    label: labels[key] ?? key,
+    text: texts.join('\n\n'),
+  }))
+  if (!sources.length && document.value?.content) {
+    sources.push({ key: 'content', label: 'Document text', text: document.value.content })
+  }
+  return sources
+})
 
 const currentNotePreview = computed(() =>
   (document.value?.notes || [])
