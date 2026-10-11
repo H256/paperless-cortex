@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentDetailView: unknown
 const toastPush = vi.fn()
+const detailLoading = ref(false)
 const loadDocumentMock = vi.fn(async () => undefined)
 const loadMetaMock = vi.fn(async () => undefined)
 const loadPageTextsMock = vi.fn(async () => undefined)
@@ -56,7 +57,7 @@ vi.mock('../composables/useDocumentDetailData', () => ({
       pending_tag_names: [],
       original_file_name: 'doc.pdf',
     }),
-    loading: ref(false),
+    loading: detailLoading,
     tags: ref([]),
     correspondents: ref([]),
     docTypes: ref([]),
@@ -511,6 +512,7 @@ describe('DocumentDetailView', () => {
     expect(wrapper.find('[data-testid="split-view-toggle"]').exists()).toBe(false)
     wrapper.unmount()
   })
+
   it('jumps the PDF to the page requested from the suggestions table', async () => {
     route.query = { tab: 'suggestions' }
     const wrapper = mount(DocumentDetailView as never, {
@@ -538,6 +540,45 @@ describe('DocumentDetailView', () => {
     await nextTick()
 
     expect(wrapper.get('[data-test="pdf-viewer"]').attributes('data-page')).toBe('3')
+    wrapper.unmount()
+  })
+
+  it('keeps the suggestions mounted while the same document reloads, but not when switching', async () => {
+    route.query = { tab: 'suggestions' }
+    route.params.id = '1'
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: { template: '<div data-test="suggestions-section" />' },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+    expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(true)
+
+    // same document (id 1) is reloading: the section must stay
+    detailLoading.value = true
+    await nextTick()
+    expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Loading...')
+
+    // another document is being loaded: placeholder instead of stale content
+    route.params.id = '2'
+    await nextTick()
+    expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Loading...')
+
+    detailLoading.value = false
+    route.params.id = '1'
     wrapper.unmount()
   })
 })
