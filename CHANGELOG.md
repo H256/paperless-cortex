@@ -3,6 +3,20 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/377-baseline-test-failures)
+
+### Backend test suite is green: baseline failures fixed, real network blocked (#377)
+- `0d2e599` test(backend): [`conftest.py`](backend/tests/conftest.py) adds a `posix_bash` fixture (PATH `bash`, else Git for Windows; skip when none works), so the Docker entrypoint migration tests no longer run through the WSL launcher; the three signal-forwarding tests are skipped on Windows (POSIX signals).
+- `0d2e599` test(backend): [`test_writeback_dryrun_routes.py`](backend/tests/test_writeback_dryrun_routes.py) stubs `update_correspondent` and asserts the owner clearing; the unstubbed call used to send a real PATCH to the configured Paperless instance.
+- `0d2e599` test(backend): an autouse guard in `conftest.py` fails tests that would send a real HTTP request (loopback and `httpx.MockTransport` stay allowed).
+- `0d2e599` test: `cd backend && uv run pytest -q` → `615 passed, 5 skipped, 0 failed` with a developer `.env` present (stacked on #375).
+
+## 2026-10-11 (branch: agent/375-tests-ignore-dotenv)
+
+### Backend tests no longer read a developer .env (#375)
+- `79ffae7` test(backend): [`tests/conftest.py`](backend/tests/conftest.py) replaces `app.config._load_env` by a no-op for the test session, so a repository-root `.env` (Paperless URL/token, LLM and vector-store settings) cannot leak into tests; this fixed `test_mark_reviewed_moves_document_out_of_unreviewed` and `test_documents_list_cache_invalidates_after_mark_reviewed` on machines with a `.env`. New [`test_env_isolation.py`](backend/tests/test_env_isolation.py) guards it.
+- `79ffae7` test: `cd backend && uv run pytest -q` (`610 passed`, 2 skipped, 8 failed = 7× `test_docker_entrypoint_*` and 1× `test_writeback_dryrun_routes`, unchanged baseline) with a `.env` present.
+
 ## 2026-10-11 (branch: agent/371-review-paging-prefetch)
 
 ### Review mode continues across list pages and prefetches the next document (#371, tracking #359)
