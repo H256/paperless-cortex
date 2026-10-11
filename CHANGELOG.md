@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/413-keep-selection-on-reload)
+
+### Keep the ticked suggestions when the document reloads (#413)
+- `0c591d9` fix(frontend): `loadDocument` sets `loading`, and [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) rendered `v-if="loading"` / `v-else`, so every reload of the same document (the "No correspondent" / "Issue date = import date" presets, single applies, writeback) unmounted the whole detail view and dropped the ticked fields of "Apply selected" and the guidance inputs. The placeholder now only shows while no document with the current id is loaded (first load, switching documents), which also keeps resetting the state on navigation.
+- `0c591d9` test: `DocumentDetailView.integration.test.ts` (reload keeps the section, switching shows the placeholder); `cd frontend && npx vitest run` -> `203 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked in a browser.
+
 ## 2026-10-11 (branch: agent/release-0.9.1)
 
 ### Release 0.9.1
