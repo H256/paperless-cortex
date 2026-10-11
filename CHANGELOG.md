@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/361-similar-hide-reviewed)
+
+### Similar tab can hide reviewed documents (#361)
+- `d90f841` feat(api): [`backend/app/routes/documents_similarity.py`](backend/app/routes/documents_similarity.py) accepts `exclude_reviewed` on `/documents/{id}/similar` and `/duplicates`, oversamples the vector candidate pool (5x, max 200) before the `top_k` cut, and returns `hidden_reviewed`; OpenAPI and generated client regenerated.
+- `d90f841` feat(frontend): [`DocumentSimilarSection.vue`](frontend/src/components/DocumentSimilarSection.vue) has a "Hide reviewed documents" toggle (default on, stored in `localStorage`) with hidden count and empty-state explanation.
+- `d90f841` test: `cd backend && uv run pytest -q tests/test_documents_routes.py` (`42 passed`), `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+
 ## 2026-10-11 (branch: agent/357-358-selective-review-flow)
 
 ### Faster, selective review: real document links and multi-field apply (#357, #358, tracking #359)

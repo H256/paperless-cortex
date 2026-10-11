@@ -81,11 +81,14 @@
         :error="similarError"
         :similar-min-score="similarMinScore"
         :duplicate-threshold="duplicateThreshold"
+        :hide-reviewed="hideReviewed"
+        :hidden-reviewed="hiddenReviewed"
         :paperless-base-url="paperlessBaseUrl"
-        @refresh="loadSimilarity({ similarMinScore, duplicateThreshold })"
+        @refresh="loadSimilarity({ similarMinScore, duplicateThreshold, excludeReviewed: hideReviewed })"
         @open-doc="openSimilarDoc"
         @update:similar-min-score="similarMinScore = $event"
         @update:duplicate-threshold="duplicateThreshold = $event"
+        @update:hide-reviewed="hideReviewed = $event"
       />
 
       <DocumentPagesSection
@@ -302,9 +305,26 @@ const {
   error: similarError,
   reset: resetSimilarity,
   loadSimilarity,
+  hiddenReviewed,
 } = useDocumentSimilarity(() => docId.value)
 const similarMinScore = ref(0.5)
 const duplicateThreshold = ref(0.92)
+const HIDE_REVIEWED_STORAGE_KEY = 'similar_hide_reviewed'
+const readHideReviewed = () => {
+  try {
+    return window.localStorage.getItem(HIDE_REVIEWED_STORAGE_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+const hideReviewed = ref(readHideReviewed())
+watch(hideReviewed, (value) => {
+  try {
+    window.localStorage.setItem(HIDE_REVIEWED_STORAGE_KEY, value ? '1' : '0')
+  } catch {
+    // per-viewer convenience only
+  }
+})
 const {
   pipelineStatus,
   pipelineStatusLoading,
@@ -753,13 +773,14 @@ watch(
       await loadSimilarity({
         similarMinScore: similarMinScore.value,
         duplicateThreshold: duplicateThreshold.value,
+        excludeReviewed: hideReviewed.value,
       })
     }
   },
 )
 
 let similarityReloadTimer: ReturnType<typeof setTimeout> | null = null
-watch([similarMinScore, duplicateThreshold, activeTab], ([minScore, dupThreshold, tab]) => {
+watch([similarMinScore, duplicateThreshold, hideReviewed, activeTab], ([minScore, dupThreshold, hide, tab]) => {
   if (tab !== 'similar') return
   if (similarityReloadTimer) {
     clearTimeout(similarityReloadTimer)
@@ -768,6 +789,7 @@ watch([similarMinScore, duplicateThreshold, activeTab], ([minScore, dupThreshold
     loadSimilarity({
       similarMinScore: minScore,
       duplicateThreshold: dupThreshold,
+      excludeReviewed: hide,
     })
   }, 250)
 })

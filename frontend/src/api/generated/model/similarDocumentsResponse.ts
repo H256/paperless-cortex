@@ -10,4 +10,5 @@ export interface SimilarDocumentsResponse {
   doc_id: number;
   top_k: number;
   matches?: SimilarDocumentMatch[];
+  hidden_reviewed?: number;
 }
