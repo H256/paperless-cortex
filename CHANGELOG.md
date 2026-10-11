@@ -3,6 +3,20 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.9.0)
+
+### Release 0.9.0
+- `6bb74c5` chore(version): bumped the project version from `0.8.0` to `0.9.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.8.0:
+  - Dashboard "Review progress": reviewed share, counters that link into the filtered list, "Review open documents"; `GET /documents/review-summary` (#396).
+  - Documents list: counters on the presets, attention badges ("No correspondent", "Date = import date"), leaner row actions, tooltips for the counts (#398).
+  - Suggestions tab: PDF side by side on wide screens, source agreement indicator ("2 / 3 agree", "Only this source") (#400).
+  - Reliable feedback for queued "Suggest new": the previous batch is no longer shown as the result, elapsed time, explicit timeout message (#399).
+  - Writeback preview has explicit empty and loading states (#397).
+  - Per-correspondent learned rules for tags and document types (#389) and page restriction for "Suggest new" (#392, #393, answers 422 for invalid pages).
+  - User manual covers the review features (#390, #391).
+- Verification: `cd backend && uv run pytest -q` -> `695 passed, 5 skipped`; `cd frontend && npx vitest run` -> `200 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
 ## 2026-10-11 (branch: agent/400-split-view)
 
 ### Side-by-side PDF and source agreement indicator (#400, slice 1)
