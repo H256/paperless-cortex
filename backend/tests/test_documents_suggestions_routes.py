@@ -283,3 +283,316 @@ def test_apply_suggestion_invalid_field_returns_400(api_client: Any) -> None:
     )
     assert response.status_code == 400
     assert "Invalid field" in response.json()["detail"]
+
+
+def test_get_suggestions_attaches_implausibility_warnings(api_client: Any, monkeypatch: Any) -> None:
+    import datetime
+
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=720, title="Doc 720", content="Inhalt"))
+        # A future date, a filename-like title, and an unknown correspondent.
+        db.add(
+            DocumentSuggestion(
+                doc_id=720,
+                source="paperless_ocr",
+                payload=json.dumps(
+                    {
+                        "date": (datetime.date.today() + datetime.timedelta(days=30)).isoformat(),
+                        "title": "scan_2026-01-15.pdf",
+                        "correspondent": "Unknown Co",
+                        "tags": ["invoice"],
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(paperless, "get_document", lambda *a, **k: {"content": ""})
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: ["Acme"])
+
+    response = api_client.get("/documents/720/suggestions")
+    assert response.status_code == 200
+    payload = response.json()
+    warnings = payload["suggestions"]["paperless_ocr"]["suggestion_warnings"]
+    assert len(warnings) == 3
+    assert any("in the future" in w for w in warnings)
+    assert any("looks like a filename" in w for w in warnings)
+    assert any("not a known correspondent" in w for w in warnings)
+
+
+def test_get_suggestions_plausible_payload_has_no_warnings(api_client: Any, monkeypatch: Any) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=721, title="Doc 721", content="Inhalt"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=721,
+                source="paperless_ocr",
+                payload=json.dumps(
+                    {
+                        "date": "2026-01-15",
+                        "title": "Invoice from Acme",
+                        "correspondent": "Acme",
+                        "tags": ["invoice"],
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(paperless, "get_document", lambda *a, **k: {"content": ""})
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: ["Acme"])
+
+    response = api_client.get("/documents/721/suggestions")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["suggestions"]["paperless_ocr"]["suggestion_warnings"] == []
+
+
+def test_suggest_field_passes_focus_passage_and_hint_to_the_generator(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=818, title="Doc 818", content="Inhalt"))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, doc_id: {"id": doc_id, "content": "text"}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    captured: dict[str, Any] = {}
+
+    def _fake_generate(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"variants": ["2026-09-20"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        "/documents/818/suggestions/field?priority=true",
+        json={
+            "source": "paperless_ocr",
+            "field": "date",
+            "count": 1,
+            "focus_text": "Rechnungsdatum: 20.09.2026",
+            "hint": "Rechnungsdatum, nicht Lieferdatum",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["variants"] == ["2026-09-20"]
+    assert captured["focus_text"] == "Rechnungsdatum: 20.09.2026"
+    assert captured["hint"] == "Rechnungsdatum, nicht Lieferdatum"
+
+
+def test_suggest_field_without_guidance_keeps_the_generator_call_unchanged(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=819, title="Doc 819", content="Inhalt"))
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, doc_id: {"id": doc_id, "content": "text"}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    captured: dict[str, Any] = {}
+
+    def _fake_generate(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"variants": ["x"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        "/documents/819/suggestions/field?priority=true",
+        json={"source": "paperless_ocr", "field": "title", "count": 1},
+    )
+
+    assert response.status_code == 200
+    assert "focus_text" not in captured
+    assert "hint" not in captured
+
+
+def test_suggest_field_passes_prior_variants_as_avoid_list(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=820, title="Doc 820", content="Inhalt"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=820,
+                source="pvar:title",
+                payload=json.dumps({"variants": ["Shown A", "Shown B"]}),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, doc_id: {"id": doc_id, "content": "text"}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    captured: dict[str, Any] = {}
+
+    def _fake_generate(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"variants": ["New C"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        "/documents/820/suggestions/field?priority=true",
+        json={"source": "paperless_ocr", "field": "title", "count": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["variants"] == ["New C"]
+    assert captured["avoid_variants"] == ["Shown A", "Shown B"]
+
+def test_text_candidates_route_uses_stored_texts_without_side_effects(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.models import DocumentPageText
+    from app.routes import documents_suggestions as route_mod
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=808, title="scan", content="ignored because pages exist"))
+        db.add(
+            DocumentPageText(
+                doc_id=808,
+                page=1,
+                source="vision_ocr",
+                text=(
+                    "Lautsprecher Teufel GmbH\nBerlin\nRechnungsdatum: 20.09.2026\n"
+                    "Zahlbar bis 04.10.2026"
+                ),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        route_mod,
+        "get_cached_correspondents",
+        lambda settings: ["Lautsprecher Teufel GmbH", "Hornbach"],
+    )
+
+    response = api_client.get("/documents/808/suggestions/candidates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doc_id"] == 808
+    assert payload["dates"][0]["value"] == "2026-09-20"
+    assert payload["dates"][0]["label"] == "issue"
+    assert payload["dates"][0]["sources"] == ["vision_ocr"]
+    assert payload["correspondents"][0]["name"] == "Lautsprecher Teufel GmbH"
+    assert payload["correspondents"][0]["known"] is True
+
+
+def test_text_candidates_route_falls_back_to_document_content(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=809, title="scan", content="Hornbach Baumarkt\nDatum: 01.03.2026"))
+        db.commit()
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: ["Hornbach Baumarkt"])
+
+    response = api_client.get("/documents/809/suggestions/candidates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dates"][0]["value"] == "2026-03-01"
+    assert payload["dates"][0]["sources"] == ["content"]
+    assert payload["correspondents"][0]["name"] == "Hornbach Baumarkt"
+
+
+def test_text_candidates_route_unknown_document_returns_404(api_client: Any) -> None:
+    assert api_client.get("/documents/99999/suggestions/candidates").status_code == 404
+
+
+def _suggest_field_text_seen_by_model(
+    api_client: Any, monkeypatch: Any, doc_id: int, request_extra: dict[str, Any]
+) -> str:
+    from app.models import DocumentPageText
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=doc_id, title=f"Doc {doc_id}", content="PAPERLESS TEXT"))
+        db.add(
+            DocumentPageText(doc_id=doc_id, page=1, source="vision_ocr", text="VISION TEXT")
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, did: {"id": did, "content": "PAPERLESS TEXT"},
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    seen: dict[str, str] = {}
+
+    def _fake_generate(_settings: Any, _document: Any, text: str, **_kwargs: Any) -> dict[str, Any]:
+        seen["text"] = text
+        return {"variants": ["x"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        f"/documents/{doc_id}/suggestions/field?priority=true",
+        json={"source": "vision_ocr", "field": "title", "count": 1, **request_extra},
+    )
+    assert response.status_code == 200
+    return seen["text"]
+
+
+def test_suggest_field_reads_the_requesting_panels_text_by_default(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    text = _suggest_field_text_seen_by_model(api_client, monkeypatch, 820, {})
+    assert text == "VISION TEXT"
+
+
+def test_suggest_field_can_read_the_other_ocr_text(api_client: Any, monkeypatch: Any) -> None:
+    text = _suggest_field_text_seen_by_model(
+        api_client, monkeypatch, 821, {"text_source": "paperless_ocr"}
+    )
+    assert text == "PAPERLESS TEXT"
+
+
+def test_suggest_field_ignores_an_unknown_text_source(api_client: Any, monkeypatch: Any) -> None:
+    text = _suggest_field_text_seen_by_model(
+        api_client, monkeypatch, 822, {"text_source": "similar_docs"}
+    )
+    assert text == "VISION TEXT"

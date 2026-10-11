@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
+import { takePrefetchedSuggestions } from '../services/prefetchCache'
 import {
   applyFieldSuggestion,
   applySuggestionToDocument,
@@ -41,6 +42,14 @@ const isQueued = (data: unknown) =>
   'queued' in data &&
   Boolean((data as { queued?: boolean }).queued)
 
+/** Reviewer input for "Suggest new": a marked passage of the text and a short hint. */
+export type SuggestGuidance = {
+  focus_text?: string
+  hint?: string
+  /** OCR text the model reads (default: the text of the panel the request comes from). */
+  text_source?: 'paperless_ocr' | 'vision_ocr'
+}
+
 export const useDocumentSuggestions = () => {
   const suggestions = ref<SuggestionsState | null>(null)
   const suggestionsLoading = ref(false)
@@ -53,18 +62,32 @@ export const useDocumentSuggestions = () => {
     mutationFn: ({ id, source }: { id: number; source?: 'paperless_ocr' | 'vision_ocr' }) =>
       source
         ? getSuggestions(id, { source, refresh: true, priority: true, include_similar: true })
-        : getSuggestions(id, { include_similar: true }),
+        : (takePrefetchedSuggestions(id) ?? getSuggestions(id, { include_similar: true })),
   })
   const suggestFieldMutation = useMutation({
     mutationFn: ({
       id,
       source,
       field,
+      guidance,
     }: {
       id: number
       source: 'paperless_ocr' | 'vision_ocr'
       field: string
-    }) => suggestFieldVariants(id, { source, field, count: 3 }, true),
+      guidance?: SuggestGuidance
+    }) =>
+      suggestFieldVariants(
+        id,
+        {
+          source,
+          field,
+          count: 3,
+          ...(guidance?.focus_text ? { focus_text: guidance.focus_text } : {}),
+          ...(guidance?.hint ? { hint: guidance.hint } : {}),
+          ...(guidance?.text_source ? { text_source: guidance.text_source } : {}),
+        },
+        true,
+      ),
   })
   const applyFieldSuggestionMutation = useMutation({
     mutationFn: ({
@@ -149,12 +172,17 @@ export const useDocumentSuggestions = () => {
     }
   }
 
-  const suggestField = async (id: number, source: 'paperless_ocr' | 'vision_ocr', field: string) => {
+  const suggestField = async (
+    id: number,
+    source: 'paperless_ocr' | 'vision_ocr',
+    field: string,
+    guidance?: SuggestGuidance,
+  ) => {
     const key = `${source}:${field}`
     suggestionVariantLoading.value = { ...suggestionVariantLoading.value, [key]: true }
     suggestionVariantError.value = { ...suggestionVariantError.value, [key]: '' }
     try {
-      const data = await suggestFieldMutation.mutateAsync({ id, source, field })
+      const data = await suggestFieldMutation.mutateAsync({ id, source, field, guidance })
       const directVariants = (data as { variants?: unknown }).variants
       const variants = Array.isArray(directVariants) ? directVariants : extractVariants(data)
       if (variants.length) {

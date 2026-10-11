@@ -3,6 +3,101 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.7.0)
+
+### Release 0.7.0
+- `3ff919d` chore(version): bumped the project version from `0.6.0` to `0.7.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- `09cdb38` chore(lint): [`worker.py`](backend/app/worker.py) imports `Callable` for typing only and binds the per-iteration settings explicitly in the dispatch-handler closure (ruff `B023`/`UP035`); `tests/test_vision_ocr_page_cap.py` gets its trailing newline. `ruff check app tests` is clean.
+- Highlights since 0.6.0:
+  - Review mode: previous/next (`k`/`j`) with auto-advance, continuing across list pages, prefetching the next document (#369, #371).
+  - Deterministic date and correspondent candidates from the document text, incl. other EU date formats and languages (#373).
+  - List presets "No correspondent" and "Issue date = import date" (Alt+5/Alt+6), plus the matching action presets in the Suggestions tab (#379, #383).
+  - "Suggest new" with a marked text passage, a hint and a selectable OCR text (#381, #384).
+  - Tests: no developer `.env` leakage, no real network access, the 8 known baseline failures fixed (#375, #377).
+- Verification: `cd backend && uv run pytest -q` → `648 passed, 5 skipped, 0 failed`; `cd frontend && npx vitest run` → `172 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
+## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
+
+### Review fix for the import-date preset in the Suggestions tab (#383)
+- feat(api): `GET /documents/{id}/local` now returns the import timestamp `added` ([`read_models.py`](backend/app/services/documents/read_models.py), [`api_models.py`](backend/app/api_models.py)); the preset "Issue date = import date" in [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) used `created` (Paperless' issue date) as "import date", which would have been a no-op in most cases.
+- test: [`test_documents_routes.py`](backend/tests/test_documents_routes.py) covers the new field; OpenAPI and client updated.
+
+## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
+
+### Suggestion presets: "No correspondent" and "Issue date = import date" (#359 follow-up)
+- `uncommitted` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) adds a Presets toolbar: "No correspondent" clears the correspondent (and pending correspondent) via the existing `applyToDocument` path, and "Issue date = import date" sets the issue date to the date part of the document import timestamp (disabled when unavailable). No backend change: `apply-suggestion` already clears the correspondent on an empty value and validates/sets ISO dates; the route does not validate `source`, so `source="preset"` flows through and is recorded in the audit log.
+- `uncommitted` test(frontend): `cd frontend && npx vitest run` (`125 passed`), `npx vue-tsc --build` and lint clean. Backend suite `601 passed`, 1 pre-existing failure (unrelated).
+
+## 2026-10-11 (branch: agent/384-suggest-text-source)
+
+### Choose the OCR text the model reads for "Suggest new" (#384, tracking #359)
+- `4979893` feat(api): `POST /documents/{id}/suggestions/field` accepts `text_source` (`paperless_ocr` | `vision_ocr`); [`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py) and the queued worker task read that text while the variants stay assigned to the requesting panel. Unknown values fall back to the panel's own text; Vision text generation is only triggered when the Vision text is requested and missing.
+- `4979893` feat(frontend): "Text the model reads" select in the guidance section of [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue), only shown when both OCR texts exist.
+- `4979893` test: `cd backend && uv run pytest -q tests/test_documents_suggestions_routes.py tests/test_worker_suggest_field.py tests/test_openapi_spec_sync.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+
+## 2026-10-11 (branch: agent/381-suggest-focus-passage)
+
+### "Suggest new" with a marked passage and a hint (#381, tracking #359)
+- `7926a88` feat(api): `POST /documents/{id}/suggestions/field` accepts `focus_text` and `hint`; [`build_reviewer_guidance`](backend/app/services/ai/suggestions.py) prefixes the field prompt (hint as plain instruction, focus passage fenced as untrusted text, length limits, control characters removed); the queued `suggest_field` task carries both values. Without guidance nothing changes.
+- `7926a88` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) gets a "Guidance for Suggest new" section (document text with source switch, "Use selected text as focus", hint input, focus chip); the guidance is sent with every Suggest new request.
+- `7926a88` docs(plan): [`docs/plans/2026-10-11-suggest-focus-passage.md`](docs/plans/2026-10-11-suggest-focus-passage.md).
+- `7926a88` test: `cd backend && uv run pytest -q tests/test_suggestion_llm_helper.py tests/test_documents_suggestions_routes.py tests/test_worker_suggest_field.py tests/test_suggestions_prompt_injection.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean (stacked on #374).
+
+## 2026-10-11 (branch: agent/379-review-presets)
+
+### Presets: no correspondent and issue date = import date (#379, tracking #359)
+- `7119caa` feat(api): `GET /documents` accepts `issue_date_is_import_date`; [`documents.py`](backend/app/routes/documents.py) post-filters on the full filtered list (issue date = `document_date`, else `created`; import date = `added`), cached under a key that includes the flag, so it combines with the review status and paging. OpenAPI and client regenerated.
+- `7119caa` feat(frontend): [`DocumentsPresetBar.vue`](frontend/src/components/DocumentsPresetBar.vue) gets the toggle presets `No correspondent` (Alt+5, existing `correspondent=-1` filter) and `Issue date = import date` (Alt+6); they keep the other filters. URL parameter `import_date=1`, active-filter chip, "Clear all"/reset support; the review queue request carries the flag.
+- `7119caa` docs(manual): presets documented in [`02-dokumente-und-detailansicht.md`](docs/manual/02-dokumente-und-detailansicht.md).
+- `7119caa` test: `cd backend && uv run pytest -q tests/test_documents_routes.py tests/test_openapi_spec_sync.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean (stacked on #375/#377).
+
+## 2026-10-11 (branch: agent/377-baseline-test-failures)
+
+### Backend test suite is green: baseline failures fixed, real network blocked (#377)
+- `0d2e599` test(backend): [`conftest.py`](backend/tests/conftest.py) adds a `posix_bash` fixture (PATH `bash`, else Git for Windows; skip when none works), so the Docker entrypoint migration tests no longer run through the WSL launcher; the three signal-forwarding tests are skipped on Windows (POSIX signals).
+- `0d2e599` test(backend): [`test_writeback_dryrun_routes.py`](backend/tests/test_writeback_dryrun_routes.py) stubs `update_correspondent` and asserts the owner clearing; the unstubbed call used to send a real PATCH to the configured Paperless instance.
+- `0d2e599` test(backend): an autouse guard in `conftest.py` fails tests that would send a real HTTP request (loopback and `httpx.MockTransport` stay allowed).
+- `0d2e599` test: `cd backend && uv run pytest -q` → `615 passed, 5 skipped, 0 failed` with a developer `.env` present (stacked on #375).
+
+## 2026-10-11 (branch: agent/375-tests-ignore-dotenv)
+
+### Backend tests no longer read a developer .env (#375)
+- `79ffae7` test(backend): [`tests/conftest.py`](backend/tests/conftest.py) replaces `app.config._load_env` by a no-op for the test session, so a repository-root `.env` (Paperless URL/token, LLM and vector-store settings) cannot leak into tests; this fixed `test_mark_reviewed_moves_document_out_of_unreviewed` and `test_documents_list_cache_invalidates_after_mark_reviewed` on machines with a `.env`. New [`test_env_isolation.py`](backend/tests/test_env_isolation.py) guards it.
+- `79ffae7` test: `cd backend && uv run pytest -q` (`610 passed`, 2 skipped, 8 failed = 7× `test_docker_entrypoint_*` and 1× `test_writeback_dryrun_routes`, unchanged baseline) with a `.env` present.
+
+## 2026-10-11 (branch: agent/373-text-candidates)
+
+### Deterministic date and correspondent candidates from the document text (#373, tracking #359)
+- `1c5a3e6` feat(api): date rules cover about 10% of documents with other formats, mainly invoices from other EU countries: `dd-mm-yyyy`, `dd/mm/yyyy` (month-first only when unambiguous), `yyyy/mm/dd`, written months in English, French, Spanish, Italian, Dutch, Portuguese, Polish and Czech (with ordinals and "de"/"of"), and issue/due/delivery/birth keywords in these languages; invoice-number-like values (`2026-09-20-001`) are ignored.
+- `35205df` feat(api): [`text_candidates.py`](backend/app/services/ai/text_candidates.py) ranks date occurrences (issue / delivery / due / period, nearest keyword wins, birth dates dropped) and matches known correspondents against header lines, text and e-mail/website domains; `GET /documents/{id}/suggestions/candidates` in [`documents_suggestions.py`](backend/app/routes/documents_suggestions.py) serves them from stored page texts without OCR, LLM or queue work. OpenAPI and generated client regenerated (the client also picks up four small optional fields that were missing from the committed client).
+- `35205df` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) shows a "Candidates from text" block; a click selects a candidate for the field and feeds the existing "Apply selected" flow (source `text_candidates`, nothing preselected).
+- `35205df` test: `cd backend && uv run pytest -q tests/test_text_candidates.py tests/test_documents_suggestions_routes.py tests/test_openapi_spec_sync.py` and `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+- `35205df` note: `tests/test_documents_routes.py::test_mark_reviewed_moves_document_out_of_unreviewed` and `::test_documents_list_cache_invalidates_after_mark_reviewed` fail when a developer `.env` is present in the repository root (verified on a clean `develop` worktree with the same `.env`); they pass without it.
+
+## 2026-10-11 (branch: agent/371-review-paging-prefetch)
+
+### Review mode continues across list pages and prefetches the next document (#371, tracking #359)
+- `84c368b` feat(frontend): the documents list remembers the list request ([`reviewQueue.ts`](frontend/src/utils/reviewQueue.ts)); [`reviewQueuePaging.ts`](frontend/src/utils/reviewQueuePaging.ts) loads further documents in the background. Stable lists continue with `page + 1` (and `page - 1`); shrinking review lists (`unreviewed` / `needs_review`) are re-scanned from page 1 and only unseen documents are appended, so none is skipped while documents are reviewed.
+- `84c368b` feat(frontend): [`prefetchCache.ts`](frontend/src/services/prefetchCache.ts) prefetches the next document and, only when it already has suggestions, its suggestions; entries are single-use with a 20 s TTL and are consumed by the detail loaders.
+- `84c368b` test: `cd frontend && npx vitest run` (`153 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
+## 2026-10-11 (branch: agent/369-review-mode-prev-next)
+
+### Review mode: previous/next inside the filtered list (#369, tracking #359)
+- `22ea3e2` feat(frontend): [`DocumentsView.vue`](frontend/src/views/DocumentsView.vue) remembers the ordered ids of the visible list ([`reviewQueue.ts`](frontend/src/utils/reviewQueue.ts), `localStorage`), so the detail view can offer **Previous / Next** with position, keyboard `k` / `j` and an **Auto-advance** toggle ([`useReviewQueue.ts`](frontend/src/composables/useReviewQueue.ts), [`DocumentDetailHeader.vue`](frontend/src/components/DocumentDetailHeader.vue)). `return_to` and the active tab are kept.
+- `22ea3e2` feat(frontend): auto-advance runs after "Mark reviewed" / "Write back" only when the document is `reviewed` afterwards; "Apply selected" never navigates.
+- `22ea3e2` docs(plan): [`docs/plans/2026-10-11-review-mode.md`](docs/plans/2026-10-11-review-mode.md).
+- `22ea3e2` test: `cd frontend && npx vitest run` (`138 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
+## 2026-10-11 (branch: agent/359-suggestion-implausibility-warnings)
+
+### Suggestion UI shows advisory warnings for implausible suggested values
+- `uncommitted` fix(backend): new pure module `backend/app/services/ai/suggestion_warnings.py` — `compute_suggestion_warnings(payload, known_correspondents, reference_date)` flags three implausible-value classes in a normalized suggestion payload (issue #359, tracking item "Warnings for implausible values"): a `date` strictly in the future (same-day is plausible, not flagged), a `title` that looks like a filename (a recognized document/media/archive extension or a path separator — a prose title that merely contains a period is not flagged), and a non-empty `correspondent` that is not in the known-correspondent list (case-insensitive). No LLM, no I/O.
+- `uncommitted` fix(backend): `GET /documents/{doc_id}/suggestions` in `backend/app/routes/documents_suggestions.py` now attaches `suggestion_warnings` per source into the per-source payload at read time (freshest known-correspondent list + current date, so hints never go stale; no persistence/schema change — the per-source payload is `{[key:string]: unknown}` in the generated client, so no OpenAPI re-export or client regen). The non-actionable `similar_docs` metadata source is skipped to avoid noise.
+- `uncommitted` fix(frontend): `frontend/src/components/DocumentSuggestionsSection.vue` renders an amber, non-blocking "Check these suggested values" block per panel listing the warnings above the field grid.
+- `uncommitted` test: added `backend/tests/test_suggestion_warnings.py` (15 unit tests: each check fires/skips correctly, aggregation, None/empty handling, no false positive on `similar_docs` metadata shape) and 2 end-to-end route tests in `backend/tests/test_documents_suggestions_routes.py` (implausible persisted payload → 3 warnings in the GET response; plausible payload → empty list).
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_suggestion_warnings.py tests/test_documents_suggestions_routes.py -q` (`29 passed`), `cd backend && uv run pytest -q` (`583 passed`, 4 failed — all 4 pre-existing and reproduced on clean master: the known `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` plus `tests/test_openapi_spec_sync.py::test_committed_openapi_spec_matches_routes` and 2× `tests/test_queue_force_flag.py` `TypeError`s at `app/services/pipeline/worker_dispatch.py:44`), `cd backend && uv run ruff check app tests scripts alembic` (only the 3 known pre-existing errors in `app/worker.py`/`test_vision_ocr_page_cap.py`; the 4 touched files are clean), `cd backend && uv run mypy --config-file pyproject.toml` (only the 5 known pre-existing errors in `app/services/documents/read_models.py`/`tests/test_chat_service_evidence.py`/`tests/test_documents_routes.py:522`; the 3 touched source files are clean), and `cd frontend && npm run type-check` (clean), `npm run lint` (0 warnings/0 errors), `npm run test:run -- src/views/DocumentDetailView.integration.test.ts` (`8 passed`).
+
 ## 2026-10-11 (branch: agent/release-0.6.0)
 
 ### Release 0.6.0

@@ -346,6 +346,7 @@ class DocumentLocalResponse(BaseModel):
     document_date: str | None = None
     created: str | None = None
     modified: str | None = None
+    added: str | None = None
     correspondent: int | None = None
     correspondent_name: str | None = None
     document_type: int | None = None
@@ -511,6 +512,31 @@ class SuggestionsResponse(BaseModel):
     suggestions: dict[str, Any] = {}
     suggestions_meta: dict[str, Any] | None = None
     queued: bool | None = None
+
+
+class DateCandidate(BaseModel):
+    value: str
+    label: str
+    score: float
+    context: str = ""
+    page: int | None = None
+    occurrences: int = 1
+    sources: list[str] = []
+
+
+class CorrespondentCandidate(BaseModel):
+    name: str
+    known: bool
+    score: float
+    evidence: str
+    context: str = ""
+    sources: list[str] = []
+
+
+class TextCandidatesResponse(BaseModel):
+    doc_id: int
+    dates: list[DateCandidate] = []
+    correspondents: list[CorrespondentCandidate] = []
 
 
 class SuggestFieldVariantsResponse(BaseModel):

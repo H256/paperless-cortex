@@ -82,4 +82,23 @@ describe('useDocumentsCatalog', () => {
     expect(catalog.documents.value).toEqual([row])
     expect(catalog.totalCount.value).toBe(1)
   })
+
+  it('sends the import-date filter and exposes it in the list request', async () => {
+    listDocumentsMock.mockResolvedValue({ count: 0, results: [] })
+    const catalog = mountCatalog(retryDisabledQueryClient())
+    await vi.waitFor(() => expect(listDocumentsMock).toHaveBeenCalledTimes(1))
+    expect(listDocumentsMock.mock.calls[0]?.[0]).toMatchObject({
+      issue_date_is_import_date: undefined,
+    })
+    expect(catalog.listRequest.value.issue_date_is_import_date).toBeUndefined()
+
+    catalog.issueDateIsImportDate.value = true
+
+    await vi.waitFor(() => expect(listDocumentsMock).toHaveBeenCalledTimes(2))
+    expect(listDocumentsMock.mock.calls[1]?.[0]).toMatchObject({
+      issue_date_is_import_date: true,
+    })
+    expect(catalog.listRequest.value.issue_date_is_import_date).toBe(true)
+  })
 })
+

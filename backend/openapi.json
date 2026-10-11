@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "paths": {
     "/documents/": {
@@ -158,6 +158,16 @@
               "type": "string",
               "default": "all",
               "title": "Review Status"
+            }
+          },
+          {
+            "name": "issue_date_is_import_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Issue Date Is Import Date"
             }
           }
         ],
@@ -1621,6 +1631,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SuggestionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}/suggestions/candidates": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get Text Candidates",
+        "description": "Deterministic date/correspondent candidates from the stored document text.\n\nReads only cached page texts (fallback: document content); it never triggers OCR,\nLLM calls or queue work.",
+        "operationId": "get_text_candidates_documents__doc_id__suggestions_candidates_get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextCandidatesResponse"
                 }
               }
             }
@@ -5166,6 +5219,47 @@
         ],
         "title": "ConnectionStatus"
       },
+      "CorrespondentCandidate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "known": {
+            "type": "boolean",
+            "title": "Known"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence"
+          },
+          "context": {
+            "type": "string",
+            "title": "Context",
+            "default": ""
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "known",
+          "score",
+          "evidence"
+        ],
+        "title": "CorrespondentCandidate"
+      },
       "CorrespondentResponse": {
         "properties": {
           "id": {
@@ -5301,6 +5395,58 @@
           "count"
         ],
         "title": "DashboardCount"
+      },
+      "DateCandidate": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "context": {
+            "type": "string",
+            "title": "Context",
+            "default": ""
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "occurrences": {
+            "type": "integer",
+            "title": "Occurrences",
+            "default": 1
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "score"
+        ],
+        "title": "DateCandidate"
       },
       "DeleteEmbeddingsResponse": {
         "properties": {
@@ -5517,6 +5663,17 @@
               }
             ],
             "title": "Modified"
+          },
+          "added": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
           },
           "correspondent": {
             "anyOf": [
@@ -9210,6 +9367,39 @@
             "type": "integer",
             "title": "Count",
             "default": 3
+          },
+          "focus_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus Text"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "text_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Source"
           }
         },
         "type": "object",
@@ -9769,6 +9959,35 @@
           "count"
         ],
         "title": "TaskRunListResponse"
+      },
+      "TextCandidatesResponse": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "dates": {
+            "items": {
+              "$ref": "#/components/schemas/DateCandidate"
+            },
+            "type": "array",
+            "title": "Dates",
+            "default": []
+          },
+          "correspondents": {
+            "items": {
+              "$ref": "#/components/schemas/CorrespondentCandidate"
+            },
+            "type": "array",
+            "title": "Correspondents",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id"
+        ],
+        "title": "TextCandidatesResponse"
       },
       "TextQualityMetrics": {
         "properties": {

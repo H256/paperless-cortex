@@ -54,6 +54,7 @@
       :model-filter="modelFilter"
       :search-query="searchQuery"
       :running-only="runningOnly"
+      :issue-date-is-import-date="issueDateIsImportDate"
       @clear-filter="clearFilter"
       @clear-all="clearAllFilters"
     />
@@ -62,6 +63,8 @@
       :analysis-filter="analysisFilter"
       :review-status="selectedReviewStatus"
       :search-query="searchQuery"
+      :selected-correspondent="selectedCorrespondent"
+      :issue-date-is-import-date="issueDateIsImportDate"
       @apply-preset="applyTriagePreset"
     />
 
@@ -109,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
@@ -127,6 +130,7 @@ import DocumentsHeaderSection from '../components/DocumentsHeaderSection.vue'
 import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
+import { createReviewQueueState, saveReviewQueueState } from '../utils/reviewQueue'
 
 const router = useRouter()
 const route = useRoute()
@@ -135,6 +139,7 @@ const listViewMode = ref<'table' | 'cards'>('table')
 const includeSummaryPreview = computed(() => listViewMode.value === 'cards')
 const {
   documents,
+  listRequest,
   page,
   pageSize,
   ordering,
@@ -147,6 +152,7 @@ const {
   dateFrom,
   dateTo,
   searchQuery,
+  issueDateIsImportDate,
   documentsLoading,
   documentsError,
   refetchDocuments,
@@ -177,6 +183,8 @@ const visibleDocuments = computed(() => {
     typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
   )
 })
+// Keep the ordered ids of the visible list so the detail view can offer previous/next
+// (also for links opened in a new tab).
 const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>(() => {
   if (runningOnly.value) return 'running_only'
   if (documentsError.value && documents.value.length === 0) return 'error'
@@ -185,6 +193,41 @@ const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
+
+// Remember the visible list and how it was loaded so the detail view can offer
+// previous/next, continue on further pages and (for stable lists) go back a page.
+watch(
+  [
+    () => visibleDocuments.value.map((doc) => doc.id),
+    listRequest,
+    page,
+    totalPages,
+    analysisFilter,
+    modelFilter,
+    runningOnly,
+  ],
+  () => {
+    const status = selectedReviewStatus.value
+    saveReviewQueueState(
+      createReviewQueueState(
+        visibleDocuments.value.map((doc) => doc.id),
+        {
+          firstPage: page.value,
+          lastPage: page.value,
+          totalPages: totalPages.value,
+          shrinking: status === 'unreviewed' || status === 'needs_review',
+          // "Running only" depends on live task state, so paging is disabled for it.
+          request: runningOnly.value ? null : listRequest.value,
+          clientFilter: { analysis: analysisFilter.value, model: modelFilter.value },
+          suggestionIds: visibleDocuments.value
+            .filter((doc) => doc.has_suggestions && typeof doc.id === 'number')
+            .map((doc) => doc.id as number),
+        },
+      ),
+    )
+  },
+  { immediate: true },
+)
 const {
   isProcessing,
   hasQueuedWork,
@@ -313,6 +356,7 @@ const resetQuickFilters = () => {
   modelFilter.value = ''
   searchQuery.value = ''
   runningOnly.value = false
+  issueDateIsImportDate.value = false
   page.value = 1
 }
 
@@ -326,7 +370,8 @@ const clearFilter = (
     | 'review'
     | 'model'
     | 'search'
-    | 'running_only',
+    | 'running_only'
+    | 'import_date',
 ) => {
   if (key === 'correspondent') selectedCorrespondent.value = ''
   if (key === 'tag') selectedTag.value = ''
@@ -337,6 +382,7 @@ const clearFilter = (
   if (key === 'model') modelFilter.value = ''
   if (key === 'search') searchQuery.value = ''
   if (key === 'running_only') runningOnly.value = false
+  if (key === 'import_date') issueDateIsImportDate.value = false
   page.value = 1
 }
 
@@ -350,10 +396,24 @@ const clearAllFilters = () => {
   modelFilter.value = ''
   searchQuery.value = ''
   runningOnly.value = false
+  issueDateIsImportDate.value = false
   page.value = 1
 }
 
-const applyTriagePreset = (key: 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox') => {
+const applyTriagePreset = (
+  key: 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox' | 'no_correspondent' | 'import_date',
+) => {
+  // Filter presets keep the other filters (e.g. review status) and toggle on/off.
+  if (key === 'no_correspondent') {
+    selectedCorrespondent.value = selectedCorrespondent.value === '-1' ? '' : '-1'
+    page.value = 1
+    return
+  }
+  if (key === 'import_date') {
+    issueDateIsImportDate.value = !issueDateIsImportDate.value
+    page.value = 1
+    return
+  }
   if (key === 'unreviewed') {
     selectedReviewStatus.value = 'unreviewed'
     analysisFilter.value = 'all'
@@ -387,6 +447,7 @@ useDocumentsRouteState({
   modelFilter,
   searchQuery,
   runningOnly,
+  issueDateIsImportDate,
   viewMode: listViewMode,
 })
 

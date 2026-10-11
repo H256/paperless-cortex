@@ -397,7 +397,14 @@ def process_suggest_field(
     raw = get_document_fn(settings, doc_id)
     tags = get_tags_fn(settings)
     correspondents = get_correspondents_fn(settings)
-    if source == "vision_ocr":
+    # The model may read the other OCR text than the panel the variants belong to.
+    requested_text_source = task.get("text_source")
+    read_source = (
+        requested_text_source
+        if requested_text_source in ("paperless_ocr", "vision_ocr")
+        else source
+    )
+    if read_source == "vision_ocr":
         vision_pages = (
             db.query(DocumentPageText)
             .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
@@ -408,6 +415,14 @@ def process_suggest_field(
     else:
         doc = get_document_or_none(db, doc_id)
         text = clean_ocr_text(doc.content) if doc and doc.content else ""
+    guidance_kwargs: dict[str, str | list[str | int | float]] = {}
+    for task_key in ("focus_text", "hint"):
+        value = task.get(task_key)
+        if isinstance(value, str) and value.strip():
+            guidance_kwargs[task_key] = value
+    avoid_variants = task.get("avoid_variants")
+    if isinstance(avoid_variants, list) and avoid_variants:
+        guidance_kwargs["avoid_variants"] = avoid_variants
     variants = generate_field_variants_fn(
         settings,
         raw,
@@ -417,6 +432,7 @@ def process_suggest_field(
         field=field,
         count=max(1, min(count, 5)),
         current_value=current,
+        **guidance_kwargs,
     )
     variant_source = ("pvar" if source == "paperless_ocr" else "vvar") + f":{field}"
     upsert_suggestion_fn(

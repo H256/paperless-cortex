@@ -13,6 +13,13 @@
       :writeback-button-title="writebackButtonTitle"
       :writeback-button-label="writebackButtonLabel"
       :reloading-all="reloadingAll"
+      :queue-position="hasQueue && position ? { ...position, more: hasNext && !position.nextId } : null"
+      :has-prev="hasPrev"
+      :has-next="hasNext"
+      :auto-advance="autoAdvance"
+      @prev="goPrev"
+      @next="goNext"
+      @update:auto-advance="autoAdvance = $event"
       @back="navigateBackToDocuments"
       @mark-reviewed="markReviewedAction"
       @open-writeback-confirm="openWritebackConfirm"
@@ -63,7 +70,10 @@
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
         :current-tag-list="currentTagList"
+        :text-candidates="textCandidates"
+        :text-sources="guidanceTextSources"
         :applying="suggestionsApplying"
+        :import-date="document?.added || ''"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"
@@ -221,6 +231,8 @@ import { useDocumentDetailData } from '../composables/useDocumentDetailData'
 import { useDocumentSimilarity } from '../composables/useDocumentSimilarity'
 import { useAutoRefresh } from '../composables/useAutoRefresh'
 import { useDocumentWriteback } from '../composables/useDocumentWriteback'
+import { useTextCandidates } from '../composables/useTextCandidates'
+import { useReviewQueue } from '../composables/useReviewQueue'
 import { useDocumentReview } from '../composables/useDocumentReview'
 import { usePaperlessBaseUrl } from '../composables/usePaperlessBaseUrl'
 import { useDocumentTaskRuns } from '../composables/useDocumentTaskRuns'
@@ -371,10 +383,38 @@ const aggregatedText = computed(() => {
   return pageTexts.value.map((page) => page.text).join('\n\n')
 })
 
-const suggestFieldAction = async (source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs', field: string) => {
+const suggestFieldAction = async (
+  source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
+  field: string,
+  guidance?: {
+    focus_text?: string
+    hint?: string
+    text_source?: 'paperless_ocr' | 'vision_ocr'
+  },
+) => {
   if (source === 'similar_docs') return
-  await suggestField(docId.value, source, field)
+  await suggestField(docId.value, source, field, guidance)
 }
+
+// Texts the reviewer can mark a passage in (the same text the model works with).
+const guidanceTextSources = computed(() => {
+  const labels: Record<string, string> = { paperless_ocr: 'Paperless OCR', vision_ocr: 'Vision OCR' }
+  const bySource = new Map<string, string[]>()
+  for (const page of pageTexts.value) {
+    const key = String(page.source || '')
+    if (!key || !page.text) continue
+    bySource.set(key, [...(bySource.get(key) ?? []), page.text])
+  }
+  const sources = [...bySource.entries()].map(([key, texts]) => ({
+    key,
+    label: labels[key] ?? key,
+    text: texts.join('\n\n'),
+  }))
+  if (!sources.length && document.value?.content) {
+    sources.push({ key: 'content', label: 'Document text', text: document.value.content })
+  }
+  return sources
+})
 
 const currentNotePreview = computed(() =>
   (document.value?.notes || [])
@@ -466,6 +506,14 @@ const headerMetaLine = computed(() => {
   return `Document ID: ${docId.value}, Synced at: ${syncAt || '-'}, ${reviewPart || 'Unknown'}`
 })
 
+const { position, hasQueue, hasNext, hasPrev, autoAdvance, goPrev, goNext, advanceAfterReview } =
+  useReviewQueue(docId, route, router)
+
+const advanceIfReviewed = async () => {
+  if (String(document.value?.review_status || '').toLowerCase() !== 'reviewed') return
+  await advanceAfterReview()
+}
+
 const navigateBackToDocuments = async () => {
   await router.push(returnToDocumentsPath.value)
 }
@@ -486,6 +534,7 @@ const markReviewedAction = async () => {
     }
     await load()
     toastStore.push('Document marked as reviewed.', 'success', 'Review', 1800)
+    await advanceIfReviewed()
   } catch (err: unknown) {
     toastStore.push(errorMessage(err, 'Failed to mark document reviewed'), 'danger', 'Review', 2800)
   }
@@ -564,6 +613,20 @@ const {
 })
 
 const suggestionsApplying = ref(false)
+
+const { candidates: textCandidates, load: loadTextCandidates, reset: resetTextCandidates } =
+  useTextCandidates()
+
+watch(
+  [() => docId.value, activeTab],
+  ([id, tab], [previousId]) => {
+    // One watcher: a reset in a second watcher would invalidate the load started here.
+    if (id !== previousId) resetTextCandidates()
+    if (tab !== 'suggestions' || !Number.isFinite(id) || id <= 0) return
+    void loadTextCandidates(id)
+  },
+  { immediate: true },
+)
 
 const applySelectedAction = async (items: SuggestionApplyItem[]) => {
   if (suggestionsApplying.value || !items.length) return
@@ -706,7 +769,10 @@ const {
 } = useDocumentWriteback({
   docId: () => docId.value,
   document,
-  reloadAll: async () => reloadAll(),
+  reloadAll: async () => {
+    await reloadAll()
+    await advanceIfReviewed()
+  },
   toErrorMessage: errorMessage,
   pushToast: (message, level, title, timeoutMs) =>
     toastStore.push(message, level, title, timeoutMs),

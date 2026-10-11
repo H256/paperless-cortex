@@ -61,6 +61,8 @@ vi.mock('../composables/useDocumentsCatalog', () => ({
     pageSize: ref(20),
     ordering: ref('-date'),
     totalCount: ref(25),
+    listRequest: ref({ page_size: 20, ordering: '-date', review_status: 'all' }),
+    issueDateIsImportDate: ref(false),
     tags: ref([]),
     correspondents: ref([]),
     selectedTag: ref(''),

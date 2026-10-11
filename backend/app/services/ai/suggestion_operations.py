@@ -22,6 +22,30 @@ def variant_source_key(source: str, field: str) -> str:
     return f"{prefix}:{field}"
 
 
+def load_prior_variants(db: Session, doc_id: int, source: str, field: str) -> list[str | int | float]:
+    """Read the previously-shown variants for a (source, field) from the variant store.
+
+    These are values a prior "Suggest new" run produced and the reviewer did not
+    apply, so a re-run should avoid repeating them. Returns an empty list when
+    there is no stored batch or the payload is malformed.
+    """
+    row = (
+        db.query(DocumentSuggestion)
+        .filter(
+            DocumentSuggestion.doc_id == doc_id,
+            DocumentSuggestion.source == variant_source_key(source, field),
+        )
+        .one_or_none()
+    )
+    if not row:
+        return []
+    payload = parse_json_object(row.payload)
+    stored = payload.get("variants") if isinstance(payload, dict) else None
+    if not isinstance(stored, list):
+        return []
+    return [item for item in stored if isinstance(item, (str, int, float))]
+
+
 def build_suggestions_meta(db: Session, doc_id: int) -> dict[str, dict[str, str | None]]:
     meta_rows = db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).all()
     ocr_model = (
@@ -230,6 +254,9 @@ def generate_field_variants_payload(
     get_cached_tags_fn: Callable[[Settings], list[str]],
     get_cached_correspondents_fn: Callable[[Settings], Sequence[object]],
     get_document_or_none_fn: Callable[[Session, int], object | None],
+    focus_text: str | None = None,
+    hint: str | None = None,
+    text_source: str | None = None,
     get_page_text_layers_fn: Callable[..., Any],
     fetch_pdf_bytes_fn: Callable[[], bytes],
     upsert_page_texts_fn: Callable[..., None],
@@ -241,8 +268,11 @@ def generate_field_variants_payload(
     tags = get_cached_tags_fn(settings)
     correspondents = get_cached_correspondents_fn(settings)
     target_field = "summary" if field == "note" else field
+    # The model may read the other OCR text than the panel the variants belong to; an
+    # unknown value falls back to the panel's own text.
+    read_source = text_source if text_source in ("paperless_ocr", "vision_ocr") else source
 
-    if source == "vision_ocr":
+    if read_source == "vision_ocr":
         vision_pages = (
             db.query(DocumentPageText)
             .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
@@ -283,6 +313,7 @@ def generate_field_variants_payload(
     if stored:
         payload_json = parse_json_object(stored.payload)
         current = payload_json.get(target_field)
+    prior_variants = load_prior_variants(db, doc_id, source, field)
     if settings.queue_enabled and not priority:
         task = {
             "doc_id": doc_id,
@@ -292,9 +323,24 @@ def generate_field_variants_payload(
             "count": max(1, min(count, 5)),
             "current": current,
         }
+        if focus_text:
+            task["focus_text"] = focus_text
+        if hint:
+            task["hint"] = hint
+        if prior_variants:
+            task["avoid_variants"] = prior_variants
+        if read_source != source:
+            task["text_source"] = read_source
         enqueue_task_front_fn(settings, task)
         return {"doc_id": doc_id, "source": source, "field": field, "queued": True}
 
+    guidance_kwargs: dict[str, str | list[str | int | float]] = {}
+    if focus_text:
+        guidance_kwargs["focus_text"] = focus_text
+    if hint:
+        guidance_kwargs["hint"] = hint
+    if prior_variants:
+        guidance_kwargs["avoid_variants"] = prior_variants
     generated = generate_field_variants_fn(
         settings,
         raw,
@@ -304,6 +350,7 @@ def generate_field_variants_payload(
         field=field,
         count=max(1, min(count, 5)),
         current_value=current,
+        **guidance_kwargs,
     )
     variants = generated.get("variants") if isinstance(generated, dict) else generated
     if not isinstance(variants, list):

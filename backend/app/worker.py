@@ -5,7 +5,7 @@ import os
 import signal
 import socket
 import time
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from app.config import load_settings
 from app.db import SessionLocal
@@ -103,10 +103,12 @@ from app.services.runtime.logging_setup import (
 
 if TYPE_CHECKING:
     import threading
+    from collections.abc import Callable
     from types import FrameType
 
     from sqlalchemy.orm import Session
 
+    from app.config import Settings
     from app.models import Document
 
 logger = logging.getLogger(__name__)
@@ -476,9 +478,11 @@ def main() -> None:
                     current_doc_id: int,
                     current_task: dict[str, object] | None,
                     current_run_id: int | None,
+                    *,
+                    handler_settings: Settings = active_settings,
                 ) -> Callable[[], None] | None:
                     return _build_dispatch_handler(
-                        active_settings,
+                        handler_settings,
                         db,
                         current_task_type,
                         current_doc_id,

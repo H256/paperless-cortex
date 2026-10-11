@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -12,11 +13,12 @@ from app.api_models import (
     ApplySuggestionResponse,
     SuggestFieldVariantsResponse,
     SuggestionsResponse,
+    TextCandidatesResponse,
 )
 from app.db import get_db
 from app.deps import get_settings
 from app.exceptions import ValidationError
-from app.models import DocumentSuggestion
+from app.models import DocumentPageText, DocumentSuggestion
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestion_apply import apply_suggestion_to_document_payload
 from app.services.ai.suggestion_operations import (
@@ -31,7 +33,9 @@ from app.services.ai.suggestion_store import (
     persist_suggestions,
     update_suggestion_field,
 )
+from app.services.ai.suggestion_warnings import compute_suggestion_warnings
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.ai.text_candidates import candidates_from_sources
 from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.documents.page_text_store import upsert_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
@@ -50,6 +54,27 @@ if TYPE_CHECKING:
 
 require_queue_enabled = is_queue_enabled
 
+
+def _attach_suggestion_warnings(payload: dict[str, object], settings: Settings) -> None:
+    """Attach ``suggestion_warnings`` per source into the suggestions payload.
+
+    Runs at read time against the freshest known-correspondent list and the
+    current date, so the advisory hints never go stale. The ``similar_docs``
+    source is non-actionable metadata (its ``correspondent`` is an aggregate
+    of real docs, not a proposed value) and is skipped to avoid noise.
+    """
+    suggestions = payload.get("suggestions")
+    if not isinstance(suggestions, dict):
+        return
+    known_correspondents = get_cached_correspondents(settings)
+    reference_date = datetime.date.today()
+    for source, value in suggestions.items():
+        if source == "similar_docs" or not isinstance(value, dict):
+            continue
+        value["suggestion_warnings"] = compute_suggestion_warnings(
+            value, known_correspondents, reference_date
+        )
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
@@ -57,6 +82,11 @@ class SuggestionFieldRequest(BaseModel):
     source: str
     field: str
     count: int = 3
+    # Reviewer input for "Suggest new": a marked passage of the document text and a short hint.
+    focus_text: str | None = None
+    hint: str | None = None
+    # OCR text the model reads (default: the text of `source`).
+    text_source: str | None = None
 
 
 class SuggestionFieldApply(BaseModel):
@@ -112,7 +142,7 @@ def get_document_suggestions(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     logger = logging.getLogger(__name__)
-    return get_document_suggestions_payload(
+    payload = get_document_suggestions_payload(
         doc_id=doc_id,
         source=source,
         refresh=refresh,
@@ -132,6 +162,40 @@ def get_document_suggestions(
         enqueue_task_front_fn=enqueue_task_front,
         enqueue_task_sequence_front_fn=enqueue_task_sequence_front,
     )
+    _attach_suggestion_warnings(payload, settings)
+    return payload
+
+
+@router.get("/{doc_id}/suggestions/candidates", response_model=TextCandidatesResponse)
+def get_text_candidates(
+    doc_id: int,
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    """Deterministic date/correspondent candidates from the stored document text.
+
+    Reads only cached page texts (fallback: document content); it never triggers OCR,
+    LLM calls or queue work.
+    """
+    doc = get_document_or_none(db, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    rows = (
+        db.query(DocumentPageText)
+        .filter(DocumentPageText.doc_id == doc_id)
+        .order_by(DocumentPageText.source.asc(), DocumentPageText.page.asc())
+        .all()
+    )
+    sources: dict[str, list[tuple[int | None, str]]] = {}
+    for row in rows:
+        text = row.clean_text or row.text or row.raw_text or ""
+        if text.strip():
+            sources.setdefault(str(row.source), []).append((int(row.page), text))
+    if not sources and (doc.content or "").strip():
+        sources["content"] = [(None, str(doc.content))]
+    known = get_cached_correspondents(settings)
+    result = candidates_from_sources(sources, known)
+    return {"doc_id": doc_id, **result}
 
 
 @router.post("/{doc_id}/suggestions/field", response_model=SuggestFieldVariantsResponse)
@@ -152,6 +216,9 @@ def suggest_field_variants(
         field=payload.field,
         count=payload.count,
         priority=priority,
+        focus_text=payload.focus_text,
+        hint=payload.hint,
+        text_source=payload.text_source,
         settings=settings,
         db=db,
         get_document_fn=paperless.get_document,
