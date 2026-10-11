@@ -139,6 +139,11 @@ Wichtige Bedienideen:
 - Sie können einzelne Varianten lokal anwenden.
 - Sie können Vorschläge direkt auf das Dokument übernehmen.
 
+### 5.0 PDF neben den Vorschlägen und Übereinstimmung der Quellen
+
+- **Side by side:** Auf breiten Bildschirmen zeigt der Tab `Suggestions` das PDF rechts neben den Vorschlägen (sticky, es scrollt nicht weg). Die Checkbox `Side by side` im Tab-Kopf schaltet das um, die Einstellung wird gemerkt. In schmalen Fenstern bleibt das PDF unter den Vorschlägen.
+- **Übereinstimmung:** Neben Titel, Datum und Korrespondent zeigt ein Badge, wie viele Quellen denselben Wert haben (`2 / 3 agree`), wobei der Text des Dokuments (`Candidates from text`) als zusätzliche Quelle zählt. `Only this source` markiert Werte, die nur eine Quelle liefert, also genauer hinsehen. Das ist ein Hinweis, keine Bewertung: auch übereinstimmende Werte können falsch sein, deshalb wird nie etwas automatisch übernommen.
+
 ### 5.1 Nur ausgewählte Felder übernehmen (`Apply selected`)
 
 KI-Vorschläge sind manchmal Unsinn. Deshalb wird nie etwas automatisch oder gesammelt übernommen:

@@ -28,8 +28,21 @@
 
     <div v-if="loading" class="mt-6 text-sm text-slate-500">Loading...</div>
     <div v-else class="mt-6 space-y-4">
-      <div class="rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-        <div class="overflow-x-auto">
+      <div
+        :class="splitActive ? 'grid gap-4 xl:grid-cols-2 xl:items-start' : 'space-y-6'"
+        data-testid="detail-layout"
+      >
+      <div class="min-w-0 space-y-4">
+      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+        <label
+          v-if="activeTab === 'suggestions'"
+          class="order-last hidden shrink-0 items-center gap-1.5 whitespace-nowrap xl:inline-flex"
+          title="Show the PDF next to the suggestions on wide screens"
+        >
+          <input v-model="splitView" type="checkbox" data-testid="split-view-toggle" />
+          Side by side
+        </label>
+        <div class="min-w-0 flex-1 overflow-x-auto">
           <div class="flex min-w-max items-center gap-2">
             <button
               v-for="tab in tabs"
@@ -162,13 +175,20 @@
         @open-reset-confirm="openResetConfirm"
       />
 
+      </div>
       <PdfViewer
-        class="mt-6"
+        :class="
+          splitActive
+            ? 'min-w-0 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-auto'
+            : ''
+        "
+        data-testid="detail-pdf"
         :pdf-url="pdfUrl"
         v-model:page="pdfPage"
         :highlights="pdfHighlights"
         @update:page="onPdfPageChange"
       />
+      </div>
 
       <ConfirmDialog
         :open="resetConfirmOpen"
@@ -373,6 +393,25 @@ const {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const pdfUrl = computed(() => `${apiBaseUrl}/documents/${docId.value}/pdf`)
 const tabs = detailTabs
+
+// Wide screens can show the PDF next to the suggestions; the choice is remembered.
+const SPLIT_VIEW_KEY = 'document_detail_split_view'
+const readSplitView = () => {
+  try {
+    return window.localStorage.getItem(SPLIT_VIEW_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+const splitView = ref(readSplitView())
+watch(splitView, (value) => {
+  try {
+    window.localStorage.setItem(SPLIT_VIEW_KEY, value ? '1' : '0')
+  } catch {
+    // storage may be unavailable; the choice then only lasts for this page view
+  }
+})
+const splitActive = computed(() => splitView.value && activeTab.value === 'suggestions')
 const reloadingAll = ref(false)
 const paperlessUrl = computed(() =>
   paperlessBaseUrl.value && document.value

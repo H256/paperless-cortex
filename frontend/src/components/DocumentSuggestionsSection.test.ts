@@ -339,3 +339,57 @@ describe('DocumentSuggestionsSection guidance for Suggest new', () => {
     wrapper.unmount()
   })
 })
+
+describe('DocumentSuggestionsSection agreement indicator', () => {
+  const mountAgreement = (extra: Record<string, unknown> = {}) =>
+    mount(DocumentSuggestionsSection, {
+      props: {
+        suggestions: {
+          vision_ocr: { parsed: { title: 'Rechnung Teufel', date: '2026-09-20', correspondent: 'Teufel GmbH' } },
+          paperless_ocr: {
+            parsed: { title: 'Rechnung Teufel', date: '2026-09-21', correspondent: 'Teufel GmbH' },
+          },
+        },
+        suggestionsError: '',
+        suggestionsLoading: false,
+        suggestionVariants: {},
+        suggestionVariantLoading: {},
+        suggestionVariantError: {},
+        currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+        currentTagList: [],
+        ...extra,
+      },
+    })
+
+  it('shows how many sources agree and flags values with a single source', () => {
+    const wrapper = mountAgreement()
+
+    expect(wrapper.get('[data-testid="agreement-vision_ocr-title"]').text()).toContain('2 / 2 agree')
+    expect(wrapper.get('[data-testid="agreement-paperless_ocr-title"]').text()).toContain('2 / 2 agree')
+    expect(wrapper.get('[data-testid="agreement-vision_ocr-date"]').text()).toBe('Only this source')
+    expect(wrapper.get('[data-testid="agreement-paperless_ocr-date"]').text()).toBe('Only this source')
+    wrapper.unmount()
+  })
+
+  it('counts the document text as an additional source', () => {
+    const wrapper = mountAgreement({
+      textCandidates: {
+        dates: [{ value: '2026-09-20', label: 'issue', score: 5 }],
+        correspondents: [],
+      },
+    })
+
+    expect(wrapper.get('[data-testid="agreement-vision_ocr-date"]').text()).toContain('2 / 3 agree')
+    expect(wrapper.get('[data-testid="agreement-paperless_ocr-date"]').text()).toBe('Only this source')
+    wrapper.unmount()
+  })
+
+  it('shows no badge when only one source has a value', () => {
+    const wrapper = mountAgreement({
+      suggestions: { vision_ocr: { parsed: { title: 'Nur eine Quelle' } } },
+    })
+    expect(wrapper.find('[data-testid^="agreement-"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})
+
