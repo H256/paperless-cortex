@@ -42,6 +42,12 @@ export const useDocumentDetailCoreData = () => {
   const ocrScores = ref<DocumentOcrScoreOut[]>([])
   const ocrScoresLoading = ref(false)
   const ocrScoresError = ref('')
+  /** Cross-source view of the OCR scores: text agreement and the better-reading source. */
+  const ocrComparison = ref<{
+    agreement: number | null
+    recommendedSource: string | null
+    reason: string | null
+  }>({ agreement: null, recommendedSource: null, reason: null })
 
   const loadDocumentMutation = useMutation({
     mutationFn: (id: number) => takePrefetchedDocument(id) ?? getDocumentLocal(id),
@@ -80,6 +86,7 @@ export const useDocumentDetailCoreData = () => {
     ocrScores.value = []
     ocrScoresLoading.value = false
     ocrScoresError.value = ''
+    ocrComparison.value = { agreement: null, recommendedSource: null, reason: null }
   }
 
   const loadDocument = async (id: number) => {
@@ -147,6 +154,11 @@ export const useDocumentDetailCoreData = () => {
     try {
       const data = await loadOcrScoresMutation.mutateAsync({ id, refresh })
       ocrScores.value = data.scores ?? []
+      ocrComparison.value = {
+        agreement: data.agreement ?? null,
+        recommendedSource: data.recommended_source ?? null,
+        reason: data.recommendation_reason ?? null,
+      }
     } catch (err: unknown) {
       ocrScoresError.value = errorMessage(err, 'Failed to load OCR scores')
     } finally {
@@ -171,6 +183,7 @@ export const useDocumentDetailCoreData = () => {
     ocrScores,
     ocrScoresLoading,
     ocrScoresError,
+    ocrComparison,
     loadDocument,
     loadMeta,
     loadPageTexts,

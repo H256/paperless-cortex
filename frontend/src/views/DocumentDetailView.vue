@@ -73,6 +73,7 @@
         :ocr-scores="ocrScores"
         :ocr-scores-loading="ocrScoresLoading"
         :ocr-scores-error="ocrScoresError"
+        :ocr-comparison="ocrComparison"
       />
 
       <DocumentSuggestionsSection
@@ -86,6 +87,8 @@
         :suggestion-variant-wait="suggestionVariantWait"
         :current-values="currentValues"
         :compact="splitActive"
+        :recommended-text-source="ocrComparison.recommendedSource"
+        :recommendation-reason="ocrComparison.reason"
         :current-tag-list="currentTagList"
         :text-candidates="textCandidates"
         :text-sources="guidanceTextSources"
@@ -319,6 +322,7 @@ const {
   ocrScores,
   ocrScoresLoading,
   ocrScoresError,
+  ocrComparison,
   suggestions,
   suggestionsLoading,
   suggestionsError,

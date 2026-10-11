@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass
+from functools import lru_cache
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -111,27 +113,43 @@ def _safe_div(n: float, d: float) -> float:
     return n / d if d else 0.0
 
 
+_BASE_VOWELS = frozenset("aeiou")
+_EXTRA_VOWELS = frozenset("æœøå")
+_WORD_RE = re.compile(r"[^\W_]+")
+
+
+@lru_cache(maxsize=4096)
+def _is_vowel(ch: str) -> bool:
+    """Vowel test that also covers accented letters (é, ñ, ö, ů, ...), not only ASCII/German."""
+    if not ch.isalpha():
+        return False
+    lowered = ch.lower()
+    if lowered in _BASE_VOWELS or lowered in _EXTRA_VOWELS:
+        return True
+    decomposed = unicodedata.normalize("NFD", lowered)
+    return bool(decomposed) and decomposed[0] in _BASE_VOWELS
+
+
 def score_text_quality(text: str, settings: Settings) -> TextQuality:
     cleaned = text.strip()
     if not cleaned:
         return TextQuality(score=0, reasons=["empty"], metrics={"length": 0.0})
 
     length = len(cleaned)
-    words = re.findall(r"[A-Za-z0-9ÄÖÜäöüß]+", cleaned)
+    words = _WORD_RE.findall(cleaned)
     word_count = len(words)
     unique_words = len({w.lower() for w in words})
     letters = sum(ch.isalpha() for ch in cleaned)
     digits = sum(ch.isdigit() for ch in cleaned)
     alnum = sum(ch.isalnum() for ch in cleaned)
-    vowels = set("aeiouAEIOUäöüÄÖÜ")
-    vowel_count = sum(ch in vowels for ch in cleaned)
+    vowel_count = sum(_is_vowel(ch) for ch in cleaned)
     vowel_ratio = _safe_div(vowel_count, max(1, letters))
     non_alnum_ratio = 1.0 - _safe_div(alnum, length)
     alpha_ratio = _safe_div(letters, length)
     digit_ratio = _safe_div(digits, length)
-    no_vowel_tokens = sum(1 for w in words if not any(ch in vowels for ch in w))
+    no_vowel_tokens = sum(1 for w in words if not any(_is_vowel(ch) for ch in w))
     no_vowel_token_ratio = _safe_div(no_vowel_tokens, word_count)
-    wordlike_tokens = sum(1 for w in words if any(ch in vowels for ch in w))
+    wordlike_tokens = sum(1 for w in words if any(_is_vowel(ch) for ch in w))
     wordlike_ratio = _safe_div(wordlike_tokens, word_count)
     short_tokens = sum(1 for w in words if len(w) <= 2)
     short_token_ratio = _safe_div(short_tokens, word_count)

@@ -9,4 +9,7 @@ import type { DocumentOcrScoreOut } from './documentOcrScoreOut';
 export interface DocumentOcrScoresResponse {
   doc_id: number;
   scores?: DocumentOcrScoreOut[];
+  agreement?: number | null;
+  recommended_source?: string | null;
+  recommendation_reason?: string | null;
 }

@@ -2099,3 +2099,50 @@ def test_review_summary_route_counts_library_in_one_walk(api_client: Any, monkey
     assert payload["reviewed"] == 0
     assert payload["unreviewed"] + payload["needs_review"] == 3
     assert payload["issue_date_is_import_date"] == 1
+
+
+def test_ocr_scores_route_recommends_the_cleaner_source(api_client: Any, monkeypatch: Any) -> None:
+    import os
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.models import Document, DocumentOcrScore, DocumentPageText
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=931, title="d", content="Rechnung Getränkemarkt Gesamtbetrag Euro"))
+        db.add(
+            DocumentPageText(
+                doc_id=931, page=1, source="vision_ocr", text="Rechnung Getränkemarkt Betrag Euro"
+            )
+        )
+        for source, score in (("paperless_ocr", 40.0), ("vision_ocr", 5.0)):
+            db.add(
+                DocumentOcrScore(
+                    doc_id=931,
+                    source=source,
+                    content_hash="x",
+                    quality_score=score,
+                    verdict="good",
+                    components_json="{}",
+                    noise_json="{}",
+                    ppl_json='{"supported": false, "reason": "disabled"}',
+                    created_at="2026-10-11T10:00:00+00:00",
+                    processed_at="2026-10-11T10:00:00+00:00",
+                )
+            )
+        db.commit()
+    monkeypatch.setattr(
+        "app.routes.documents.ensure_document_ocr_score",
+        lambda _settings, db, doc, src, force=False: db.get(DocumentOcrScore, (doc.id, src)),
+    )
+
+    response = api_client.get("/documents/931/ocr-scores")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["recommended_source"] == "vision_ocr"
+    assert 0.0 < payload["agreement"] <= 1.0
+    assert "Readability" in payload["recommendation_reason"]
+    assert payload["scores"][0]["ppl"]["supported"] is False

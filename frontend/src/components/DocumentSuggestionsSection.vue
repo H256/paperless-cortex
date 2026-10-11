@@ -145,6 +145,25 @@
             data-testid="guidance-hint"
           />
         </label>
+        <div
+          v-if="recommendedLabel"
+          class="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
+          data-testid="recommended-text-source"
+        >
+          <span>
+            <span class="font-semibold">Better text: {{ recommendedLabel }}</span>
+            <span v-if="recommendationReason"> — {{ recommendationReason }}</span>
+          </span>
+          <button
+            v-if="canUseRecommended && modelTextSource !== recommendedTextSource"
+            type="button"
+            class="rounded-md border border-emerald-300 bg-white px-2 py-0.5 font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-200"
+            data-testid="use-recommended-text-source"
+            @click="useRecommendedTextSource"
+          >
+            Use it
+          </button>
+        </div>
         <label
           v-if="textSources.length > 1"
           class="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300"
@@ -565,6 +584,9 @@ const props = withDefaults(defineProps<{
   applying?: boolean
   /** Beside the PDF on wide screens: stack the panels and field rows in the narrower column. */
   compact?: boolean
+  /** OCR text that reads better (from the OCR quality scores), shown as a hint in the guidance. */
+  recommendedTextSource?: string | null
+  recommendationReason?: string | null
   importDate?: string
   textSources?: Array<{ key: string; label: string; text: string }>
   textCandidates?: {
@@ -946,6 +968,21 @@ watch(
 )
 
 const modelTextSource = ref<'' | 'paperless_ocr' | 'vision_ocr'>('')
+const SOURCE_NAMES: Record<string, string> = {
+  vision_ocr: 'Vision OCR',
+  paperless_ocr: 'Paperless OCR',
+}
+const recommendedLabel = computed(() =>
+  props.recommendedTextSource ? (SOURCE_NAMES[props.recommendedTextSource] ?? '') : '',
+)
+const canUseRecommended = computed(() =>
+  props.textSources.some((source) => source.key === props.recommendedTextSource),
+)
+// Never preselected: the reviewer opts in, like every other suggestion input.
+const useRecommendedTextSource = () => {
+  const key = props.recommendedTextSource
+  if (key === 'paperless_ocr' || key === 'vision_ocr') modelTextSource.value = key
+}
 const pagesInput = ref('')
 const pagesInvalid = computed(
   () => Boolean(pagesInput.value.trim()) && !/^\d{1,4}(-\d{1,4})?(,\d{1,4}(-\d{1,4})?)*$/.test(pagesInput.value.replace(/\s+/g, '')),

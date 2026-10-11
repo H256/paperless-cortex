@@ -69,6 +69,7 @@ vi.mock('../composables/useDocumentDetailData', () => ({
     ocrScores: ref([]),
     ocrScoresLoading: ref(false),
     ocrScoresError: ref(''),
+    ocrComparison: ref({ agreement: null, recommendedSource: null, reason: null }),
     suggestions: ref({}),
     suggestionsLoading: ref(false),
     suggestionsError: ref(''),
