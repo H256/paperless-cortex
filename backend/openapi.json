@@ -9378,6 +9378,17 @@
               }
             ],
             "title": "Hint"
+          },
+          "text_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Source"
           }
         },
         "type": "object",

@@ -204,3 +204,44 @@ def test_process_suggest_field_forwards_queued_focus_passage_and_hint(
 
     assert captured["focus_text"] == "Rechnungsdatum: 20.09.2026"
     assert captured["hint"] == "Rechnungsdatum, nicht Lieferdatum"
+
+
+def test_process_suggest_field_reads_the_requested_text_source(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    from app import worker as worker_mod
+
+    settings = load_settings()
+    seen: dict[str, str] = {}
+
+    with session_factory() as db:
+        db.add(Document(id=705, title="Doc 705", content="PAPERLESS TEXT", page_count=1))
+        db.add(DocumentPageText(doc_id=705, page=1, source="vision_ocr", text="VISION TEXT"))
+        db.commit()
+
+        monkeypatch.setattr(worker_mod.paperless, "get_document", lambda *_a, **_k: {"id": 705})
+        monkeypatch.setattr(worker_mod, "get_cached_tags", lambda *_a, **_k: [])
+        monkeypatch.setattr(worker_mod, "get_cached_correspondents", lambda *_a, **_k: [])
+
+        def fake_generate(_settings: Any, _document: Any, text: str, **_kwargs: Any) -> dict[str, Any]:
+            seen["text"] = text
+            return {"variants": ["x"]}
+
+        monkeypatch.setattr(worker_mod, "generate_field_variants", fake_generate)
+        monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
+        monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
+
+        _process_suggest_field(
+            settings,
+            db,
+            {
+                "doc_id": 705,
+                "source": "vision_ocr",
+                "field": "title",
+                "count": 1,
+                "text_source": "paperless_ocr",
+            },
+        )
+
+    assert "PAPERLESS TEXT" in seen["text"]
+    assert "VISION TEXT" not in seen["text"]

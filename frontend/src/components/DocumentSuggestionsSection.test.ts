@@ -224,6 +224,35 @@ describe('DocumentSuggestionsSection guidance for Suggest new', () => {
     wrapper.unmount()
   })
 
+  it('lets the reviewer choose the OCR text the model reads', async () => {
+    const wrapper = mountWithText()
+    expect(wrapper.find('[data-testid="guidance-model-text"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="guidance-model-text"]').setValue('paperless_ocr')
+    await suggestButtons(wrapper)[0]!.trigger('click')
+
+    const calls = wrapper.emitted('suggestField') ?? []
+    expect(calls[0]?.[2]).toEqual({ text_source: 'paperless_ocr' })
+    wrapper.unmount()
+  })
+
+  it('does not offer a text choice when only one text is available', () => {
+    const wrapper = mount(DocumentSuggestionsSection, {
+      props: {
+        suggestions: { vision_ocr: { parsed: { title: 'Rechnung' } } },
+        suggestionsError: '',
+        suggestionsLoading: false,
+        suggestionVariants: {},
+        suggestionVariantLoading: {},
+        suggestionVariantError: {},
+        currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+        textSources: [{ key: 'content', label: 'Document text', text: 'Only text' }],
+      },
+    })
+    expect(wrapper.find('[data-testid="guidance-model-text"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('rejects a selection outside of the document text', async () => {
     const wrapper = mountWithText()
     const outside = document.createElement('p')
