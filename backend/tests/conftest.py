@@ -74,8 +74,8 @@ def _bash_candidates() -> list[str]:
     if sys.platform == "win32":
         # `bash` on PATH is often the WSL launcher; Git for Windows ships a real one.
         for base in (
-            os.environ.get("ProgramFiles"),
-            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("PROGRAMFILES"),
+            os.environ.get("PROGRAMFILES(X86)"),
             os.environ.get("LOCALAPPDATA") and str(Path(os.environ["LOCALAPPDATA"]) / "Programs"),
         ):
             if not base:
