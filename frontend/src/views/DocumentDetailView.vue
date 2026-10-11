@@ -71,6 +71,7 @@
         :current-values="currentValues"
         :current-tag-list="currentTagList"
         :applying="suggestionsApplying"
+        :import-date="document?.created || ''"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"

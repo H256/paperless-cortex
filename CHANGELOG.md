@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
+
+### Suggestion presets: "No correspondent" and "Issue date = import date" (#359 follow-up)
+- `uncommitted` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) adds a Presets toolbar: "No correspondent" clears the correspondent (and pending correspondent) via the existing `applyToDocument` path, and "Issue date = import date" sets the issue date to the date part of the document import timestamp (disabled when unavailable). No backend change: `apply-suggestion` already clears the correspondent on an empty value and validates/sets ISO dates; the route does not validate `source`, so `source="preset"` flows through and is recorded in the audit log.
+- `uncommitted` test(frontend): `cd frontend && npx vitest run` (`125 passed`), `npx vue-tsc --build` and lint clean. Backend suite `601 passed`, 1 pre-existing failure (unrelated).
+
 ## 2026-10-11 (branch: agent/371-review-paging-prefetch)
 
 ### Review mode continues across list pages and prefetches the next document (#371, tracking #359)

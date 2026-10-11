@@ -9,6 +9,31 @@
       >
     </div>
 
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Presets</span>
+      <button
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+        :disabled="suggestionsLoading"
+        data-testid="preset-no-correspondent"
+        @click="applyPresetNoCorrespondent"
+      >
+        No correspondent
+      </button>
+      <button
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+        :disabled="suggestionsLoading || !importDateOnly(importDate)"
+        :title="
+          importDateOnly(importDate)
+            ? `Set issue date to the import date (${importDateOnly(importDate)})`
+            : 'No import date available'
+        "
+        data-testid="preset-issue-date-import"
+        @click="applyPresetIssueDateImport"
+      >
+        Issue date = import date
+      </button>
+    </div>
+
     <div
       v-if="suggestionsError"
       class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
@@ -430,7 +455,8 @@ const props = withDefaults(defineProps<{
   }
   currentTagList?: string[]
   applying?: boolean
-}>(), { currentTagList: () => [], applying: false })
+  importDate?: string
+}>(), { currentTagList: () => [], applying: false, importDate: '' })
 
 const emit = defineEmits<{
   (e: 'refresh', source: SuggestionSource): void
@@ -729,6 +755,21 @@ const applySelected = () => {
       value: item.value,
     })),
   )
+}
+
+const importDateOnly = (value: string) => {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : ''
+}
+
+const applyPresetNoCorrespondent = () => {
+  emit('applyToDocument', 'preset', 'correspondent', '')
+}
+
+const applyPresetIssueDateImport = () => {
+  const dateOnly = importDateOnly(props.importDate)
+  if (!dateOnly) return
+  emit('applyToDocument', 'preset', 'date', dateOnly)
 }
 
 watch(
