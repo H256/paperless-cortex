@@ -6,7 +6,9 @@ from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any
 
 from app.models import DocumentPageNote, DocumentPageText, DocumentSuggestion
+from app.services.ai.correspondent_rules import compute_learned_rules
 from app.services.ai.hierarchical_summary import is_large_document
+from app.services.ai.page_selection import select_page_text
 from app.services.documents.documents import get_document_or_none
 from app.services.documents.text_cleaning import clean_ocr_text
 
@@ -226,6 +228,7 @@ def process_suggestions_paperless(
     get_document_fn: Callable[[Settings, int], dict[str, Any]],
     generate_suggestions_fn: Callable[..., dict[str, Any]],
     persist_suggestions_fn: Callable[..., None],
+    learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
 ) -> None:
     if is_cancel_requested_fn(settings):
         logger.info("Worker cancel requested; abort suggestions doc=%s", doc_id)
@@ -236,6 +239,9 @@ def process_suggestions_paperless(
     tags = get_tags_fn(settings)
     correspondents = get_correspondents_fn(settings)
     raw = get_document_fn(settings, doc_id)
+    learned_rules = (
+        compute_learned_rules(learn_rules_fn, db, doc_id, logger) if learn_rules_fn else ""
+    )
     baseline_text = clean_ocr_text(doc.content or "")
     if is_large_document(
         page_count=doc.page_count,
@@ -263,6 +269,7 @@ def process_suggestions_paperless(
         baseline_text,
         tags=tags,
         correspondents=correspondents,
+        learned_rules=learned_rules,
     )
     persist_suggestions_fn(
         db,
@@ -285,6 +292,7 @@ def process_suggestions_vision(
     generate_suggestions_fn: Callable[..., dict[str, Any]],
     persist_suggestions_fn: Callable[..., None],
     process_vision_ocr_only_fn: Callable[..., None],
+    learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
 ) -> None:
     if is_cancel_requested_fn(settings):
         logger.info("Worker cancel requested; abort vision suggestions doc=%s", doc_id)
@@ -292,6 +300,9 @@ def process_suggestions_vision(
     tags = get_tags_fn(settings)
     correspondents = get_correspondents_fn(settings)
     raw = get_document_fn(settings, doc_id)
+    learned_rules = (
+        compute_learned_rules(learn_rules_fn, db, doc_id, logger) if learn_rules_fn else ""
+    )
     doc = get_document_or_none(db, doc_id)
     if not doc:
         return
@@ -356,6 +367,7 @@ def process_suggestions_vision(
         vision_text,
         tags=tags,
         correspondents=correspondents,
+        learned_rules=learned_rules,
     )
     persist_suggestions_fn(
         db,
@@ -415,6 +427,17 @@ def process_suggest_field(
     else:
         doc = get_document_or_none(db, doc_id)
         text = clean_ocr_text(doc.content) if doc and doc.content else ""
+    requested_pages = task.get("pages")
+    if isinstance(requested_pages, list) and requested_pages:
+        page_numbers = [page for page in requested_pages if isinstance(page, int) and page > 0]
+        if page_numbers:
+            text = select_page_text(
+                db,
+                doc_id=doc_id,
+                source=read_source,
+                pages=page_numbers,
+                content=str(raw.get("content") or ""),
+            )
     guidance_kwargs: dict[str, str | list[str | int | float]] = {}
     for task_key in ("focus_text", "hint"):
         value = task.get(task_key)

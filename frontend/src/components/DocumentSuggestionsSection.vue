@@ -151,6 +151,23 @@
             </option>
           </select>
         </label>
+        <label class="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+          Only these pages (optional)
+          <input
+            v-model="pagesInput"
+            type="text"
+            maxlength="100"
+            class="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-normal text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            placeholder="e.g. 1 or 1-2,4"
+            data-testid="guidance-pages"
+          />
+          <span
+            v-if="pagesInvalid"
+            class="mt-1 block font-normal text-rose-600 dark:text-rose-300"
+            data-testid="guidance-pages-invalid"
+            >Use page numbers like 1 or 1-2,4.</span
+          >
+        </label>
         <div class="mt-3">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Document text</span>
@@ -638,6 +655,7 @@ const emit = defineEmits<{
       focus_text?: string
       hint?: string
       text_source?: 'paperless_ocr' | 'vision_ocr'
+      pages?: string
     },
   ): void
   (e: 'applyVariant', source: SuggestionSource, field: string, value: unknown): void
@@ -921,12 +939,16 @@ watch(
 )
 
 const modelTextSource = ref<'' | 'paperless_ocr' | 'vision_ocr'>('')
+const pagesInput = ref('')
+const pagesInvalid = computed(
+  () => Boolean(pagesInput.value.trim()) && !/^\d{1,4}(-\d{1,4})?(,\d{1,4}(-\d{1,4})?)*$/.test(pagesInput.value.replace(/\s+/g, '')),
+)
 const modelTextOptions = computed(() =>
   props.textSources.filter((source) => source.key === 'paperless_ocr' || source.key === 'vision_ocr'),
 )
 
 const guidanceActive = computed(() =>
-  Boolean(focusText.value || hint.value.trim() || modelTextSource.value),
+  Boolean(focusText.value || hint.value.trim() || modelTextSource.value || pagesInput.value.trim()),
 )
 const focusPreview = computed(() =>
   focusText.value.length > 220 ? `${focusText.value.slice(0, 220)}…` : focusText.value,
@@ -954,9 +976,12 @@ const requestSuggest = (source: SuggestionSource, field: string) => {
     focus_text?: string
     hint?: string
     text_source?: 'paperless_ocr' | 'vision_ocr'
+    pages?: string
   } = {}
   if (focusText.value) guidance.focus_text = focusText.value
   if (modelTextSource.value) guidance.text_source = modelTextSource.value
+  const trimmedPages = pagesInput.value.replace(/\s+/g, '')
+  if (trimmedPages) guidance.pages = trimmedPages
   const trimmedHint = hint.value.trim()
   if (trimmedHint) guidance.hint = trimmedHint
   if (Object.keys(guidance).length) emit('suggestField', source, field, guidance)

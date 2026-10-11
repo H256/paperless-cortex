@@ -19,7 +19,9 @@ from app.db import get_db
 from app.deps import get_settings
 from app.exceptions import ValidationError
 from app.models import DocumentPageText, DocumentSuggestion
+from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
+from app.services.ai.page_selection import PageSelectionError
 from app.services.ai.suggestion_apply import apply_suggestion_to_document_payload
 from app.services.ai.suggestion_operations import (
     build_suggestions_meta,
@@ -87,6 +89,8 @@ class SuggestionFieldRequest(BaseModel):
     hint: str | None = None
     # OCR text the model reads (default: the text of `source`).
     text_source: str | None = None
+    # Only these pages are sent to the model, e.g. "1" or "1-2,4" (default: all pages).
+    pages: str | None = None
 
 
 class SuggestionFieldApply(BaseModel):
@@ -161,6 +165,7 @@ def get_document_suggestions(
         collect_page_texts_fn=collect_page_texts,
         enqueue_task_front_fn=enqueue_task_front,
         enqueue_task_sequence_front_fn=enqueue_task_sequence_front,
+        learn_rules_fn=learn_correspondent_rules,
     )
     _attach_suggestion_warnings(payload, settings)
     return payload
@@ -210,28 +215,32 @@ def suggest_field_variants(
         raise ValidationError("Invalid source", field="source")
     if payload.field not in ("title", "date", "correspondent", "tags", "note"):
         raise ValidationError("Invalid field", field="field")
-    payload_data = generate_field_variants_payload(
-        doc_id=doc_id,
-        source=payload.source,
-        field=payload.field,
-        count=payload.count,
-        priority=priority,
-        focus_text=payload.focus_text,
-        hint=payload.hint,
-        text_source=payload.text_source,
-        settings=settings,
-        db=db,
-        get_document_fn=paperless.get_document,
-        get_cached_tags_fn=get_cached_tags,
-        get_cached_correspondents_fn=get_cached_correspondents,
-        get_document_or_none_fn=get_document_or_none,
-        get_page_text_layers_fn=get_page_text_layers,
-        fetch_pdf_bytes_fn=lambda: fetch_pdf_bytes(settings, doc_id),
-        upsert_page_texts_fn=upsert_page_texts,
-        ensure_document_ocr_score_fn=ensure_document_ocr_score,
-        generate_field_variants_fn=generate_field_variants,
-        enqueue_task_front_fn=enqueue_task_front,
-    )
+    try:
+        payload_data = generate_field_variants_payload(
+            doc_id=doc_id,
+            source=payload.source,
+            field=payload.field,
+            count=payload.count,
+            priority=priority,
+            focus_text=payload.focus_text,
+            hint=payload.hint,
+            text_source=payload.text_source,
+            pages=payload.pages,
+            settings=settings,
+            db=db,
+            get_document_fn=paperless.get_document,
+            get_cached_tags_fn=get_cached_tags,
+            get_cached_correspondents_fn=get_cached_correspondents,
+            get_document_or_none_fn=get_document_or_none,
+            get_page_text_layers_fn=get_page_text_layers,
+            fetch_pdf_bytes_fn=lambda: fetch_pdf_bytes(settings, doc_id),
+            upsert_page_texts_fn=upsert_page_texts,
+            ensure_document_ocr_score_fn=ensure_document_ocr_score,
+            generate_field_variants_fn=generate_field_variants,
+            enqueue_task_front_fn=enqueue_task_front,
+        )
+    except PageSelectionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if payload_data.get("queued") is True:
         return payload_data
     audit_suggestion_run(db, doc_id, payload.source, f"field_variants:{payload.field}")

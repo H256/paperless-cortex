@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import DocumentPageText, DocumentSuggestion
+from app.services.ai.correspondent_rules import compute_learned_rules
+from app.services.ai.page_selection import parse_page_spec, select_page_text
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
@@ -116,11 +118,15 @@ def get_document_suggestions_payload(
     collect_page_texts_fn: Callable[..., tuple[list[object], list[object], object]],
     enqueue_task_front_fn: Callable[[Settings, dict[str, object]], int],
     enqueue_task_sequence_front_fn: Callable[[Settings, list[dict[str, object]]], int],
+    learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
 ) -> dict[str, object]:
     logger.info("Fetch suggestions doc=%s source=%s refresh=%s", doc_id, source, refresh)
     raw = get_document_fn(settings, doc_id)
     tags = get_cached_tags_fn(settings)
     correspondents = get_cached_correspondents_fn(settings)
+    learned_rules = (
+        compute_learned_rules(learn_rules_fn, db, doc_id, logger) if learn_rules_fn else ""
+    )
 
     suggestions_by_source: dict[str, object] = {}
 
@@ -132,6 +138,7 @@ def get_document_suggestions_payload(
             baseline_text,
             tags=tags,
             correspondents=correspondents,
+            learned_rules=learned_rules,
         )
         persist_suggestions_fn(
             db,
@@ -168,6 +175,7 @@ def get_document_suggestions_payload(
             vision_text,
             tags=tags,
             correspondents=correspondents,
+            learned_rules=learned_rules,
         )
         persist_suggestions_fn(
             db,
@@ -257,6 +265,7 @@ def generate_field_variants_payload(
     focus_text: str | None = None,
     hint: str | None = None,
     text_source: str | None = None,
+    pages: str | None = None,
     get_page_text_layers_fn: Callable[..., Any],
     fetch_pdf_bytes_fn: Callable[[], bytes],
     upsert_page_texts_fn: Callable[..., None],
@@ -304,6 +313,18 @@ def generate_field_variants_payload(
     else:
         text = str(raw.get("content") or "")
 
+    # Raises PageSelectionError (a ValueError) for malformed or unavailable pages, so the
+    # route can answer 422 before anything is queued.
+    page_numbers = parse_page_spec(pages)
+    if page_numbers:
+        text = select_page_text(
+            db,
+            doc_id=doc_id,
+            source=read_source,
+            pages=page_numbers,
+            content=str(raw.get("content") or ""),
+        )
+
     current = None
     stored = (
         db.query(DocumentSuggestion)
@@ -331,6 +352,8 @@ def generate_field_variants_payload(
             task["avoid_variants"] = prior_variants
         if read_source != source:
             task["text_source"] = read_source
+        if page_numbers:
+            task["pages"] = page_numbers
         enqueue_task_front_fn(settings, task)
         return {"doc_id": doc_id, "source": source, "field": field, "queued": True}
 

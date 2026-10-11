@@ -390,6 +390,7 @@ const suggestFieldAction = async (
     focus_text?: string
     hint?: string
     text_source?: 'paperless_ocr' | 'vision_ocr'
+    pages?: string
   },
 ) => {
   if (source === 'similar_docs') return

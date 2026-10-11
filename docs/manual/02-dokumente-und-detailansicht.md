@@ -137,12 +137,55 @@ Wichtige Bedienideen:
 - Sie können einzelne Varianten lokal anwenden.
 - Sie können Vorschläge direkt auf das Dokument übernehmen.
 
+### 5.1 Nur ausgewählte Felder übernehmen (`Apply selected`)
+
+KI-Vorschläge sind manchmal Unsinn. Deshalb wird nie etwas automatisch oder gesammelt übernommen:
+
+- Jedes Feld und jede Quelle hat eine Checkbox. Es ist **nichts vorausgewählt**.
+- Pro Feld kann nur eine Quelle gewählt werden. Bei Tags wählen Sie einzelne Tag-Chips.
+- Unten erscheint eine Leiste mit der Vorschau `vorher → nachher`, `Apply selected (n)` und `Clear`.
+- Geschrieben werden ausschließlich die angehakten Felder, und zwar lokal. Nach Paperless gelangt erst etwas über den normalen `Writeback`.
+- Bei Tags gilt: vorhandene Tags + ausstehende Tags + gewählte Vorschlags-Tags. Es wird nichts ersetzt.
+- `Apply selected` springt nie zum nächsten Dokument.
+
+### 5.2 `Candidates from text`
+
+Datum und Absender werden von der KI nicht immer zuverlässig erkannt. Darum zeigt der Tab einen Block `Candidates from text` mit Treffern, die direkt aus dem OCR-Text gelesen werden (ohne KI, ohne Nebenwirkungen):
+
+- **Datum:** erkennt auch andere Formate und Sprachen (z. B. `20.09.2026`, `2026-09-20`, `20 de septiembre de 2026`, `September 20, 2026`). Das Datum wird nach dem nächstgelegenen Stichwort eingeordnet (Rechnungsdatum, Lieferdatum, Fälligkeit, Zeitraum). Geburtsdaten, sehr alte und weit in der Zukunft liegende Daten werden verworfen.
+- **Absender:** bekannte Korrespondenten werden im Kopfbereich des Textes gesucht (auch unscharf). Ein unbekannter Name kann einmal vorgeschlagen werden und ist dann als neu gekennzeichnet.
+- Ein Klick wählt den Kandidaten für das Feld aus. Danach läuft er durch denselben `Apply selected`-Ablauf. Es wird nie etwas automatisch gesetzt.
+
+### 5.3 Presets in der Suggestions-Ansicht
+
+Zwei Schnellaktionen für häufige Fälle:
+
+- `No correspondent`: entfernt den Korrespondenten (und einen ausstehenden Korrespondenten).
+- `Issue date = import date`: setzt das Ausstellungsdatum auf den Importtag des Dokuments. Das ist nur sinnvoll, wenn kein besseres Datum im Dokument steht.
+
+### 5.4 `Guidance for "Suggest new"`
+
+Wenn ein Vorschlag nicht passt, können Sie die KI gezielt noch einmal fragen. Das Modell sieht nur den Text, nicht das Seitenlayout. Hinweise wie "oben rechts" helfen deshalb nicht. Nützlich sind:
+
+- **Hint:** eine kurze Anweisung, z. B. "Rechnungsdatum, nicht Lieferdatum".
+- **Markierte Textpassage:** markieren Sie im angezeigten Text die Stelle mit der Antwort und klicken Sie `Use selected text as focus`. Mit `Clear` entfernen Sie den Fokus wieder.
+- **Text the model reads:** Auswahl zwischen `Paperless OCR` und `Vision OCR`. Das Feld erscheint nur, wenn beide Texte vorliegen.
+- **Only these pages:** schränkt den Text auf bestimmte Seiten ein, z. B. `1` oder `1-2,4`. Sinnvoll bei langen Dokumenten, wenn Datum und Absender nur auf der ersten Seite stehen und spätere Seiten (AGB, Anlagen) in die Irre führen. Es gilt für den Text, den das Modell liest. Ungültige Angaben oder Dokumente ohne Seitenstruktur werden abgelehnt, es wird nie stillschweigend der ganze Text verwendet.
+- Bereits angezeigte Varianten werden beim erneuten Fragen als "nicht wiederholen" mitgegeben. So kommen neue Werte statt derselben.
+
+`Suggest new` wendet nie etwas an und ist unabhängig von Ihrer Auswahl.
+
+### 5.5 Gelernte Absender-Regeln
+
+Hat ein Dokument einen Korrespondenten und gibt es bereits geprüfte Dokumente desselben Korrespondenten, werden deren häufigste Tags und Dokumenttypen dem Modell als starke Orientierung mitgegeben. Was das Dokument selbst aussagt, hat Vorrang. Es gibt dafür keine Einstellung und keine Anzeige. Der Effekt ist, dass Tags und Dokumenttyp bei Serien (z. B. Rechnungen eines Lieferanten) konsistenter vorgeschlagen werden.
+
 Praktischer Ablauf:
 
 1. Prüfen Sie erst, welche Quelle am plausibelsten ist.
-2. Vergleichen Sie aktuelle Werte mit vorgeschlagenen Werten.
-3. Übernehmen Sie nur die Felder, die fachlich sauber sind.
-4. Lassen Sie zweifelhafte Felder lieber offen.
+2. Schauen Sie in `Candidates from text`, besonders bei Datum und Absender.
+3. Vergleichen Sie aktuelle Werte mit vorgeschlagenen Werten.
+4. Haken Sie nur die Felder an, die fachlich sauber sind, und wählen Sie `Apply selected`.
+5. Lassen Sie zweifelhafte Felder offen oder nutzen Sie `Suggest new` mit Hint oder markierter Passage.
 
 ## 6. Tab `Pages`
 
@@ -169,6 +212,8 @@ Das ist nützlich für:
 - Ableitung sinnvoller Tags oder Korrespondenten.
 
 Sie können den Ähnlichkeitsschwellenwert anpassen und ähnliche Dokumente direkt öffnen.
+
+Mit `Hide reviewed documents` blenden Sie bereits geprüfte Dokumente aus. Dann bleiben nur ähnliche Dokumente übrig, die noch zu bearbeiten sind.
 
 ## 8. Tab `Chat`
 
@@ -204,6 +249,21 @@ Wichtig:
 - `Reviewed` bedeutet nicht automatisch, dass schon nach Paperless geschrieben wurde.
 - Für den tatsächlichen Abgleich nach Paperless brauchen Sie anschließend `Writeback`.
 
+## 10a. Review-Modus (vor und zurück in der Arbeitsliste)
+
+Wenn Sie ein Dokument aus einer gefilterten Liste (z. B. `Unreviewed` oder `Needs review`) öffnen, merkt sich die Oberfläche die Reihenfolge der Liste. In der Detailansicht können Sie dann direkt weiterblättern:
+
+- `Previous` / `Next` mit Position (z. B. `3 / 20+`).
+- Tastatur: `k` = vorheriges, `j` = nächstes Dokument. Die Tasten sind beim Tippen in Eingabefeldern ohne Wirkung.
+- `Auto-advance`: springt nach `Mark reviewed` oder `Writeback` automatisch zum nächsten Dokument, aber nur, wenn das Dokument danach tatsächlich `reviewed` ist.
+- Die aktive Tab (z. B. `Suggestions`) und der Rückweg zur Liste bleiben erhalten.
+- Das Weiterblättern geht über Listenseiten hinaus. Weitere Dokumente werden im Hintergrund nachgeladen, das nächste Dokument wird vorab geholt.
+- Bei `Unreviewed` und `Needs review` verschwinden geprüfte Dokumente aus der Liste. Darum wird dort nur vorwärts nachgeladen und nicht rückwärts geblättert.
+- Mit `Running only` ist kein Nachladen möglich, weil sich der Zustand laufend ändert.
+- Dokumente, die nicht aus der Liste geöffnet wurden (direkter Link, `Similar`), zeigen keine Navigation.
+
+Karten und Tabellenzeilen sind echte Links. Mit Strg/Cmd-Klick oder Mittelklick öffnen Sie ein Dokument in einem neuen Tab.
+
 ## 11. PDF-Viewer
 
 Unterhalb der Tabs befindet sich der PDF-Viewer.
@@ -218,7 +278,7 @@ Er unterstützt die Arbeit mit:
 ## 12. Empfehlenswerter Prüfablauf für ein einzelnes Dokument
 
 1. `Metadata` ansehen.
-2. `Suggestions` prüfen und nur gute Vorschläge lokal übernehmen.
+2. `Suggestions` prüfen (auch `Candidates from text`) und nur gute Vorschläge über `Apply selected` lokal übernehmen.
 3. Bei Unsicherheit `Pages` oder `Text & quality` öffnen.
 4. Für Rückfragen `Similar` oder `Chat` nutzen.
 5. In `Operations` offene Verarbeitung kontrollieren.

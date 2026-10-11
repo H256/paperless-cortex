@@ -3,6 +3,30 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.8.0)
+
+### Release 0.8.0
+- `5bca239` chore(version): bumped the project version from `0.7.0` to `0.8.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.7.0:
+  - Per-correspondent learned rules: the most frequent tags and document types of already reviewed documents of the same correspondent are given to the model as a strong prior (#389).
+  - "Suggest new" can be restricted to chosen pages (`1`, `1-2,4`); invalid or unavailable pages are rejected with 422, never silently widened (#392, #393).
+  - User manual covers review mode, selective apply, text candidates, presets, guidance and learned rules (#390, #391).
+- Verification: `cd backend && uv run pytest -q` -> `688 passed, 5 skipped`; `cd frontend && npx vitest run` -> `174 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
+## 2026-10-11 (branch: agent/392-suggest-page-restriction)
+
+### Page restriction for "Suggest new" (#392)
+- `260f12c` feat(api): `POST /documents/{id}/suggestions/field` accepts `pages` (`1`, `1-2,4`); new [`page_selection.py`](backend/app/services/ai/page_selection.py) parses it strictly and selects the page texts of the text the model reads (stored page texts, form-feed split fallback for paperless OCR); [`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py) and the queued worker task apply it. Malformed pages, documents without page structure or non-existing pages answer 422 before anything is queued.
+- `260f12c` feat(frontend): "Only these pages (optional)" in the guidance section of [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue); OpenAPI and client regenerated.
+- `260f12c` test: `cd backend && uv run pytest -q` -> `688 passed, 5 skipped`; `cd frontend && npx vitest run` -> `174 passed`; `npx vue-tsc --build`, `npx oxlint src`, `ruff check app tests` clean.
+- docs: plan [`2026-10-11-suggest-page-restriction.md`](docs/plans/2026-10-11-suggest-page-restriction.md), manual section 5.4.
+
+## 2026-10-11 (branch: agent/390-docs-070)
+
+### Manual update for 0.7.0 (#390)
+- `296687a` docs(manual): [`02-dokumente-und-detailansicht.md`](docs/manual/02-dokumente-und-detailansicht.md) documents selective "Apply selected", "Candidates from text", suggestion presets, "Guidance for Suggest new" (hint, marked passage, text source, no repeated variants), learned correspondent rules (#389), "Hide reviewed documents" in Similar and the review mode (`k`/`j`, auto-advance, paging); [`06-typische-arbeitsablaeufe.md`](docs/manual/06-typische-arbeitsablaeufe.md) gets the review-mode routine.
+- Release 0.7.0 additionally contains #387 (do-not-repeat list for "Suggest new") and, on `develop` afterwards, #389 (per-correspondent learned rules, next release).
+
 ## 2026-10-11 (branch: agent/release-0.7.0)
 
 ### Release 0.7.0

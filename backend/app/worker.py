@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from app.config import load_settings
 from app.db import SessionLocal
+from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.ai.hierarchical_summary import is_large_document
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestion_store import (
@@ -176,6 +177,7 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
         join_pages_fn=_service_join_page_texts_limited,
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
+        learn_rules_fn=learn_correspondent_rules,
     )
 
 
@@ -305,6 +307,7 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
         get_document_fn=paperless.get_document,
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
+        learn_rules_fn=learn_correspondent_rules,
     )
 
 
@@ -320,6 +323,7 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
         process_vision_ocr_only_fn=_process_vision_ocr_only,
+        learn_rules_fn=learn_correspondent_rules,
     )
 
 

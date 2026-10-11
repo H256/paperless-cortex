@@ -48,6 +48,8 @@ export type SuggestGuidance = {
   hint?: string
   /** OCR text the model reads (default: the text of the panel the request comes from). */
   text_source?: 'paperless_ocr' | 'vision_ocr'
+  /** Only these pages are sent to the model, e.g. "1" or "1-2,4". */
+  pages?: string
 }
 
 export const useDocumentSuggestions = () => {
@@ -85,6 +87,7 @@ export const useDocumentSuggestions = () => {
           ...(guidance?.focus_text ? { focus_text: guidance.focus_text } : {}),
           ...(guidance?.hint ? { hint: guidance.hint } : {}),
           ...(guidance?.text_source ? { text_source: guidance.text_source } : {}),
+          ...(guidance?.pages ? { pages: guidance.pages } : {}),
         },
         true,
       ),
