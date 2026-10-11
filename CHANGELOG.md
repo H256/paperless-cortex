@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/426-summary-cell)
+
+### Fix: summary missing in the comparison table
+- `c02e8c8` fix(suggestions): the Summary row of the comparison table read `data.note` while the payload stores `data.summary`, so the cells were empty and the summary could not be judged or picked. The cell now shows the summary (fallback `note`); added a test that shows and picks it (#426).
+- Verification: `npx vitest run src/components/DocumentSuggestionsSection.test.ts` (31 passed), `npx vue-tsc --build`, `npx oxlint src`.
+
 ## 2026-10-11 (branch: agent/release-0.9.3)
 
 ### Release 0.9.3
