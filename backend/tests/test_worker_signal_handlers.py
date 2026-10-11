@@ -3,11 +3,18 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import sys
 import threading
+
+import pytest
 
 from app.worker import _install_signal_handlers
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.kill(SIGTERM/SIGINT) terminates the process on Windows instead of running handlers",
+)
 def test_install_signal_handlers_sets_stop_event_on_sigterm() -> None:
     stop_event = threading.Event()
 
@@ -22,6 +29,10 @@ def test_install_signal_handlers_sets_stop_event_on_sigterm() -> None:
     assert stop_event.is_set()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.kill(SIGTERM/SIGINT) terminates the process on Windows instead of running handlers",
+)
 def test_install_signal_handlers_sets_stop_event_on_sigint() -> None:
     stop_event = threading.Event()
 
