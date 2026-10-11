@@ -1,5 +1,10 @@
 # Current Codebase Status Analysis
 
+> **Point-in-time snapshot (2026-03-13) — superseded by [CHANGELOG.md](../../CHANGELOG.md).**
+> The absolute claims below (file counts, test totals, exception-handler counts) reflect the
+> state of the codebase on the snapshot date only. They are historical and have not been
+> re-verified against the current tree; do not treat them as current.
+
 **Date:** March 13, 2026
 **Analysis Type:** Comprehensive Re-assessment After Improvements
 

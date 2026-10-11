@@ -1,5 +1,10 @@
 # Final Status Report - Code Quality Assessment
 
+> **Point-in-time snapshot (2026-03-13) — superseded by [CHANGELOG.md](../../CHANGELOG.md).**
+> The absolute claims below (file counts, test totals, exception-handler counts, "95%+ complete")
+> reflect the state of the codebase on the snapshot date only. They are historical and have not
+> been re-verified against the current tree; do not treat them as current.
+
 **Date:** March 13, 2026
 **Assessment:** Comprehensive codebase review and improvement tracking
 

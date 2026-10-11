@@ -38,8 +38,8 @@ flowchart TD
   - Sync from Paperless, local storage, embeddings, semantic search, suggestions, queue/worker, manual writeback.
 - `Phase 1` (robustness + UX streamlining): **Done**
   - Pipeline hardening + triage/log observability baseline delivered.
-- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Planned / partial design only**
-  - Spec exists, full implementation not complete yet.
+- `Phase 2` (advanced evidence locator / on-the-fly bbox resolution): **Done**
+  - Citation evidence resolution is implemented and served by `POST /api/chat/resolve-evidence` (used by the chat UI); on-the-fly bbox resolution of citation snippets into page/word matches is included.
 
 ### Practical interpretation
 - You can use the app end-to-end today.
@@ -64,11 +64,11 @@ Per-document operations also allow targeted manual re-runs for individual steps 
 ## Requirements and installation
 ### Prerequisites
 - Python `>=3.13` for the backend.
-- Node.js `>=18` for the frontend.
+- Node.js `>=20.19` (20.x line) or `>=22.12` for the frontend.
 - Paperless-ngx instance reachable by URL and API token.
 - Postgres, Redis, and a supported vector store (`Qdrant` or `Weaviate`) (local installs or Docker).
 - An OpenAI-compatible LLM endpoint (local or remote).
-For user-facing operations and UI guidance, see [`docs/manual/README.md`](E:/workspace/python/paperless-intelligence/docs/manual/README.md).
+For user-facing operations and UI guidance, see [`docs/manual/README.md`](docs/manual/README.md).
 
 ### Backend (recommended: uv)
 ```bash
@@ -137,13 +137,16 @@ docker compose -f docker-compose.app.yml up --build
 ```bash
 docker compose -f docker-compose.full.yml up --build
 ```
-**Important:** `LLM_BASE_URL` must be set in your `.env`. It is not set in `docker-compose.full.yml`.
+**Important:** `LLM_BASE_URL` must be set in your `.env`. `docker-compose.full.yml` does not set it (an empty `environment:` entry would override the `.env` value, since compose `environment:` takes precedence over `env_file:`).
 Docker uses `:8000` for the API and serves the frontend from the backend container unless you run the frontend dev server separately.
+The container entrypoint runs `alembic upgrade head` automatically on startup (with a short retry while Postgres comes up), so a fresh Postgres volume is migrated before the API/worker start — no manual migration step is needed.
+Published ports are bound to `127.0.0.1` by default (API `:8000`, Qdrant `:6333`), so the API and vector store are reachable only from the host itself. To expose them to other hosts, change the compose `ports:` entries to `"8000:8000"` / `"6333:6333"` (or bind to a specific interface).
 
 ### Worker-only container
 ```bash
 docker compose -f docker-compose.worker.yml up --build
 ```
+**Important:** `docker-compose.worker.yml` requires `QUEUE_ENABLED=1` in your `.env`. If the queue is disabled (`QUEUE_ENABLED` unset or `0`), the worker entrypoint exits non-zero and the container is flagged as failed (it does not sit silently as `Exited (0)`).
 
 ## Configuration
 Set values in `.env`.
@@ -159,30 +162,34 @@ Set values in `.env`.
 - `EMBEDDING_MODEL`
 
 ### Configuration docs
-- [`.env.example`](E:/workspace/python/paperless-intelligence/.env.example) for concrete environment variables and example values
-- [`docs/config-reference.md`](E:/workspace/python/paperless-intelligence/docs/config-reference.md) for grouped runtime configuration guidance
-- [`docs/architecture-overview.md`](E:/workspace/python/paperless-intelligence/docs/architecture-overview.md) for the technical component overview
+- [`.env.example`](.env.example) for concrete environment variables and example values
+- [`docs/config-reference.md`](docs/config-reference.md) for grouped runtime configuration guidance
+- [`docs/architecture-overview.md`](docs/architecture-overview.md) for the technical component overview
 
 ## Documentation map
 
 ### For users
-- [`MANUAL.md`](E:/workspace/python/paperless-intelligence/MANUAL.md): documentation entry point
-- [`docs/manual/README.md`](E:/workspace/python/paperless-intelligence/docs/manual/README.md): end-user manual
-- [`docs/manual/14-tages-checkliste.md`](E:/workspace/python/paperless-intelligence/docs/manual/14-tages-checkliste.md): daily checklist
-- [`docs/manual/12-similar-workflow.md`](E:/workspace/python/paperless-intelligence/docs/manual/12-similar-workflow.md): similar-doc review workflow
-- [`docs/manual/13-team-policy.md`](E:/workspace/python/paperless-intelligence/docs/manual/13-team-policy.md): concise working rules
+- [`MANUAL.md`](MANUAL.md): documentation entry point
+- [`docs/manual/README.md`](docs/manual/README.md): end-user manual
+- [`docs/manual/14-tages-checkliste.md`](docs/manual/14-tages-checkliste.md): daily checklist
+- [`docs/manual/12-similar-workflow.md`](docs/manual/12-similar-workflow.md): similar-doc review workflow
+- [`docs/manual/13-team-policy.md`](docs/manual/13-team-policy.md): concise working rules
 
 ### For admins and operators
-- [`docs/manual/15-admin-und-betrieb.md`](E:/workspace/python/paperless-intelligence/docs/manual/15-admin-und-betrieb.md): admin and UI operations guide
-- [`docs/manual/16-settings-und-live-model-provider.md`](E:/workspace/python/paperless-intelligence/docs/manual/16-settings-und-live-model-provider.md): live model-provider settings and API-key behavior
-- [`docs/architecture-overview.md`](E:/workspace/python/paperless-intelligence/docs/architecture-overview.md): architecture overview
-- [`docs/config-reference.md`](E:/workspace/python/paperless-intelligence/docs/config-reference.md): grouped configuration reference
+- [`docs/manual/15-admin-und-betrieb.md`](docs/manual/15-admin-und-betrieb.md): admin and UI operations guide
+- [`docs/manual/16-settings-und-live-model-provider.md`](docs/manual/16-settings-und-live-model-provider.md): live model-provider settings and API-key behavior
+- [`docs/architecture-overview.md`](docs/architecture-overview.md): architecture overview
+- [`docs/config-reference.md`](docs/config-reference.md): grouped configuration reference
 
 ### For developers and contributors
-- [`CHANGELOG.md`](E:/workspace/python/paperless-intelligence/CHANGELOG.md): granular change history
-- [`agents.md`](E:/workspace/python/paperless-intelligence/agents.md): compact project state and next actions
-- [`CONTRIBUTING.md`](E:/workspace/python/paperless-intelligence/CONTRIBUTING.md): contribution notes
-- [`docs/execution-blueprint-large-doc-worker.md`](E:/workspace/python/paperless-intelligence/docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
+- [`CHANGELOG.md`](CHANGELOG.md): granular change history
+- [`agents.md`](agents.md): compact project state and next actions
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): contribution notes
+- [`docs/execution-blueprint-large-doc-worker.md`](docs/execution-blueprint-large-doc-worker.md): large-document worker strategy
+
+### Historical status snapshots (point-in-time, superseded by CHANGELOG.md)
+- [`docs/history/FINAL_STATUS.md`](docs/history/FINAL_STATUS.md): code-quality assessment snapshot (2026-03-13)
+- [`docs/history/CURRENT_STATUS_ANALYSIS.md`](docs/history/CURRENT_STATUS_ANALYSIS.md): comprehensive re-assessment snapshot (2026-03-13)
 
 ## API/client generation
 ```bash
@@ -190,8 +197,10 @@ cd frontend
 ORVAL_API_URL=http://localhost:8000/api/openapi.json npm run api:generate
 ```
 
-## Versioning (simple start, no CI)
+## Versioning (with CI)
 The root `VERSION` file is the source of truth.
+
+CI is enabled: canonical workflow definitions live in `.github/workflows/` (GitHub-Actions syntax) and are mirrored into `.gitea/workflows/` — the directory ForgeJO's Actions reads — by `python scripts/sync_gitea_workflows.py` (parity enforced by `backend/tests/test_gitea_workflow_parity.py`). The three workflows cover backend (ruff/mypy/pytest), frontend (lint/tsc/coverage/build), and quality gates.
 
 ```bash
 python scripts/sync_version.py
@@ -203,6 +212,10 @@ This synchronizes:
 - `frontend/src/generated/version.ts`
 
 `GET /api/status` exposes `app_version`, `api_version`, and `frontend_version`; the frontend footer renders them.
+
+## Security notes
+- **Unauthenticated API.** The API is intentionally open (single-user, LAN-deployed); there is no auth layer (AUDIT API-001). Keep it off untrusted networks — see the compose port-binding notes above.
+- **Chat history in `localStorage`.** The per-document and global chat views persist their conversation (questions, answers, and citations, which embed document titles/snippets and AI extractions of the document corpus) to `localStorage` so the conversation survives a page reload. This is an explicit, opt-in choice in the frontend (`useChatSession({ persist: true })`); by default chat history is in-memory only and is not written to disk. Because the API is unauthenticated and the deployment is a shared LAN box, anyone or any process with access to the browser profile (or an XSS in a future dependency) can read these plaintext excerpts. If you do not want corpus excerpts persisted in the browser, set `persist: false` (the default) when wiring `useChatSession` (AUDIT FE-004 / #169).
 
 ## License
 MIT License. See `LICENSE`.

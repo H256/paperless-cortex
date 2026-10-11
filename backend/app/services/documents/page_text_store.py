@@ -18,6 +18,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Stream reclean in bounded chunks and commit per chunk so the in-memory
+# footprint stays proportional to the chunk size instead of the whole
+# DocumentPageText corpus (see issue #212).
+RECLEAN_STREAM_BATCH = 250
+
 
 def upsert_page_texts(
     db: Session,
@@ -83,13 +88,14 @@ def reclean_page_texts(
         query = query.filter(DocumentPageText.doc_id == int(doc_id))
     if source:
         query = query.filter(DocumentPageText.source == source)
-    rows = query.all()
-    if not rows:
-        return {"processed": 0, "updated": 0}
     now = datetime.now(UTC).isoformat()
     processed = 0
     updated = 0
-    for row in rows:
+    # Stream in bounded chunks (yield_per) and commit every chunk so the
+    # in-memory footprint stays proportional to the batch size rather than
+    # the whole table. expire_on_commit=True (session default) releases the
+    # loaded text blobs on each commit, keeping memory bounded.
+    for row in query.yield_per(RECLEAN_STREAM_BATCH):
         processed += 1
         if clear_first:
             row.clean_text = None
@@ -117,6 +123,8 @@ def reclean_page_texts(
         row.processed_at = now
         if changed:
             updated += 1
+        if processed % RECLEAN_STREAM_BATCH == 0:
+            db.commit()
     db.commit()
     logger.info(
         "Re-cleaned page texts doc_id=%s source=%s clear_first=%s processed=%s updated=%s",

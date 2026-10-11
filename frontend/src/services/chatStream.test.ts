@@ -198,7 +198,7 @@ describe('streamChat', () => {
       (err) => errors.push(err),
     )
 
-    expect(doneEvents).toEqual([{ answer: 'Hello world', citations: [] }])
+    expect(doneEvents).toEqual([{ answer: 'Hello world', citations: [], truncated: true }])
     expect(errors).toEqual([])
   })
 

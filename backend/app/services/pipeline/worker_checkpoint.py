@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import TaskRun
-from app.services.pipeline.task_runs import update_task_run_checkpoint
+from app.services.pipeline.task_runs import (
+    parse_checkpoint_json,
+    update_task_run_checkpoint,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -50,14 +52,7 @@ def get_task_run_checkpoint(db: Session, *, run_id: int | None) -> dict | None:
         return None
     if not row or not row.checkpoint_json:
         return None
-    raw = str(row.checkpoint_json).strip()
-    if not raw.startswith(("{", "[")):
-        return None
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-    return payload if isinstance(payload, dict) else None
+    return parse_checkpoint_json(str(row.checkpoint_json))
 
 
 def resume_stage_current(

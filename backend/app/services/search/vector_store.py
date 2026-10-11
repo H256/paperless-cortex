@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 from app.services.search.vector_backends import qdrant_adapter, weaviate_adapter
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from app.config import Settings
 
 
@@ -26,7 +28,7 @@ class VectorStoreAdapter(Protocol):
     def delete_all_chunk_points(self, settings: Settings) -> None: ...
 
     def delete_points_for_doc(
-        self, settings: Settings, *, doc_id: int, source: str | None = None
+        self, settings: Settings, *, doc_id: int, source: str | Sequence[str] | None = None
     ) -> None: ...
 
     def delete_similarity_points(self, settings: Settings, *, doc_id: int | None = None) -> None: ...
@@ -91,7 +93,9 @@ def delete_all_chunk_points(settings: Settings) -> None:
     get_vector_store_adapter(settings).delete_all_chunk_points(settings)
 
 
-def delete_points_for_doc(settings: Settings, *, doc_id: int, source: str | None = None) -> None:
+def delete_points_for_doc(
+    settings: Settings, *, doc_id: int, source: str | Sequence[str] | None = None
+) -> None:
     get_vector_store_adapter(settings).delete_points_for_doc(
         settings, doc_id=doc_id, source=source
     )

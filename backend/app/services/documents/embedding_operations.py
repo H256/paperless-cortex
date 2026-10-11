@@ -30,6 +30,7 @@ EmbedTextFn = Callable[[Settings, str], list[float]]
 MakePointIdFn = Callable[[int, int, str | None], int | str]
 MakeDocPointIdFn = Callable[[int], int | str]
 UpsertPointsFn = Callable[[Settings, list[PointPayload]], object]
+RecordSourceChunkCountFn = Callable[..., None]
 SearchPointsFn = Callable[..., dict[str, object]]
 
 
@@ -105,6 +106,7 @@ def ingest_embeddings_for_documents(
     make_point_id_fn: MakePointIdFn,
     make_doc_point_id_fn: MakeDocPointIdFn,
     upsert_points_fn: UpsertPointsFn,
+    record_source_chunk_count_fn: RecordSourceChunkCountFn,
 ) -> ResponseDict:
     """Run inline embedding ingest for a document batch and persist progress state."""
     if not documents:
@@ -151,6 +153,7 @@ def ingest_embeddings_for_documents(
         if (
             not force
             and existing
+            and not existing.pending_reembed
             and existing.content_hash == content_hash
             and existing.embedding_model == settings.embedding_model
             and existing.chunk_count
@@ -162,7 +165,17 @@ def ingest_embeddings_for_documents(
                 db.commit()
             continue
         embedding_source = "vision" if vision_pages else "paperless"
+        opposite_source = "paperless" if embedding_source == "vision" else "vision"
+        if not existing:
+            existing = DocumentEmbedding(doc_id=doc.id)
+            db.add(existing)
+        # Persist a re-embed intent before the non-transactional point
+        # deletion so a mid-run embed failure cannot leave the doc with no
+        # vector points while the skip guard still treats it as embedded.
+        existing.pending_reembed = True
+        db.commit()
         delete_points_for_doc_fn(settings, doc.id, embedding_source)
+        delete_points_for_doc_fn(settings, doc.id, opposite_source)
         baseline_chunks = chunk_document_with_pages_fn(settings, content_value, baseline_pages or None)
         vision_chunks = (
             chunk_document_with_pages_fn(settings, content_value, vision_pages or None)
@@ -215,18 +228,27 @@ def ingest_embeddings_for_documents(
             points_ingested += len(doc_points)
         else:
             logger.info("Skipping doc=%s (no chunks)", doc.id)
-        if not existing:
-            existing = DocumentEmbedding(doc_id=doc.id)
-            db.add(existing)
+        existing.pending_reembed = False
         existing.content_hash = content_hash
         existing.embedding_model = settings.embedding_model
         existing.embedded_at = datetime.now(UTC).isoformat()
         previous_source = str(existing.embedding_source or "").strip().lower()
-        if previous_source == "both" or (previous_source and previous_source != embedding_source):
+        is_both = bool(
+            previous_source == "both"
+            or (previous_source and previous_source != embedding_source)
+        )
+        previous_total = int(existing.chunk_count or 0)
+        if is_both:
             existing.embedding_source = "both"
         else:
             existing.embedding_source = embedding_source
-        existing.chunk_count = len(chunks)
+        record_source_chunk_count_fn(
+            existing,
+            source=embedding_source,
+            count=len(chunks),
+            both=is_both,
+            previous_total=previous_total,
+        )
         embedded += 1
         processed += 1
         state.processed = processed

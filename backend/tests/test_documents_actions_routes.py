@@ -161,3 +161,106 @@ def test_missing_vector_chunk_audit_route_returns_typed_payload(
     assert payload["affected_docs"] == 1
     assert payload["limit"] == 25
     assert payload["items"][0]["doc_id"] == 67
+
+
+def test_clear_all_intelligence_purges_vector_points(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import intelligence_cleanup
+
+    deleted: list[object] = []
+    monkeypatch.setattr(
+        intelligence_cleanup,
+        "delete_all_chunk_points",
+        lambda settings: deleted.append(settings),
+    )
+
+    from app.db import get_db
+    from app.deps import get_settings
+
+    with next(get_db()) as db:
+        intelligence_cleanup.clear_all_intelligence(db, get_settings())
+
+    assert len(deleted) == 1
+
+
+def test_clear_all_intelligence_without_settings_skips_vector(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import intelligence_cleanup
+
+    deleted: list[object] = []
+    monkeypatch.setattr(
+        intelligence_cleanup,
+        "delete_all_chunk_points",
+        lambda settings: deleted.append(settings),
+    )
+
+    from app.db import get_db
+
+    with next(get_db()) as db:
+        intelligence_cleanup.clear_all_intelligence(db)
+
+    assert deleted == []
+
+
+def test_clear_all_intelligence_vector_failure_is_nonfatal(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import intelligence_cleanup
+
+    def _raise(_settings: object) -> None:
+        raise RuntimeError("vector store unavailable")
+
+    monkeypatch.setattr(intelligence_cleanup, "delete_all_chunk_points", _raise)
+
+    from app.db import get_db
+    from app.deps import get_settings
+
+    with next(get_db()) as db:
+        intelligence_cleanup.clear_all_intelligence(db, get_settings())
+
+
+def test_clear_document_intelligence_purges_doc_vector_points(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import intelligence_cleanup
+
+    _insert_local_document(777, "Clear Doc Vector")
+
+    deleted: list[int] = []
+    monkeypatch.setattr(
+        intelligence_cleanup,
+        "delete_points_for_doc",
+        lambda settings, doc_id: deleted.append(doc_id),
+    )
+
+    from app.db import get_db
+    from app.deps import get_settings
+
+    with next(get_db()) as db:
+        intelligence_cleanup.clear_document_intelligence(db, 777, get_settings())
+
+    assert deleted == [777]
+
+
+def test_clear_document_intelligence_without_settings_skips_vector(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.services.documents import intelligence_cleanup
+
+    _insert_local_document(778, "Clear Doc No Vector")
+
+    deleted: list[int] = []
+    monkeypatch.setattr(
+        intelligence_cleanup,
+        "delete_points_for_doc",
+        lambda settings, doc_id: deleted.append(doc_id),
+    )
+
+    from app.db import get_db
+
+    with next(get_db()) as db:
+        intelligence_cleanup.clear_document_intelligence(db, 778)
+
+    assert deleted == []

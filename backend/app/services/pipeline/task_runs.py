@@ -249,14 +249,43 @@ def list_task_runs(
     )
 
 
+def parse_checkpoint_json(raw: str | None) -> dict[str, Any] | None:
+    """Tolerantly parse a stored checkpoint JSON string into a dict.
+
+    Returns the parsed payload when it is a JSON object. Any input that is
+    missing, empty, not a ``{``/``[``-leading string, malformed JSON, or a
+    non-dict JSON value yields ``None`` so callers can treat it as "no usable
+    checkpoint". This is the single tolerant parser shared by every checkpoint
+    read path (worker, fanout, and the latest-checkpoint lookup).
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text.startswith(("{", "[")):
+        return None
+    try:
+        payload = json.loads(text)
+    except JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def find_latest_checkpoint(
     db: Session,
     *,
     doc_id: int,
     task: str,
     source: str | None = None,
+    exclude_completed: bool = False,
 ) -> dict[str, Any] | None:
-    """Return the newest checkpoint payload for a doc/task pair, if one exists."""
+    """Return the newest checkpoint payload for a doc/task pair, if one exists.
+
+    When ``exclude_completed`` is true, checkpoints left by a run that already
+    finished successfully (status ``completed``) are ignored. A completed run's
+    checkpoint is terminal (current == total), so inheriting it on retry would
+    make the retried task a silent no-op. Only the worker retry path opts in;
+    direct callers keep the previous "newest of any status" behavior.
+    """
     def _find() -> dict[str, Any] | None:
         query = (
             db.query(TaskRun)
@@ -269,17 +298,12 @@ def find_latest_checkpoint(
         )
         if source:
             query = query.filter(TaskRun.source == source)
+        if exclude_completed:
+            query = query.filter(TaskRun.status != "completed")
         row = query.first()
         if not row or not row.checkpoint_json:
             return None
-        raw = str(row.checkpoint_json).strip()
-        if not raw.startswith(("{", "[")):
-            return None
-        try:
-            payload = json.loads(raw)
-        except JSONDecodeError:
-            return None
-        return payload if isinstance(payload, dict) else None
+        return parse_checkpoint_json(str(row.checkpoint_json))
 
     return _run_task_runs_operation(
         db,

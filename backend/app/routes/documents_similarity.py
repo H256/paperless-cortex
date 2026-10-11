@@ -82,6 +82,7 @@ def _build_document_summary_payload(
     enriched = apply_derived_fields_and_review_status(
         payload=payload,
         db=db,
+        settings=settings,
         include_derived=True,
         include_summary_preview=True,
         review_status="all",

@@ -7,6 +7,10 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.models import SuggestionAudit, WritebackJob
 from app.services.runtime.time_utils import utc_now_iso
+from app.services.writeback.writeback_selection import (
+    parse_applied_call_indexes,
+    serialize_applied_call_indexes,
+)
 
 if TYPE_CHECKING:
     import logging
@@ -43,9 +47,21 @@ def execute_calls_with_audit(
     cleanup_pending_rows_after_patch: Callable[[Session, int, dict[str, Any]], None],
     reviewed_timestamp_for_doc: Callable[[Settings, Session, int], str],
     logger: logging.Logger,
+    on_call_error: Callable[[WritebackDryRunCall, Exception], None] | None = None,
+    skip_call_indexes: set[int] | None = None,
+    on_call_applied: Callable[[int, WritebackDryRunCall], None] | None = None,
 ) -> set[int]:
     executed_doc_ids: set[int] = set()
-    for call in calls:
+    failed_doc_ids: set[int] = set()
+    for index, call in enumerate(calls):
+        if not dry_run and skip_call_indexes is not None and index in skip_call_indexes:
+            logger.info(
+                "WRITEBACK SKIP doc=%s method=%s path=%s (already applied)",
+                call.doc_id,
+                call.method,
+                call.path,
+            )
+            continue
         logger.info(
             "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
             "DRY-RUN" if dry_run else "EXECUTE",
@@ -54,15 +70,26 @@ def execute_calls_with_audit(
             call.path,
             call.payload,
         )
-        executed_doc_ids.add(int(call.doc_id))
         if dry_run:
+            executed_doc_ids.add(int(call.doc_id))
             continue
-        execute_call(settings, db, call)
+        try:
+            execute_call(settings, db, call)
+        except (RuntimeError, ValueError, httpx.HTTPError) as exc:
+            if on_call_error is None:
+                raise
+            failed_doc_ids.add(int(call.doc_id))
+            on_call_error(call, exc)
+            continue
+        executed_doc_ids.add(int(call.doc_id))
+        if on_call_applied is not None:
+            on_call_applied(index, call)
         if call.method.upper() == "PATCH" and isinstance(call.payload, dict):
             cleanup_pending_rows_after_patch(db, int(call.doc_id), call.payload)
 
-    if not dry_run and executed_doc_ids:
-        for doc_id in sorted(executed_doc_ids):
+    successful_doc_ids = executed_doc_ids - failed_doc_ids
+    if not dry_run and successful_doc_ids:
+        for doc_id in sorted(successful_doc_ids):
             reviewed_at = reviewed_timestamp_for_doc(settings, db, int(doc_id))
             db.add(
                 SuggestionAudit(
@@ -75,7 +102,7 @@ def execute_calls_with_audit(
                     created_at=reviewed_at,
                 )
             )
-    return executed_doc_ids
+    return successful_doc_ids
 
 
 def run_writeback_job_execution(
@@ -105,6 +132,11 @@ def run_writeback_job_execution(
 
     execution_error: str | None = None
     calls = deserialize_calls(job)
+    applied_call_indexes = parse_applied_call_indexes(job.applied_call_indexes_json)
+
+    def _record_applied(index: int, _call: WritebackDryRunCall) -> None:
+        applied_call_indexes.add(index)
+
     try:
         execute_calls_with_audit(
             settings=settings,
@@ -115,6 +147,8 @@ def run_writeback_job_execution(
             cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
             reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
             logger=logger,
+            skip_call_indexes=None if dry_run else applied_call_indexes,
+            on_call_applied=_record_applied if not dry_run else None,
         )
     except (RuntimeError, ValueError, httpx.HTTPError) as exc:
         execution_error = str(exc)
@@ -126,6 +160,7 @@ def run_writeback_job_execution(
     else:
         job.status = "completed"
         job.error = None
+    job.applied_call_indexes_json = serialize_applied_call_indexes(applied_call_indexes)
 
     try:
         db.commit()

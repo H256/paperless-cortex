@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 DEFAULT_PROMPT_PATH = PROMPTS_DIR / "chat.txt"
 CHRONO_PROMPT_PATH = PROMPTS_DIR / "chat_chrono.txt"
 FOLLOWUPS_PROMPT_PATH = PROMPTS_DIR / "chat_followups.txt"
@@ -42,10 +41,6 @@ MAX_HISTORY_CHARS = 1600
 
 def _load_prompt_from(path: Path) -> str:
     prompt_path = path
-    if not prompt_path.is_file():
-        legacy = LEGACY_PROMPTS_DIR / prompt_path.name
-        if legacy.is_file():
-            prompt_path = legacy
     key = str(path)
     if key in _prompt_cache:
         return _prompt_cache[key]
@@ -370,16 +365,22 @@ def answer_question(
 
     def event_stream() -> Iterable[bytes]:
         answer_chunks: list[str] = []
-        for token in llm_client.stream_chat_completion(
-            settings,
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=None,
-            purpose="chat",
-        ):
-            answer_chunks.append(token)
-            payload = json.dumps({"token": token})
-            yield f"data: {payload}\n\n".encode()
+        try:
+            for token in llm_client.stream_chat_completion(
+                settings,
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                timeout=300,
+                purpose="chat",
+            ):
+                answer_chunks.append(token)
+                payload = json.dumps({"token": token})
+                yield f"data: {payload}\n\n".encode()
+        except Exception as exc:
+            logger.warning("Chat stream error: %s", exc)
+            error_payload = json.dumps({"error": str(exc)})
+            yield f"event: error\ndata: {error_payload}\n\n".encode()
+            return
         answer = "".join(answer_chunks).strip()
         _resolve_evidence_for_sources(settings, sources, db=db)
         for citation in sources:

@@ -111,4 +111,85 @@ def test_audit_missing_vector_chunks_reports_partial_missing_docs(
     assert payload["items"][0]["doc_id"] == 68
     assert payload["items"][0]["expected_vectors"] == 4
     assert payload["items"][0]["found_vectors"] == 2
+
+
+def test_audit_missing_vector_chunks_uses_per_source_counts_for_both(
+    session_factory: Any,
+    monkeypatch: Any,
+) -> None:
+    """A 'both' doc whose per-source counts differ must be audited per source,
+    not by applying the single legacy chunk_count to every source."""
+    monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
+    monkeypatch.setenv("WEAVIATE_HTTP_HOST", "weaviate")
+    settings = load_settings()
+
+    with session_factory() as db:
+        db.add(Document(id=69, title="Dual Source Doc"))
+        db.add(
+            DocumentEmbedding(
+                doc_id=69,
+                embedding_source="both",
+                chunk_count=6,
+                chunk_counts_json='{"vision": 4, "paperless": 2}',
+                embedded_at="2026-03-14T11:00:00+00:00",
+            )
+        )
+        db.commit()
+
+        def _retrieve_points(
+            _settings: Any,
+            ids: list[int],
+            *,
+            with_vector: bool = True,
+            with_payload: bool = False,
+        ) -> dict[str, object]:
+            del _settings, with_vector, with_payload
+            # All requested chunk points exist -> expected == found -> no issue.
+            return {"result": [{"id": str(i), "vector": [0.1, 0.2]} for i in ids]}
+
+        payload = audit_missing_vector_chunks(
+            settings,
+            db,
+            limit=20,
+            retrieve_points_fn=_retrieve_points,
+        )
+
+    # Per-source: 4 (vision) + 2 (paperless) = 6, not 4 + 4 = 8.
+    assert payload["scanned_docs"] == 1
+    assert payload["affected_docs"] == 0
+    # A second run where only 3 of the 6 points exist -> partial, expected=6.
+    with session_factory() as db:
+        _calls = {"n": 0}
+
+        def _retrieve_points_partial(
+            _settings: Any,
+            ids: list[int],
+            *,
+            with_vector: bool = True,
+            with_payload: bool = False,
+        ) -> dict[str, object]:
+            del _settings, with_vector, with_payload
+            # Return 3 existing points on the first batch only, so the total
+            # found across both source batches is exactly 3 (< 6 expected).
+            _calls["n"] += 1
+            if _calls["n"] > 1:
+                return {"result": []}
+            return {
+                "result": [
+                    {"id": f"v-{n}", "vector": [0.1, 0.2]} for n in range(3)
+                ]
+            }
+
+        payload = audit_missing_vector_chunks(
+            settings,
+            db,
+            limit=20,
+            retrieve_points_fn=_retrieve_points_partial,
+        )
+
+    assert payload["affected_docs"] == 1
+    assert payload["partial_missing_docs"] == 1
+    assert payload["items"][0]["expected_vectors"] == 6
+    assert payload["items"][0]["found_vectors"] == 3
+    assert payload["items"][0]["chunk_count"] == 6
     assert payload["items"][0]["fully_missing"] is False

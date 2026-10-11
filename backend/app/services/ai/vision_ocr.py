@@ -24,7 +24,6 @@ DEFAULT_VISION_PROMPT = "Extract all readable text from this page image. Return 
 
 _prompt_cache: dict[str, str] = {}
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-LEGACY_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
 
 def load_prompt(settings: Settings) -> str:
@@ -32,10 +31,7 @@ def load_prompt(settings: Settings) -> str:
         return settings.vision_ocr_prompt
     path = settings.vision_ocr_prompt_path
     if not path:
-        prompt_path = PROMPTS_DIR / "vision_ocr.txt"
-        if not prompt_path.is_file():
-            prompt_path = LEGACY_PROMPTS_DIR / "vision_ocr.txt"
-        path = str(prompt_path)
+        path = str(PROMPTS_DIR / "vision_ocr.txt")
     if path in _prompt_cache:
         return _prompt_cache[path]
     prompt_path = Path(path)
@@ -86,41 +82,24 @@ def _render_page_image(
     return pix.tobytes("png"), pix.width, pix.height
 
 
-def render_pdf_pages(
-    pdf_bytes: bytes,
-    page_numbers: Iterable[int] | None,
-    *,
-    max_dim: int,
-    target_dim: int,
-) -> list[VisionPage]:
-    try:
-        import fitz  # PyMuPDF
-    except ImportError as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError("pymupdf is required for vision OCR") from exc
+def _clamp_page_indices(doc: fitz.Document, page_numbers: Iterable[int]) -> list[int]:
+    """Map 1-based page numbers to 0-based indices, skipping out-of-range pages.
 
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    if page_numbers is None:
-        page_indices = list(range(len(doc)))
-    else:
-        page_indices = [max(0, p - 1) for p in page_numbers]
-    logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
-    rendered: list[VisionPage] = []
-    for page_index in page_indices:
-        png_bytes, width, height = _render_page_image(
-            doc,
-            page_index,
-            max_dim=max_dim,
-            target_dim=target_dim,
-        )
-        rendered.append(
-            VisionPage(
-                page_index=page_index,
-                image_bytes=png_bytes,
-                width=width,
-                height=height,
+    A requested page beyond the document's current page count (e.g. a re-consumed
+    Paperless document with fewer pages while DocumentPageText still references the
+    old count) is skipped with a warning instead of raising from ``doc.load_page``.
+    """
+    page_count = doc.page_count
+    indices: list[int] = []
+    for p in page_numbers:
+        index = max(0, p - 1)
+        if index >= page_count:
+            logger.warning(
+                "Skipping vision OCR page %s: beyond PDF page count %s", p, page_count
             )
-        )
-    return rendered
+            continue
+        indices.append(index)
+    return indices
 
 
 def iter_pdf_pages(
@@ -137,9 +116,9 @@ def iter_pdf_pages(
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     if page_numbers is None:
-        page_indices = list(range(len(doc)))
+        page_indices = list(range(doc.page_count))
     else:
-        page_indices = [max(0, p - 1) for p in page_numbers]
+        page_indices = _clamp_page_indices(doc, page_numbers)
     logger.info("Rendering PDF pages for vision OCR pages=%s", [p + 1 for p in page_indices])
     for page_index in page_indices:
         png_bytes, width, height = _render_page_image(
@@ -182,7 +161,7 @@ def _vision_generate(
         len(image_bytes),
     )
     if settings.debug.llm:
-        logger.info("Vision OCR prompt:\n%s", prompt)
+        logger.info("Vision OCR prompt:\n%s", llm_client._snippet(prompt))
     content: list[dict[str, object]] = [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
@@ -211,8 +190,15 @@ def ocr_pdf_pages(
         raise RuntimeError("VISION_MODEL not set")
     ensure_vision_llm_ready(settings, require_model=False)
     prompt = load_prompt(settings)
+    if settings.vision_ocr_max_dim <= 0:
+        logger.warning(
+            "Vision OCR image-size capping disabled (VISION_OCR_MAX_DIM=%s); "
+            "pages render at full resolution and may produce large payloads",
+            settings.vision_ocr_max_dim,
+        )
     results: list[PageText] = []
     count = 0
+    truncated = False
     for page in iter_pdf_pages(
         pdf_bytes,
         page_numbers,
@@ -220,6 +206,7 @@ def ocr_pdf_pages(
         target_dim=settings.vision_ocr_target_dim,
     ):
         if 0 < settings.vision_ocr_max_pages <= count:
+            truncated = True
             break
         text = _vision_generate(
             settings,
@@ -232,6 +219,12 @@ def ocr_pdf_pages(
         )
         results.append(PageText(page=page.page_index + 1, text=text, source="vision_ocr"))
         count += 1
+    if truncated:
+        logger.warning(
+            "Vision OCR truncated at page cap processed=%s max_pages=%s",
+            count,
+            settings.vision_ocr_max_pages,
+        )
     logger.info(
         "Vision OCR rendering count=%s max_dim=%s target_dim=%s",
         count,

@@ -102,6 +102,8 @@ class DocumentEmbedding(Base):
     embedded_at: Mapped[str | None] = mapped_column(String(64))
     embedding_source: Mapped[str | None] = mapped_column(String(32))
     chunk_count: Mapped[int | None] = mapped_column(Integer)
+    chunk_counts_json: Mapped[str | None] = mapped_column(Text)
+    pending_reembed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class DocumentPageText(Base):
@@ -231,6 +233,7 @@ class WritebackJob(Base):
     calls_count: Mapped[int] = mapped_column(Integer, default=0)
     doc_ids_json: Mapped[str | None] = mapped_column(Text)
     calls_json: Mapped[str | None] = mapped_column(Text)
+    applied_call_indexes_json: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(String(64))
     started_at: Mapped[str | None] = mapped_column(String(64))

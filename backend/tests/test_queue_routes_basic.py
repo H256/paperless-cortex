@@ -5,12 +5,16 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Base
+from app.services.pipeline import queue
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 def _build_api_client(queue_enabled: bool) -> Any:
@@ -80,6 +84,44 @@ def test_queue_status_enabled_uses_stats(api_client: Any, monkeypatch: Any) -> N
     assert "last_run_at" in payload
 
 
+def test_queue_status_enabled_reports_cancel_pending(api_client: Any, monkeypatch: Any) -> None:
+    import app.routes.queue as queue_routes
+
+    monkeypatch.setenv("QUEUE_ENABLED", "1")
+    monkeypatch.setattr(
+        queue_routes,
+        "queue_stats",
+        lambda _settings: {"length": 0, "total": 0, "in_progress": 0, "done": 0},
+    )
+    monkeypatch.setattr(queue_routes, "is_paused", lambda _settings: True)
+    monkeypatch.setattr(queue_routes, "is_cancel_requested", lambda _settings: True)
+
+    response = api_client.get("/queue/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["paused"] is True
+    assert payload["cancel_pending"] is True
+
+
+def test_queue_status_enabled_cancel_pending_default_false(api_client: Any, monkeypatch: Any) -> None:
+    import app.routes.queue as queue_routes
+
+    monkeypatch.setenv("QUEUE_ENABLED", "1")
+    monkeypatch.setattr(
+        queue_routes,
+        "queue_stats",
+        lambda _settings: {"length": 0, "total": 0, "in_progress": 0, "done": 0},
+    )
+    monkeypatch.setattr(queue_routes, "is_paused", lambda _settings: False)
+    monkeypatch.setattr(queue_routes, "is_cancel_requested", lambda _settings: False)
+
+    response = api_client.get("/queue/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["paused"] is False
+    assert payload["cancel_pending"] is False
+
+
 def test_queue_enqueue_enabled_returns_count(api_client: Any, monkeypatch: Any) -> None:
     import app.routes.queue as queue_routes
 
@@ -106,9 +148,84 @@ def test_resume_queue_clears_pause_and_cancel_markers(monkeypatch: Any) -> None:
     client = Client()
     monkeypatch.setattr(queue, "_get_client", lambda _settings: client)
 
-    queue.resume_queue(object())
+    queue.resume_queue(cast("Settings", object()))
 
     assert client.deleted == [(queue.PAUSE_KEY, queue.CANCEL_KEY)]
+
+
+class _Pipeline:
+    def __init__(self, fake: _FakeQueueRedis) -> None:
+        self._fake = fake
+        self._ops: list[tuple[str, ...]] = []
+
+    def sadd(self, key: str, value: str) -> None:
+        self._ops.append(("sadd", key, value))
+
+    def rpush(self, key: str, value: str) -> None:
+        self._ops.append(("rpush", key, value))
+
+    def incr(self, key: str) -> None:
+        self._ops.append(("incr", key))
+
+    def execute(self) -> list[int]:
+        results: list[int] = []
+        for op in self._ops:
+            if op[0] == "sadd":
+                members = self._fake.sets.setdefault(op[1], set())
+                results.append(0 if op[2] in members else 1)
+                members.add(op[2])
+            elif op[0] == "incr":
+                current = int(self._fake.kv.get(op[1], 0)) + 1
+                self._fake.kv[op[1]] = str(current)
+                results.append(current)
+            else:
+                values = self._fake.lists.setdefault(op[1], [])
+                values.append(op[2])
+                results.append(len(values))
+        self._ops = []
+        return results
+
+
+class _FakeQueueRedis:
+    def __init__(self) -> None:
+        self.kv: dict[str, str] = {queue.PAUSE_KEY: "1", queue.CANCEL_KEY: "1"}
+        self.sets: dict[str, set[str]] = {}
+        self.lists: dict[str, list[str]] = {}
+
+    def get(self, key: str) -> str | None:
+        return self.kv.get(key)
+
+    def delete(self, *keys: str) -> int:
+        removed = 0
+        for key in keys:
+            if key in self.kv:
+                del self.kv[key]
+                removed += 1
+        return removed
+
+    def pipeline(self) -> _Pipeline:
+        return _Pipeline(self)
+
+
+def test_resume_queue_clears_stale_cancel_marker_and_reenables_enqueue(
+    monkeypatch: Any,
+) -> None:
+    import app.services.pipeline.queue as queue
+
+    fake = _FakeQueueRedis()
+    monkeypatch.setattr(queue, "_get_client", lambda _settings: fake)
+    settings = cast("Settings", object())
+    task = [{"doc_id": 7, "task": "sync"}]
+
+    # Stale cancel marker (no healthy worker to consume it) blocks enqueues.
+    assert queue.is_cancel_requested(settings) is True
+    assert queue.enqueue_task_sequence(settings, task) == 0
+
+    queue.resume_queue(settings)
+
+    assert fake.get(queue.CANCEL_KEY) is None
+    assert queue.is_cancel_requested(settings) is False
+    assert queue.enqueue_task_sequence(settings, task) == 1
 
 
 def test_queue_worker_lock_route_returns_status(api_client: Any, monkeypatch: Any) -> None:

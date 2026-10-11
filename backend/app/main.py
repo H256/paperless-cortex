@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,7 +18,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import load_settings
 from app.db import SessionLocal
-from app.exceptions import ConfigurationError, DocumentNotFoundError, PaperlessIntelligenceError
+from app.deps import verify_api_token
+from app.exceptions import DocumentNotFoundError, PaperlessIntelligenceError
 from app.routes import (
     chat,
     connections,
@@ -79,8 +80,6 @@ def _error_code_for_status(status_code: int) -> str:
 def _status_for_domain_error(exc: PaperlessIntelligenceError) -> int:
     if isinstance(exc, DocumentNotFoundError):
         return 404
-    if isinstance(exc, ConfigurationError):
-        return 500
     return 400
 
 
@@ -191,7 +190,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api = FastAPI(title="Paperless-NGX Cortex API", version=API_VERSION)
+api = FastAPI(
+    title="Paperless-NGX Cortex API",
+    version=API_VERSION,
+    dependencies=[Depends(verify_api_token)],
+)
 
 
 @api.middleware("http")
@@ -317,6 +320,19 @@ api.include_router(settings.router)
 api.include_router(chat.router)
 api.include_router(writeback_dryrun.router)
 
+
+@app.get("/api/health")
+def health() -> dict[str, str]:
+    """Liveness probe for operators and container healthchecks.
+
+    Registered on the outer app *before* the ``/api`` sub-app mount so the
+    prefix mount does not shadow it (Starlette matches in registration order).
+    It is deliberately kept off the sub-app's ``verify_api_token`` gate so a
+    probe needs no credentials.
+    """
+    return {"status": "ok"}
+
+
 app.mount("/api", api)
 
 
@@ -334,8 +350,3 @@ static_dir_env = SETTINGS.frontend.dist_path or ""
 static_dir = Path(static_dir_env) if static_dir_env else Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if static_dir.is_dir():
     app.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="static")
-
-
-@app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}

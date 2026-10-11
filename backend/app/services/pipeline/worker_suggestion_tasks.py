@@ -391,6 +391,7 @@ def process_suggest_field(
         "date",
         "correspondent",
         "tags",
+        "note",
     ):
         return
     raw = get_document_fn(settings, doc_id)

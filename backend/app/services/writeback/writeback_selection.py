@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
 from app.api_models import WritebackDryRunCall, WritebackDryRunItem
+from app.services.runtime.json_utils import parse_json_list
 
 
 @dataclass
@@ -17,6 +19,22 @@ class LocalWritebackSelection:
 
 def normalize_changed_field(field: str) -> str:
     return "issue_date" if field in {"document_date", "issue_date"} else field
+
+
+def parse_applied_call_indexes(raw: str | None) -> set[int]:
+    """Parse the persisted applied-call-index list into a set of ints.
+
+    Returns an empty set when the value is missing or malformed.
+    """
+    indexes: set[int] = set()
+    for value in parse_json_list(raw):
+        if isinstance(value, int):
+            indexes.add(value)
+    return indexes
+
+
+def serialize_applied_call_indexes(indexes: set[int]) -> str:
+    return json.dumps(sorted(indexes), ensure_ascii=False)
 
 
 def collect_local_selection(*, item: WritebackDryRunItem, fields: list[str]) -> LocalWritebackSelection:

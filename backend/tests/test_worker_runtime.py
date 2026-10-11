@@ -8,6 +8,7 @@ from app.services.pipeline.worker_runtime import (
     dispatch_worker_task,
     handle_worker_cancel_request,
     parse_worker_queue_item,
+    run_worker_iteration_gate,
 )
 
 
@@ -145,3 +146,66 @@ def test_build_dispatch_handler_routes_cleanup_texts_options() -> None:
     assert handler is not None
     handler()
     assert calls == [{"doc_id": 41, "source": "vision_ocr", "clear_first": True}]
+
+
+def _gate_kwargs(
+    calls: list[str],
+    *,
+    paused: bool,
+    cancel: bool,
+) -> dict[str, Any]:
+    return {
+        "is_paused_fn": lambda _settings: paused,
+        "is_cancel_requested_fn": lambda _settings: cancel,
+        "clear_queue_fn": lambda _settings: calls.append("clear_queue"),
+        "reset_stats_fn": lambda _settings: calls.append("reset_stats"),
+        "clear_cancel_fn": lambda _settings: calls.append("clear_cancel"),
+        "log_fn": lambda _logger, _level, message, **_kwargs: calls.append(message),
+        "logger": logging.getLogger(__name__),
+    }
+
+
+def test_iteration_gate_processes_cancel_while_paused() -> None:
+    calls: list[str] = []
+
+    handled = run_worker_iteration_gate(object(), **_gate_kwargs(calls, paused=True, cancel=True))
+
+    assert handled is True
+    assert calls == [
+        "Worker cancel requested; clearing queue",
+        "clear_queue",
+        "reset_stats",
+        "clear_cancel",
+    ]
+
+
+def test_iteration_gate_paused_without_cancel_sleeps_only() -> None:
+    calls: list[str] = []
+
+    handled = run_worker_iteration_gate(object(), **_gate_kwargs(calls, paused=True, cancel=False))
+
+    assert handled is True
+    assert calls == []
+
+
+def test_iteration_gate_cancel_without_pause_is_processed() -> None:
+    calls: list[str] = []
+
+    handled = run_worker_iteration_gate(object(), **_gate_kwargs(calls, paused=False, cancel=True))
+
+    assert handled is True
+    assert calls == [
+        "Worker cancel requested; clearing queue",
+        "clear_queue",
+        "reset_stats",
+        "clear_cancel",
+    ]
+
+
+def test_iteration_gate_idle_proceeds() -> None:
+    calls: list[str] = []
+
+    handled = run_worker_iteration_gate(object(), **_gate_kwargs(calls, paused=False, cancel=False))
+
+    assert handled is False
+    assert calls == []

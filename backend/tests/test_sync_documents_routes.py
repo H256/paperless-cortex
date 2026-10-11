@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -23,12 +24,13 @@ def _insert_local_document(doc_id: int, title: str) -> None:
         db.commit()
 
 
-def test_sync_documents_marks_state_failed_when_paperless_is_unavailable(
+def test_sync_documents_marks_error_state_when_paperless_unavailable(
     api_client: Any, monkeypatch: Any
 ) -> None:
     import app.routes.sync as sync_routes
 
     def _raise_paperless_unavailable(*_args: Any, **_kwargs: Any) -> dict[str, object]:
+        # Simulate a concurrent cancel request committed while the sync is running.
         engine = create_engine(
             os.environ["DATABASE_URL"], connect_args={"check_same_thread": False}
         )
@@ -49,7 +51,7 @@ def test_sync_documents_marks_state_failed_when_paperless_is_unavailable(
     with Session(engine) as db:
         state = db.get(SyncState, "documents")
         assert state is not None
-        assert state.status == "failed"
+        assert state.status == "error"
         assert state.cancel_requested is False
 
 
@@ -107,6 +109,15 @@ def test_sync_documents_marks_missing_and_queues_embed_followups(
         return len(tasks)
 
     monkeypatch.setattr(sync_routes, "enqueue_task_sequence", _enqueue_task_sequence)
+
+    # The walk omits local doc 1001; the mark-missing pass revalidates it
+    # against Paperless, which confirms it is gone (404) so it is marked.
+    def _get_document_404(_settings: Any, _doc_id: int) -> dict[str, Any]:
+        request = httpx.Request("GET", "http://paperless.local/api/documents/1001/")
+        response = httpx.Response(404, request=request)
+        raise httpx.HTTPStatusError("not found", request=request, response=response)
+
+    monkeypatch.setattr(sync_routes.paperless, "get_document", _get_document_404)
 
     response = api_client.post(
         "/sync/documents",
@@ -219,3 +230,127 @@ def test_sync_documents_insert_only_skips_existing_rows(api_client: Any, monkeyp
         assert existing.title == "Existing Local Doc"
         assert inserted is not None
         assert inserted.title == "Brand New Doc"
+
+
+def test_sync_documents_refuses_mark_missing_with_page_only(api_client: Any, monkeypatch: Any) -> None:
+    import app.routes.sync as sync_routes
+
+    _insert_local_document(1201, "Unseen Local Doc")
+
+    calls: list[tuple[int, int]] = []
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        calls.append((page, page_size))
+        return {
+            "count": 1,
+            "next": None,
+            "results": [
+                {
+                    "id": 1202,
+                    "title": "Remote Synced Doc",
+                    "content": "remote content",
+                    "correspondent": None,
+                    "document_type": None,
+                    "document_date": None,
+                    "created": "2026-03-11T10:00:00+00:00",
+                    "modified": "2026-03-11T10:00:00+00:00",
+                    "added": None,
+                    "deleted_at": None,
+                    "archive_serial_number": None,
+                    "original_file_name": None,
+                    "mime_type": None,
+                    "page_count": 1,
+                    "owner": None,
+                    "user_can_change": True,
+                    "is_shared_by_requester": False,
+                    "notes": [],
+                    "tags": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(sync_routes.paperless, "list_documents", _list_documents)
+
+    response = api_client.post(
+        "/sync/documents",
+        params={
+            "incremental": False,
+            "embed": False,
+            "mark_missing": True,
+            "page_only": True,
+        },
+    )
+    assert response.status_code == 400
+    assert "mark_missing" in response.json()["detail"]
+    assert calls == []
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        missing = db.get(Document, 1201)
+        assert missing is not None
+        assert missing.deleted_at is None
+        assert db.get(SyncState, "documents") is None
+
+
+def test_sync_documents_refuses_mark_missing_with_page_gt_1(api_client: Any, monkeypatch: Any) -> None:
+    import app.routes.sync as sync_routes
+
+    _insert_local_document(1301, "Unseen Local Doc")
+
+    calls: list[tuple[int, int]] = []
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        calls.append((page, page_size))
+        return {
+            "count": 1,
+            "next": None,
+            "results": [
+                {
+                    "id": 1302,
+                    "title": "Remote Page Two Doc",
+                    "content": "remote content",
+                    "correspondent": None,
+                    "document_type": None,
+                    "document_date": None,
+                    "created": "2026-03-11T10:00:00+00:00",
+                    "modified": "2026-03-11T10:00:00+00:00",
+                    "added": None,
+                    "deleted_at": None,
+                    "archive_serial_number": None,
+                    "original_file_name": None,
+                    "mime_type": None,
+                    "page_count": 1,
+                    "owner": None,
+                    "user_can_change": True,
+                    "is_shared_by_requester": False,
+                    "notes": [],
+                    "tags": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(sync_routes.paperless, "list_documents", _list_documents)
+
+    response = api_client.post(
+        "/sync/documents",
+        params={
+            "incremental": False,
+            "embed": False,
+            "mark_missing": True,
+            "page": 2,
+        },
+    )
+    assert response.status_code == 400
+    assert "mark_missing" in response.json()["detail"]
+    assert calls == []
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        missing = db.get(Document, 1301)
+        assert missing is not None
+        assert missing.deleted_at is None
+        assert db.get(SyncState, "documents") is None

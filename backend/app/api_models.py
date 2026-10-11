@@ -70,6 +70,7 @@ class StatusResponse(BaseModel):
     worker: StatusEntry
     llm: StatusEntry
     llm_text: StatusEntry
+    llm_chat: StatusEntry
     llm_embedding: StatusEntry
     llm_vision: StatusEntry
     paperless_base_url: str | None = None
@@ -139,6 +140,7 @@ class QueueStatusResponse(BaseModel):
     in_progress: int | None = None
     done: int | None = None
     paused: bool | None = None
+    cancel_pending: bool | None = None
     last_run_seconds: float | None = None
     last_run_at: int | None = None
 
@@ -504,12 +506,6 @@ class DocumentOcrScoresResponse(BaseModel):
     scores: list[DocumentOcrScoreOut] = []
 
 
-class SuggestionPayload(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    raw: str | None = None
-    parsed: dict[str, Any] | None = None
-
-
 class SuggestionsResponse(BaseModel):
     doc_id: int
     suggestions: dict[str, Any] = {}
@@ -865,6 +861,7 @@ class WritebackFieldDiff(BaseModel):
     original: Any = None
     proposed: Any = None
     changed: bool
+    ai_generated: bool = False
 
 
 class WritebackDryRunItem(BaseModel):
@@ -896,6 +893,13 @@ class WritebackDryRunCall(BaseModel):
     payload: dict[str, Any] = {}
 
 
+class WritebackCallError(BaseModel):
+    doc_id: int
+    method: str
+    path: str
+    error: str
+
+
 class WritebackDryRunExecuteResponse(BaseModel):
     docs_selected: int
     docs_changed: int
@@ -912,6 +916,8 @@ class WritebackExecuteNowResponse(BaseModel):
     calls_count: int
     doc_ids: list[int] = []
     calls: list[WritebackDryRunCall] = []
+    failed_doc_ids: list[int] = []
+    errors: list[WritebackCallError] = []
 
 
 class WritebackDirectExecuteRequest(BaseModel):
@@ -963,6 +969,7 @@ class WritebackJobSummary(BaseModel):
 class WritebackJobDetail(WritebackJobSummary):
     doc_ids: list[int] = []
     calls: list[WritebackDryRunCall] = []
+    applied_calls_count: int = 0
 
 
 class WritebackJobListResponse(BaseModel):

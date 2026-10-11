@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from app.api_models import CorrespondentIn, DocumentIn, DocumentTypeIn, TagIn
 from app.config import Settings
 from app.models import (
@@ -20,14 +22,22 @@ from app.models import (
 from app.services.documents.note_ids import next_local_note_id
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.integrations import paperless
-from app.services.pipeline.sync_state import ensure_started, get_or_create_state, mark_running
+from app.services.pipeline.sync_state import (
+    claim_documents_sync,
+    ensure_started,
+    get_or_create_state,
+    mark_running,
+)
 from app.services.runtime.time_utils import estimate_eta_seconds
 from app.services.search.embedding_init import ensure_embedding_collection
 from app.services.search.embeddings import (
+    average_vectors,
     chunk_document_with_pages,
     delete_points_for_doc,
     embed_text,
+    make_doc_point_id,
     make_point_id,
+    record_source_chunk_count,
     upsert_points,
 )
 
@@ -41,8 +51,53 @@ TaskEnqueuer = Callable[[Settings, list[dict[str, object]]], object]
 TaskFrontEnqueuer = Callable[[Settings, list[dict[str, object]]], object]
 PaperlessListDocuments = Callable[..., dict[str, object]]
 PaperlessGetDocument = Callable[[Settings, int], dict[str, object]]
+PaperlessGetDocumentForMark = Callable[[Settings, int], dict[str, object] | None]
 
 logger = logging.getLogger(__name__)
+
+
+def _revalidate_missing(
+    settings: Settings,
+    candidate_ids: list[int],
+    get_document_for_mark_fn: PaperlessGetDocumentForMark,
+) -> set[int]:
+    """Return the subset of ``candidate_ids`` that Paperless confirms are gone.
+
+    A document absent from the paginated walk is only marked deleted once a
+    direct ``get_document`` fetch confirms a 404. This closes the race where a
+    document created in Paperless (or concurrently upserted locally) after the
+    last page was fetched would otherwise be flagged "DELETED in Paperless"
+    despite still existing. A non-404 fetch error is treated as "not confirmed
+    deleted" so a transient API failure never mass-deletes the library.
+    """
+    confirmed_missing: set[int] = set()
+    for doc_id in candidate_ids:
+        try:
+            payload = get_document_for_mark_fn(settings, doc_id)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                confirmed_missing.add(doc_id)
+            continue
+        if payload is None:
+            confirmed_missing.add(doc_id)
+    return confirmed_missing
+
+
+def _default_get_document_for_mark(
+    settings: Settings, doc_id: int
+) -> dict[str, object] | None:
+    """Revalidate one missing candidate against Paperless.
+
+    Returns the document payload if it still exists (not deleted) or ``None``
+    if Paperless reports 404 (confirmed deleted). Other HTTP errors propagate
+    so the caller can treat them as "not confirmed deleted".
+    """
+    try:
+        return paperless.get_document(settings, doc_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return None
+        raise
 
 
 def build_sync_status_payload(db: Session) -> ResponseDict:
@@ -63,13 +118,19 @@ def build_sync_status_payload(db: Session) -> ResponseDict:
 
 
 def cancel_documents_sync(db: Session) -> ResponseDict:
-    """Mark the document-sync state as cancelling without clearing existing progress."""
+    """Persist a terminal cancel status for the document-sync state.
+
+    A live sync loop observes ``cancel_requested`` and stops after its current
+    page; writing the terminal status immediately also recovers a stuck
+    ``'running'`` row (e.g. after a crashed run) without manual DB edits.
+    """
     state = db.get(SyncState, "documents")
     if not state:
         return {"status": "idle"}
     state.cancel_requested = True
+    state.status = "cancelled"
     db.commit()
-    return {"status": "cancelling"}
+    return {"status": "cancelled"}
 
 
 def apply_note_fields(
@@ -242,100 +303,140 @@ def embed_documents(
     if not settings.embedding_model:
         raise RuntimeError("EMBEDDING_MODEL not set")
     ensure_embedding_collection(settings)
-    points: list[dict[str, object]] = []
     embedded = 0
     processed = 0
     state = get_or_create_state(db, "embeddings")
     mark_running(state, total=len(documents), processed=0, reset_cancel=False)
     db.commit()
     logger.info("Embedding run docs=%s", len(documents))
-    for doc in documents:
-        content_value = doc.content or ""
-        baseline_pages, vision_pages, page_texts = collect_page_texts(
-            settings,
-            db,
-            doc,
-            force_vision=force_embed,
-        )
-        if not content_value and not page_texts:
-            processed += 1
-            state.processed = processed
-            continue
-        hash_source = (
-            "\f".join(f"{page.source}:{page.text}" for page in page_texts)
-            if page_texts
-            else content_value
-        )
-        content_hash = sha256((hash_source or "").encode("utf-8")).hexdigest()
-        existing = db.get(DocumentEmbedding, doc.id)
-        if (
-            (not force_embed)
-            and existing
-            and existing.content_hash == content_hash
-            and existing.embedding_model == settings.embedding_model
-            and existing.chunk_count
-        ):
-            logger.info("Skip embed doc=%s (unchanged)", doc.id)
+    try:
+        for doc in documents:
+            content_value = doc.content or ""
+            baseline_pages, vision_pages, page_texts = collect_page_texts(
+                settings,
+                db,
+                doc,
+                force_vision=force_embed,
+            )
+            if not content_value and not page_texts:
+                processed += 1
+                state.processed = processed
+                continue
+            hash_source = (
+                "\f".join(f"{page.source}:{page.text}" for page in page_texts)
+                if page_texts
+                else content_value
+            )
+            content_hash = sha256((hash_source or "").encode("utf-8")).hexdigest()
+            existing = db.get(DocumentEmbedding, doc.id)
+            if (
+                (not force_embed)
+                and existing
+                and not existing.pending_reembed
+                and existing.content_hash == content_hash
+                and existing.embedding_model == settings.embedding_model
+                and existing.chunk_count
+            ):
+                logger.info("Skip embed doc=%s (unchanged)", doc.id)
+                processed += 1
+                state.processed = processed
+                if processed % 5 == 0 or processed == state.total:
+                    db.commit()
+                continue
+            embedding_source = "vision" if vision_pages else "paperless"
+            opposite_source = "paperless" if embedding_source == "vision" else "vision"
+            if not existing:
+                existing = DocumentEmbedding(doc_id=doc.id)
+                db.add(existing)
+            # Persist a re-embed intent before the non-transactional point
+            # deletion so a mid-run embed failure cannot leave the doc with no
+            # vector points while the skip guard still treats it as embedded.
+            existing.pending_reembed = True
+            db.commit()
+            delete_points_for_doc(settings, doc.id, source=embedding_source)
+            delete_points_for_doc(settings, doc.id, source=opposite_source)
+            baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
+            vision_chunks = (
+                chunk_document_with_pages(settings, content_value, vision_pages or None)
+                if vision_pages
+                else []
+            )
+            chunks = baseline_chunks + vision_chunks
+            logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
+            doc_points: list[dict[str, object]] = []
+            doc_vectors: list[list[float]] = []
+            for idx, chunk in enumerate(chunks):
+                chunk_text_value = str(chunk["text"])
+                vector = embed_text(settings, chunk_text_value)
+                doc_vectors.append(vector)
+                doc_points.append(
+                    {
+                        "id": make_point_id(doc.id, idx, embedding_source),
+                        "vector": vector,
+                        "payload": {
+                            "doc_id": doc.id,
+                            "chunk": idx,
+                            "text": chunk_text_value,
+                            "page": chunk.get("page"),
+                            "source": chunk.get("source"),
+                            "quality_score": chunk.get("quality_score"),
+                            "bbox": chunk.get("bbox"),
+                        },
+                    }
+                )
+            if doc_vectors:
+                doc_vector = average_vectors(doc_vectors)
+                if doc_vector:
+                    doc_points.append(
+                        {
+                            "id": make_doc_point_id(doc.id),
+                            "vector": doc_vector,
+                            "payload": {
+                                "doc_id": doc.id,
+                                "chunk": -1,
+                                "type": "doc",
+                                "source": embedding_source,
+                            },
+                        }
+                    )
+            if doc_points:
+                upsert_points(settings, doc_points)
+            existing.pending_reembed = False
+            existing.content_hash = content_hash
+            existing.embedding_model = settings.embedding_model
+            existing.embedded_at = datetime.now(UTC).isoformat()
+            previous_source = str(existing.embedding_source or "").strip().lower()
+            is_both = bool(
+                previous_source == "both"
+                or (previous_source and previous_source != embedding_source)
+            )
+            previous_total = int(existing.chunk_count or 0)
+            if is_both:
+                existing.embedding_source = "both"
+            else:
+                existing.embedding_source = embedding_source
+            record_source_chunk_count(
+                existing,
+                source=embedding_source,
+                count=len(chunks),
+                both=is_both,
+                previous_total=previous_total,
+            )
+            embedded += 1
             processed += 1
             state.processed = processed
             if processed % 5 == 0 or processed == state.total:
                 db.commit()
-            continue
-        embedding_source = "vision" if vision_pages else "paperless"
-        delete_points_for_doc(settings, doc.id, source=embedding_source)
-        baseline_chunks = chunk_document_with_pages(settings, content_value, baseline_pages or None)
-        vision_chunks = (
-            chunk_document_with_pages(settings, content_value, vision_pages or None)
-            if vision_pages
-            else []
-        )
-        chunks = baseline_chunks + vision_chunks
-        logger.info("Chunked doc=%s chunks=%s", doc.id, len(chunks))
-        doc_points: list[dict[str, object]] = []
-        for idx, chunk in enumerate(chunks):
-            chunk_text_value = str(chunk["text"])
-            vector = embed_text(settings, chunk_text_value)
-            doc_points.append(
-                {
-                    "id": make_point_id(doc.id, idx, embedding_source),
-                    "vector": vector,
-                    "payload": {
-                        "doc_id": doc.id,
-                        "chunk": idx,
-                        "text": chunk_text_value,
-                        "page": chunk.get("page"),
-                        "source": chunk.get("source"),
-                        "quality_score": chunk.get("quality_score"),
-                        "bbox": chunk.get("bbox"),
-                    },
-                }
-            )
-        if doc_points:
-            upsert_points(settings, doc_points)
-            points.extend(doc_points)
-        if not existing:
-            existing = DocumentEmbedding(doc_id=doc.id)
-            db.add(existing)
-        existing.content_hash = content_hash
-        existing.embedding_model = settings.embedding_model
-        existing.embedded_at = datetime.now(UTC).isoformat()
-        previous_source = str(existing.embedding_source or "").strip().lower()
-        if previous_source == "both" or (previous_source and previous_source != embedding_source):
-            existing.embedding_source = "both"
-        else:
-            existing.embedding_source = embedding_source
-        existing.chunk_count = len(chunks)
-        embedded += 1
-        processed += 1
-        state.processed = processed
-        if processed % 5 == 0 or processed == state.total:
-            db.commit()
-    if points:
+        state.status = "idle"
+        state.last_synced_at = datetime.now(UTC).isoformat()
         db.commit()
-    state.status = "idle"
-    state.last_synced_at = datetime.now(UTC).isoformat()
-    db.commit()
-    return embedded
+        return embedded
+    except Exception:
+        db.rollback()
+        failed_state = get_or_create_state(db, "embeddings")
+        failed_state.status = "error"
+        db.commit()
+        raise
 
 
 def run_documents_sync(
@@ -353,6 +454,7 @@ def run_documents_sync(
     list_documents_fn: PaperlessListDocuments,
     build_task_sequence_fn: TaskBuilder,
     enqueue_task_sequence_fn: TaskEnqueuer,
+    get_document_for_mark_fn: PaperlessGetDocumentForMark = _default_get_document_for_mark,
 ) -> ResponseDict:
     """Run document sync and leave its persisted state terminal on failure."""
     try:
@@ -400,6 +502,19 @@ def _run_documents_sync(
     enqueue_task_sequence_fn: TaskEnqueuer,
 ) -> ResponseDict:
     """Run the main paged Paperless-to-local document sync and optional embed follow-up."""
+    if not claim_documents_sync(db):
+        # A document sync is already in flight; skip without touching its state.
+        return {
+            "count": 0,
+            "upserted": 0,
+            "incremental": incremental,
+            "embedded": 0,
+            "status": "running",
+        }
+    normalized_page = max(1, page)
+    mark_missing_allowed = (
+        mark_missing and not incremental and not page_only and normalized_page == 1
+    )
     modified_since: str | None = None
     if incremental:
         state = db.get(SyncState, "documents")
@@ -409,101 +524,121 @@ def _run_documents_sync(
     mark_running(state, total=None, processed=0)
     db.commit()
 
-    upserted = 0
-    processed = 0
-    seen_ids: set[int] = set()
-    cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
-    normalized_page = max(1, page)
-    total = 0
-    embed_queue: list[Document] = []
-    while True:
-        payload = list_documents_fn(
-            settings,
-            page=normalized_page,
-            page_size=page_size,
-            modified__gte=modified_since,
-        )
-        if normalized_page == 1:
-            raw_total = payload.get("count", 0)
-            total = int(raw_total) if isinstance(raw_total, int | str) else 0
-            state.total = total
+    try:
+        upserted = 0
+        processed = 0
+        seen_ids: set[int] = set()
+        cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
+        total = 0
+        embed_queue: list[Document] = []
+        while True:
+            payload = list_documents_fn(
+                settings,
+                page=normalized_page,
+                page_size=page_size,
+                modified__gte=modified_since,
+            )
+            if normalized_page == 1:
+                raw_total = payload.get("count", 0)
+                total = int(raw_total) if isinstance(raw_total, int | str) else 0
+                state.total = total
+                db.commit()
+            raw_results = payload.get("results", [])
+            results = raw_results if isinstance(raw_results, list) else []
+            if not results:
+                break
+            inserted_ids: list[int] = []
+            db.refresh(state)
+            if state.cancel_requested:
+                state.status = "cancelled"
+                db.commit()
+                return {
+                    "count": total,
+                    "upserted": upserted,
+                    "incremental": incremental,
+                    "embedded": 0,
+                    "status": "cancelled",
+                }
+            for raw in results:
+                data = DocumentIn.model_validate(raw)
+                if mark_missing_allowed:
+                    seen_ids.add(data.id)
+                if insert_only:
+                    existing = db.get(Document, data.id)
+                    if existing:
+                        processed += 1
+                        state.processed = processed
+                        continue
+                upsert_document(db, settings, data, cache)
+                inserted_ids.append(data.id)
+                upserted += 1
+                processed += 1
+                state.processed = processed
             db.commit()
-        raw_results = payload.get("results", [])
-        results = raw_results if isinstance(raw_results, list) else []
-        if not results:
-            break
-        inserted_ids: list[int] = []
-        db.refresh(state)
-        if state.cancel_requested:
-            state.status = "cancelled"
-            db.commit()
-            return {
-                "count": total,
-                "upserted": upserted,
-                "incremental": incremental,
-                "embedded": 0,
-                "status": "cancelled",
-            }
-        for raw in results:
-            data = DocumentIn.model_validate(raw)
-            if mark_missing and not incremental:
-                seen_ids.add(data.id)
-            if insert_only:
-                existing = db.get(Document, data.id)
-                if existing:
-                    processed += 1
-                    state.processed = processed
-                    continue
-            upsert_document(db, settings, data, cache)
-            inserted_ids.append(data.id)
-            upserted += 1
-            processed += 1
-            state.processed = processed
-        db.commit()
-        if embed:
-            ids = inserted_ids if insert_only else [DocumentIn.model_validate(raw).id for raw in results]
-            if ids:
-                embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
-        if not payload.get("next") or page_only:
-            break
-        normalized_page += 1
+            if embed:
+                ids = inserted_ids if insert_only else [DocumentIn.model_validate(raw).id for raw in results]
+                if ids:
+                    embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
+            if not payload.get("next") or page_only:
+                break
+            normalized_page += 1
 
-    state.last_synced_at = datetime.now(UTC).isoformat()
-    state.status = "idle"
-    db.commit()
-    marked_deleted = 0
-    if mark_missing and not incremental:
-        timestamp = datetime.now(UTC).isoformat()
-        missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
-        for doc in missing_docs:
-            if doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"):
-                continue
-            doc.deleted_at = f"DELETED in Paperless (copy kept) @ {timestamp}"
-            marked_deleted += 1
-        if marked_deleted:
-            db.commit()
-    embedded = 0
-    if embed and embed_queue:
-        if settings.queue_enabled:
-            for doc in embed_queue:
-                tasks = build_task_sequence_fn(
-                    settings, doc.id, include_sync=False, force=bool(force_embed)
-                )
-                enqueue_task_sequence_fn(settings, tasks)
-            embed_state = get_or_create_state(db, "embeddings")
-            embed_state.status = "running"
-            ensure_started(embed_state)
-            embed_state.last_synced_at = datetime.now(UTC).isoformat()
-            db.commit()
-        else:
-            embedded = embed_documents(db, settings, embed_queue, force_embed=force_embed)
-    return {
-        "count": total,
-        "upserted": upserted,
-        "incremental": incremental,
-        "embedded": embedded,
-        "marked_deleted": marked_deleted if mark_missing and not incremental else None,
-    }
+        state.last_synced_at = datetime.now(UTC).isoformat()
+        state.status = "idle"
+        db.commit()
+        marked_deleted = 0
+        if mark_missing_allowed and seen_ids:
+            timestamp = datetime.now(UTC).isoformat()
+            missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
+            confirmed_missing = _revalidate_missing(
+                settings, [doc.id for doc in missing_docs], get_document_for_mark_fn
+            )
+            for doc in missing_docs:
+                if doc.id not in confirmed_missing:
+                    continue
+                if doc.deleted_at and str(doc.deleted_at).startswith("DELETED in Paperless"):
+                    continue
+                doc.deleted_at = f"DELETED in Paperless (copy kept) @ {timestamp}"
+                marked_deleted += 1
+            if marked_deleted:
+                db.commit()
+        elif mark_missing_allowed:
+            # An empty remote walk is ambiguous (transient API gap vs. a truly
+            # emptied library). Marking every local document deleted on `in_([])`
+            # would mass-delete the whole library, so skip and surface the cause.
+            logger.warning(
+                "mark_missing skipped: remote document walk returned no documents; "
+                "refusing to mass-delete the local library on an empty list"
+            )
+        embedded = 0
+        if embed and embed_queue:
+            if settings.queue_enabled:
+                for doc in embed_queue:
+                    tasks = build_task_sequence_fn(
+                        settings, doc.id, include_sync=False, force=bool(force_embed)
+                    )
+                    enqueue_task_sequence_fn(settings, tasks)
+                embed_state = get_or_create_state(db, "embeddings")
+                embed_state.status = "running"
+                ensure_started(embed_state)
+                embed_state.last_synced_at = datetime.now(UTC).isoformat()
+                db.commit()
+            else:
+                embedded = embed_documents(db, settings, embed_queue, force_embed=force_embed)
+        return {
+            "count": total,
+            "upserted": upserted,
+            "incremental": incremental,
+            "embedded": embedded,
+            "marked_deleted": marked_deleted if mark_missing_allowed else None,
+        }
+    except Exception:
+        db.rollback()
+        failed_state = get_or_create_state(db, "documents")
+        failed_state.status = "error"
+        failed_state.cancel_requested = False
+        db.commit()
+        raise
 
 
 def run_single_document_sync(

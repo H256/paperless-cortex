@@ -40,3 +40,9 @@ repos:
         language: system
         files: ^frontend/
         pass_filenames: false
+      - id: gitea-workflow-parity
+        name: gitea workflow parity
+        entry: python scripts/sync_gitea_workflows.py --check
+        language: system
+        files: ^(\.github|\.gitea)/workflows/
+        pass_filenames: false

@@ -49,7 +49,7 @@ def update_model_providers(
                 api_key=item.api_key,
                 clear_api_key=bool(item.clear_api_key),
             )
-        except RuntimeError as exc:
+        except (RuntimeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     refreshed_settings = load_settings()
     return {"items": [role_payload(refreshed_settings, role) for role in ROLE_NAMES]}

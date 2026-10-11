@@ -50,6 +50,28 @@ def test_status_chat_model_falls_back_to_text_model(monkeypatch: Any) -> None:
     assert payload["chat_model"] == "text-default"
 
 
+def test_status_surfaces_chat_backend_health(monkeypatch: Any) -> None:
+    """The computed chat health flag must be exposed as llm_chat, not discarded."""
+    monkeypatch.setenv("CHAT_MODEL", "chat-model")
+    monkeypatch.setattr(status_routes, "_fetch_models", lambda s, **kw: (True, "ok", []))
+
+    def fake_model_status(models: list[dict[str, object]], model_name: str | None) -> tuple[bool, str]:
+        # The chat model is not loaded -> chat backend degraded.
+        if model_name == "chat-model":
+            return False, "not found"
+        return True, "ok"
+
+    monkeypatch.setattr(status_routes, "_model_status", fake_model_status)
+    monkeypatch.setattr(status_routes, "resolve_chat_model", lambda s: "chat-model")
+
+    settings = load_settings()
+    payload = _status_payload(settings)
+
+    assert "llm_chat" in payload
+    assert payload["llm_chat"]["status"] == "DOWN"
+    assert payload["llm_chat"]["detail"] == "not found"
+
+
 def test_status_includes_vector_store_runtime_config(monkeypatch: Any) -> None:
     monkeypatch.setenv("VECTOR_STORE_PROVIDER", "weaviate")
     monkeypatch.delenv("VECTOR_STORE_URL", raising=False)

@@ -13,6 +13,7 @@ from app.models import (
     DocumentNote,
     DocumentPendingCorrespondent,
     DocumentPendingTag,
+    DocumentSuggestion,
     SuggestionAudit,
     Tag,
 )
@@ -22,6 +23,52 @@ from app.services.writeback.writeback_plan import compare_document_fields, extra
 
 if TYPE_CHECKING:
     from app.config import Settings
+
+
+def ai_generated_fields_for_docs(
+    db: Session,
+    doc_ids: list[int],
+) -> dict[int, set[str]]:
+    """Map doc_id -> set of field names that were AI-suggested for that doc.
+
+    A field is considered AI-generated when a DocumentSuggestion row exists for
+    the doc and the model's payload produced a non-empty value for that field.
+    This is best-effort: if the payload cannot be parsed, no fields are marked.
+    """
+    if not doc_ids:
+        return {}
+    rows = (
+        db.query(DocumentSuggestion.doc_id, DocumentSuggestion.payload)
+        .filter(DocumentSuggestion.doc_id.in_(doc_ids))
+        .all()
+    )
+    result: dict[int, set[str]] = {}
+    for doc_id, payload in rows:
+        parsed = _parse_payload_fields(payload)
+        if parsed:
+            result.setdefault(int(doc_id), set()).update(parsed)
+    return result
+
+
+def _parse_payload_fields(payload: str) -> set[str]:
+    """Return the set of field names with non-empty values in a suggestion payload."""
+    import json as _json
+
+    try:
+        data = _json.loads(payload)
+    except (ValueError, TypeError):
+        return set()
+    if not isinstance(data, dict):
+        return set()
+    fields: set[str] = set()
+    for key in ("title", "correspondent", "documentType", "date", "language", "summary"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            fields.add(key)
+    tags = data.get("tags") or data.get("suggested_tags")
+    if (isinstance(tags, list) and any(str(t).strip() for t in tags if isinstance(t, str))) or (isinstance(tags, str) and tags.strip()):
+        fields.add("tags")
+    return fields
 
 
 def metadata_maps(
@@ -60,7 +107,9 @@ def build_writeback_item(
     tags_by_id: dict[int, str],
     pending_tag_names: list[str] | None = None,
     pending_correspondent_name: str | None = None,
+    ai_generated_fields: set[str] | None = None,
 ) -> WritebackDryRunItem:
+    ai_fields = ai_generated_fields or set()
     local_issue_date = local_doc.document_date or local_doc.created
     remote_notes = remote_doc.get("notes") if isinstance(remote_doc.get("notes"), list) else []
     remote_note_id, remote_note_text = extract_ai_summary_note(remote_notes)
@@ -124,12 +173,14 @@ def build_writeback_item(
             original=remote_doc.get("title"),
             proposed=local_doc.title,
             changed="title" in changed_fields,
+            ai_generated="title" in ai_fields,
         ),
         document_date=WritebackFieldDiff(
             field="issue_date",
             original=remote_doc.get("created"),
             proposed=local_issue_date,
             changed="issue_date" in changed_fields,
+            ai_generated="date" in ai_fields,
         ),
         correspondent=WritebackFieldDiff(
             field="correspondent",
@@ -140,14 +191,22 @@ def build_writeback_item(
                 "pending_name": str(pending_correspondent_name or "").strip() or None,
             },
             changed="correspondent" in changed_fields,
+            ai_generated="correspondent" in ai_fields,
         ),
         tags=WritebackFieldDiff(
             field="tags",
             original={"ids": remote_tags, "names": remote_tag_names},
             proposed={"ids": local_tags, "names": local_tag_names, "pending_names": pending_tag_names or []},
             changed="tags" in changed_fields,
+            ai_generated="tags" in ai_fields,
         ),
-        note=note_diff,
+        note=WritebackFieldDiff(
+            field=note_diff.field,
+            original=note_diff.original,
+            proposed=note_diff.proposed,
+            changed=note_diff.changed,
+            ai_generated="summary" in ai_fields,
+        ),
     )
 
 
@@ -228,6 +287,7 @@ def preview_for_doc_ids(
         correspondent_ids=correspondent_ids,
         tag_ids=tag_ids,
     )
+    ai_fields_by_doc = ai_generated_fields_for_docs(db, list(local_by_id.keys()))
     items: list[WritebackDryRunItem] = []
     for doc_id in doc_ids:
         local_doc = local_by_id.get(doc_id)
@@ -255,6 +315,7 @@ def preview_for_doc_ids(
                 tags_by_id=tags_by_id,
                 pending_tag_names=pending_by_doc.get(int(doc_id), []),
                 pending_correspondent_name=pending_correspondent_by_doc.get(int(doc_id), ""),
+                ai_generated_fields=ai_fields_by_doc.get(int(doc_id)),
             )
         )
     return items

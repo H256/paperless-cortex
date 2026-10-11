@@ -4,6 +4,7 @@ import json
 import os
 from typing import Any
 
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -258,6 +259,85 @@ def test_document_stats_cache_invalidates_after_suggestion_delete(api_client: An
     assert second.json()["suggestions"] == 0
 
 
+def test_document_stats_and_dashboard_gate_vision_on_setting(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """fully_processed must not require a vision_ocr page when vision OCR is disabled."""
+    from app.services.documents import dashboard_cache, document_stats_cache
+
+    monkeypatch.setenv("ENABLE_VISION_OCR", "0")
+    document_stats_cache.invalidate_document_stats_cache()
+    dashboard_cache.invalidate_dashboard_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        # 7401: embedding + suggestion, NO vision_ocr page -> processed when vision off
+        db.add(Document(id=7401, title="No Vision Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7401, embedding_source="paperless", chunk_count=1))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7401,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        # 7402: embedding + vision_ocr page, NO suggestion -> unprocessed (suggestion required)
+        db.add(Document(id=7402, title="Vision Only Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7402, embedding_source="vision", chunk_count=1))
+        db.add(
+            DocumentPageText(
+                doc_id=7402,
+                page=1,
+                source="vision_ocr",
+                text="vision text",
+                raw_text="vision text",
+                clean_text="vision text",
+            )
+        )
+        db.commit()
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    body = stats.json()
+    assert body["fully_processed"] == 1
+    assert body["vision"] == 1
+    assert body["unprocessed"] == 1
+
+    dashboard = api_client.get("/documents/dashboard")
+    assert dashboard.status_code == 200
+    dash_stats = dashboard.json()["stats"]
+    assert dash_stats["fully_processed"] == 1
+    assert dash_stats["unprocessed"] == 1
+
+
+def test_document_stats_requires_vision_page_when_enabled(api_client: Any) -> None:
+    """With vision OCR enabled, a document lacking a vision_ocr page is not fully processed."""
+    from app.services.documents import document_stats_cache
+
+    document_stats_cache.invalidate_document_stats_cache()
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=7403, title="Vision Required Doc", created="2026-02-01T00:00:00+00:00"))
+        db.add(DocumentEmbedding(doc_id=7403, embedding_source="paperless", chunk_count=1))
+        db.add(
+            DocumentSuggestion(
+                doc_id=7403,
+                source="paperless_ocr",
+                payload="{}",
+                created_at="2026-02-01T00:00:00+00:00",
+                processed_at="2026-02-01T00:00:00+00:00",
+            )
+        )
+        db.commit()
+
+    stats = api_client.get("/documents/stats")
+    assert stats.status_code == 200
+    assert stats.json()["fully_processed"] == 0
+
+
 def test_dashboard_excludes_deleted_paperless_copies_from_operational_counts(api_client: Any) -> None:
     from app.services.documents import dashboard_cache, document_stats_cache
 
@@ -424,6 +504,71 @@ def test_list_documents_review_status_unreviewed(api_client: Any, monkeypatch: A
     assert len(payload["results"]) == 1
     assert payload["results"][0]["id"] == 1
     assert payload["results"][0]["review_status"] == "unreviewed"
+
+
+def test_list_documents_review_status_paging_does_not_rewalk(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """Paging a review-status list must not re-walk the Paperless library.
+
+    The expensive full-library walk is cached under a page-independent key, so
+    requesting page 2 after page 1 is a cache hit and must not call
+    ``list_documents_cached`` again.
+    """
+    from app.services.integrations import paperless
+
+    call_count = 0
+
+    def _fake_list_cached(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "count": 250,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": f"Doc {doc_id}",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "tags": [],
+                }
+                for doc_id in range(1, 251)
+            ],
+        }
+
+    monkeypatch.setattr(paperless, "list_documents_cached", _fake_list_cached)
+
+    page1 = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "page": 1,
+            "page_size": 100,
+        },
+    )
+    assert page1.status_code == 200
+    page1_payload = page1.json()
+    assert page1_payload["count"] == 250
+    assert len(page1_payload["results"]) == 100
+    assert page1_payload["results"][0]["id"] == 1
+
+    page2 = api_client.get(
+        "/documents",
+        params={
+            "include_derived": True,
+            "review_status": "unreviewed",
+            "page": 2,
+            "page_size": 100,
+        },
+    )
+    assert page2.status_code == 200
+    page2_payload = page2.json()
+    assert len(page2_payload["results"]) == 100
+    assert page2_payload["results"][0]["id"] == 101
+
+    assert call_count == 1
 
 
 def test_mark_reviewed_moves_document_out_of_unreviewed(api_client: Any, monkeypatch: Any) -> None:
@@ -624,6 +769,53 @@ def test_delete_embeddings_invalidates_local_document_cache(
     assert after.json()["embedding_chunk_count"] == 0
 
 
+def test_delete_embeddings_doc_keeps_db_row_when_vector_delete_fails(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=48, title="Doc 48", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=48, embedding_source="paperless", chunk_count=2))
+        db.commit()
+
+    def raise_vector_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.HTTPError("vector store down")
+
+    monkeypatch.setattr(documents_actions, "delete_points_for_doc", raise_vector_error)
+
+    failed = api_client.post("/documents/delete/embeddings", params={"doc_id": 48})
+    assert failed.status_code == 200
+    payload = failed.json()
+    assert payload["deleted"] == 0
+    assert payload["qdrant_deleted"] == 0
+    assert payload["qdrant_errors"] == 1
+
+    with Session(engine) as db:
+        assert db.get(DocumentEmbedding, 48) is not None
+
+    # Recovery + retry: once the vector store is back, a retry removes the row.
+    retry_calls: list[Any] = []
+
+    def recovered_delete(*args: Any, **_kwargs: Any) -> None:
+        retry_calls.append(args)
+
+    monkeypatch.setattr(documents_actions, "delete_points_for_doc", recovered_delete)
+
+    retried = api_client.post("/documents/delete/embeddings", params={"doc_id": 48})
+    assert retried.status_code == 200
+    retry_payload = retried.json()
+    assert retry_payload["deleted"] == 1
+    assert retry_payload["qdrant_deleted"] == 1
+    assert retry_payload["qdrant_errors"] == 0
+
+    assert len(retry_calls) == 1
+    assert retry_calls[0][1] == 48
+    with Session(engine) as db:
+        assert db.get(DocumentEmbedding, 48) is None
+
+
 def test_mark_reviewed_returns_missing_when_document_not_local(api_client: Any) -> None:
     response = api_client.post("/documents/9999/review/mark")
     assert response.status_code == 200
@@ -731,32 +923,34 @@ def test_pending_new_tags_force_needs_review(api_client: Any, monkeypatch: Any) 
 def test_list_documents_filter_without_correspondent(api_client: Any, monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
-    monkeypatch.setattr(
-        paperless,
-        "list_documents",
-        lambda *args, **kwargs: {
-            "count": 2,
-            "next": None,
-            "previous": None,
-            "results": [
-                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
-                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
-            ],
-        },
+    # The no-correspondent filter is pushed into the local SQL query, so the
+    # upstream Paperless list must NOT be consulted.
+    paperless_called = {"list": False, "cached": False}
+
+    def _record_list(*args: Any, **kwargs: Any) -> dict[str, object]:
+        paperless_called["list"] = True
+        return {"count": 0, "next": None, "previous": None, "results": []}
+
+    def _record_cached(*args: Any, **kwargs: Any) -> dict[str, object]:
+        paperless_called["cached"] = True
+        return {"count": 0, "next": None, "previous": None, "results": []}
+
+    monkeypatch.setattr(paperless, "list_documents", _record_list)
+    monkeypatch.setattr(paperless, "list_documents_cached", _record_cached)
+
+    # One doc without a correspondent, one with, and one soft-deleted without
+    # a correspondent (must be excluded by the active-document predicate).
+    _insert_local_document(doc_id=11, title="No Corr", created="2026-02-10T10:00:00+00:00")
+    _insert_local_document(
+        doc_id=12, title="Has Corr", created="2026-02-10T10:00:00+00:00", correspondent_id=3
     )
-    monkeypatch.setattr(
-        paperless,
-        "list_documents_cached",
-        lambda *args, **kwargs: {
-            "count": 2,
-            "next": None,
-            "previous": None,
-            "results": [
-                {"id": 11, "title": "No Corr", "correspondent": None, "tags": []},
-                {"id": 12, "title": "Has Corr", "correspondent": 3, "tags": []},
-            ],
-        },
-    )
+    _insert_local_document(doc_id=13, title="Deleted No Corr", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        deleted = db.get(Document, 13)
+        assert deleted is not None
+        deleted.deleted_at = "DELETED in Paperless (copy kept) @ 2026-02-10T11:00:00+00:00"
+        db.commit()
 
     response = api_client.get("/documents", params={"correspondent__id": -1})
     assert response.status_code == 200
@@ -765,6 +959,59 @@ def test_list_documents_filter_without_correspondent(api_client: Any, monkeypatc
     assert len(payload["results"]) == 1
     assert payload["results"][0]["id"] == 11
     assert payload["results"][0]["correspondent"] is None
+    # Pushdown proof: the upstream collection was never walked.
+    assert paperless_called == {"list": False, "cached": False}
+
+
+def test_list_documents_forwards_q_param(api_client: Any, monkeypatch: Any) -> None:
+    """A search query must be forwarded to the upstream Paperless call."""
+    from app.services.integrations import paperless
+
+    captured: dict[str, Any] = {}
+
+    def _fake_list_documents(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 101,
+                    "title": "Matching Doc",
+                    "modified": "2026-02-10T10:00:00+00:00",
+                    "tags": [],
+                },
+            ],
+        }
+
+    monkeypatch.setattr(paperless, "list_documents", _fake_list_documents)
+
+    response = api_client.get("/documents", params={"q": "matching"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["results"][0]["id"] == 101
+    # The search query must be forwarded to the upstream Paperless call.
+    assert captured.get("q") == "matching"
+
+
+def test_list_documents_omits_q_when_absent(api_client: Any, monkeypatch: Any) -> None:
+    """No search query means no `q` param is forwarded upstream."""
+    from app.services.integrations import paperless
+
+    captured: dict[str, Any] = {}
+
+    def _fake_list_documents(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"count": 0, "next": None, "previous": None, "results": []}
+
+    monkeypatch.setattr(paperless, "list_documents", _fake_list_documents)
+
+    response = api_client.get("/documents", params={"include_derived": True})
+    assert response.status_code == 200
+    # `q` should not be present (or should be None) when no query is supplied.
+    assert captured.get("q") is None
 
 
 def test_document_pipeline_fanout_returns_ordered_items(api_client: Any, monkeypatch: Any) -> None:
@@ -1091,6 +1338,61 @@ def test_delete_similarity_index_clears_similarity_task_runs(
         assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
 
 
+def test_delete_similarity_index_keeps_task_runs_when_vector_delete_fails(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=77, title="Similarity Reset", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(
+            TaskRun(
+                doc_id=77,
+                task="similarity_index",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:44+00:00",
+                finished_at="2026-02-20T09:17:16+00:00",
+                created_at="2026-02-20T09:16:44+00:00",
+                updated_at="2026-02-20T09:17:16+00:00",
+            )
+        )
+        db.add(
+            TaskRun(
+                doc_id=77,
+                task="embeddings_vision",
+                source=None,
+                status="completed",
+                worker_id="worker:test",
+                attempt=1,
+                started_at="2026-02-20T09:16:00+00:00",
+                finished_at="2026-02-20T09:16:30+00:00",
+                created_at="2026-02-20T09:16:00+00:00",
+                updated_at="2026-02-20T09:16:30+00:00",
+            )
+        )
+        db.commit()
+
+    def raise_vector_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.HTTPError("vector store down")
+
+    monkeypatch.setattr(documents_actions, "delete_similarity_points", raise_vector_error)
+
+    response = api_client.post("/documents/delete/similarity-index")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deleted"] == 0
+    assert payload["qdrant_deleted"] == 0
+    assert payload["qdrant_errors"] == 1
+
+    with Session(engine) as db:
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "similarity_index").count() == 1
+        assert db.query(TaskRun).filter(TaskRun.doc_id == 77, TaskRun.task == "embeddings_vision").count() == 1
+
+
 def test_delete_embeddings_returns_success_when_vector_backend_is_empty(
     api_client: Any, monkeypatch: Any
 ) -> None:
@@ -1104,6 +1406,36 @@ def test_delete_embeddings_returns_success_when_vector_backend_is_empty(
     assert payload["deleted"] == 1
     assert payload["qdrant_deleted"] == 1
     assert payload["qdrant_errors"] == 0
+
+
+def test_delete_embeddings_all_keeps_db_rows_when_vector_delete_fails(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_actions
+
+    _insert_local_document(doc_id=50, title="Doc 50", created="2026-02-10T10:00:00+00:00")
+    _insert_local_document(doc_id=51, title="Doc 51", created="2026-02-10T10:00:00+00:00")
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(DocumentEmbedding(doc_id=50, embedding_source="paperless", chunk_count=2))
+        db.add(DocumentEmbedding(doc_id=51, embedding_source="paperless", chunk_count=3))
+        db.commit()
+
+    def raise_vector_error(*_args: Any, **_kwargs: Any) -> None:
+        raise httpx.HTTPError("vector store down")
+
+    monkeypatch.setattr(documents_actions, "delete_all_chunk_points", raise_vector_error)
+
+    response = api_client.post("/documents/delete/embeddings")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deleted"] == 0
+    assert payload["qdrant_deleted"] == 0
+    assert payload["qdrant_errors"] == 1
+
+    with Session(engine) as db:
+        assert db.get(DocumentEmbedding, 50) is not None
+        assert db.get(DocumentEmbedding, 51) is not None
 
 
 def test_get_local_document_note_override_sets_needs_review(
@@ -1517,3 +1849,122 @@ def test_similar_documents_exclude_reviewed_oversamples_before_top_k(
     assert [m["doc_id"] for m in payload["matches"]] == [1778]
     assert payload["hidden_reviewed"] == 1
     assert requested["top_k"] > 2
+
+def _mock_remote_document(monkeypatch: Any, doc_id: int, *, notes: list[dict[str, Any]]) -> None:
+    from app.services.integrations import paperless
+
+    remote = {
+        "id": doc_id,
+        "title": "Doc",
+        "created": "2026-02-10T10:00:00+00:00",
+        "modified": "2026-02-10T10:00:00+00:00",
+        "correspondent": None,
+        "tags": [],
+        "notes": notes,
+    }
+    monkeypatch.setattr(paperless, "get_document", lambda *a, **k: dict(remote))
+    monkeypatch.setattr(paperless, "get_document_cached", lambda *a, **k: dict(remote))
+    monkeypatch.setattr(
+        paperless, "get_documents_cached", lambda *a, **k: {doc_id: dict(remote)}
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents",
+        lambda *a, **k: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": remote["title"],
+                    "created": remote["created"],
+                    "modified": remote["modified"],
+                    "correspondent": remote["correspondent"],
+                    "tags": remote["tags"],
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        paperless,
+        "list_documents_cached",
+        lambda *a, **k: {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": doc_id,
+                    "title": remote["title"],
+                    "created": remote["created"],
+                    "modified": remote["modified"],
+                    "correspondent": remote["correspondent"],
+                    "tags": remote["tags"],
+                }
+            ],
+        },
+    )
+
+
+def test_list_and_detail_review_status_consistent_ai_summary_override(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """A doc whose only local difference is an AI summary must show the same
+    review_status (needs_review) in both the list and detail endpoints."""
+    _insert_local_document(doc_id=47, title="Doc", created="2026-02-10T10:00:00+00:00")
+    _insert_local_note(
+        doc_id=47,
+        note="Local summary text\n\nModel:gpt\nKI-Zusammenfassung",
+        note_id=-47,
+    )
+    # Remote has no AI summary note -> local AI summary is an override.
+    _mock_remote_document(monkeypatch, 47, notes=[])
+
+    list_response = api_client.get(
+        "/documents", params={"include_derived": True, "review_status": "needs_review"}
+    )
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert list_payload["count"] == 1
+    assert list_payload["results"][0]["local_overrides"] is True
+    assert list_payload["results"][0]["review_status"] == "needs_review"
+
+    detail_response = api_client.get("/documents/47/local")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["local_overrides"] is True
+    assert detail_payload["review_status"] == "needs_review"
+    # List and detail must agree.
+    assert (
+        list_payload["results"][0]["review_status"] == detail_payload["review_status"]
+    )
+
+
+def test_list_and_detail_review_status_consistent_no_ai_summary(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    """A reviewed doc with no overrides must show the same review_status
+    (reviewed) in both endpoints — the fix must not introduce false overrides."""
+    _insert_local_document(doc_id=48, title="Doc", created="2026-02-10T10:00:00+00:00")
+    _insert_suggestion_audit(doc_id=48, created_at="2026-02-11T10:00:00+00:00")
+    # Remote and local both lack an AI summary -> no override.
+    _mock_remote_document(monkeypatch, 48, notes=[])
+
+    list_response = api_client.get(
+        "/documents", params={"include_derived": True, "review_status": "reviewed"}
+    )
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert list_payload["count"] == 1
+    assert list_payload["results"][0]["local_overrides"] is False
+    assert list_payload["results"][0]["review_status"] == "reviewed"
+
+    detail_response = api_client.get("/documents/48/local")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["local_overrides"] is False
+    assert detail_payload["review_status"] == "reviewed"
+    assert (
+        list_payload["results"][0]["review_status"] == detail_payload["review_status"]
+    )

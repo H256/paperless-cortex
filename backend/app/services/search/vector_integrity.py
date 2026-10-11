@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.models import Document, DocumentEmbedding
 from app.services.search import vector_store
-from app.services.search.embeddings import make_point_id
+from app.services.search.embeddings import make_point_id, per_source_counts
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -30,15 +30,15 @@ def _count_found_vectors(
     settings: Settings,
     *,
     doc_id: int,
-    chunk_count: int,
-    sources: list[str],
+    source_counts: dict[str, int],
     retrieve_points_fn: RetrievePointsFn,
     batch_size: int,
 ) -> tuple[int, int]:
     found_vectors = 0
     expected_vectors = 0
-    for source in sources:
-        point_ids = [make_point_id(doc_id, chunk, source) for chunk in range(chunk_count)]
+    for source, count in source_counts.items():
+        count = max(0, int(count))
+        point_ids = [make_point_id(doc_id, chunk, source) for chunk in range(count)]
         expected_vectors += len(point_ids)
         for start in range(0, len(point_ids), batch_size):
             payload = retrieve_points_fn(
@@ -85,15 +85,14 @@ def audit_missing_vector_chunks(
         sources = _expected_sources(embedding.embedding_source)
         if not sources:
             continue
-        chunk_count = int(embedding.chunk_count or 0)
-        if chunk_count <= 0:
+        source_counts = per_source_counts(embedding, source_hint=str(embedding.embedding_source or ""))
+        if not source_counts:
             continue
         scanned_docs += 1
         expected_vectors, found_vectors = _count_found_vectors(
             settings,
             doc_id=int(embedding.doc_id),
-            chunk_count=chunk_count,
-            sources=sources,
+            source_counts=source_counts,
             retrieve_points_fn=retrieve_points,
             batch_size=batch_size,
         )
@@ -111,7 +110,7 @@ def audit_missing_vector_chunks(
                     "doc_id": int(embedding.doc_id),
                     "title": str(title) if title is not None else None,
                     "embedding_source": embedding.embedding_source,
-                    "chunk_count": chunk_count,
+                    "chunk_count": sum(source_counts.values()),
                     "expected_vectors": expected_vectors,
                     "found_vectors": found_vectors,
                     "fully_missing": fully_missing,
