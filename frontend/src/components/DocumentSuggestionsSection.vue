@@ -84,6 +84,83 @@
           </div>
         </div>
       </div>
+      <details
+        class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+        data-testid="suggest-guidance"
+        :open="guidanceActive"
+      >
+        <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Guidance for "Suggest new"
+          <span v-if="guidanceActive" class="ml-2 text-xs font-normal text-emerald-600 dark:text-emerald-300"
+            >active</span
+          >
+        </summary>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          The model only sees the text, not the page layout. Mark the passage that contains the
+          answer, or add a short instruction. It is sent with every "Suggest new" request below.
+        </p>
+        <label class="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+          Hint (optional)
+          <input
+            v-model="hint"
+            type="text"
+            maxlength="300"
+            class="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-normal text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            placeholder="e.g. invoice date, not the delivery date"
+            data-testid="guidance-hint"
+          />
+        </label>
+        <div class="mt-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Document text</span>
+            <select
+              v-if="textSources.length > 1"
+              v-model="activeTextSource"
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+              data-testid="guidance-source"
+            >
+              <option v-for="source in textSources" :key="source.key" :value="source.key">
+                {{ source.label }}
+              </option>
+            </select>
+            <button
+              type="button"
+              class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+              data-testid="guidance-use-selection"
+              @click="useSelectionAsFocus"
+            >
+              Use selected text as focus
+            </button>
+          </div>
+          <pre
+            ref="guidanceTextRef"
+            class="mt-2 max-h-48 select-text overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            data-testid="guidance-text"
+            >{{ activeTextSourceText || 'No document text available.' }}</pre
+          >
+          <div v-if="guidanceNotice" class="mt-1 text-xs text-amber-600 dark:text-amber-300">
+            {{ guidanceNotice }}
+          </div>
+        </div>
+        <div
+          v-if="focusText"
+          class="mt-3 flex items-start justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs dark:border-emerald-900/50 dark:bg-emerald-950/30"
+          data-testid="guidance-focus"
+        >
+          <span class="min-w-0 break-words text-slate-800 dark:text-slate-100"
+            ><span class="font-semibold">Focus:</span> {{ focusPreview }}</span
+          >
+          <button
+            type="button"
+            class="shrink-0 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            data-testid="guidance-clear-focus"
+            @click="focusText = ''"
+          >
+            Clear
+          </button>
+        </div>
+      </details>
+
       <div class="grid gap-4 lg:grid-cols-2">
         <div
           v-for="panel in orderedPanels"
@@ -174,7 +251,7 @@
                   v-if="panel.allowActions"
                   class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                   :disabled="suggestionsLoading || isVariantLoading(panel.source, 'note')"
-                  @click="emit('suggestField', panel.source, 'note')"
+                  @click="requestSuggest(panel.source, 'note')"
                 >
                   <span
                     v-if="isVariantLoading(panel.source, 'note')"
@@ -358,7 +435,7 @@
                     v-if="panel.allowActions"
                     class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     :disabled="suggestionsLoading || isVariantLoading(panel.source, field.key)"
-                    @click="emit('suggestField', panel.source, field.key)"
+                    @click="requestSuggest(panel.source, field.key)"
                   >
                     <span
                       v-if="isVariantLoading(panel.source, field.key)"
@@ -496,15 +573,21 @@ const props = withDefaults(defineProps<{
   }
   currentTagList?: string[]
   applying?: boolean
+  textSources?: Array<{ key: string; label: string; text: string }>
   textCandidates?: {
     dates?: DateCandidate[]
     correspondents?: CorrespondentCandidate[]
   } | null
-}>(), { currentTagList: () => [], applying: false, textCandidates: null })
+}>(), { currentTagList: () => [], applying: false, textCandidates: null, textSources: () => [] })
 
 const emit = defineEmits<{
   (e: 'refresh', source: SuggestionSource): void
-  (e: 'suggestField', source: SuggestionSource, field: string): void
+  (
+    e: 'suggestField',
+    source: SuggestionSource,
+    field: string,
+    guidance?: { focus_text?: string; hint?: string },
+  ): void
   (e: 'applyVariant', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyVariantToDocument', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyToDocument', source: string, field: string, value: unknown): void
@@ -659,7 +742,7 @@ const variantError = (source: SuggestionSource, field: string) =>
   props.suggestionVariantError[`${source}:${field}`] || ''
 
 const generateAllVariants = (source: SuggestionSource) => {
-  suggestionFields.forEach((field) => emit('suggestField', source, field.key))
+  suggestionFields.forEach((field) => requestSuggest(source, field.key))
 }
 
 const showVariantDialog = ref(false)
@@ -760,6 +843,61 @@ const selectionLabels: Record<string, string> = {
 }
 
 const TEXT_CANDIDATES_SOURCE = 'text_candidates'
+
+// Reviewer guidance for "Suggest new": a passage marked in the document text and a hint.
+const hint = ref('')
+const focusText = ref('')
+const guidanceNotice = ref('')
+const guidanceTextRef = ref<HTMLElement | null>(null)
+const activeTextSource = ref('')
+const FOCUS_MAX_CHARS = 2000
+
+const activeTextSourceText = computed(() => {
+  const sources = props.textSources
+  const match = sources.find((source) => source.key === activeTextSource.value) ?? sources[0]
+  return match?.text ?? ''
+})
+
+watch(
+  () => props.textSources.map((source) => source.key).join('|'),
+  () => {
+    if (!props.textSources.some((source) => source.key === activeTextSource.value)) {
+      activeTextSource.value = props.textSources[0]?.key ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+const guidanceActive = computed(() => Boolean(focusText.value || hint.value.trim()))
+const focusPreview = computed(() =>
+  focusText.value.length > 220 ? `${focusText.value.slice(0, 220)}…` : focusText.value,
+)
+
+const useSelectionAsFocus = () => {
+  guidanceNotice.value = ''
+  const selection = typeof window !== 'undefined' ? window.getSelection() : null
+  const container = guidanceTextRef.value
+  const selected = selection?.toString().trim() ?? ''
+  const anchor = selection?.anchorNode ?? null
+  if (!selected || !container || !anchor || !container.contains(anchor)) {
+    guidanceNotice.value = 'Select a passage inside the document text first.'
+    return
+  }
+  focusText.value = selected.slice(0, FOCUS_MAX_CHARS)
+  if (selected.length > FOCUS_MAX_CHARS) {
+    guidanceNotice.value = `Selection shortened to ${FOCUS_MAX_CHARS} characters.`
+  }
+  selection?.removeAllRanges()
+}
+
+const requestSuggest = (source: SuggestionSource, field: string) => {
+  const guidance: { focus_text?: string; hint?: string } = {}
+  if (focusText.value) guidance.focus_text = focusText.value
+  const trimmedHint = hint.value.trim()
+  if (trimmedHint) guidance.hint = trimmedHint
+  if (Object.keys(guidance).length) emit('suggestField', source, field, guidance)
+  else emit('suggestField', source, field)
+}
 
 const sourceLabel = (source: string) => {
   if (source === TEXT_CANDIDATES_SOURCE) return 'Text'

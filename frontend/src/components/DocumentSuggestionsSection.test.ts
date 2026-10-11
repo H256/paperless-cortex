@@ -147,3 +147,110 @@ describe('DocumentSuggestionsSection text candidates', () => {
     expect(wrapper.find('[data-testid="text-candidates"]').exists()).toBe(false)
   })
 })
+
+describe('DocumentSuggestionsSection guidance for Suggest new', () => {
+  const mountWithText = () =>
+    mount(DocumentSuggestionsSection, {
+      attachTo: document.body,
+      props: {
+        suggestions: {
+          vision_ocr: { parsed: { title: 'Rechnung', date: '2026-09-18' } },
+        },
+        suggestionsError: '',
+        suggestionsLoading: false,
+        suggestionVariants: {},
+        suggestionVariantLoading: {},
+        suggestionVariantError: {},
+        currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+        textSources: [
+          {
+            key: 'paperless_ocr',
+            label: 'Paperless OCR',
+            text: 'Lieferdatum: 18.09.2026\nRechnungsdatum: 20.09.2026\nZahlbar bis 04.10.2026',
+          },
+          { key: 'vision_ocr', label: 'Vision OCR', text: 'Vision text' },
+        ],
+      },
+    })
+
+  const selectInText = (wrapper: ReturnType<typeof mountWithText>, needle: string) => {
+    const pre = wrapper.find('[data-testid="guidance-text"]').element
+    const node = pre.firstChild as Text
+    const start = (node.textContent ?? '').indexOf(needle)
+    const range = document.createRange()
+    range.setStart(node, start)
+    range.setEnd(node, start + needle.length)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
+  const suggestButtons = (wrapper: ReturnType<typeof mountWithText>) =>
+    wrapper.findAll('button').filter((b) => b.text().includes('Suggest new'))
+
+  it('shows the document text with a source switch', () => {
+    const wrapper = mountWithText()
+    expect(wrapper.find('[data-testid="guidance-text"]').text()).toContain('Rechnungsdatum')
+    expect(wrapper.find('[data-testid="guidance-source"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('uses the marked passage and the hint for every Suggest new request', async () => {
+    const wrapper = mountWithText()
+    selectInText(wrapper, 'Rechnungsdatum: 20.09.2026')
+    await wrapper.find('[data-testid="guidance-use-selection"]').trigger('click')
+    await wrapper.find('[data-testid="guidance-hint"]').setValue('Rechnungsdatum, nicht Lieferdatum')
+
+    expect(wrapper.find('[data-testid="guidance-focus"]').text()).toContain(
+      'Rechnungsdatum: 20.09.2026',
+    )
+
+    await suggestButtons(wrapper)[0]!.trigger('click')
+
+    const calls = wrapper.emitted('suggestField') ?? []
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.[2]).toEqual({
+      focus_text: 'Rechnungsdatum: 20.09.2026',
+      hint: 'Rechnungsdatum, nicht Lieferdatum',
+    })
+    wrapper.unmount()
+  })
+
+  it('sends no guidance when nothing was marked or typed', async () => {
+    const wrapper = mountWithText()
+    await suggestButtons(wrapper)[0]!.trigger('click')
+    const calls = wrapper.emitted('suggestField') ?? []
+    expect(calls[0]).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('rejects a selection outside of the document text', async () => {
+    const wrapper = mountWithText()
+    const outside = document.createElement('p')
+    outside.textContent = 'somewhere else'
+    document.body.appendChild(outside)
+    const range = document.createRange()
+    range.selectNodeContents(outside)
+    window.getSelection()?.removeAllRanges()
+    window.getSelection()?.addRange(range)
+
+    await wrapper.find('[data-testid="guidance-use-selection"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="guidance-focus"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Select a passage inside the document text first.')
+    outside.remove()
+    wrapper.unmount()
+  })
+
+  it('clears the focus passage', async () => {
+    const wrapper = mountWithText()
+    selectInText(wrapper, 'Zahlbar bis 04.10.2026')
+    await wrapper.find('[data-testid="guidance-use-selection"]').trigger('click')
+    expect(wrapper.find('[data-testid="guidance-focus"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="guidance-clear-focus"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="guidance-focus"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})
