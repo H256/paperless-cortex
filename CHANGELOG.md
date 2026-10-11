@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/381-suggest-focus-passage)
+
+### "Suggest new" with a marked passage and a hint (#381, tracking #359)
+- `7926a88` feat(api): `POST /documents/{id}/suggestions/field` accepts `focus_text` and `hint`; [`build_reviewer_guidance`](backend/app/services/ai/suggestions.py) prefixes the field prompt (hint as plain instruction, focus passage fenced as untrusted text, length limits, control characters removed); the queued `suggest_field` task carries both values. Without guidance nothing changes.
+- `7926a88` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) gets a "Guidance for Suggest new" section (document text with source switch, "Use selected text as focus", hint input, focus chip); the guidance is sent with every Suggest new request.
+- `7926a88` docs(plan): [`docs/plans/2026-10-11-suggest-focus-passage.md`](docs/plans/2026-10-11-suggest-focus-passage.md).
+- `7926a88` test: `cd backend && uv run pytest -q tests/test_suggestion_llm_helper.py tests/test_documents_suggestions_routes.py tests/test_worker_suggest_field.py tests/test_suggestions_prompt_injection.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean (stacked on #374).
+
 ## 2026-10-11 (branch: agent/373-text-candidates)
 
 ### Deterministic date and correspondent candidates from the document text (#373, tracking #359)
