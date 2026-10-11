@@ -59,6 +59,7 @@
     </div>
     <div v-if="showProcessingBadges" class="mt-2 space-y-1">
       <DocumentProcessingBadges :doc="doc" />
+      <DocumentAttentionBadges :doc="doc" />
       <div
         v-if="doc.id != null && runningLabel"
         class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
@@ -114,6 +115,7 @@
 import { computed } from 'vue'
 import { Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
+import DocumentAttentionBadges from './DocumentAttentionBadges.vue'
 import type { DocumentRow } from '../services/documents'
 import { isPlainLeftClick } from '../utils/suggestionSelection'
 

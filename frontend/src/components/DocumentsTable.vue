@@ -226,6 +226,7 @@
             <td class="px-6 py-3">
               <div class="space-y-1">
                 <DocumentProcessingBadges :doc="doc" />
+                <DocumentAttentionBadges :doc="doc" />
                 <div
                   v-if="doc.id != null && runningByDocId[doc.id]"
                   class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
@@ -240,13 +241,6 @@
                     @click.stop="copyDocId(doc.id)"
                   >
                     {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
-                  </button>
-                  <button
-                    type="button"
-                    class="hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 md:inline-flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
-                    @click.stop="onRowClick($event, doc.id)"
-                  >
-                    Open
                   </button>
                   <button
                     type="button"
@@ -325,6 +319,7 @@
 import { ref, watch } from 'vue'
 import { ChevronDown, Database, ExternalLink, Pencil } from 'lucide-vue-next'
 import DocumentProcessingBadges from './DocumentProcessingBadges.vue'
+import DocumentAttentionBadges from './DocumentAttentionBadges.vue'
 import DocumentCard from './DocumentCard.vue'
 import { isNewTabClick } from '../utils/suggestionSelection'
 import type { Correspondent, DocumentRow } from '../services/documents'
@@ -427,8 +422,9 @@ const copyDocId = async (id: number | null | undefined) => {
   }
 }
 
+// Everything that is not reviewed yet gets the one-click "Review" shortcut.
 const needsReview = (doc: DocumentRow) =>
-  doc.review_status === 'needs_review' || Boolean(doc.local_overrides)
+  doc.review_status !== 'reviewed' || Boolean(doc.local_overrides)
 
 const correspondentLabel = (id?: number | null, name?: string | null) => {
   if (name) return name

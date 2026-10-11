@@ -22,7 +22,12 @@
 
       <div class="text-slate-500">Pending</div>
       <div class="font-semibold text-amber-600">{{ stats.unprocessed }}</div>
-      <div class="text-slate-500">Processed*</div>
+      <div
+        class="text-slate-500"
+        title="Documents with embeddings (same number as Embeddings)."
+      >
+        Processed*
+      </div>
       <div class="font-semibold text-emerald-600">{{ stats.processed }}</div>
     </div>
     <div

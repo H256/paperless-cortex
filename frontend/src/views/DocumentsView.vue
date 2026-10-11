@@ -65,6 +65,7 @@
       :search-query="searchQuery"
       :selected-correspondent="selectedCorrespondent"
       :issue-date-is-import-date="issueDateIsImportDate"
+      :counts="presetCounts"
       @apply-preset="applyTriagePreset"
     />
 
@@ -116,6 +117,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toastStore'
 import { useDocumentsCatalog } from '../composables/useDocumentsCatalog'
+import { useReviewSummary } from '../composables/useReviewSummary'
 import { useDocumentsTableControls } from '../composables/useDocumentsTableControls'
 import { useProcessingOverview } from '../composables/useProcessingOverview'
 import { useProcessingMetrics } from '../composables/useProcessingMetrics'
@@ -177,6 +179,19 @@ const { visibleDocuments: filteredDocuments } = useVisibleDocuments(
   modelFilter,
 )
 const { runningByDocId } = useRunningTaskProgress()
+
+// Library-wide counters on the presets (what is left to work through).
+const { summary: reviewSummary } = useReviewSummary()
+const presetCounts = computed(() => {
+  const summary = reviewSummary.value
+  if (!summary) return undefined
+  return {
+    unreviewed: summary.unreviewed,
+    needs_review: summary.needs_review,
+    no_correspondent: summary.no_correspondent,
+    import_date: summary.issue_date_is_import_date,
+  }
+})
 const visibleDocuments = computed(() => {
   if (!runningOnly.value) return filteredDocuments.value
   return filteredDocuments.value.filter((doc) =>
