@@ -126,6 +126,22 @@ vi.mock('../composables/useVisibleDocuments', () => ({
   }),
 }))
 
+vi.mock('../composables/useReviewSummary', () => ({
+  useReviewSummary: () => ({
+    loading: ref(false),
+    error: ref(''),
+    summary: ref({
+      total: 10,
+      reviewed: 4,
+      unreviewed: 5,
+      needs_review: 1,
+      no_correspondent: 2,
+      issue_date_is_import_date: 3,
+    }),
+    refresh: vi.fn(async () => undefined),
+  }),
+}))
+
 vi.mock('../composables/useRunningTaskProgress', () => ({
   useRunningTaskProgress: () => ({
     runningByDocId: ref({ 11: { task: 'sync' } }),
