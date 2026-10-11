@@ -582,4 +582,35 @@ describe('DocumentDetailView', () => {
     route.params.id = '1'
     wrapper.unmount()
   })
+  it('confirms a single apply (preset) with a toast that says it is only local', async () => {
+    route.query = { tab: 'suggestions' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: {
+            emits: ['applyToDocument'],
+            template: `<button data-test="preset" @click="$emit('applyToDocument', 'preset', 'date', '2026-10-10')">p</button>`,
+          },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+    toastPush.mockClear()
+
+    await wrapper.get('[data-test="preset"]').trigger('click')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const messages = toastPush.mock.calls.map((call) => String(call[0]))
+    expect(messages.some((m) => m.includes('Applied issue date') && m.includes('Write back'))).toBe(true)
+    wrapper.unmount()
+  })
 })
