@@ -191,7 +191,6 @@ describe('DocumentsView', () => {
           },
           DocumentsFiltersPanel: true,
           DocumentsActiveFiltersStrip: true,
-          DocumentsPresetBar: true,
           DocumentsQuickControls: true,
           DocumentsEmptyState: true,
           DocumentsTable: {
@@ -241,7 +240,6 @@ describe('DocumentsView', () => {
           DocumentsHeaderSection: true,
           DocumentsFiltersPanel: true,
           DocumentsActiveFiltersStrip: true,
-          DocumentsPresetBar: true,
           DocumentsQuickControls: true,
           DocumentsTable: true,
         },
@@ -269,7 +267,6 @@ describe('DocumentsView', () => {
           DocumentsHeaderSection: true,
           DocumentsFiltersPanel: true,
           DocumentsActiveFiltersStrip: true,
-          DocumentsPresetBar: true,
           DocumentsQuickControls: true,
           DocumentsTable: true,
         },
@@ -297,7 +294,6 @@ describe('DocumentsView', () => {
           DocumentsHeaderSection: true,
           DocumentsFiltersPanel: true,
           DocumentsActiveFiltersStrip: true,
-          DocumentsPresetBar: true,
           DocumentsQuickControls: true,
           DocumentsEmptyState: true,
           DocumentsTable: {
