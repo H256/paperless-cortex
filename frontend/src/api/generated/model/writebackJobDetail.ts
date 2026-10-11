@@ -19,4 +19,5 @@ export interface WritebackJobDetail {
   error?: string | null;
   doc_ids?: number[];
   calls?: WritebackDryRunCall[];
+  applied_calls_count?: number;
 }

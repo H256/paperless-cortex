@@ -7,6 +7,10 @@
 
 export type IngestEmbeddingsEmbeddingsIngestPostParams = {
 doc_id?: number | null;
+/**
+ * @minimum 1
+ * @maximum 10000
+ */
 limit?: number;
 force?: boolean;
 };

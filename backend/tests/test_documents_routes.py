@@ -1973,8 +1973,9 @@ def test_list_and_detail_review_status_consistent_no_ai_summary(
 def _mock_import_date_rows(monkeypatch: Any) -> None:
     from app.services.integrations import paperless
 
-    for doc_id in (51, 52, 53):
-        _insert_local_document(doc_id=doc_id, title=f"Doc {doc_id}", created="2026-09-20T08:00:00+00:00")
+    # Local rows overlay the remote ones, so their `created` must match the remote rows.
+    for doc_id, created in ((51, "2026-09-20"), (52, "2026-09-05"), (53, "2026-09-20")):
+        _insert_local_document(doc_id=doc_id, title=f"Doc {doc_id}", created=created)
     rows = [
         # issue date (created) == import day -> Paperless fell back to the import date
         {
