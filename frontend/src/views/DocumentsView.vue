@@ -54,6 +54,7 @@
       :model-filter="modelFilter"
       :search-query="searchQuery"
       :running-only="runningOnly"
+      :issue-date-is-import-date="issueDateIsImportDate"
       @clear-filter="clearFilter"
       @clear-all="clearAllFilters"
     />
@@ -62,6 +63,8 @@
       :analysis-filter="analysisFilter"
       :review-status="selectedReviewStatus"
       :search-query="searchQuery"
+      :selected-correspondent="selectedCorrespondent"
+      :issue-date-is-import-date="issueDateIsImportDate"
       @apply-preset="applyTriagePreset"
     />
 
@@ -149,6 +152,7 @@ const {
   dateFrom,
   dateTo,
   searchQuery,
+  issueDateIsImportDate,
   documentsLoading,
   documentsError,
   refetchDocuments,
@@ -352,6 +356,7 @@ const resetQuickFilters = () => {
   modelFilter.value = ''
   searchQuery.value = ''
   runningOnly.value = false
+  issueDateIsImportDate.value = false
   page.value = 1
 }
 
@@ -365,7 +370,8 @@ const clearFilter = (
     | 'review'
     | 'model'
     | 'search'
-    | 'running_only',
+    | 'running_only'
+    | 'import_date',
 ) => {
   if (key === 'correspondent') selectedCorrespondent.value = ''
   if (key === 'tag') selectedTag.value = ''
@@ -376,6 +382,7 @@ const clearFilter = (
   if (key === 'model') modelFilter.value = ''
   if (key === 'search') searchQuery.value = ''
   if (key === 'running_only') runningOnly.value = false
+  if (key === 'import_date') issueDateIsImportDate.value = false
   page.value = 1
 }
 
@@ -389,10 +396,24 @@ const clearAllFilters = () => {
   modelFilter.value = ''
   searchQuery.value = ''
   runningOnly.value = false
+  issueDateIsImportDate.value = false
   page.value = 1
 }
 
-const applyTriagePreset = (key: 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox') => {
+const applyTriagePreset = (
+  key: 'unreviewed' | 'needs_review' | 'not_analyzed' | 'inbox' | 'no_correspondent' | 'import_date',
+) => {
+  // Filter presets keep the other filters (e.g. review status) and toggle on/off.
+  if (key === 'no_correspondent') {
+    selectedCorrespondent.value = selectedCorrespondent.value === '-1' ? '' : '-1'
+    page.value = 1
+    return
+  }
+  if (key === 'import_date') {
+    issueDateIsImportDate.value = !issueDateIsImportDate.value
+    page.value = 1
+    return
+  }
   if (key === 'unreviewed') {
     selectedReviewStatus.value = 'unreviewed'
     analysisFilter.value = 'all'
@@ -426,6 +447,7 @@ useDocumentsRouteState({
   modelFilter,
   searchQuery,
   runningOnly,
+  issueDateIsImportDate,
   viewMode: listViewMode,
 })
 

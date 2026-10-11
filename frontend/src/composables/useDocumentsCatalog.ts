@@ -13,6 +13,8 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
   const dateFrom = ref('')
   const dateTo = ref('')
   const searchQuery = ref('')
+  // Issue date falls on the import day: Paperless most likely did not recognize a date.
+  const issueDateIsImportDate = ref(false)
 
   // Mirrors queryKey entries after [name, page, pageSize].
   const currentFilterKey = computed(() =>
@@ -25,6 +27,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
       dateTo.value,
       searchQuery.value.trim(),
       options?.includeSummaryPreview?.value ?? false,
+      issueDateIsImportDate.value,
     ].join('|'),
   )
 
@@ -41,6 +44,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
       dateTo.value,
       searchQuery.value.trim(),
       options?.includeSummaryPreview?.value ?? false,
+      issueDateIsImportDate.value,
     ]),
     queryFn: () =>
       listDocuments({
@@ -55,6 +59,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
         include_derived: true,
         include_summary_preview: options?.includeSummaryPreview?.value ?? false,
         review_status: selectedReviewStatus.value,
+        issue_date_is_import_date: issueDateIsImportDate.value || undefined,
       }),
     // Keep the old rows only while paging/ordering within the same filter set;
     // a filter change must never show rows that do not match the new filter.
@@ -97,6 +102,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
     include_derived: true,
     include_summary_preview: false,
     review_status: selectedReviewStatus.value,
+    issue_date_is_import_date: issueDateIsImportDate.value || undefined,
   }))
 
   const documents = computed<DocumentRow[]>(() => listQuery.data.value?.results ?? [])
@@ -116,6 +122,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
     dateFrom,
     dateTo,
     searchQuery,
+    issueDateIsImportDate,
     documents,
     listRequest,
     totalCount,

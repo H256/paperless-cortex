@@ -18,6 +18,7 @@ DocumentsPageKey = tuple[
     bool,
     bool,
     str,
+    bool,
 ]
 
 _CACHE_TTL_SECONDS = 15
