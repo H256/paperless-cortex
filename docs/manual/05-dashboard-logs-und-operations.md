@@ -13,6 +13,10 @@ Es eignet sich besonders für:
 - grobe Last- und Bestandsabschätzung,
 - Erkennen von Schwerpunkten bei Korrespondenten, Tags oder Dokumenttypen.
 
+### 1.00 Statusanzeige oben rechts
+
+Die Anzeige neben dem Theme-Schalter zeigt `Idle`, wenn nichts läuft. Läuft Verarbeitung, steht dort der Fortschritt und was gerade arbeitet, z. B. `Processing 4/10 · Vision OCR 3/12 · #2210 +1` (`+1` = eine weitere Aufgabe parallel). Ein Klick öffnet die Queue.
+
 ### 1.0 Review-Fortschritt
 
 Ganz oben zeigt die Karte `Review progress`, wie weit Sie mit dem Durchsehen sind:

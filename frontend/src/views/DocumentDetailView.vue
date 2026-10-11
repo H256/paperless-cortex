@@ -26,7 +26,14 @@
       @reload="reloadAll"
     />
 
-    <div v-if="showLoading" class="mt-6 text-sm text-slate-500">Loading...</div>
+    <div v-if="showLoading" class="mt-6 space-y-4" data-testid="detail-skeleton" aria-busy="true">
+      <div class="text-sm text-slate-500">Loading...</div>
+      <div class="h-10 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+      <div class="grid gap-4 xl:grid-cols-2">
+        <div class="h-64 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+        <div class="h-64 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+      </div>
+    </div>
     <div v-else class="mt-6 space-y-4">
       <div
         :class="splitActive
@@ -73,6 +80,7 @@
         :ocr-scores="ocrScores"
         :ocr-scores-loading="ocrScoresLoading"
         :ocr-scores-error="ocrScoresError"
+        :ocr-comparison="ocrComparison"
       />
 
       <DocumentSuggestionsSection
@@ -86,6 +94,8 @@
         :suggestion-variant-wait="suggestionVariantWait"
         :current-values="currentValues"
         :compact="splitActive"
+        :recommended-text-source="ocrComparison.recommendedSource"
+        :recommendation-reason="ocrComparison.reason"
         :current-tag-list="currentTagList"
         :text-candidates="textCandidates"
         :text-sources="guidanceTextSources"
@@ -95,7 +105,7 @@
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"
         @apply-variant-to-document="applyVariantToDocumentAction"
-        @apply-to-document="applyToDocument"
+        @apply-to-document="applyToDocumentAction"
         @apply-selected="applySelectedAction"
         @jump-to-page="onPdfPageChange"
       />
@@ -319,6 +329,7 @@ const {
   ocrScores,
   ocrScoresLoading,
   ocrScoresError,
+  ocrComparison,
   suggestions,
   suggestionsLoading,
   suggestionsError,
@@ -692,11 +703,37 @@ const applySelectedAction = async (items: SuggestionApplyItem[]) => {
         3200,
       )
     } else {
-      toastStore.push(`Applied: ${applied.join(', ')}`, 'success', 'Suggestions', 2200)
+      toastStore.push(
+        `Applied: ${applied.join(', ')}. Saved locally, use "Write back" to send it to Paperless.`,
+        'success',
+        'Suggestions',
+        3200,
+      )
     }
   } finally {
     suggestionsApplying.value = false
   }
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  title: 'title',
+  date: 'issue date',
+  correspondent: 'correspondent',
+  tags: 'tags',
+  note: 'summary',
+}
+
+// Single applies (presets, "Use" on a variant) used to give no confirmation at all.
+const applyToDocumentAction = async (source: string, field: string, value: unknown) => {
+  suggestionsError.value = ''
+  await applyToDocument(source, field, value)
+  if (suggestionsError.value) return // shown inline in the suggestions section
+  toastStore.push(
+    `Applied ${FIELD_LABELS[field] ?? field}. Saved locally, use "Write back" to send it to Paperless.`,
+    'success',
+    'Suggestions',
+    3200,
+  )
 }
 
 const applyVariantAction = async (

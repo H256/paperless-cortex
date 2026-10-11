@@ -515,6 +515,11 @@ class DocumentOcrScoreOut(BaseModel):
 class DocumentOcrScoresResponse(BaseModel):
     doc_id: int
     scores: list[DocumentOcrScoreOut] = []
+    # Share of words both OCR texts contain (0-1); None when one text is missing.
+    agreement: float | None = None
+    # OCR source whose text reads better (None: too close to call or nothing scored).
+    recommended_source: str | None = None
+    recommendation_reason: str | None = None
 
 
 class SuggestionsResponse(BaseModel):

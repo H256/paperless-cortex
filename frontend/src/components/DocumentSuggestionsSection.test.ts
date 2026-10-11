@@ -451,3 +451,40 @@ describe('DocumentSuggestionsSection compact table', () => {
   })
 })
 
+describe('DocumentSuggestionsSection recommended text source', () => {
+  const props = {
+    suggestions: { vision_ocr: { parsed: { title: 'Rechnung' } } },
+    suggestionsError: '',
+    suggestionsLoading: false,
+    suggestionVariants: {},
+    suggestionVariantLoading: {},
+    suggestionVariantError: {},
+    currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+    currentTagList: [],
+    textSources: [
+      { key: 'paperless_ocr', label: 'Paperless OCR', text: 'a' },
+      { key: 'vision_ocr', label: 'Vision OCR', text: 'b' },
+    ],
+    recommendedTextSource: 'vision_ocr',
+    recommendationReason: 'Readability 94 vs 60 for the other text.',
+  }
+
+  it('hints the better text but does not preselect it', () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    expect(wrapper.get('[data-testid="recommended-text-source"]').text()).toContain('Vision OCR')
+    const select = wrapper.get('[data-testid="guidance-model-text"]').element as HTMLSelectElement
+    expect(select.value).toBe('')
+    wrapper.unmount()
+  })
+
+  it('uses the recommended text only when the reviewer asks for it', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    await wrapper.get('[data-testid="use-recommended-text-source"]').trigger('click')
+
+    const select = wrapper.get('[data-testid="guidance-model-text"]').element as HTMLSelectElement
+    expect(select.value).toBe('vision_ocr')
+    expect(wrapper.find('[data-testid="use-recommended-text-source"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})
+

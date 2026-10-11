@@ -116,6 +116,38 @@ const areFlatQueriesEqual = (left: Record<string, string>, right: Record<string,
   return true
 }
 
+const LAST_QUERY_KEY = 'documents_last_query'
+
+/** The filters the reviewer used last, restored when the list is opened without any filter. */
+export const readStoredDocumentsQuery = (): Record<string, string> | null => {
+  try {
+    const raw = window.localStorage.getItem(LAST_QUERY_KEY)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    const out: Record<string, string> = {}
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === 'string' && value && key !== 'page') out[key] = value
+    }
+    return Object.keys(out).length ? out : null
+  } catch {
+    return null
+  }
+}
+
+const storeDocumentsQuery = (query: Record<string, string>) => {
+  try {
+    const { page: _page, ...filters } = query
+    if (Object.keys(filters).length) {
+      window.localStorage.setItem(LAST_QUERY_KEY, JSON.stringify(filters))
+    } else {
+      window.localStorage.removeItem(LAST_QUERY_KEY)
+    }
+  } catch {
+    // storage may be unavailable; the filters then only last for this page view
+  }
+}
+
 export const useDocumentsRouteState = (refs: RouteStateRefs) => {
   const route = useRoute()
   const router = useRouter()
@@ -123,7 +155,9 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
   const syncing = ref(false)
 
   onMounted(() => {
-    applyQueryToRefs(route.query, refs)
+    // Opened without any filter (e.g. from the navigation): continue with the last one used.
+    const hasQuery = Object.keys(normalizeQueryForCompare(route.query)).length > 0
+    applyQueryToRefs(hasQuery ? route.query : (readStoredDocumentsQuery() ?? route.query), refs)
     ready.value = true
   })
 
@@ -157,6 +191,7 @@ export const useDocumentsRouteState = (refs: RouteStateRefs) => {
     async () => {
       if (!ready.value) return
       const nextQuery = buildQueryFromRefs(refs)
+      storeDocumentsQuery(nextQuery)
       const currentQuery = normalizeQueryForCompare(route.query)
       if (areFlatQueriesEqual(currentQuery, nextQuery)) return
       syncing.value = true
