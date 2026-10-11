@@ -206,6 +206,45 @@ def test_process_suggest_field_forwards_queued_focus_passage_and_hint(
     assert captured["hint"] == "Rechnungsdatum, nicht Lieferdatum"
 
 
+def test_process_suggest_field_forwards_queued_avoid_variants(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    from app import worker as worker_mod
+
+    settings = load_settings()
+    captured: dict[str, Any] = {}
+
+    with session_factory() as db:
+        db.add(Document(id=705, title="Doc 705", content="paperless text", page_count=1))
+        db.commit()
+
+        monkeypatch.setattr(worker_mod.paperless, "get_document", lambda *_a, **_k: {"id": 705})
+        monkeypatch.setattr(worker_mod, "get_cached_tags", lambda *_a, **_k: [])
+        monkeypatch.setattr(worker_mod, "get_cached_correspondents", lambda *_a, **_k: [])
+
+        def fake_generate(_settings: Any, _document: Any, _text: str, **kwargs: Any) -> dict[str, Any]:
+            captured.update(kwargs)
+            return {"variants": ["2026-09-20"]}
+
+        monkeypatch.setattr(worker_mod, "generate_field_variants", fake_generate)
+        monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
+        monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
+
+        _process_suggest_field(
+            settings,
+            db,
+            {
+                "doc_id": 705,
+                "source": "paperless_ocr",
+                "field": "title",
+                "count": 1,
+                "avoid_variants": ["Already shown A", "Already shown B"],
+            },
+        )
+
+    assert captured["avoid_variants"] == ["Already shown A", "Already shown B"]
+
+
 def test_process_suggest_field_reads_the_requested_text_source(
     session_factory: Any, monkeypatch: Any
 ) -> None:

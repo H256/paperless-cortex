@@ -243,6 +243,30 @@ def build_reviewer_guidance(focus_text: str | None, hint: str | None) -> str:
     return "\n".join(parts)
 
 
+def build_avoid_variants_instruction(avoid_variants: list[str | int | float] | None) -> str:
+    """Instruction telling the model which previously-shown values to avoid repeating.
+
+    ``avoid_variants`` are values the model (or a prior run) already produced and the
+    reviewer did not apply, so a re-run should return different ones. Values are
+    sanitized to strip control characters. Returns an empty string when there is
+    nothing to avoid.
+    """
+    if not avoid_variants:
+        return ""
+    cleaned: list[str] = []
+    for value in avoid_variants:
+        text = str(value).strip()
+        text = _CONTROL_CHARS.sub("", text)
+        if text and text not in cleaned:
+            cleaned.append(text)
+    if not cleaned:
+        return ""
+    return (
+        "Do not repeat these already-shown values — return different ones instead:\n"
+        + "\n".join(f"- {value}" for value in cleaned)
+    )
+
+
 def _run_suggestion_llm(
     settings: Settings,
     document: dict[str, Any],
@@ -253,6 +277,7 @@ def _run_suggestion_llm(
     text: str,
     extra_replacements: dict[str, str] | None = None,
     guidance: str = "",
+    avoid_variants: list[str | int | float] | None = None,
     debug_prompt_label: str,
     response_label: str,
     parse_warning_label: str,
@@ -279,8 +304,16 @@ def _run_suggestion_llm(
     )
     for key, value in (extra_replacements or {}).items():
         prompt = prompt.replace(key, value)
-    if guidance:
-        prompt = f"{guidance}\n\n{prompt}"
+    prefix_parts = [
+        part
+        for part in (
+            guidance,
+            build_avoid_variants_instruction(avoid_variants),
+        )
+        if part
+    ]
+    if prefix_parts:
+        prompt = "\n\n".join(prefix_parts) + "\n\n" + prompt
     if settings.debug.llm:
         logger.info(f"{debug_prompt_label}:\n%s", llm_client._snippet(prompt))
     raw_text = llm_client.chat_completion(
@@ -358,6 +391,7 @@ def generate_field_variants(
     *,
     focus_text: str | None = None,
     hint: str | None = None,
+    avoid_variants: list[str | int | float] | None = None,
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
     trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
@@ -380,6 +414,7 @@ def generate_field_variants(
             "{current}": json.dumps(current_value, ensure_ascii=False),
         },
         guidance=build_reviewer_guidance(focus_text, hint),
+        avoid_variants=avoid_variants,
         debug_prompt_label="Suggestions field prompt",
         response_label="Suggestions field response",
         parse_warning_label="Suggestions field",
