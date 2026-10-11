@@ -28,7 +28,7 @@
         >
           <ChevronLeft class="h-4 w-4" />
         </button>
-        <span data-testid="review-position">{{ queuePosition.index + 1 }} / {{ queuePosition.total }}</span>
+        <span data-testid="review-position">{{ queuePosition.index + 1 }} / {{ queuePosition.total }}{{ queuePosition.more ? '+' : '' }}</span>
         <button
           type="button"
           class="rounded px-1.5 py-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800"
@@ -133,7 +133,7 @@ withDefaults(defineProps<{
   writebackButtonTitle: string
   writebackButtonLabel: string
   reloadingAll: boolean
-  queuePosition?: { index: number; total: number } | null
+  queuePosition?: { index: number; total: number; more?: boolean } | null
   hasPrev?: boolean
   hasNext?: boolean
   autoAdvance?: boolean

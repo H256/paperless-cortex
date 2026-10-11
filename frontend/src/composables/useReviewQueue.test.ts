@@ -4,7 +4,7 @@ import { defineComponent, h, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { useReviewQueue } from './useReviewQueue'
-import { saveReviewQueue } from '../utils/reviewQueue'
+import { createReviewQueueState, saveReviewQueue, saveReviewQueueState } from '../utils/reviewQueue'
 
 const createLocalStorageMock = () => {
   const store = new Map<string, string>()
@@ -16,9 +16,14 @@ const createLocalStorageMock = () => {
   }
 }
 
-const mountHarness = (docId: number, ids: number[]) => {
+const mountHarness = (
+  docId: number,
+  ids: number[],
+  setup?: { state?: ReturnType<typeof createReviewQueueState>; options?: Parameters<typeof useReviewQueue>[3] },
+) => {
   vi.stubGlobal('localStorage', createLocalStorageMock())
-  saveReviewQueue(ids)
+  if (setup?.state) saveReviewQueueState(setup.state)
+  else saveReviewQueue(ids)
   const push = vi.fn(async () => undefined)
   const router = { push } as unknown as Router
   const route = {
@@ -29,7 +34,12 @@ const mountHarness = (docId: number, ids: number[]) => {
   const wrapper = mount(
     defineComponent({
       setup() {
-        api = useReviewQueue(idRef, route, router)
+        api = useReviewQueue(idRef, route, router, {
+          prefetchDelayMs: 0,
+          prefetchDocument: () => undefined,
+          prefetchSuggestions: () => undefined,
+          ...setup?.options,
+        })
         return () => h('div')
       },
     }),
@@ -95,5 +105,58 @@ describe('useReviewQueue', () => {
     expect(push).toHaveBeenCalledTimes(2)
     input.remove()
     wrapper.unmount()
+  })
+
+  it('loads the next page when moving past the last loaded document', async () => {
+    const fetchPage = vi.fn(async () => ({ count: 4, results: [{ id: 30 }, { id: 40 }] }))
+    const state = createReviewQueueState([10, 20], {
+      request: { page_size: 2, ordering: '-date', review_status: 'all' },
+      lastPage: 1,
+      totalPages: 2,
+    })
+    const { api, push } = mountHarness(20, [], {
+      state,
+      options: { fetchPage: fetchPage as never, lookahead: 0 },
+    })
+
+    expect(api.hasNext.value).toBe(true)
+    await api.goNext()
+
+    expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }))
+    expect(push).toHaveBeenLastCalledWith(expect.objectContaining({ path: '/documents/30' }))
+  })
+
+  it('prefetches the next document and only requests suggestions that already exist', async () => {
+    vi.useFakeTimers()
+    const prefetchDocument = vi.fn()
+    const prefetchSuggestions = vi.fn()
+    const state = createReviewQueueState([10, 20, 30], { suggestionIds: [30] })
+    mountHarness(20, [], {
+      state,
+      options: { prefetchDelayMs: 100, prefetchDocument, prefetchSuggestions },
+    })
+
+    await vi.advanceTimersByTimeAsync(150)
+
+    expect(prefetchDocument).toHaveBeenCalledWith(30)
+    expect(prefetchSuggestions).toHaveBeenCalledWith(30)
+    vi.useRealTimers()
+  })
+
+  it('does not request suggestions for documents without them', async () => {
+    vi.useFakeTimers()
+    const prefetchDocument = vi.fn()
+    const prefetchSuggestions = vi.fn()
+    const state = createReviewQueueState([10, 20, 30])
+    mountHarness(20, [], {
+      state,
+      options: { prefetchDelayMs: 100, prefetchDocument, prefetchSuggestions },
+    })
+
+    await vi.advanceTimersByTimeAsync(150)
+
+    expect(prefetchDocument).toHaveBeenCalledWith(30)
+    expect(prefetchSuggestions).not.toHaveBeenCalled()
+    vi.useRealTimers()
   })
 })

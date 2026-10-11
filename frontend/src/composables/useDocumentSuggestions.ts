@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useMutation } from '@tanstack/vue-query'
+import { takePrefetchedSuggestions } from '../services/prefetchCache'
 import {
   applyFieldSuggestion,
   applySuggestionToDocument,
@@ -53,7 +54,7 @@ export const useDocumentSuggestions = () => {
     mutationFn: ({ id, source }: { id: number; source?: 'paperless_ocr' | 'vision_ocr' }) =>
       source
         ? getSuggestions(id, { source, refresh: true, priority: true, include_similar: true })
-        : getSuggestions(id, { include_similar: true }),
+        : (takePrefetchedSuggestions(id) ?? getSuggestions(id, { include_similar: true })),
   })
   const suggestFieldMutation = useMutation({
     mutationFn: ({

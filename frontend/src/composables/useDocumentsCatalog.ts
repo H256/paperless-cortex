@@ -85,6 +85,20 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
     staleTime: 120_000,
   })
 
+  // List request without the page; the review mode uses it to load further pages.
+  const listRequest = computed(() => ({
+    page_size: pageSize.value,
+    ordering: ordering.value,
+    correspondent__id: toOptionalNumber(selectedCorrespondent.value),
+    tags__id: toOptionalNumber(selectedTag.value),
+    document_date__gte: dateFrom.value || undefined,
+    document_date__lte: dateTo.value || undefined,
+    q: searchQuery.value.trim() || undefined,
+    include_derived: true,
+    include_summary_preview: false,
+    review_status: selectedReviewStatus.value,
+  }))
+
   const documents = computed<DocumentRow[]>(() => listQuery.data.value?.results ?? [])
   const totalCount = computed(() => listQuery.data.value?.count ?? documents.value.length)
   const tags = computed(() => metaQuery.data.value?.tags ?? [])
@@ -103,6 +117,7 @@ export const useDocumentsCatalog = (options?: { includeSummaryPreview?: Ref<bool
     dateTo,
     searchQuery,
     documents,
+    listRequest,
     totalCount,
     tags,
     correspondents,
