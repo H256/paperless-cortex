@@ -233,7 +233,11 @@
         class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700"
         data-testid="suggestion-comparison-table"
       >
-        <table class="w-full min-w-[760px] border-collapse text-left text-sm">
+        <table
+          class="w-full border-collapse text-left text-sm"
+          :class="compact ? 'min-w-[600px]' : 'min-w-[760px]'"
+          data-testid="suggestion-table"
+        >
           <thead>
             <tr class="border-b border-slate-200 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
               <th class="px-3 py-2 font-semibold">Field</th>

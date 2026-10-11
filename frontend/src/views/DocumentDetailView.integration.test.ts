@@ -475,11 +475,11 @@ describe('DocumentDetailView', () => {
     await nextTick()
 
     const layout = () => wrapper.get('[data-testid="detail-layout"]').classes().join(' ')
-    expect(layout()).toContain('xl:grid-cols-2')
+    expect(layout()).toContain('xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')
     expect(wrapper.get('[data-testid="detail-pdf"]').classes().join(' ')).toContain('xl:sticky')
 
     await wrapper.get('[data-testid="split-view-toggle"]').setValue(false)
-    expect(layout()).not.toContain('xl:grid-cols-2')
+    expect(layout()).not.toContain('xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')
     await nextTick()
     expect(store.get('document_detail_split_view')).toBe('0')
     wrapper.unmount()
@@ -506,9 +506,38 @@ describe('DocumentDetailView', () => {
     await nextTick()
 
     expect(wrapper.get('[data-testid="detail-layout"]').classes().join(' ')).not.toContain(
-      'xl:grid-cols-2',
+      'xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
     )
     expect(wrapper.find('[data-testid="split-view-toggle"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+  it('jumps the PDF to the page requested from the suggestions table', async () => {
+    route.query = { tab: 'suggestions' }
+    const wrapper = mount(DocumentDetailView as never, {
+      global: {
+        stubs: {
+          IconButton: true,
+          DocumentMetadataSection: true,
+          DocumentTextQualitySection: true,
+          DocumentSuggestionsSection: {
+            emits: ['jumpToPage'],
+            template: `<button data-test="jump" @click="$emit('jumpToPage', 3)">jump</button>`,
+          },
+          DocumentPagesSection: true,
+          DocumentSimilarSection: true,
+          DocumentChatSection: true,
+          DocumentOperationsSection: true,
+          WritebackConflictModal: true,
+          ConfirmDialog: true,
+        },
+      },
+    })
+    await nextTick()
+
+    await wrapper.get('[data-test="jump"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-test="pdf-viewer"]').attributes('data-page')).toBe('3')
     wrapper.unmount()
   })
 })

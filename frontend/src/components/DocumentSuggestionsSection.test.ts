@@ -425,3 +425,29 @@ describe('DocumentSuggestionsSection comparison table', () => {
     expect(wrapper.emitted('jumpToPage')).toEqual([[2]])
   })
 })
+
+describe('DocumentSuggestionsSection compact table', () => {
+  const props = {
+    suggestions: { vision_ocr: { parsed: { title: 'Rechnung Teufel' } } },
+    suggestionsError: '',
+    suggestionsLoading: false,
+    suggestionVariants: {},
+    suggestionVariantLoading: {},
+    suggestionVariantError: {},
+    currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+    currentTagList: [],
+  }
+
+  it('uses a narrower table minimum in the split-view column', () => {
+    const normal = mount(DocumentSuggestionsSection, { props })
+    expect(normal.get('[data-testid="suggestion-table"]').classes().join(' ')).toContain('min-w-[760px]')
+    normal.unmount()
+
+    const compact = mount(DocumentSuggestionsSection, { props: { ...props, compact: true } })
+    const classes = compact.get('[data-testid="suggestion-table"]').classes().join(' ')
+    expect(classes).toContain('min-w-[600px]')
+    expect(classes).not.toContain('min-w-[760px]')
+    compact.unmount()
+  })
+})
+
