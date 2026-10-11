@@ -34,7 +34,12 @@ def test_dispatch_embeddings_vision_passes_force_to_handler() -> None:
     calls: list[dict[str, Any]] = []
 
     def _process_embeddings_vision_fn(
-        _settings: Any, _db: Any, doc_id: int, run_id: int | None = None, force: bool = False
+        _settings: Any,
+        _db: Any,
+        doc_id: int,
+        run_id: int | None = None,
+        embeddings_mode: str | None = None,
+        force: bool = False,
     ) -> None:
         calls.append({"doc_id": doc_id, "run_id": run_id, "force": force})
 
@@ -66,7 +71,12 @@ def test_dispatch_embeddings_vision_defaults_force_to_false() -> None:
     calls: list[dict[str, Any]] = []
 
     def _process_embeddings_vision_fn(
-        _settings: Any, _db: Any, doc_id: int, run_id: int | None = None, force: bool = False
+        _settings: Any,
+        _db: Any,
+        doc_id: int,
+        run_id: int | None = None,
+        embeddings_mode: str | None = None,
+        force: bool = False,
     ) -> None:
         calls.append({"doc_id": doc_id, "force": force})
 

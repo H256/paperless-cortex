@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -130,9 +130,14 @@ def _parse_date(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        # Treat naive timestamps (e.g. bare document_date like '2026-01-01') as UTC
+        # so they can be compared with aware values (e.g. created via utc_now_iso).
+        return parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def _sort_sources_chrono(
