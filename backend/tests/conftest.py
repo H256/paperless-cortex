@@ -18,7 +18,15 @@ if TYPE_CHECKING:
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
 
+import app.config as _app_config  # noqa: E402
 from app.models import Base  # noqa: E402
+
+# A developer `.env` in the repository root must not leak into the tests: it would set
+# PAPERLESS_BASE_URL/API token, LLM and vector-store settings, so tests could take
+# production code paths (or even talk to real services) instead of the mocked ones.
+# `load_dotenv` never overrides variables that are already set, so everything the
+# tests rely on is set explicitly in `_set_test_env` or by the individual test.
+_app_config._load_env = lambda _repo_root: None
 
 
 def _set_test_env(db_path: Path) -> None:
