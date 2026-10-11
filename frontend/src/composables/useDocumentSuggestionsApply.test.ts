@@ -141,4 +141,39 @@ describe('useDocumentSuggestionsApply', () => {
     expect(loadPageTextsForDoc).not.toHaveBeenCalled()
     expect(loadContentQualityForDoc).not.toHaveBeenCalled()
   })
+
+  it('applySelected applies only given items and reloads once', async () => {
+    const { composable, applySuggestionToDocument, loadDocument } = createHarness()
+    const result = await composable.applySelected([
+      { source: 'vision_ocr', field: 'title', value: 'T' },
+      { source: 'paperless_ocr', field: 'date', value: '2026-09-05' },
+    ])
+    expect(applySuggestionToDocument).toHaveBeenCalledTimes(2)
+    expect(loadDocument).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({ applied: ['title', 'date'], failed: [] })
+  })
+
+  it('applySelected keeps successful fields when one field fails', async () => {
+    const { composable, applySuggestionToDocument, loadDocument, suggestionsError } =
+      createHarness()
+    applySuggestionToDocument
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('boom'))
+    const result = await composable.applySelected([
+      { source: 'vision_ocr', field: 'title', value: 'T' },
+      { source: 'vision_ocr', field: 'tags', value: ['A'] },
+    ])
+    expect(result.applied).toEqual(['title'])
+    expect(result.failed).toEqual([{ field: 'tags', message: 'boom' }])
+    expect(loadDocument).toHaveBeenCalledTimes(1)
+    expect(suggestionsError.value).toContain('tags: boom')
+  })
+
+  it('applySelected does nothing for an empty selection', async () => {
+    const { composable, applySuggestionToDocument, loadDocument } = createHarness()
+    const result = await composable.applySelected([])
+    expect(applySuggestionToDocument).not.toHaveBeenCalled()
+    expect(loadDocument).not.toHaveBeenCalled()
+    expect(result).toEqual({ applied: [], failed: [] })
+  })
 })

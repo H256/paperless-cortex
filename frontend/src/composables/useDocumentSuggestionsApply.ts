@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import type { SuggestionApplyItem } from '../utils/suggestionSelection'
 
 type UseDocumentSuggestionsApplyArgs = {
   docId: number | (() => number)
@@ -67,9 +68,41 @@ export const useDocumentSuggestionsApply = (args: UseDocumentSuggestionsApplyArg
     }
   }
 
+  const applySelected = async (items: SuggestionApplyItem[]) => {
+    const applied: string[] = []
+    const failed: Array<{ field: string; message: string }> = []
+    if (!items.length) return { applied, failed }
+    const reloadSuggestions = Boolean(args.suggestions.value)
+    const reloadPages = args.pageTexts.value.length > 0
+    const reloadQuality = Boolean(args.contentQuality.value)
+    const docId = resolveDocId()
+    for (const item of items) {
+      try {
+        await args.applySuggestionToDocument(docId, item)
+        applied.push(item.field)
+      } catch (err: unknown) {
+        failed.push({
+          field: item.field,
+          message: args.toErrorMessage(err, 'Failed to apply suggestion to document'),
+        })
+      }
+    }
+    if (failed.length) {
+      args.suggestionsError.value = failed.map((f) => `${f.field}: ${f.message}`).join('; ')
+    }
+    if (applied.length) {
+      await args.loadDocument()
+      if (reloadSuggestions) await args.loadSuggestionsForDoc()
+      if (reloadPages) await args.loadPageTextsForDoc()
+      if (reloadQuality) await args.loadContentQualityForDoc()
+    }
+    return { applied, failed }
+  }
+
   return {
     applyVariantOnly,
     applyVariantToDocument,
     applyToDocument,
+    applySelected,
   }
 }

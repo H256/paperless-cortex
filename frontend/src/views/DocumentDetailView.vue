@@ -62,11 +62,14 @@
         :suggestion-variant-loading="suggestionVariantLoading"
         :suggestion-variant-error="suggestionVariantError"
         :current-values="currentValues"
+        :current-tag-list="currentTagList"
+        :applying="suggestionsApplying"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"
         @apply-variant-to-document="applyVariantToDocumentAction"
         @apply-to-document="applyToDocument"
+        @apply-selected="applySelectedAction"
       />
 
       <DocumentChatSection v-if="activeTab === 'chat'" :doc-id="docId" />
@@ -199,6 +202,7 @@ import DocumentDetailHeader from '../components/DocumentDetailHeader.vue'
 import DocumentMetadataSection from '../components/DocumentMetadataSection.vue'
 import DocumentTextQualitySection from '../components/DocumentTextQualitySection.vue'
 import DocumentSuggestionsSection from '../components/DocumentSuggestionsSection.vue'
+import type { SuggestionApplyItem } from '../utils/suggestionSelection'
 import DocumentChatSection from '../components/DocumentChatSection.vue'
 import DocumentSimilarSection from '../components/DocumentSimilarSection.vue'
 import DocumentPagesSection from '../components/DocumentPagesSection.vue'
@@ -365,6 +369,13 @@ const currentTagNames = computed(() =>
     .join(', '),
 )
 
+const currentTagList = computed(() => [
+  ...(document.value?.tags || []).map((tagId) =>
+    String(tags.value.find((tag) => tag.id === tagId)?.name ?? tagId),
+  ),
+  ...(document.value?.pending_tag_names || []),
+])
+
 const currentCorrespondentName = computed(() => {
   if (!document.value) return ''
   const value =
@@ -515,6 +526,7 @@ const {
   applyVariantOnly,
   applyVariantToDocument,
   applyToDocument,
+  applySelected,
 } = useDocumentSuggestionsApply({
   docId: () => docId.value,
   suggestions,
@@ -529,6 +541,28 @@ const {
   loadContentQualityForDoc,
   toErrorMessage: errorMessage,
 })
+
+const suggestionsApplying = ref(false)
+
+const applySelectedAction = async (items: SuggestionApplyItem[]) => {
+  if (suggestionsApplying.value || !items.length) return
+  suggestionsApplying.value = true
+  try {
+    const { applied, failed } = await applySelected(items)
+    if (failed.length) {
+      toastStore.push(
+        `Applied ${applied.length}, failed: ${failed.map((f) => f.field).join(', ')}`,
+        'warning',
+        'Suggestions',
+        3200,
+      )
+    } else {
+      toastStore.push(`Applied: ${applied.join(', ')}`, 'success', 'Suggestions', 2200)
+    }
+  } finally {
+    suggestionsApplying.value = false
+  }
+}
 
 const applyVariantAction = async (
   source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
