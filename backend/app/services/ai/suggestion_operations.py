@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import DocumentPageText, DocumentSuggestion
 from app.services.ai.correspondent_rules import compute_learned_rules
+from app.services.ai.page_selection import parse_page_spec, select_page_text
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
@@ -264,6 +265,7 @@ def generate_field_variants_payload(
     focus_text: str | None = None,
     hint: str | None = None,
     text_source: str | None = None,
+    pages: str | None = None,
     get_page_text_layers_fn: Callable[..., Any],
     fetch_pdf_bytes_fn: Callable[[], bytes],
     upsert_page_texts_fn: Callable[..., None],
@@ -311,6 +313,18 @@ def generate_field_variants_payload(
     else:
         text = str(raw.get("content") or "")
 
+    # Raises PageSelectionError (a ValueError) for malformed or unavailable pages, so the
+    # route can answer 422 before anything is queued.
+    page_numbers = parse_page_spec(pages)
+    if page_numbers:
+        text = select_page_text(
+            db,
+            doc_id=doc_id,
+            source=read_source,
+            pages=page_numbers,
+            content=str(raw.get("content") or ""),
+        )
+
     current = None
     stored = (
         db.query(DocumentSuggestion)
@@ -338,6 +352,8 @@ def generate_field_variants_payload(
             task["avoid_variants"] = prior_variants
         if read_source != source:
             task["text_source"] = read_source
+        if page_numbers:
+            task["pages"] = page_numbers
         enqueue_task_front_fn(settings, task)
         return {"doc_id": doc_id, "source": source, "field": field, "queued": True}
 

@@ -12,4 +12,5 @@ export interface SuggestionFieldRequest {
   focus_text?: string | null;
   hint?: string | null;
   text_source?: string | null;
+  pages?: string | null;
 }
