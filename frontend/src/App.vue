@@ -17,8 +17,8 @@
             :title="processingBadgeTitle"
             @click="openProcessingActivity"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-current" :class="isProcessingActive ? 'animate-pulse' : ''" />
-            {{ processingBadgeLabel }}
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-current" :class="isProcessingActive ? 'animate-pulse' : ''" />
+            <span class="max-w-[16rem] truncate sm:max-w-[24rem]">{{ processingBadgeLabel }}</span>
           </button>
           <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
             <div
@@ -172,6 +172,8 @@ import { FRONTEND_VERSION } from './generated/version'
 import { fetchQueueStatus } from './services/queue'
 import { getEmbedStatus, getSyncStatus } from './services/documents'
 import { useStatusStream } from './composables/useStatusStream'
+import { useRunningTaskProgress } from './composables/useRunningTaskProgress'
+import { processingPillLabel, describeRunningTask } from './utils/taskLabels'
 
 const statusStore = useStatusStore()
 const errorStore = useErrorStore()
@@ -217,6 +219,8 @@ const syncRunning = computed(() => String(syncStatus.value.status || '').toLower
 const embeddingsRunning = computed(() => String(embedStatus.value.status || '').toLowerCase() === 'running')
 const queueRunning = computed(() => Boolean(queueStatus.value.enabled) && (queueLength.value > 0 || queueInProgress.value > 0))
 const isProcessingActive = computed(() => syncRunning.value || embeddingsRunning.value || queueRunning.value)
+// Which task runs right now; only asked for while the queue has work.
+const { runningTasks } = useRunningTaskProgress({ enabled: queueRunning })
 const processingBadgeLabel = computed(() => {
   if (syncRunning.value) {
     const processed = Number(syncStatus.value.processed ?? 0)
@@ -224,9 +228,11 @@ const processingBadgeLabel = computed(() => {
     return `Sync ${processed}/${total || '?'}`
   }
   if (queueRunning.value) {
-    return queueTotal.value > 0
-      ? `Processing ${queueDone.value}/${queueTotal.value}`
-      : `Queue ${queueLength.value + queueInProgress.value}`
+    const counts =
+      queueTotal.value > 0
+        ? `Processing ${queueDone.value}/${queueTotal.value}`
+        : `Queue ${queueLength.value + queueInProgress.value}`
+    return processingPillLabel(counts, runningTasks.value)
   }
   if (embeddingsRunning.value) {
     const processed = Number(embedStatus.value.processed ?? 0)
@@ -237,7 +243,11 @@ const processingBadgeLabel = computed(() => {
 })
 const processingBadgeTitle = computed(() => {
   if (syncRunning.value) return 'Document sync is currently running. Click to open Queue.'
-  if (queueRunning.value) return 'Queued background tasks are pending or running. Click to open Queue.'
+  if (queueRunning.value) {
+    const running = runningTasks.value.slice(0, 5).map(describeRunningTask)
+    const detail = running.length ? ` Running now: ${running.join(', ')}.` : ''
+    return `Queued background tasks are pending or running.${detail} Click to open Queue.`
+  }
   if (embeddingsRunning.value) return 'Embedding processing is currently running. Click to open Queue.'
   return 'No active background processing. Click to open Documents.'
 })
