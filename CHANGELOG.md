@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.9.3)
+
+### Release 0.9.3
+- `bd83247` chore(version): bumped the project version from `0.9.2` to `0.9.3` via `scripts/bump_version.py patch` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.9.2:
+  - Comparison table: every cell with a value can be picked (one value per field, switching column replaces it), tag chips of all columns combine into one set, "Similar docs" offers only correspondent and tags and is selectable, and "Suggest new" sits in each OCR cell (#422, #423).
+- Verification: `cd backend && uv run pytest -q` and `cd frontend && npx vitest run` (`218 passed`), `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
 ## 2026-10-11 (branch: agent/422-pick-table-cells)
 
 ### Pick any value from the comparison table (#422)
