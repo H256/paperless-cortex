@@ -278,6 +278,7 @@ def _run_suggestion_llm(
     extra_replacements: dict[str, str] | None = None,
     guidance: str = "",
     avoid_variants: list[str | int | float] | None = None,
+    learned_rules: str = "",
     debug_prompt_label: str,
     response_label: str,
     parse_warning_label: str,
@@ -309,6 +310,7 @@ def _run_suggestion_llm(
         for part in (
             guidance,
             build_avoid_variants_instruction(avoid_variants),
+            learned_rules,
         )
         if part
     ]
@@ -339,6 +341,8 @@ def generate_suggestions(
     text: str,
     tags: list[str],
     correspondents: list[str],
+    *,
+    learned_rules: str = "",
 ) -> dict[str, Any]:
     ensure_text_llm_ready(settings)
     trimmed = truncate_chars(text, settings.suggestions_max_input_chars)
@@ -355,6 +359,7 @@ def generate_suggestions(
         tags=tags,
         correspondents=correspondents,
         text=trimmed,
+        learned_rules=learned_rules,
         debug_prompt_label="Suggestions prompt",
         response_label="Suggestions response",
         parse_warning_label="Suggestions",
@@ -368,6 +373,7 @@ def generate_normalized_suggestions(
     *,
     tags: list[str],
     correspondents: list[str],
+    learned_rules: str = "",
 ) -> dict[str, Any]:
     suggestions = generate_suggestions(
         settings,
@@ -375,6 +381,7 @@ def generate_normalized_suggestions(
         text,
         tags=tags,
         correspondents=correspondents,
+        learned_rules=learned_rules,
     )
     return normalize_suggestions_payload(suggestions, tags)
 

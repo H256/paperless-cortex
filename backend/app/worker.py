@@ -17,6 +17,7 @@ from app.services.ai.suggestion_store import (
     upsert_suggestion,
 )
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
+from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.documents.documents import get_document_or_none
 from app.services.documents.page_text_store import reclean_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
@@ -176,6 +177,7 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
         join_pages_fn=_service_join_page_texts_limited,
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
+        learn_rules_fn=learn_correspondent_rules,
     )
 
 
@@ -305,6 +307,7 @@ def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
         get_document_fn=paperless.get_document,
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
+        learn_rules_fn=learn_correspondent_rules,
     )
 
 
@@ -320,6 +323,7 @@ def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
         process_vision_ocr_only_fn=_process_vision_ocr_only,
+        learn_rules_fn=learn_correspondent_rules,
     )
 
 

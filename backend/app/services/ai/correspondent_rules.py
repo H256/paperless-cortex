@@ -6,6 +6,9 @@ from app.models import Document, DocumentType, Tag
 from app.services.documents.read_models import reviewed_audit_filter
 
 if TYPE_CHECKING:
+    import logging
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 # How many of each pattern type to surface to the model.
@@ -96,6 +99,25 @@ def learn_correspondent_rules(db: Session, doc_id: int) -> dict[str, Any]:
         "top_tags": top_tags,
         "top_document_types": top_types,
     }
+
+
+def compute_learned_rules(
+    learn_rules_fn: "Callable[[Session, int], dict[str, Any]]",
+    db: Session,
+    doc_id: int,
+    logger: "logging.Logger | None" = None,
+) -> str:
+    """Learn a document's correspondent rules and build the prompt prefix.
+
+    Returns an empty string when the function is absent, finds nothing, or
+    fails — suggestion generation must never be blocked by a rules error.
+    """
+    try:
+        return build_learned_rules_instruction(learn_rules_fn(db, doc_id))
+    except Exception as exc:  # noqa: BLE001 - a rules error must not block suggestions
+        if logger is not None:
+            logger.warning("Learned rules failed doc=%s err=%s", doc_id, exc)
+        return ""
 
 
 def build_learned_rules_instruction(rules: dict[str, Any] | None) -> str:
