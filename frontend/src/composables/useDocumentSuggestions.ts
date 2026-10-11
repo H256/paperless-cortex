@@ -52,6 +52,10 @@ export type SuggestGuidance = {
   pages?: string
 }
 
+/** How often and how long a queued "Suggest new" request is polled for its result. */
+export const VARIANT_POLL_INTERVAL_MS = 1500
+export const VARIANT_POLL_TIMEOUT_MS = 120_000
+
 export const useDocumentSuggestions = () => {
   const suggestions = ref<SuggestionsState | null>(null)
   const suggestionsLoading = ref(false)
@@ -59,6 +63,8 @@ export const useDocumentSuggestions = () => {
   const suggestionVariants = ref<Record<string, unknown[]>>({})
   const suggestionVariantLoading = ref<Record<string, boolean>>({})
   const suggestionVariantError = ref<Record<string, string>>({})
+  /** Seconds a queued request has been waiting, per `source:field` (feedback while polling). */
+  const suggestionVariantWait = ref<Record<string, number>>({})
 
   const loadSuggestionsMutation = useMutation({
     mutationFn: ({ id, source }: { id: number; source?: 'paperless_ocr' | 'vision_ocr' }) =>
@@ -121,6 +127,7 @@ export const useDocumentSuggestions = () => {
     suggestionVariants.value = {}
     suggestionVariantLoading.value = {}
     suggestionVariantError.value = {}
+    suggestionVariantWait.value = {}
   }
 
   const loadSuggestions = async (id: number) => {
@@ -155,14 +162,31 @@ export const useDocumentSuggestions = () => {
     }
   }
 
-  const pollVariants = async (id: number, source: 'paperless_ocr' | 'vision_ocr', field: string) => {
+  /**
+   * Wait for a queued request. The variant store already holds the previous batch, so the
+   * result is only taken once its version stamp differs from the one at enqueue time.
+   */
+  const pollVariants = async (
+    id: number,
+    source: 'paperless_ocr' | 'vision_ocr',
+    field: string,
+    baseline: string | null,
+  ) => {
     const key = `${source}:${field}`
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1200))
+    const startedAt = Date.now()
+    while (Date.now() - startedAt < VARIANT_POLL_TIMEOUT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, VARIANT_POLL_INTERVAL_MS))
+      suggestionVariantWait.value = {
+        ...suggestionVariantWait.value,
+        [key]: Math.round((Date.now() - startedAt) / 1000),
+      }
       try {
         const data = await fetchFieldVariants(id, source, field)
-        if (Array.isArray(data.variants) && data.variants.length) {
-          suggestionVariants.value = { ...suggestionVariants.value, [key]: data.variants }
+        const variants = Array.isArray(data.variants) ? data.variants : []
+        const stampKnown = 'updated_at' in data
+        const stamp = data.updated_at ?? null
+        if (variants.length > 0 && (!stampKnown || stamp !== baseline)) {
+          suggestionVariants.value = { ...suggestionVariants.value, [key]: variants }
           return
         }
       } catch (err: unknown) {
@@ -172,6 +196,11 @@ export const useDocumentSuggestions = () => {
         }
         return
       }
+    }
+    suggestionVariantError.value = {
+      ...suggestionVariantError.value,
+      [key]:
+        'The model is still working on this request. Check the Queue, then press "Suggest new" again to fetch the result.',
     }
   }
 
@@ -191,7 +220,8 @@ export const useDocumentSuggestions = () => {
       if (variants.length) {
         suggestionVariants.value = { ...suggestionVariants.value, [key]: variants }
       } else if (isQueued(data)) {
-        await pollVariants(id, source, field)
+        const stamp = (data as { updated_at?: string | null }).updated_at ?? null
+        await pollVariants(id, source, field, stamp)
       }
     } catch (err: unknown) {
       suggestionVariantError.value = {
@@ -200,6 +230,7 @@ export const useDocumentSuggestions = () => {
       }
     } finally {
       suggestionVariantLoading.value = { ...suggestionVariantLoading.value, [key]: false }
+      suggestionVariantWait.value = { ...suggestionVariantWait.value, [key]: 0 }
     }
   }
 
@@ -238,6 +269,7 @@ export const useDocumentSuggestions = () => {
     suggestionVariants,
     suggestionVariantLoading,
     suggestionVariantError,
+    suggestionVariantWait,
     resetSuggestionsState,
     loadSuggestions,
     refreshSuggestions,

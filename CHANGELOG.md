@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/399-feedback)
+
+### Reliable feedback for queued "Suggest new" (#399, slice 1)
+- `c3eb091` fix(frontend): [`useDocumentSuggestions.ts`](frontend/src/composables/useDocumentSuggestions.ts) polled the variant store, which already holds the previous batch, so queued runs showed the old variants and never the new ones; it also gave up silently after ~12 s. It now waits (1.5 s steps, 120 s) for a batch with a different version stamp, shows `Generating... Ns` while waiting and an explicit message on timeout. "Refresh" shows a spinner.
+- `c3eb091` feat(api): `updated_at` on `GET /documents/{id}/suggestions/field/variants` and on the queued `POST /documents/{id}/suggestions/field` response ([`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py), [`documents_suggestions.py`](backend/app/routes/documents_suggestions.py)); OpenAPI and client regenerated.
+- `c3eb091` test: `cd backend && uv run pytest -q` -> `695 passed, 5 skipped`; `cd frontend && npx vitest run` -> `182 passed`; `npx vue-tsc --build`, `npx oxlint src`, `ruff check app tests` clean.
+- docs: plan [`2026-10-11-suggest-feedback.md`](docs/plans/2026-10-11-suggest-feedback.md). Remaining slices of #399: named status pill, skeleton states, success hints.
+
 ## 2026-10-11 (branch: agent/396-review-progress)
 
 ### Review progress on the dashboard and writeback empty state (#396, #397)

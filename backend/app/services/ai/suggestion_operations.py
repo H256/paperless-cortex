@@ -24,6 +24,21 @@ def variant_source_key(source: str, field: str) -> str:
     return f"{prefix}:{field}"
 
 
+def load_variants_stamp(db: Session, doc_id: int, source: str, field: str) -> str | None:
+    """Version stamp (``processed_at``) of the stored variant batch, ``None`` when absent."""
+    row = (
+        db.query(DocumentSuggestion)
+        .filter(
+            DocumentSuggestion.doc_id == doc_id,
+            DocumentSuggestion.source == variant_source_key(source, field),
+        )
+        .one_or_none()
+    )
+    if row is None:
+        return None
+    return row.processed_at or row.created_at
+
+
 def load_prior_variants(db: Session, doc_id: int, source: str, field: str) -> list[str | int | float]:
     """Read the previously-shown variants for a (source, field) from the variant store.
 
@@ -355,7 +370,13 @@ def generate_field_variants_payload(
         if page_numbers:
             task["pages"] = page_numbers
         enqueue_task_front_fn(settings, task)
-        return {"doc_id": doc_id, "source": source, "field": field, "queued": True}
+        return {
+            "doc_id": doc_id,
+            "source": source,
+            "field": field,
+            "queued": True,
+            "updated_at": load_variants_stamp(db, doc_id, source, field),
+        }
 
     guidance_kwargs: dict[str, str | list[str | int | float]] = {}
     if focus_text:

@@ -68,6 +68,7 @@
         :suggestion-variants="suggestionVariants"
         :suggestion-variant-loading="suggestionVariantLoading"
         :suggestion-variant-error="suggestionVariantError"
+        :suggestion-variant-wait="suggestionVariantWait"
         :current-values="currentValues"
         :current-tag-list="currentTagList"
         :text-candidates="textCandidates"
@@ -300,6 +301,7 @@ const {
   suggestionVariants,
   suggestionVariantLoading,
   suggestionVariantError,
+  suggestionVariantWait,
   loadDocument,
   loadMeta,
   loadPageTexts,
