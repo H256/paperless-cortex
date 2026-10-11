@@ -408,11 +408,14 @@ def process_suggest_field(
     else:
         doc = get_document_or_none(db, doc_id)
         text = clean_ocr_text(doc.content) if doc and doc.content else ""
-    guidance_kwargs: dict[str, str] = {}
+    guidance_kwargs: dict[str, str | list[str | int | float]] = {}
     for task_key in ("focus_text", "hint"):
         value = task.get(task_key)
         if isinstance(value, str) and value.strip():
             guidance_kwargs[task_key] = value
+    avoid_variants = task.get("avoid_variants")
+    if isinstance(avoid_variants, list) and avoid_variants:
+        guidance_kwargs["avoid_variants"] = avoid_variants
     variants = generate_field_variants_fn(
         settings,
         raw,

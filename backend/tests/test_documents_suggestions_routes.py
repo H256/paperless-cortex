@@ -434,6 +434,47 @@ def test_suggest_field_without_guidance_keeps_the_generator_call_unchanged(
     assert "focus_text" not in captured
     assert "hint" not in captured
 
+
+def test_suggest_field_passes_prior_variants_as_avoid_list(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=820, title="Doc 820", content="Inhalt"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=820,
+                source="pvar:title",
+                payload=json.dumps({"variants": ["Shown A", "Shown B"]}),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless, "get_document", lambda settings, doc_id: {"id": doc_id, "content": "text"}
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    captured: dict[str, Any] = {}
+
+    def _fake_generate(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"variants": ["New C"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        "/documents/820/suggestions/field?priority=true",
+        json={"source": "paperless_ocr", "field": "title", "count": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["variants"] == ["New C"]
+    assert captured["avoid_variants"] == ["Shown A", "Shown B"]
+
 def test_text_candidates_route_uses_stored_texts_without_side_effects(
     api_client: Any, monkeypatch: Any
 ) -> None:

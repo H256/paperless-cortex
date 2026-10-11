@@ -158,3 +158,54 @@ def test_field_variants_prompt_starts_with_reviewer_guidance(monkeypatch: Any) -
     assert "Rechnungsdatum, nicht Lieferdatum" in with_guidance
     assert "full document text" in with_guidance
     assert "Reviewer guidance" not in without_guidance
+
+
+def test_avoid_variants_instruction_is_empty_without_input() -> None:
+    assert suggestions_mod.build_avoid_variants_instruction(None) == ""
+    assert suggestions_mod.build_avoid_variants_instruction([]) == ""
+    assert suggestions_mod.build_avoid_variants_instruction(["  ", "\n"]) == ""
+
+
+def test_avoid_variants_instruction_sanitizes_and_dedupes() -> None:
+    instruction = suggestions_mod.build_avoid_variants_instruction(
+        ["Title A", "Title A", "Title B\x00C", ""]
+    )
+    assert "- Title A" in instruction
+    assert instruction.count("- Title A") == 1  # deduped
+    assert "Title BC" in instruction  # control char stripped
+    assert "Do not repeat" in instruction
+
+
+def test_field_variants_prompt_includes_avoid_variants(monkeypatch: Any) -> None:
+    settings = _make_settings(monkeypatch)
+    prompts: list[str] = []
+
+    def fake_chat_completion(_s: Any, *, model: str, messages: list[dict[str, Any]], **_kw: Any) -> str:
+        prompts.append(messages[0]["content"])
+        return '{"variants": ["Alt A"]}'
+
+    monkeypatch.setattr(suggestions_mod.llm_client, "chat_completion", fake_chat_completion)
+    monkeypatch.setattr(suggestions_mod, "ensure_text_llm_ready", lambda _s: None)
+    monkeypatch.setattr(
+        suggestions_mod, "_load_field_prompt", lambda _f: "meta={metadata} text={text} n={count}"
+    )
+
+    suggestions_mod.generate_field_variants(
+        settings,
+        {"id": 1},
+        "full document text",
+        tags=[],
+        correspondents=[],
+        field="title",
+        count=2,
+        avoid_variants=["Already shown A", "Already shown B"],
+    )
+    suggestions_mod.generate_field_variants(
+        settings, {"id": 1}, "full document text", tags=[], correspondents=[], field="title", count=2
+    )
+
+    with_avoid, without_avoid = prompts
+    assert "Do not repeat these already-shown values" in with_avoid
+    assert "- Already shown A" in with_avoid
+    assert "- Already shown B" in with_avoid
+    assert "Do not repeat" not in without_avoid
