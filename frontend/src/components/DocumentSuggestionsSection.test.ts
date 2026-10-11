@@ -488,3 +488,118 @@ describe('DocumentSuggestionsSection recommended text source', () => {
   })
 })
 
+
+describe('DocumentSuggestionsSection picking from the comparison table', () => {
+  const props = {
+    suggestions: {
+      vision_ocr: {
+        parsed: {
+          title: 'Festnetz-Rechnung Juli 2026',
+          date: '2026-07-24',
+          correspondent: 'Telekom Deutschland GmbH',
+          tags: ['Internet', 'Rechnung', 'Telefon'],
+        },
+      },
+      paperless_ocr: {
+        parsed: {
+          title: 'Festnetz-Rechnung Juli 2026',
+          date: '2026-07-15',
+          correspondent: 'Telekom Deutschland GmbH',
+          tags: ['Rechnung', 'Telefon', '2026'],
+        },
+      },
+      similar_docs: {
+        parsed: {
+          title: '0f6d9179-c360-44aa-8b98-c6567798a1a3',
+          correspondent: 'Telekom Deutschland GmbH',
+          tags: ['Internet', 'Neu'],
+        },
+      },
+    },
+    suggestionsError: '',
+    suggestionsLoading: false,
+    suggestionVariants: {},
+    suggestionVariantLoading: {},
+    suggestionVariantError: {},
+    currentValues: { title: '', date: '15.7.2026', correspondent: '', tags: 'Rechnung', note: '' },
+    currentTagList: ['Rechnung'],
+  }
+
+  it('selects the value of the clicked column, not just the first source', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+
+    await wrapper.get('[data-testid="pick-paperless_ocr-date"]').trigger('click')
+    expect(wrapper.get('[data-testid="pick-paperless_ocr-date"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
+    expect(wrapper.get('[data-testid="pick-vision_ocr-date"]').attributes('aria-pressed')).toBe(
+      'false',
+    )
+
+    await wrapper.get('[data-testid="apply-selected"]').trigger('click')
+    expect(wrapper.emitted('applySelected')?.[0]?.[0]).toEqual([
+      { source: 'paperless_ocr', field: 'date', value: '2026-07-15' },
+    ])
+    wrapper.unmount()
+  })
+
+  it('switches the choice to another column and clears it by clicking again', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+
+    await wrapper.get('[data-testid="pick-vision_ocr-title"]').trigger('click')
+    await wrapper.get('[data-testid="pick-paperless_ocr-title"]').trigger('click')
+    expect(wrapper.get('[data-testid="pick-paperless_ocr-title"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
+    expect(wrapper.get('[data-testid="pick-vision_ocr-title"]').attributes('aria-pressed')).toBe(
+      'false',
+    )
+
+    await wrapper.get('[data-testid="pick-paperless_ocr-title"]').trigger('click')
+    expect(wrapper.find('[data-testid="apply-selected-bar"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('combines tags from several columns into one set', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+
+    await wrapper.get('[data-testid="tag-vision_ocr-Internet"]').trigger('click')
+    await wrapper.get('[data-testid="tag-paperless_ocr-2026"]').trigger('click')
+    await wrapper.get('[data-testid="tag-similar_docs-Neu"]').trigger('click')
+
+    await wrapper.get('[data-testid="apply-selected"]').trigger('click')
+    const item = (wrapper.emitted('applySelected')?.[0]?.[0] as Array<{
+      field: string
+      value: string[]
+    }>)[0]
+    expect(item?.field).toBe('tags')
+    expect([...(item?.value ?? [])].sort()).toEqual(['2026', 'Internet', 'Neu', 'Rechnung'])
+    wrapper.unmount()
+  })
+
+  it('lets the reviewer pick the correspondent of the similar documents', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    await wrapper.get('[data-testid="pick-similar_docs-correspondent"]').trigger('click')
+    await wrapper.get('[data-testid="apply-selected"]').trigger('click')
+
+    expect(wrapper.emitted('applySelected')?.[0]?.[0]).toEqual([
+      { source: 'similar_docs', field: 'correspondent', value: 'Telekom Deutschland GmbH' },
+    ])
+    wrapper.unmount()
+  })
+
+  it('shows only correspondent and tags for the similar documents', () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    expect(wrapper.find('[data-testid="pick-similar_docs-title"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="pick-similar_docs-date"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('asks for a new value of the column whose cell was used', async () => {
+    const wrapper = mount(DocumentSuggestionsSection, { props })
+    await wrapper.get('[data-testid="suggest-paperless_ocr-date"]').trigger('click')
+
+    expect(wrapper.emitted('suggestField')?.[0]).toEqual(['paperless_ocr', 'date'])
+    wrapper.unmount()
+  })
+})
