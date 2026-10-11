@@ -10457,6 +10457,11 @@
             "type": "array",
             "title": "Calls",
             "default": []
+          },
+          "applied_calls_count": {
+            "type": "integer",
+            "title": "Applied Calls Count",
+            "default": 0
           }
         },
         "type": "object",
