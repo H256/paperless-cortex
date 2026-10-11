@@ -18,6 +18,12 @@ All granular implementation slices and refactors are tracked here.
 - `a08edc2` docs(plan): [`docs/plans/2026-10-11-selective-review-flow.md`](docs/plans/2026-10-11-selective-review-flow.md); follow-ups (review mode, text-based candidates, passage focus for "Suggest new") are tracked in #359.
 - `a08edc2` test(frontend): `cd frontend && npx vitest run` (`93 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
 
+## 2026-10-03 (branch: agent/161-embedding-dimension-cache-reland)
+
+### Re-land: ensure_embedding_collection caches the dimension probe (lost merge of issue #161 / AUDIT search-001)
+- `uncommitted` fix(search): [`embedding_init.py`](backend/app/services/search/embedding_init.py) again probed the LLM embedding dimension on every `ensure_embedding_collection` call (N probes for a re-index of N documents). The probe result is now cached per (provider, collection, model) and **always** passed to `ensure_collection`, so a changed embedding model still fails fast with the store's dimension-mismatch error. Review note: the original re-land read the stored collection size and fed it back, which made that check a no-op; that shortcut (`collection_vector_size` on the adapters) was removed.
+- `uncommitted` test(backend): `test_embedding_init_cache.py` covers probe-once per model, re-probe for a different model, and mismatch surfacing after a model change (`3 passed`).
+
 ## 2026-09-30 (branch: agent/215-fully-processed-gate-vision-reland)
 
 ### Re-land `fully_processed` vision-OCR gate (lost merge of PR #227 / issue #215)
@@ -483,6 +489,14 @@ All granular implementation slices and refactors are tracked here.
 - `test(frontend)`: added [`frontend/src/services/http.test.ts`](frontend/src/services/http.test.ts) covering error normalization (4xx with `detail`, 5xx fallback message, `error_code` passthrough, empty-body 2xx, network failure → `status:0`) and the retry policy (idempotent 503/network/timeout retry-then-succeed, non-idempotent POST not retried, intentional abort not retried, retry-budget exhaustion).
 - `test(frontend)`: verified `cd frontend && npm run type-check` (clean), `cd frontend && npm run lint` (0 warnings / 0 errors), and `cd frontend && npm run test:run` (`101 passed`, including the new `http.test.ts` 17 tests and the existing `chatStream.test.ts`).
 - `chore`: a grep gate confirms the only hand-written raw `fetch` call sites are `services/http.ts` (the client itself) and `services/chatStream.ts` (streaming); all JSON calls route through `requestJson`.
+
+## 2026-09-27 (branch: agent/161-embedding-dimension-cache)
+
+### ensure_embedding_collection caches the dimension probe
+- `uncommitted` fix(search): added `collection_vector_size(settings) -> int | None` to the `VectorStoreAdapter` protocol ([`backend/app/services/search/vector_store.py`](backend/app/services/search/vector_store.py)) and both adapters — the qdrant adapter ([`backend/app/services/search/vector_backends/qdrant_adapter.py`](backend/app/services/search/vector_backends/qdrant_adapter.py)) reads the stored `size` from the existing collection (returns `None` on 404), and the weaviate adapter ([`backend/app/services/search/vector_backends/weaviate_adapter.py`](backend/app/services/search/vector_backends/weaviate_adapter.py)) returns `None` (self-provided vectors carry no stored dimension).
+- `uncommitted` fix(search): rewrote `ensure_embedding_collection` in [`backend/app/services/search/embedding_init.py`](backend/app/services/search/embedding_init.py) to prefer the stored collection dimension and only call the LLM `embed_text` probe when the collection must be created, caching that probe process-wide keyed by (provider, collection, model) — so a re-index of N documents performs at most one LLM dimension probe instead of N, and embedding work proceeds when the LLM is down but the collection exists.
+- `uncommitted` test(backend): added `test_embedding_init_cache.py` with four tests — stored dimension requires no LLM probe across two calls, missing-collection probes at most once (cached), a different model is not served from the prior cache, and the LLM-down-but-collection-exists path proceeds.
+- `uncommitted` test: verified `cd backend && uv run pytest tests/test_embedding_init_cache.py -q` (`4 passed`), `cd backend && uv run pytest tests/test_qdrant_service.py tests/test_weaviate_adapter.py tests/test_vector_store_service.py tests/test_embeddings_routes.py tests/test_sync_operations_error_state.py tests/test_sync_meta_connections_routes.py -q` (`41 passed`), `cd backend && uv run ruff check ...` (clean), `cd backend && uv run mypy --config-file pyproject.toml` (no issues), and `cd backend && uv run pytest -q` (`328 passed` plus the known pre-existing `tests/test_writeback_dryrun_routes.py::test_execute_direct_migrates_stale_local_correspondent_id` failure).
 
 ## 2026-09-11 (branch: agent/193-queue-cancel-recovery)
 
