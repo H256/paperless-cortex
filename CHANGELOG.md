@@ -7,7 +7,8 @@ All granular implementation slices and refactors are tracked here.
 
 ### Fix: summary missing in the comparison table
 - `c02e8c8` fix(suggestions): the Summary row of the comparison table read `data.note` while the payload stores `data.summary`, so the cells were empty and the summary could not be judged or picked. The cell now shows the summary (fallback `note`); added a test that shows and picks it (#426).
-- Verification: `npx vitest run src/components/DocumentSuggestionsSection.test.ts` (31 passed), `npx vue-tsc --build`, `npx oxlint src`.
+- `da93247` fix(suggestions): long summaries are clamped to four lines in the table cells with a "Show full text" toggle and to three lines in the sticky "Selected changes" bar so the table keeps its shape (#426).
+- Verification: `npx vitest run src/components/DocumentSuggestionsSection.test.ts` (32 passed), `npx vue-tsc --build`, `npx oxlint src`.
 
 ## 2026-10-11 (branch: agent/release-0.9.3)
 
