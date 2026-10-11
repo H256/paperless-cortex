@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/392-suggest-page-restriction)
+
+### Page restriction for "Suggest new" (#392)
+- `260f12c` feat(api): `POST /documents/{id}/suggestions/field` accepts `pages` (`1`, `1-2,4`); new [`page_selection.py`](backend/app/services/ai/page_selection.py) parses it strictly and selects the page texts of the text the model reads (stored page texts, form-feed split fallback for paperless OCR); [`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py) and the queued worker task apply it. Malformed pages, documents without page structure or non-existing pages answer 400 before anything is queued.
+- `260f12c` feat(frontend): "Only these pages (optional)" in the guidance section of [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue); OpenAPI and client regenerated.
+- `260f12c` test: `cd backend && uv run pytest -q` -> `688 passed, 5 skipped`; `cd frontend && npx vitest run` -> `174 passed`; `npx vue-tsc --build`, `npx oxlint src`, `ruff check app tests` clean.
+- docs: plan [`2026-10-11-suggest-page-restriction.md`](docs/plans/2026-10-11-suggest-page-restriction.md), manual section 5.4.
+
 ## 2026-10-11 (branch: agent/390-docs-070)
 
 ### Manual update for 0.7.0 (#390)
