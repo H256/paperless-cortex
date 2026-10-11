@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/400-split-layout-fix)
+
+### Split view layout fix (#407)
+- `a61196c` feat(frontend): the app container is no longer capped at 1280 px (`max-w-7xl`) but at 1920 px (`max-w-[120rem]`) in header, main area and footer ([`App.vue`](frontend/src/App.vue), [`ContinueProcessingView.vue`](frontend/src/views/ContinueProcessingView.vue)), so the split view gets real width.
+- `95a17ea` fix(frontend): in the half-width column beside the PDF the source panels stayed side by side and the field rows kept their three-column grid, so values wrapped one letter per line. [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) gets a `compact` prop (set from [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) while the split view is active) that stacks panels and field rows from `xl` on; other widths are unchanged.
+- `95a17ea` test: `cd frontend && npx vitest run` -> `202 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked visually at xl width.
+
 ## 2026-10-11 (branch: agent/release-0.9.0)
 
 ### Release 0.9.0
