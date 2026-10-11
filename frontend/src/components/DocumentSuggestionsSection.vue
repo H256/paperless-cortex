@@ -442,6 +442,15 @@
                   </template>
                   <template v-else>
                     <span class="break-words">{{ fieldValue(panel.suggestion.data, field.key) }}</span>
+                    <span
+                      v-if="agreementBadge(panel.source, field.key)"
+                      class="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 align-middle text-[11px] font-semibold"
+                      :class="agreementBadge(panel.source, field.key)?.className"
+                      :title="agreementBadge(panel.source, field.key)?.title"
+                      :data-testid="`agreement-${panel.source}-${field.key}`"
+                    >
+                      {{ agreementBadge(panel.source, field.key)?.label }}
+                    </span>
                   </template>
                   <div class="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">
                     Current:
@@ -608,6 +617,11 @@ import { Info, Loader2 } from 'lucide-vue-next'
 import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { mergeTagNames, type SuggestionApplyItem } from '../utils/suggestionSelection'
+import {
+  computeAgreement,
+  type AgreementField,
+  type AgreementResult,
+} from '../utils/suggestionAgreement'
 import type { CorrespondentCandidate, DateCandidate } from '../api/generated/model'
 
 type SuggestionPayload = Record<string, unknown>
@@ -739,6 +753,64 @@ const panels = computed(() => [
 ])
 
 const orderedPanels = computed(() => panels.value)
+
+const AGREEMENT_SOURCES = ['vision_ocr', 'paperless_ocr', 'similar_docs'] as const
+const SOURCE_LABELS: Record<string, string> = {
+  vision_ocr: 'Vision OCR',
+  paperless_ocr: 'Paperless OCR',
+  similar_docs: 'Similar docs',
+}
+
+// Do the sources (and the text itself) agree on a value? Helps to spot nonsense at a glance.
+const agreementByField = computed(() => {
+  const result: Partial<Record<AgreementField, AgreementResult>> = {}
+  const textCandidates = props.textCandidates
+  const fieldInputs: Array<[AgreementField, string[]]> = [
+    ['title', []],
+    ['date', (textCandidates?.dates ?? []).map((candidate) => candidate.value)],
+    [
+      'correspondent',
+      (textCandidates?.correspondents ?? [])
+        .filter((candidate) => candidate.known !== false)
+        .map((candidate) => candidate.name),
+    ],
+  ]
+  for (const [field, textValues] of fieldInputs) {
+    const values: Record<string, unknown> = {}
+    for (const source of AGREEMENT_SOURCES) {
+      if (field === 'title' && source === 'similar_docs') continue
+      if (field === 'date' && source === 'similar_docs') continue
+      const data = panelFor(source)?.data
+      if (data) values[source] = suggestedValue(data, field)
+    }
+    result[field] = computeAgreement(field, { values, textValues })
+  }
+  return result
+})
+
+const agreementBadge = (source: string, field: string) => {
+  if (field !== 'title' && field !== 'date' && field !== 'correspondent') return null
+  const agreement = agreementByField.value[field]
+  if (!agreement || agreement.total < 2 || !(source in agreement.agreeing)) return null
+  const count = agreement.agreeing[source] ?? 0
+  const matchesText = agreement.textMatches[source]
+  if (count >= 2) {
+    return {
+      label: `${count} / ${agreement.total} agree`,
+      title: matchesText
+        ? 'Other sources and the document text contain the same value'
+        : 'Another source suggests the same value',
+      className:
+        'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200',
+    }
+  }
+  return {
+    label: 'Only this source',
+    title: `${SOURCE_LABELS[source] ?? source} is the only source with this value`,
+    className:
+      'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200',
+  }
+}
 
 const fieldsForPanel = (panel: { key: string }) => {
   if (panel.key === 'similar_docs') {
