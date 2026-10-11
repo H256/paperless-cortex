@@ -531,11 +531,6 @@ import { Loader2 } from 'lucide-vue-next'
 import ChoiceDialog from './ChoiceDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { mergeTagNames, type SuggestionApplyItem } from '../utils/suggestionSelection'
-import {
-  computeAgreement,
-  type AgreementField,
-  type AgreementResult,
-} from '../utils/suggestionAgreement'
 import type { CorrespondentCandidate, DateCandidate } from '../api/generated/model'
 
 type SuggestionPayload = Record<string, unknown>
