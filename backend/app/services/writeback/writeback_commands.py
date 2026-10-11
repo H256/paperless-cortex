@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.api_models import (
+    WritebackCallError,
     WritebackDryRunCall,
     WritebackDryRunExecuteResponse,
     WritebackExecuteNowResponse,
@@ -15,8 +16,7 @@ from app.api_models import (
     WritebackJobDetail,
 )
 from app.models import WritebackJob
-from app.services.documents.documents_list_cache import invalidate_documents_list_cache
-from app.services.documents.local_document_cache import invalidate_local_document_cache
+from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_execution import (
     collect_changed_calls,
@@ -64,6 +64,25 @@ def execute_now_response(
         preview_items=preview_items,
         build_calls_for_item=build_calls_for_item,
     )
+    call_errors: list[WritebackCallError] = []
+
+    def _record_call_error(call: WritebackDryRunCall, exc: Exception) -> None:
+        call_errors.append(
+            WritebackCallError(
+                doc_id=int(call.doc_id),
+                method=call.method,
+                path=call.path,
+                error=str(exc),
+            )
+        )
+        logger.warning(
+            "WRITEBACK EXECUTE call failed doc=%s method=%s path=%s error=%s",
+            call.doc_id,
+            call.method,
+            call.path,
+            exc,
+        )
+
     executed_doc_ids = execute_calls_with_audit(
         settings=settings,
         db=db,
@@ -73,18 +92,23 @@ def execute_now_response(
         cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
         reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
         logger=logger,
+        on_call_error=_record_call_error,
     )
     db.commit()
     invalidate_writeback_preview_cache()
-    invalidate_documents_list_cache()
-    for doc_id in executed_doc_ids:
-        invalidate_local_document_cache(int(doc_id))
+    if executed_doc_ids:
+        for doc_id in executed_doc_ids:
+            invalidate_document_caches(int(doc_id))
+    else:
+        invalidate_document_caches()
     return WritebackExecuteNowResponse(
         docs_selected=len(doc_ids),
         docs_changed=docs_changed,
         calls_count=len(calls),
         doc_ids=sorted(executed_doc_ids),
         calls=calls,
+        failed_doc_ids=sorted({error.doc_id for error in call_errors}),
+        errors=call_errors,
     )
 
 
@@ -242,9 +266,8 @@ def execute_pending_jobs_response(
             failed += 1
     if processed_ids:
         invalidate_writeback_preview_cache()
-        invalidate_documents_list_cache()
         for doc_id in processed_doc_ids:
-            invalidate_local_document_cache(int(doc_id))
+            invalidate_document_caches(int(doc_id))
 
     return WritebackExecutePendingResponse(
         processed=len(processed_ids),

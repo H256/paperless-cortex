@@ -117,7 +117,7 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
         settings, base_url=vision_url, api_key=vision_api_key
     )
     text_ok, text_detail = _model_status(text_models, provider_model(settings, "text"))
-    _chat_ok, _chat_detail = _model_status(chat_models, resolve_chat_model(settings))
+    chat_ok, chat_detail = _model_status(chat_models, resolve_chat_model(settings))
     embed_ok, embed_detail = _model_status(
         embedding_models, provider_model(settings, "embedding")
     )
@@ -149,6 +149,7 @@ def _status_payload(settings: Settings) -> dict[str, Any]:
         "worker": {"status": "UP" if worker_ok else "DOWN", "detail": worker_detail},
         "llm": {"status": "UP" if llm_ok else "DOWN", "detail": llm_detail},
         "llm_text": {"status": "UP" if text_ok else "DOWN", "detail": text_detail},
+        "llm_chat": {"status": "UP" if chat_ok else "DOWN", "detail": chat_detail},
         "llm_embedding": {"status": "UP" if embed_ok else "DOWN", "detail": embed_detail},
         "llm_vision": {"status": "UP" if vision_ok else "DOWN", "detail": vision_detail},
         "paperless_base_url": paperless_base,
@@ -216,8 +217,10 @@ def _queue_status_payload(settings: Settings) -> dict[str, Any]:
     return {"enabled": True, **stats, "paused": is_paused(settings)}
 
 
-def _document_stats_payload(db: Session) -> dict[str, Any]:
-    return get_cached_document_stats(db, build_payload=compute_document_stats)
+def _document_stats_payload(db: Session, settings: Settings) -> dict[str, Any]:
+    return get_cached_document_stats(
+        db, build_payload=lambda session: compute_document_stats(session, settings)
+    )
 
 
 def _embeddings_status_payload(settings: Settings, db: Session) -> dict[str, Any]:
@@ -260,7 +263,7 @@ def _build_stream_payload(settings: Settings) -> dict[str, Any]:
             "queue": _queue_status_payload(settings),
             "sync": _sync_state_payload(db, "documents"),
             "embeddings": _embeddings_status_payload(settings, db),
-            "stats": _document_stats_payload(db),
+            "stats": _document_stats_payload(db, settings),
             "timestamp": int(time.time()),
         }
     finally:

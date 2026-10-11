@@ -28,12 +28,11 @@ from app.services.ai.hierarchical_helpers import (
     _truncate_for_tokens,
 )
 from app.services.ai.hierarchical_storage import (
-    _sorted_unique_positive_pages,
     group_notes_into_sections,
-    group_page_ranges,
     is_large_document,
     replace_section_summaries,
     upsert_page_note,
+    upsert_section_summary,
 )
 from app.services.runtime.guard import ensure_text_llm_ready
 
@@ -138,15 +137,14 @@ __all__ = [
     "_sanitize_summary_list",
     "_sanitize_summary_value",
     "_section_notes_to_text",
-    "_sorted_unique_positive_pages",
     "_truncate_for_tokens",
     "ensure_text_llm_ready",
     "generate_global_summary",
     "generate_page_notes",
     "generate_section_summary",
     "group_notes_into_sections",
-    "group_page_ranges",
     "is_large_document",
     "replace_section_summaries",
     "upsert_page_note",
+    "upsert_section_summary",
 ]

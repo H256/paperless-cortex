@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api_models import (
@@ -93,7 +94,16 @@ def execute_writeback_direct_for_document(
             status_code=400,
             detail="Real writeback execution is disabled. Set WRITEBACK_EXECUTE_ENABLED=1 to enable it.",
         )
-    context = _load_direct_writeback_context(settings, db, doc_id)
+    try:
+        context = _load_direct_writeback_context(settings, db, doc_id)
+    except httpx.HTTPStatusError as exc:
+        response = exc.response
+        if response is not None and int(response.status_code) == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="Remote document no longer exists in Paperless",
+            ) from exc
+        raise
     if context is None:
         raise HTTPException(status_code=404, detail="Local document not found")
     local_doc, remote_doc, item = context

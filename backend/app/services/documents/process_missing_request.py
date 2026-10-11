@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.services.documents.operations import validate_embeddings_mode
 from app.services.pipeline.process_missing import ProcessMissingOptions
 
 
@@ -30,8 +31,7 @@ def build_process_missing_options(
     embeddings_mode: str,
     limit: int | None,
 ) -> ProcessMissingOptions:
-    if embeddings_mode not in ("auto", "paperless", "vision", "both"):
-        raise ValueError("Invalid embeddings_mode")
+    validate_embeddings_mode(embeddings_mode)
     if limit is not None and limit < 1:
         raise ValueError("limit must be >= 1")
     return ProcessMissingOptions(

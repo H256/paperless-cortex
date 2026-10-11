@@ -54,13 +54,14 @@ def test_sync_cancel_marks_state(api_client: Any) -> None:
 
     response = api_client.post("/sync/documents/cancel")
     assert response.status_code == 200
-    assert response.json()["status"] == "cancelling"
+    assert response.json()["status"] == "cancelled"
 
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:
         state = db.get(SyncState, "documents")
         assert state is not None
         assert state.cancel_requested is True
+        assert state.status == "cancelled"
 
 
 def test_sync_document_priority_queues_front(api_client: Any, monkeypatch: Any) -> None:

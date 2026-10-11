@@ -100,17 +100,6 @@ def extract_pdf_text_pages(pdf_bytes: bytes) -> list[PageText]:
     return extracted_pages
 
 
-def is_low_quality_text(text: str, min_chars: int, max_non_alnum_ratio: float) -> bool:
-    cleaned = text.strip()
-    if len(cleaned) < min_chars:
-        return True
-    alnum = sum(ch.isalnum() for ch in cleaned)
-    if alnum == 0:
-        return True
-    non_alnum_ratio = 1.0 - (alnum / max(1, len(cleaned)))
-    return non_alnum_ratio > max_non_alnum_ratio
-
-
 @dataclass(frozen=True)
 class TextQuality:
     score: int
@@ -317,21 +306,3 @@ def get_baseline_page_texts(
         logger.warning("PDF text extraction failed: %s", exc)
         baseline_pages = []
     return baseline_pages
-
-
-def get_page_texts(
-    settings: Settings,
-    content: str | None,
-    fetch_pdf_bytes: Callable[[], bytes] | None,
-) -> list[PageText]:
-    baseline_pages, vision_pages = get_page_text_layers(
-        settings,
-        content,
-        fetch_pdf_bytes,
-        force_full_vision=False,
-    )
-    if not baseline_pages and not vision_pages:
-        if not settings.enable_pdf_page_extract and not settings.enable_vision_ocr:
-            logger.info("Page extraction disabled")
-        return []
-    return baseline_pages + vision_pages

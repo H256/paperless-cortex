@@ -81,6 +81,7 @@
       :mode="emptyStateMode"
       @clear-filters="clearAllFilters"
       @open-processing="openPreview"
+      @retry="load"
     />
 
     <DocumentsTable
@@ -145,7 +146,9 @@ const {
   selectedReviewStatus,
   dateFrom,
   dateTo,
+  searchQuery,
   documentsLoading,
+  documentsError,
   refetchDocuments,
 } = useDocumentsCatalog({ includeSummaryPreview })
 const {
@@ -161,13 +164,11 @@ const {
 const { paperlessBaseUrl } = usePaperlessBaseUrl()
 const analysisFilter = ref<'all' | 'analyzed' | 'not_analyzed'>('all')
 const modelFilter = ref('')
-const searchQuery = ref('')
 const runningOnly = ref(false)
 const { visibleDocuments: filteredDocuments } = useVisibleDocuments(
   documents,
   analysisFilter,
   modelFilter,
-  searchQuery,
 )
 const { runningByDocId } = useRunningTaskProgress()
 const visibleDocuments = computed(() => {
@@ -176,8 +177,9 @@ const visibleDocuments = computed(() => {
     typeof doc.id === 'number' ? Boolean(runningByDocId.value[doc.id]) : false,
   )
 })
-const emptyStateMode = computed<'filtered' | 'running_only' | 'empty'>(() => {
+const emptyStateMode = computed<'filtered' | 'running_only' | 'empty' | 'error'>(() => {
   if (runningOnly.value) return 'running_only'
+  if (documentsError.value && documents.value.length === 0) return 'error'
   if (documents.value.length === 0) return 'empty'
   return 'filtered'
 })

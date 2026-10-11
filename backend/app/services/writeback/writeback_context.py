@@ -51,7 +51,10 @@ def load_direct_writeback_context(
         else ""
     )
 
-    remote_doc = paperless.get_document_cached(settings, doc_id)
+    # Fetch a fresh remote document (bypassing the short-lived document cache)
+    # so the known_paperless_modified conflict check in the execute path is not
+    # defeated by a stale cached payload.
+    remote_doc = paperless.get_document(settings, doc_id)
     item = build_writeback_item(
         local_doc=local_doc,
         remote_doc=remote_doc,

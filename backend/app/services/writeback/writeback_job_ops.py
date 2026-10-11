@@ -12,8 +12,7 @@ from app.api_models import (
     WritebackJobListResponse,
 )
 from app.models import WritebackJob
-from app.services.documents.documents_list_cache import invalidate_documents_list_cache
-from app.services.documents.local_document_cache import invalidate_local_document_cache
+from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.writeback.writeback_execution import run_writeback_job_execution
 from app.services.writeback.writeback_jobs import (
     deserialize_calls,
@@ -112,9 +111,12 @@ def execute_job_response(
         logger=logger,
     )
     invalidate_writeback_preview_cache()
-    invalidate_documents_list_cache()
-    for doc_id in deserialize_doc_ids(job):
-        invalidate_local_document_cache(int(doc_id))
+    job_doc_ids = deserialize_doc_ids(job)
+    if job_doc_ids:
+        for doc_id in job_doc_ids:
+            invalidate_document_caches(int(doc_id))
+    else:
+        invalidate_document_caches()
     return job_detail(job)
 
 

@@ -58,11 +58,6 @@ def reset_log_context(token: Token[dict[str, Any] | None]) -> None:
     _LOG_CONTEXT.reset(token)
 
 
-def clear_log_context() -> None:
-    """Clear all structured logging context for the current execution scope."""
-    _LOG_CONTEXT.set(None)
-
-
 class ContextFilter(logging.Filter):
     def __init__(self, *, service: str) -> None:
         super().__init__()

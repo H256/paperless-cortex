@@ -679,7 +679,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 
 ## Weaviate adapter coverage baseline re-verification
 
-- Added [`backend/tests/test_weaviate_adapter.py`](E:/workspace/python/paperless-intelligence/backend/tests/test_weaviate_adapter.py) to the strict mypy allowlist, raising the strict backend baseline from `161` to `162` files.
+- Added [`backend/tests/test_weaviate_adapter.py`](backend/tests/test_weaviate_adapter.py) to the strict mypy allowlist, raising the strict backend baseline from `161` to `162` files.
 - Re-verified the backend CI equivalent after adding direct fake-client coverage for Weaviate collection creation, chunk-vs-centroid upsert routing, centroid-search selection, and centroid retrieve fallback.
 - Verified with:
   - `cd backend && uv run ruff check app tests scripts alembic`
@@ -688,7 +688,7 @@ uv run pytest tests/test_embeddings_routes.py tests/test_sync_documents_routes.p
 
 ## Dashboard cache invalidation baseline re-verification
 
-- Added [`backend/app/services/documents/dashboard_cache.py`](E:/workspace/python/paperless-intelligence/backend/app/services/documents/dashboard_cache.py) to the strict mypy allowlist, raising the strict backend baseline from `162` to `163` files.
+- Added [`backend/app/services/documents/dashboard_cache.py`](backend/app/services/documents/dashboard_cache.py) to the strict mypy allowlist, raising the strict backend baseline from `162` to `163` files.
 - Re-verified the backend CI equivalent after extracting the dashboard cache seam and wiring explicit invalidation into the sync and document-mutation routes.
 - Verified with:
   - `cd backend && uv run ruff check app tests scripts alembic`

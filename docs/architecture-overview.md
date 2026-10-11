@@ -226,6 +226,6 @@ Deshalb gibt es eigene Ansichten für:
 
 ## 13. Verwandte Dokumentation
 
-- [docs/manual/README.md](E:\workspace\python\paperless-intelligence\docs\manual\README.md)
-- [docs/manual/15-admin-und-betrieb.md](E:\workspace\python\paperless-intelligence\docs\manual\15-admin-und-betrieb.md)
-- [README.md](E:\workspace\python\paperless-intelligence\README.md)
+- [docs/manual/README.md](docs/manual/README.md)
+- [docs/manual/15-admin-und-betrieb.md](docs/manual/15-admin-und-betrieb.md)
+- [README.md](README.md)

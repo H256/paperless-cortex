@@ -30,6 +30,7 @@ from app.services.search.embeddings import (
     embed_text,
     make_doc_point_id,
     make_point_id,
+    record_source_chunk_count,
     search_points,
     upsert_points,
 )
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 @router.post("/ingest", response_model=EmbeddingIngestResponse)
 def ingest_embeddings(
     doc_id: int | None = Query(default=None),
-    limit: int = Query(default=100),
+    limit: int = Query(default=100, ge=1, le=10000),
     force: bool = Query(default=False),
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
@@ -55,7 +56,7 @@ def ingest_embeddings(
     query = db.query(Document)
     if doc_id is not None:
         query = query.filter(Document.id == doc_id)
-    documents = query.all() if limit <= 0 else query.limit(limit).all()
+    documents = query.limit(limit).all()
     if settings.queue_enabled:
         return enqueue_embedding_tasks(
             settings,
@@ -76,6 +77,7 @@ def ingest_embeddings(
         make_point_id_fn=make_point_id,
         make_doc_point_id_fn=make_doc_point_id,
         upsert_points_fn=upsert_points,
+        record_source_chunk_count_fn=record_source_chunk_count,
     )
 
 
@@ -108,6 +110,7 @@ def ingest_documents(
         make_point_id_fn=make_point_id,
         make_doc_point_id_fn=make_doc_point_id,
         upsert_points_fn=upsert_points,
+        record_source_chunk_count_fn=record_source_chunk_count,
     )
 
 

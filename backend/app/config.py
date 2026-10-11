@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,9 @@ _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off", ""}
 _ALLOWED_CHUNK_MODES = {"heuristic", "semantic", "sentence"}
 _ALLOWED_VECTOR_PROVIDERS = {"qdrant", "weaviate"}
+
+_settings_cache: dict[str, Any] = {}
+_settings_cache_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -24,6 +29,7 @@ class ApiConfig:
     slow_request_log_ms: int
     status_stream_interval_seconds: int
     status_llm_models_ttl_seconds: int
+    token: str
 
 
 @dataclass(frozen=True)
@@ -247,6 +253,7 @@ _COMPAT_ATTRIBUTE_PATHS: dict[str, tuple[str, ...]] = {
     "log_level": ("logging", "level"),
     "log_json": ("logging", "json"),
     "api_slow_request_log_ms": ("api", "slow_request_log_ms"),
+    "api_token": ("api", "token"),
     "status_stream_interval_seconds": ("api", "status_stream_interval_seconds"),
     "status_llm_models_ttl_seconds": ("api", "status_llm_models_ttl_seconds"),
     "worker_max_retries": ("worker", "max_retries"),
@@ -491,6 +498,7 @@ def _build_settings_from_env() -> Settings:
             slow_request_log_ms=max(0, _env_int("API_SLOW_REQUEST_LOG_MS", 1200)),
             status_stream_interval_seconds=_env_int("STATUS_STREAM_INTERVAL_SECONDS", 5),
             status_llm_models_ttl_seconds=_env_int("STATUS_LLM_MODELS_TTL_SECONDS", 60),
+            token=_env_str("API_TOKEN", ""),
         ),
         worker=WorkerConfig(
             max_retries=max(0, _env_int("WORKER_MAX_RETRIES", 2)),
@@ -534,7 +542,7 @@ def _build_settings_from_env() -> Settings:
             min_chars=_env_int("VISION_OCR_MIN_CHARS", 40),
             min_score=_env_int("VISION_OCR_MIN_SCORE", 60),
             max_non_alnum_ratio=_env_float("VISION_OCR_MAX_NONALNUM_RATIO", 0.6),
-            max_pages=max(0, _env_int("VISION_OCR_MAX_PAGES", 0)),
+            max_pages=max(0, _env_int("VISION_OCR_MAX_PAGES", 50)),
             timeout_seconds=_env_int("VISION_OCR_TIMEOUT_SECONDS", 120),
             max_dim=_env_int("VISION_OCR_MAX_DIM", 1024),
             target_dim=max(0, _env_int("VISION_OCR_TARGET_DIM", 0)),
@@ -604,13 +612,33 @@ def _build_settings_from_env() -> Settings:
     return settings
 
 
+def _env_fingerprint() -> str:
+    """Hash the process environment so unchanged env maps to a stable key."""
+    return hashlib.sha256(repr(sorted(os.environ.items())).encode("utf-8")).hexdigest()
+
+
+def reset_settings_cache() -> None:
+    """Clear the process-wide settings cache (e.g. after a runtime override change)."""
+    with _settings_cache_lock:
+        _settings_cache.clear()
+
+
 def load_settings(*, apply_runtime_overrides: bool = True) -> Settings:
-    settings = _build_settings_from_env()
     if not apply_runtime_overrides:
-        return settings
+        # db.py path: always rebuild so a changed DATABASE_URL is honored.
+        return _build_settings_from_env()
+    fingerprint = _env_fingerprint()
+    with _settings_cache_lock:
+        cached = _settings_cache.get(fingerprint)
+        if cached is not None:
+            return cached
+    settings = _build_settings_from_env()
     try:
         from app.services.runtime.model_providers import apply_runtime_model_overrides
 
-        return apply_runtime_model_overrides(settings)
+        settings = apply_runtime_model_overrides(settings)
     except ImportError:
-        return settings
+        pass
+    with _settings_cache_lock:
+        _settings_cache[fingerprint] = settings
+    return settings

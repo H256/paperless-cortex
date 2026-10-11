@@ -91,7 +91,6 @@ require_queue_enabled = is_queue_enabled
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 ResponseDict = dict[str, object]
-ReferenceCache = dict[str, set[int]]
 
 ALLOWED_DOC_TASKS = {
     "sync",
@@ -343,7 +342,7 @@ def reset_intelligence(
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    _clear_all_intelligence(db)
+    _clear_all_intelligence(db, settings)
     return {"enabled": True}
 
 
@@ -354,7 +353,7 @@ def clear_intelligence(
 ) -> ResponseDict:
     if not require_queue_enabled(settings):
         return {"enabled": False}
-    _clear_all_intelligence(db)
+    _clear_all_intelligence(db, settings)
     return {"enabled": True}
 
 

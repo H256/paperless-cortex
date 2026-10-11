@@ -74,6 +74,7 @@ from app.services.pipeline.worker_runtime import (
     dispatch_worker_task,
     handle_worker_cancel_request,
     parse_worker_queue_item,
+    run_worker_iteration_gate,
 )
 from app.services.pipeline.worker_suggestion_tasks import (
     build_distilled_context_from_hier_summary as _service_build_distilled_context_from_hier_summary,
@@ -106,21 +107,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
-
-
-def _embedding_checkpoint_batch_size(
-    *,
-    total_chunks: int,
-    configured_batch_size: int,
-) -> int:
-    # Very large chunk sets use smaller batches to report progress more often.
-    if total_chunks >= 1200:
-        return min(configured_batch_size, 4)
-    if total_chunks >= 600:
-        return min(configured_batch_size, 6)
-    if total_chunks >= 250:
-        return min(configured_batch_size, 8)
-    return configured_batch_size
 
 
 def _is_large_doc(settings, doc: Document) -> bool:
@@ -246,7 +232,8 @@ def _process_summary_hierarchical(
 
 
 def _process_embeddings_paperless(
-    settings, db: Session, doc_id: int, run_id: int | None = None
+    settings, db: Session, doc_id: int, run_id: int | None = None,
+    embeddings_mode: str = "",
 ) -> None:
     _service_process_embeddings_paperless(
         settings,
@@ -254,6 +241,7 @@ def _process_embeddings_paperless(
         doc_id,
         is_cancel_requested_fn=is_cancel_requested,
         run_id=run_id,
+        embeddings_mode=embeddings_mode,
     )
 
 
@@ -276,7 +264,9 @@ def _process_evidence_index(
 
 
 def _process_embeddings_vision(
-    settings, db: Session, doc_id: int, run_id: int | None = None
+    settings, db: Session, doc_id: int, run_id: int | None = None,
+    embeddings_mode: str = "",
+    force: bool = False,
 ) -> None:
     _service_process_embeddings_vision(
         settings,
@@ -284,6 +274,8 @@ def _process_embeddings_vision(
         doc_id,
         is_cancel_requested_fn=is_cancel_requested,
         run_id=run_id,
+        embeddings_mode=embeddings_mode,
+        force=force,
     )
 
 
@@ -384,12 +376,9 @@ def main() -> None:
         while True:
             if lock_lost.is_set():
                 raise SystemExit("Worker lock lost; exiting")
-            if is_paused(settings):
-                time.sleep(0.5)
-                continue
-            run_worker_queue_maintenance(settings)
-            if handle_worker_cancel_request(
+            if run_worker_iteration_gate(
                 settings,
+                is_paused_fn=is_paused,
                 is_cancel_requested_fn=is_cancel_requested,
                 clear_queue_fn=clear_queue,
                 reset_stats_fn=reset_stats,
@@ -399,6 +388,7 @@ def main() -> None:
             ):
                 time.sleep(0.5)
                 continue
+            run_worker_queue_maintenance(settings)
             item = client.blpop(QUEUE_KEY, timeout=5)
             if not item:
                 time.sleep(0.5)

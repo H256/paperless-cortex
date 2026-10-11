@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
+import httpx
 from sqlalchemy import delete
 
 from app.models import (
@@ -19,12 +21,15 @@ from app.services.documents.document_stats_cache import invalidate_document_stat
 from app.services.documents.documents_list_cache import invalidate_documents_list_cache
 from app.services.documents.local_document_cache import invalidate_local_document_cache
 from app.services.documents.page_texts_cache import invalidate_page_texts_cache
+from app.services.search.embeddings import delete_all_chunk_points, delete_points_for_doc
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from app.config import Settings
 
-def clear_all_intelligence(db: Session) -> None:
+
+def clear_all_intelligence(db: Session, settings: Settings | None = None) -> None:
     db.execute(delete(DocumentSuggestion))
     db.execute(delete(DocumentPageText))
     db.execute(delete(DocumentEmbedding))
@@ -38,9 +43,14 @@ def clear_all_intelligence(db: Session) -> None:
     invalidate_documents_list_cache()
     invalidate_local_document_cache()
     invalidate_page_texts_cache()
+    if settings is not None:
+        with suppress(httpx.HTTPError, RuntimeError, ValueError):
+            delete_all_chunk_points(settings)
 
 
-def clear_document_intelligence(db: Session, doc_id: int) -> None:
+def clear_document_intelligence(
+    db: Session, doc_id: int, settings: Settings | None = None
+) -> None:
     db.query(DocumentSuggestion).filter(DocumentSuggestion.doc_id == doc_id).delete(
         synchronize_session=False
     )
@@ -69,3 +79,6 @@ def clear_document_intelligence(db: Session, doc_id: int) -> None:
     invalidate_documents_list_cache()
     invalidate_local_document_cache(doc_id)
     invalidate_page_texts_cache(doc_id)
+    if settings is not None:
+        with suppress(httpx.HTTPError, RuntimeError, ValueError):
+            delete_points_for_doc(settings, doc_id)

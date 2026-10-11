@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api_models import (
     SyncCancelResponse,
@@ -66,6 +66,11 @@ def sync_documents(
     """Synchronize Paperless documents into the local cache and optionally queue embeddings."""
     if embed is None:
         embed = settings.embed_on_sync
+    if mark_missing and (page_only or page > 1):
+        raise HTTPException(
+            status_code=400,
+            detail="mark_missing requires a complete page walk: page_only must be false and page must be 1",
+        )
     payload = run_documents_sync(
         db=db,
         settings=settings,

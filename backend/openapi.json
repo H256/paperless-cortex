@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.5.60"
+    "version": "0.5.61"
   },
   "paths": {
     "/documents/": {
@@ -112,6 +112,22 @@
                 }
               ],
               "title": "Document Date  Lte"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           },
           {
@@ -2683,6 +2699,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
               "default": 100,
               "title": "Limit"
             }
@@ -8554,6 +8572,17 @@
             ],
             "title": "Paused"
           },
+          "cancel_pending": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Pending"
+          },
           "last_run_seconds": {
             "anyOf": [
               {
@@ -8863,6 +8892,9 @@
           "llm_text": {
             "$ref": "#/components/schemas/StatusEntry"
           },
+          "llm_chat": {
+            "$ref": "#/components/schemas/StatusEntry"
+          },
           "llm_embedding": {
             "$ref": "#/components/schemas/StatusEntry"
           },
@@ -9096,6 +9128,7 @@
           "worker",
           "llm",
           "llm_text",
+          "llm_chat",
           "llm_embedding",
           "llm_vision"
         ],
@@ -9799,6 +9832,34 @@
         ],
         "title": "ValidationError"
       },
+      "WritebackCallError": {
+        "properties": {
+          "doc_id": {
+            "type": "integer",
+            "title": "Doc Id"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "method",
+          "path",
+          "error"
+        ],
+        "title": "WritebackCallError"
+      },
       "WritebackConflictField": {
         "properties": {
           "field": {
@@ -10083,6 +10144,22 @@
             "type": "array",
             "title": "Calls",
             "default": []
+          },
+          "failed_doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Failed Doc Ids",
+            "default": []
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/WritebackCallError"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
           }
         },
         "type": "object",
@@ -10228,6 +10305,11 @@
           "changed": {
             "type": "boolean",
             "title": "Changed"
+          },
+          "ai_generated": {
+            "type": "boolean",
+            "title": "Ai Generated",
+            "default": false
           }
         },
         "type": "object",

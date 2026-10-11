@@ -100,6 +100,11 @@
             :title="statusStore.health.llm_text_detail"
           />
           <StatusLight
+            label="LLM Chat"
+            :status="statusStore.health.llm_chat"
+            :title="statusStore.health.llm_chat_detail"
+          />
+          <StatusLight
             label="LLM Embed"
             :status="statusStore.health.llm_embedding"
             :title="statusStore.health.llm_embedding_detail"
