@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/410-table-fixes)
+
+### Comparison table follow-ups (#412, on top of #410)
+- `7d6ca91` fix(frontend): [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) handles `jump-to-page` from the suggestions section (the buttons in the table did nothing), the split view gives the suggestions column 3:2 of the width, and [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) uses a 600 px table minimum in compact mode instead of 760 px.
+- `7d6ca91` test: jump handler (`DocumentDetailView.integration.test.ts`), compact table minimum; `cd frontend && npx vitest run` -> `196 passed`; `npx vue-tsc --build`, `npx oxlint src` clean. Not checked visually.
+
 ## 2026-10-11 (branch: agent/400-split-layout-fix)
 
 ### Split view layout fix (#407)
