@@ -22,6 +22,17 @@ Work through "Unreviewed" / "Needs review" documents without going back to the l
 - Storage/position utils, composable (navigation, keyboard, auto-advance), header component.
 - Full frontend suite, `vue-tsc --build`, `oxlint`.
 
+
+## Slice 2: paging across list pages and prefetch (#371)
+
+- The documents list stores the list request (filters, ordering, page size), the loaded page range, the client-side filters and the ids that already have suggestions.
+- **Continuing**: when at most 2 documents are left the next ones are loaded in the background and appended; `j` waits for the load if the end was reached.
+- **Stable lists** continue with `lastPage + 1`, and `k` can load the previous page.
+- **Shrinking lists** (`unreviewed`, `needs_review`): reviewed documents leave the server list, so `page + 1` would skip rows. These are re-scanned from page 1 and only documents not yet in the queue are appended; paging backwards is not offered.
+- "Running only" depends on live task state and disables paging.
+- **Prefetch**: ~0.6 s after a document is shown, the next document (`/local`) is requested ahead of time; suggestions only if the list row already had suggestions, so prefetching never triggers generation. A single-use in-memory cache (TTL 20 s, max 6 entries) is consumed by the loaders.
+- Position shows `3 / 20+` while more documents can be loaded.
+
 ## Out of scope (stays in #359)
-- Continuing across list pages, prefetching the next document, server-side neighbors for very large result sets.
+- Server-side neighbor endpoint for very large result sets.
 - Deterministic date/correspondent candidates, passage focus for "Suggest new".

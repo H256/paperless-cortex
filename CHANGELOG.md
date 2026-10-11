@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/371-review-paging-prefetch)
+
+### Review mode continues across list pages and prefetches the next document (#371, tracking #359)
+- `84c368b` feat(frontend): the documents list remembers the list request ([`reviewQueue.ts`](frontend/src/utils/reviewQueue.ts)); [`reviewQueuePaging.ts`](frontend/src/utils/reviewQueuePaging.ts) loads further documents in the background. Stable lists continue with `page + 1` (and `page - 1`); shrinking review lists (`unreviewed` / `needs_review`) are re-scanned from page 1 and only unseen documents are appended, so none is skipped while documents are reviewed.
+- `84c368b` feat(frontend): [`prefetchCache.ts`](frontend/src/services/prefetchCache.ts) prefetches the next document and, only when it already has suggestions, its suggestions; entries are single-use with a 20 s TTL and are consumed by the detail loaders.
+- `84c368b` test: `cd frontend && npx vitest run` (`153 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
 ## 2026-10-11 (branch: agent/369-review-mode-prev-next)
 
 ### Review mode: previous/next inside the filtered list (#369, tracking #359)
