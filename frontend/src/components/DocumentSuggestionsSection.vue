@@ -58,6 +58,16 @@
             {{ suggestionMetaLine(panel.source) }}
           </div>
 
+          <div
+            v-if="warningsFor(panel.source).length"
+            class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <div class="font-semibold">Check these suggested values</div>
+            <ul class="mt-1 list-disc space-y-0.5 pl-4">
+              <li v-for="(warning, index) in warningsFor(panel.source)" :key="index">{{ warning }}</li>
+            </ul>
+          </div>
+
           <div v-if="!panel.suggestion" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
             <em>No data.</em>
           </div>
@@ -364,6 +374,15 @@ const normalizeSuggestion = (input: unknown) => {
 const suggestionsMeta = computed(
   () => (props.suggestions as { suggestions_meta?: Record<string, unknown> } | null)?.suggestions_meta || {},
 )
+
+const warningsFor = (source: SuggestionSource): string[] => {
+  const raw = props.suggestions?.[source]
+  if (!raw || typeof raw !== 'object') {
+    return []
+  }
+  const warnings = (raw as { suggestion_warnings?: unknown }).suggestion_warnings
+  return Array.isArray(warnings) ? (warnings as string[]) : []
+}
 
 const panelFor = (key: 'paperless_ocr' | 'vision_ocr' | 'similar_docs') =>
   normalizeSuggestion(props.suggestions?.[key])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -31,6 +32,7 @@ from app.services.ai.suggestion_store import (
     persist_suggestions,
     update_suggestion_field,
 )
+from app.services.ai.suggestion_warnings import compute_suggestion_warnings
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.documents.documents import fetch_pdf_bytes, get_document_or_none
 from app.services.documents.page_text_store import upsert_page_texts
@@ -49,6 +51,27 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 require_queue_enabled = is_queue_enabled
+
+
+def _attach_suggestion_warnings(payload: dict[str, object], settings: Settings) -> None:
+    """Attach ``suggestion_warnings`` per source into the suggestions payload.
+
+    Runs at read time against the freshest known-correspondent list and the
+    current date, so the advisory hints never go stale. The ``similar_docs``
+    source is non-actionable metadata (its ``correspondent`` is an aggregate
+    of real docs, not a proposed value) and is skipped to avoid noise.
+    """
+    suggestions = payload.get("suggestions")
+    if not isinstance(suggestions, dict):
+        return
+    known_correspondents = get_cached_correspondents(settings)
+    reference_date = datetime.date.today()
+    for source, value in suggestions.items():
+        if source == "similar_docs" or not isinstance(value, dict):
+            continue
+        value["suggestion_warnings"] = compute_suggestion_warnings(
+            value, known_correspondents, reference_date
+        )
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -112,7 +135,7 @@ def get_document_suggestions(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     logger = logging.getLogger(__name__)
-    return get_document_suggestions_payload(
+    payload = get_document_suggestions_payload(
         doc_id=doc_id,
         source=source,
         refresh=refresh,
@@ -132,6 +155,8 @@ def get_document_suggestions(
         enqueue_task_front_fn=enqueue_task_front,
         enqueue_task_sequence_front_fn=enqueue_task_sequence_front,
     )
+    _attach_suggestion_warnings(payload, settings)
+    return payload
 
 
 @router.post("/{doc_id}/suggestions/field", response_model=SuggestFieldVariantsResponse)
