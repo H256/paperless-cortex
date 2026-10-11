@@ -73,6 +73,7 @@
         :text-candidates="textCandidates"
         :text-sources="guidanceTextSources"
         :applying="suggestionsApplying"
+        :import-date="document?.added || ''"
         @refresh="refreshSuggestionsAction"
         @suggest-field="suggestFieldAction"
         @apply-variant="applyVariantAction"
@@ -385,7 +386,11 @@ const aggregatedText = computed(() => {
 const suggestFieldAction = async (
   source: 'paperless_ocr' | 'vision_ocr' | 'similar_docs',
   field: string,
-  guidance?: { focus_text?: string; hint?: string },
+  guidance?: {
+    focus_text?: string
+    hint?: string
+    text_source?: 'paperless_ocr' | 'vision_ocr'
+  },
 ) => {
   if (source === 'similar_docs') return
   await suggestField(docId.value, source, field, guidance)

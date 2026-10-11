@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Paperless-NGX Cortex API",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "paths": {
     "/documents/": {
@@ -5664,6 +5664,17 @@
             ],
             "title": "Modified"
           },
+          "added": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
           "correspondent": {
             "anyOf": [
               {
@@ -9378,6 +9389,17 @@
               }
             ],
             "title": "Hint"
+          },
+          "text_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Source"
           }
         },
         "type": "object",

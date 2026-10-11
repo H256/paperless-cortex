@@ -537,3 +537,62 @@ def test_text_candidates_route_falls_back_to_document_content(
 
 def test_text_candidates_route_unknown_document_returns_404(api_client: Any) -> None:
     assert api_client.get("/documents/99999/suggestions/candidates").status_code == 404
+
+
+def _suggest_field_text_seen_by_model(
+    api_client: Any, monkeypatch: Any, doc_id: int, request_extra: dict[str, Any]
+) -> str:
+    from app.models import DocumentPageText
+    from app.routes import documents_suggestions as route_mod
+    from app.services.integrations import paperless
+
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=doc_id, title=f"Doc {doc_id}", content="PAPERLESS TEXT"))
+        db.add(
+            DocumentPageText(doc_id=doc_id, page=1, source="vision_ocr", text="VISION TEXT")
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        paperless,
+        "get_document",
+        lambda settings, did: {"id": did, "content": "PAPERLESS TEXT"},
+    )
+    monkeypatch.setattr(route_mod, "get_cached_tags", lambda settings: [])
+    monkeypatch.setattr(route_mod, "get_cached_correspondents", lambda settings: [])
+    seen: dict[str, str] = {}
+
+    def _fake_generate(_settings: Any, _document: Any, text: str, **_kwargs: Any) -> dict[str, Any]:
+        seen["text"] = text
+        return {"variants": ["x"]}
+
+    monkeypatch.setattr(route_mod, "generate_field_variants", _fake_generate)
+
+    response = api_client.post(
+        f"/documents/{doc_id}/suggestions/field?priority=true",
+        json={"source": "vision_ocr", "field": "title", "count": 1, **request_extra},
+    )
+    assert response.status_code == 200
+    return seen["text"]
+
+
+def test_suggest_field_reads_the_requesting_panels_text_by_default(
+    api_client: Any, monkeypatch: Any
+) -> None:
+    text = _suggest_field_text_seen_by_model(api_client, monkeypatch, 820, {})
+    assert text == "VISION TEXT"
+
+
+def test_suggest_field_can_read_the_other_ocr_text(api_client: Any, monkeypatch: Any) -> None:
+    text = _suggest_field_text_seen_by_model(
+        api_client, monkeypatch, 821, {"text_source": "paperless_ocr"}
+    )
+    assert text == "PAPERLESS TEXT"
+
+
+def test_suggest_field_ignores_an_unknown_text_source(api_client: Any, monkeypatch: Any) -> None:
+    text = _suggest_field_text_seen_by_model(
+        api_client, monkeypatch, 822, {"text_source": "similar_docs"}
+    )
+    assert text == "VISION TEXT"

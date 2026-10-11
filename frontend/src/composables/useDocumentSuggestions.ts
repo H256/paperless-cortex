@@ -46,6 +46,8 @@ const isQueued = (data: unknown) =>
 export type SuggestGuidance = {
   focus_text?: string
   hint?: string
+  /** OCR text the model reads (default: the text of the panel the request comes from). */
+  text_source?: 'paperless_ocr' | 'vision_ocr'
 }
 
 export const useDocumentSuggestions = () => {
@@ -82,6 +84,7 @@ export const useDocumentSuggestions = () => {
           count: 3,
           ...(guidance?.focus_text ? { focus_text: guidance.focus_text } : {}),
           ...(guidance?.hint ? { hint: guidance.hint } : {}),
+          ...(guidance?.text_source ? { text_source: guidance.text_source } : {}),
         },
         true,
       ),

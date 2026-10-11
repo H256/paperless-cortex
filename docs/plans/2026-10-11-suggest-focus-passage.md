@@ -17,5 +17,10 @@ Date: 2026-10-11 · Issue: #381 · Tracking: #359 · Branch: `agent/381-suggest-
 - `test_worker_suggest_field.py`: queued focus/hint are forwarded.
 - `DocumentSuggestionsSection.test.ts`: marking a passage, hint, emitted guidance, no guidance by default, rejected outside selection, clearing.
 
+## Addendum: OCR text the model reads (#384)
+
+- `POST /documents/{id}/suggestions/field` accepts `text_source` (`paperless_ocr` | `vision_ocr`). The model reads that source's text; the variants are still stored for the requesting panel. Unknown values fall back to the panel's own text. The queued task carries it.
+- UI: the guidance section has a "Text the model reads" select (default: each panel's own text), shown only when both texts exist.
+
 ## Not included
-Page restriction, choosing the OCR source for the model text, and "do not repeat rejected variants" stay in #359.
+Page restriction and "do not repeat rejected variants" stay in #359.

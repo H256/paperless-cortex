@@ -9,6 +9,31 @@
       >
     </div>
 
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Presets</span>
+      <button
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+        :disabled="suggestionsLoading"
+        data-testid="preset-no-correspondent"
+        @click="applyPresetNoCorrespondent"
+      >
+        No correspondent
+      </button>
+      <button
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+        :disabled="suggestionsLoading || !importDateOnly(importDate)"
+        :title="
+          importDateOnly(importDate)
+            ? `Set issue date to the import date (${importDateOnly(importDate)})`
+            : 'No import date available'
+        "
+        data-testid="preset-issue-date-import"
+        @click="applyPresetIssueDateImport"
+      >
+        Issue date = import date
+      </button>
+    </div>
+
     <div
       v-if="suggestionsError"
       class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
@@ -109,6 +134,22 @@
             placeholder="e.g. invoice date, not the delivery date"
             data-testid="guidance-hint"
           />
+        </label>
+        <label
+          v-if="textSources.length > 1"
+          class="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300"
+        >
+          Text the model reads
+          <select
+            v-model="modelTextSource"
+            class="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-normal text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            data-testid="guidance-model-text"
+          >
+            <option value="">Each panel's own text (default)</option>
+            <option v-for="source in modelTextOptions" :key="source.key" :value="source.key">
+              {{ source.label }}
+            </option>
+          </select>
         </label>
         <div class="mt-3">
           <div class="flex flex-wrap items-center gap-2">
@@ -573,12 +614,19 @@ const props = withDefaults(defineProps<{
   }
   currentTagList?: string[]
   applying?: boolean
+  importDate?: string
   textSources?: Array<{ key: string; label: string; text: string }>
   textCandidates?: {
     dates?: DateCandidate[]
     correspondents?: CorrespondentCandidate[]
   } | null
-}>(), { currentTagList: () => [], applying: false, textCandidates: null, textSources: () => [] })
+}>(), {
+  currentTagList: () => [],
+  applying: false,
+  importDate: '',
+  textCandidates: null,
+  textSources: () => [],
+})
 
 const emit = defineEmits<{
   (e: 'refresh', source: SuggestionSource): void
@@ -586,7 +634,11 @@ const emit = defineEmits<{
     e: 'suggestField',
     source: SuggestionSource,
     field: string,
-    guidance?: { focus_text?: string; hint?: string },
+    guidance?: {
+      focus_text?: string
+      hint?: string
+      text_source?: 'paperless_ocr' | 'vision_ocr'
+    },
   ): void
   (e: 'applyVariant', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyVariantToDocument', source: SuggestionSource, field: string, value: unknown): void
@@ -868,7 +920,14 @@ watch(
   { immediate: true },
 )
 
-const guidanceActive = computed(() => Boolean(focusText.value || hint.value.trim()))
+const modelTextSource = ref<'' | 'paperless_ocr' | 'vision_ocr'>('')
+const modelTextOptions = computed(() =>
+  props.textSources.filter((source) => source.key === 'paperless_ocr' || source.key === 'vision_ocr'),
+)
+
+const guidanceActive = computed(() =>
+  Boolean(focusText.value || hint.value.trim() || modelTextSource.value),
+)
 const focusPreview = computed(() =>
   focusText.value.length > 220 ? `${focusText.value.slice(0, 220)}…` : focusText.value,
 )
@@ -891,8 +950,13 @@ const useSelectionAsFocus = () => {
 }
 
 const requestSuggest = (source: SuggestionSource, field: string) => {
-  const guidance: { focus_text?: string; hint?: string } = {}
+  const guidance: {
+    focus_text?: string
+    hint?: string
+    text_source?: 'paperless_ocr' | 'vision_ocr'
+  } = {}
   if (focusText.value) guidance.focus_text = focusText.value
+  if (modelTextSource.value) guidance.text_source = modelTextSource.value
   const trimmedHint = hint.value.trim()
   if (trimmedHint) guidance.hint = trimmedHint
   if (Object.keys(guidance).length) emit('suggestField', source, field, guidance)
@@ -988,6 +1052,21 @@ const applySelected = () => {
       value: item.value,
     })),
   )
+}
+
+const importDateOnly = (value: string) => {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : ''
+}
+
+const applyPresetNoCorrespondent = () => {
+  emit('applyToDocument', 'preset', 'correspondent', '')
+}
+
+const applyPresetIssueDateImport = () => {
+  const dateOnly = importDateOnly(props.importDate)
+  if (!dateOnly) return
+  emit('applyToDocument', 'preset', 'date', dateOnly)
 }
 
 watch(

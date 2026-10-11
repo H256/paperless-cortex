@@ -256,6 +256,7 @@ def generate_field_variants_payload(
     get_document_or_none_fn: Callable[[Session, int], object | None],
     focus_text: str | None = None,
     hint: str | None = None,
+    text_source: str | None = None,
     get_page_text_layers_fn: Callable[..., Any],
     fetch_pdf_bytes_fn: Callable[[], bytes],
     upsert_page_texts_fn: Callable[..., None],
@@ -267,8 +268,11 @@ def generate_field_variants_payload(
     tags = get_cached_tags_fn(settings)
     correspondents = get_cached_correspondents_fn(settings)
     target_field = "summary" if field == "note" else field
+    # The model may read the other OCR text than the panel the variants belong to; an
+    # unknown value falls back to the panel's own text.
+    read_source = text_source if text_source in ("paperless_ocr", "vision_ocr") else source
 
-    if source == "vision_ocr":
+    if read_source == "vision_ocr":
         vision_pages = (
             db.query(DocumentPageText)
             .filter(DocumentPageText.doc_id == doc_id, DocumentPageText.source == "vision_ocr")
@@ -325,6 +329,8 @@ def generate_field_variants_payload(
             task["hint"] = hint
         if prior_variants:
             task["avoid_variants"] = prior_variants
+        if read_source != source:
+            task["text_source"] = read_source
         enqueue_task_front_fn(settings, task)
         return {"doc_id": doc_id, "source": source, "field": field, "queued": True}
 

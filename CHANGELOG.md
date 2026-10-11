@@ -3,6 +3,38 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/release-0.7.0)
+
+### Release 0.7.0
+- `3ff919d` chore(version): bumped the project version from `0.6.0` to `0.7.0` via `scripts/bump_version.py minor` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- `09cdb38` chore(lint): [`worker.py`](backend/app/worker.py) imports `Callable` for typing only and binds the per-iteration settings explicitly in the dispatch-handler closure (ruff `B023`/`UP035`); `tests/test_vision_ocr_page_cap.py` gets its trailing newline. `ruff check app tests` is clean.
+- Highlights since 0.6.0:
+  - Review mode: previous/next (`k`/`j`) with auto-advance, continuing across list pages, prefetching the next document (#369, #371).
+  - Deterministic date and correspondent candidates from the document text, incl. other EU date formats and languages (#373).
+  - List presets "No correspondent" and "Issue date = import date" (Alt+5/Alt+6), plus the matching action presets in the Suggestions tab (#379, #383).
+  - "Suggest new" with a marked text passage, a hint and a selectable OCR text (#381, #384).
+  - Tests: no developer `.env` leakage, no real network access, the 8 known baseline failures fixed (#375, #377).
+- Verification: `cd backend && uv run pytest -q` → `648 passed, 5 skipped, 0 failed`; `cd frontend && npx vitest run` → `172 passed`; `npx vue-tsc --build`, `npx oxlint src` and `ruff check app tests` clean.
+
+## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
+
+### Review fix for the import-date preset in the Suggestions tab (#383)
+- feat(api): `GET /documents/{id}/local` now returns the import timestamp `added` ([`read_models.py`](backend/app/services/documents/read_models.py), [`api_models.py`](backend/app/api_models.py)); the preset "Issue date = import date" in [`DocumentDetailView.vue`](frontend/src/views/DocumentDetailView.vue) used `created` (Paperless' issue date) as "import date", which would have been a no-op in most cases.
+- test: [`test_documents_routes.py`](backend/tests/test_documents_routes.py) covers the new field; OpenAPI and client updated.
+
+## 2026-10-11 (branch: agent/359-presets-no-correspondent-issue-date)
+
+### Suggestion presets: "No correspondent" and "Issue date = import date" (#359 follow-up)
+- `uncommitted` feat(frontend): [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue) adds a Presets toolbar: "No correspondent" clears the correspondent (and pending correspondent) via the existing `applyToDocument` path, and "Issue date = import date" sets the issue date to the date part of the document import timestamp (disabled when unavailable). No backend change: `apply-suggestion` already clears the correspondent on an empty value and validates/sets ISO dates; the route does not validate `source`, so `source="preset"` flows through and is recorded in the audit log.
+- `uncommitted` test(frontend): `cd frontend && npx vitest run` (`125 passed`), `npx vue-tsc --build` and lint clean. Backend suite `601 passed`, 1 pre-existing failure (unrelated).
+
+## 2026-10-11 (branch: agent/384-suggest-text-source)
+
+### Choose the OCR text the model reads for "Suggest new" (#384, tracking #359)
+- `4979893` feat(api): `POST /documents/{id}/suggestions/field` accepts `text_source` (`paperless_ocr` | `vision_ocr`); [`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py) and the queued worker task read that text while the variants stay assigned to the requesting panel. Unknown values fall back to the panel's own text; Vision text generation is only triggered when the Vision text is requested and missing.
+- `4979893` feat(frontend): "Text the model reads" select in the guidance section of [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue), only shown when both OCR texts exist.
+- `4979893` test: `cd backend && uv run pytest -q tests/test_documents_suggestions_routes.py tests/test_worker_suggest_field.py tests/test_openapi_spec_sync.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+
 ## 2026-10-11 (branch: agent/381-suggest-focus-passage)
 
 ### "Suggest new" with a marked passage and a hint (#381, tracking #359)

@@ -24,6 +24,22 @@ const mountSection = () =>
       suggestionVariantError: {},
       currentValues: { title: 'scan_001', date: '', correspondent: '', tags: 'Arzt', note: '' },
       currentTagList: ['Arzt'],
+      importDate: '2026-10-11T12:34:56+02:00',
+    },
+  })
+
+const mountSectionNoImportDate = () =>
+  mount(DocumentSuggestionsSection, {
+    props: {
+      suggestions: { vision_ocr: { parsed: {} } },
+      suggestionsError: '',
+      suggestionsLoading: false,
+      suggestionVariants: {},
+      suggestionVariantLoading: {},
+      suggestionVariantError: {},
+      currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+      currentTagList: [],
+      importDate: '',
     },
   })
 
@@ -53,6 +69,26 @@ describe('DocumentSuggestionsSection selective apply', () => {
         ],
       ],
     ])
+  })
+
+  it('preset "No correspondent" clears the correspondent via the apply path', async () => {
+    const wrapper = mountSection()
+    await wrapper.find('[data-testid="preset-no-correspondent"]').trigger('click')
+    expect(wrapper.emitted('applyToDocument')).toEqual([[ 'preset', 'correspondent', '' ]])
+  })
+
+  it('preset "Issue date = import date" sends only the import date part', async () => {
+    const wrapper = mountSection()
+    await wrapper.find('[data-testid="preset-issue-date-import"]').trigger('click')
+    expect(wrapper.emitted('applyToDocument')).toEqual([[ 'preset', 'date', '2026-10-11' ]])
+  })
+
+  it('preset "Issue date = import date" is disabled without an import date', async () => {
+    const wrapper = mountSectionNoImportDate()
+    const button = wrapper.find('[data-testid="preset-issue-date-import"]')
+    expect((button.element as HTMLButtonElement).disabled).toBe(true)
+    await button.trigger('click')
+    expect(wrapper.emitted('applyToDocument')).toBeUndefined()
   })
 })
 
@@ -221,6 +257,35 @@ describe('DocumentSuggestionsSection guidance for Suggest new', () => {
     await suggestButtons(wrapper)[0]!.trigger('click')
     const calls = wrapper.emitted('suggestField') ?? []
     expect(calls[0]).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('lets the reviewer choose the OCR text the model reads', async () => {
+    const wrapper = mountWithText()
+    expect(wrapper.find('[data-testid="guidance-model-text"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="guidance-model-text"]').setValue('paperless_ocr')
+    await suggestButtons(wrapper)[0]!.trigger('click')
+
+    const calls = wrapper.emitted('suggestField') ?? []
+    expect(calls[0]?.[2]).toEqual({ text_source: 'paperless_ocr' })
+    wrapper.unmount()
+  })
+
+  it('does not offer a text choice when only one text is available', () => {
+    const wrapper = mount(DocumentSuggestionsSection, {
+      props: {
+        suggestions: { vision_ocr: { parsed: { title: 'Rechnung' } } },
+        suggestionsError: '',
+        suggestionsLoading: false,
+        suggestionVariants: {},
+        suggestionVariantLoading: {},
+        suggestionVariantError: {},
+        currentValues: { title: '', date: '', correspondent: '', tags: '', note: '' },
+        textSources: [{ key: 'content', label: 'Document text', text: 'Only text' }],
+      },
+    })
+    expect(wrapper.find('[data-testid="guidance-model-text"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
