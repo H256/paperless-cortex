@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/369-review-mode-prev-next)
+
+### Review mode: previous/next inside the filtered list (#369, tracking #359)
+- `22ea3e2` feat(frontend): [`DocumentsView.vue`](frontend/src/views/DocumentsView.vue) remembers the ordered ids of the visible list ([`reviewQueue.ts`](frontend/src/utils/reviewQueue.ts), `localStorage`), so the detail view can offer **Previous / Next** with position, keyboard `k` / `j` and an **Auto-advance** toggle ([`useReviewQueue.ts`](frontend/src/composables/useReviewQueue.ts), [`DocumentDetailHeader.vue`](frontend/src/components/DocumentDetailHeader.vue)). `return_to` and the active tab are kept.
+- `22ea3e2` feat(frontend): auto-advance runs after "Mark reviewed" / "Write back" only when the document is `reviewed` afterwards; "Apply selected" never navigates.
+- `22ea3e2` docs(plan): [`docs/plans/2026-10-11-review-mode.md`](docs/plans/2026-10-11-review-mode.md).
+- `22ea3e2` test: `cd frontend && npx vitest run` (`138 passed`), `npx vue-tsc --build` and `npx oxlint src` clean.
+
 ## 2026-10-11 (branch: agent/359-suggestion-implausibility-warnings)
 
 ### Suggestion UI shows advisory warnings for implausible suggested values
