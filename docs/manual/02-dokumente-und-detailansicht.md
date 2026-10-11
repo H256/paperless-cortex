@@ -163,8 +163,10 @@ Wichtige Bedienideen:
 
 KI-Vorschläge sind manchmal Unsinn. Deshalb wird nie etwas automatisch oder gesammelt übernommen:
 
-- Jedes Feld und jede Quelle hat eine Checkbox. Es ist **nichts vorausgewählt**.
-- Pro Feld kann nur eine Quelle gewählt werden. Bei Tags wählen Sie einzelne Tag-Chips.
+- Es ist **nichts vorausgewählt**.
+- In der Vergleichstabelle (Spalten `Current`, `Vision OCR`, `Paperless OCR`, `Similar docs`) wählen Sie den Wert durch **Klick auf die Zelle** der Quelle, die Sie möchten, z. B. das Datum aus `Paperless OCR` statt aus `Vision OCR`. Ein zweiter Klick hebt die Auswahl auf, ein Klick in eine andere Spalte wechselt den Wert. Die Checkbox am Zeilenanfang wählt die erste Quelle mit einem Wert.
+- Pro Feld gilt genau ein Wert. **Tags** wählen Sie als einzelne Chips und können sie über mehrere Spalten hinweg zu einem Satz kombinieren (`Similar docs` bietet nur Korrespondent und Tags an).
+- `Suggest new` steht in jeder OCR-Zelle und fragt gezielt für diese Quelle ein neues Ergebnis an (mit der Guidance, siehe 5.4). Das Ergebnis erscheint unter der Zelle und kann dort übernommen werden.
 - Unten erscheint eine Leiste mit der Vorschau `vorher → nachher`, `Apply selected (n)` und `Clear`.
 - Geschrieben werden ausschließlich die angehakten Felder, und zwar lokal. Nach Paperless gelangt erst etwas über den normalen `Writeback`.
 - Bei Tags gilt: vorhandene Tags + ausstehende Tags + gewählte Vorschlags-Tags. Es wird nichts ersetzt.
