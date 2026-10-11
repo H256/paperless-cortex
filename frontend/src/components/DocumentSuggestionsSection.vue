@@ -110,6 +110,22 @@
             data-testid="guidance-hint"
           />
         </label>
+        <label
+          v-if="textSources.length > 1"
+          class="mt-3 block text-xs font-semibold text-slate-600 dark:text-slate-300"
+        >
+          Text the model reads
+          <select
+            v-model="modelTextSource"
+            class="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-normal text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            data-testid="guidance-model-text"
+          >
+            <option value="">Each panel's own text (default)</option>
+            <option v-for="source in modelTextOptions" :key="source.key" :value="source.key">
+              {{ source.label }}
+            </option>
+          </select>
+        </label>
         <div class="mt-3">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Document text</span>
@@ -586,7 +602,11 @@ const emit = defineEmits<{
     e: 'suggestField',
     source: SuggestionSource,
     field: string,
-    guidance?: { focus_text?: string; hint?: string },
+    guidance?: {
+      focus_text?: string
+      hint?: string
+      text_source?: 'paperless_ocr' | 'vision_ocr'
+    },
   ): void
   (e: 'applyVariant', source: SuggestionSource, field: string, value: unknown): void
   (e: 'applyVariantToDocument', source: SuggestionSource, field: string, value: unknown): void
@@ -868,7 +888,14 @@ watch(
   { immediate: true },
 )
 
-const guidanceActive = computed(() => Boolean(focusText.value || hint.value.trim()))
+const modelTextSource = ref<'' | 'paperless_ocr' | 'vision_ocr'>('')
+const modelTextOptions = computed(() =>
+  props.textSources.filter((source) => source.key === 'paperless_ocr' || source.key === 'vision_ocr'),
+)
+
+const guidanceActive = computed(() =>
+  Boolean(focusText.value || hint.value.trim() || modelTextSource.value),
+)
 const focusPreview = computed(() =>
   focusText.value.length > 220 ? `${focusText.value.slice(0, 220)}…` : focusText.value,
 )
@@ -891,8 +918,13 @@ const useSelectionAsFocus = () => {
 }
 
 const requestSuggest = (source: SuggestionSource, field: string) => {
-  const guidance: { focus_text?: string; hint?: string } = {}
+  const guidance: {
+    focus_text?: string
+    hint?: string
+    text_source?: 'paperless_ocr' | 'vision_ocr'
+  } = {}
   if (focusText.value) guidance.focus_text = focusText.value
+  if (modelTextSource.value) guidance.text_source = modelTextSource.value
   const trimmedHint = hint.value.trim()
   if (trimmedHint) guidance.hint = trimmedHint
   if (Object.keys(guidance).length) emit('suggestField', source, field, guidance)

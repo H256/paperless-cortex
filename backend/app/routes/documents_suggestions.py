@@ -85,6 +85,8 @@ class SuggestionFieldRequest(BaseModel):
     # Reviewer input for "Suggest new": a marked passage of the document text and a short hint.
     focus_text: str | None = None
     hint: str | None = None
+    # OCR text the model reads (default: the text of `source`).
+    text_source: str | None = None
 
 
 class SuggestionFieldApply(BaseModel):
@@ -216,6 +218,7 @@ def suggest_field_variants(
         priority=priority,
         focus_text=payload.focus_text,
         hint=payload.hint,
+        text_source=payload.text_source,
         settings=settings,
         db=db,
         get_document_fn=paperless.get_document,

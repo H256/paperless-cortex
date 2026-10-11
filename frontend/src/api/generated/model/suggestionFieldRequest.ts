@@ -11,4 +11,5 @@ export interface SuggestionFieldRequest {
   count?: number;
   focus_text?: string | null;
   hint?: string | null;
+  text_source?: string | null;
 }

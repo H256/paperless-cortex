@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-11 (branch: agent/384-suggest-text-source)
+
+### Choose the OCR text the model reads for "Suggest new" (#384, tracking #359)
+- `4979893` feat(api): `POST /documents/{id}/suggestions/field` accepts `text_source` (`paperless_ocr` | `vision_ocr`); [`suggestion_operations.py`](backend/app/services/ai/suggestion_operations.py) and the queued worker task read that text while the variants stay assigned to the requesting panel. Unknown values fall back to the panel's own text; Vision text generation is only triggered when the Vision text is requested and missing.
+- `4979893` feat(frontend): "Text the model reads" select in the guidance section of [`DocumentSuggestionsSection.vue`](frontend/src/components/DocumentSuggestionsSection.vue), only shown when both OCR texts exist.
+- `4979893` test: `cd backend && uv run pytest -q tests/test_documents_suggestions_routes.py tests/test_worker_suggest_field.py tests/test_openapi_spec_sync.py`, `cd frontend && npx vitest run`, `npx vue-tsc --build`, `npx oxlint src` clean.
+
 ## 2026-10-11 (branch: agent/381-suggest-focus-passage)
 
 ### "Suggest new" with a marked passage and a hint (#381, tracking #359)
