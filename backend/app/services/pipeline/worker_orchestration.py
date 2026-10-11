@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.services.ai.correspondent_rules import compute_learned_rules
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
@@ -99,6 +101,7 @@ def process_full_document(
     join_pages_fn: Callable[..., str],
     generate_suggestions_fn: Callable[..., dict[str, Any]],
     persist_suggestions_fn: Callable[..., None],
+    learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
 ) -> None:
     """Run the full worker document pipeline from sync through embeddings and suggestions."""
     if is_cancel_requested_fn(settings):
@@ -153,6 +156,9 @@ def process_full_document(
 
     tags = get_tags_fn(settings)
     correspondents = get_correspondents_fn(settings)
+    learned_rules = (
+        compute_learned_rules(learn_rules_fn, db, doc_id) if learn_rules_fn else ""
+    )
     baseline_text = _baseline_suggestion_text(
         settings,
         db,
@@ -168,6 +174,7 @@ def process_full_document(
         baseline_text,
         tags=tags,
         correspondents=correspondents,
+        learned_rules=learned_rules,
     )
     persist_suggestions_fn(
         db,
@@ -197,6 +204,7 @@ def process_full_document(
         vision_text,
         tags=tags,
         correspondents=correspondents,
+        learned_rules=learned_rules,
     )
     persist_suggestions_fn(
         db,

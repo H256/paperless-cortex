@@ -19,6 +19,7 @@ from app.db import get_db
 from app.deps import get_settings
 from app.exceptions import ValidationError
 from app.models import DocumentPageText, DocumentSuggestion
+from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.ai.ocr_scoring import ensure_document_ocr_score
 from app.services.ai.suggestion_apply import apply_suggestion_to_document_payload
 from app.services.ai.suggestion_operations import (
@@ -161,6 +162,7 @@ def get_document_suggestions(
         collect_page_texts_fn=collect_page_texts,
         enqueue_task_front_fn=enqueue_task_front,
         enqueue_task_sequence_front_fn=enqueue_task_sequence_front,
+        learn_rules_fn=learn_correspondent_rules,
     )
     _attach_suggestion_warnings(payload, settings)
     return payload

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import DocumentPageText, DocumentSuggestion
+from app.services.ai.correspondent_rules import compute_learned_rules
 from app.services.runtime.json_utils import parse_json_object
 
 if TYPE_CHECKING:
@@ -116,11 +117,15 @@ def get_document_suggestions_payload(
     collect_page_texts_fn: Callable[..., tuple[list[object], list[object], object]],
     enqueue_task_front_fn: Callable[[Settings, dict[str, object]], int],
     enqueue_task_sequence_front_fn: Callable[[Settings, list[dict[str, object]]], int],
+    learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
 ) -> dict[str, object]:
     logger.info("Fetch suggestions doc=%s source=%s refresh=%s", doc_id, source, refresh)
     raw = get_document_fn(settings, doc_id)
     tags = get_cached_tags_fn(settings)
     correspondents = get_cached_correspondents_fn(settings)
+    learned_rules = (
+        compute_learned_rules(learn_rules_fn, db, doc_id, logger) if learn_rules_fn else ""
+    )
 
     suggestions_by_source: dict[str, object] = {}
 
@@ -132,6 +137,7 @@ def get_document_suggestions_payload(
             baseline_text,
             tags=tags,
             correspondents=correspondents,
+            learned_rules=learned_rules,
         )
         persist_suggestions_fn(
             db,
@@ -168,6 +174,7 @@ def get_document_suggestions_payload(
             vision_text,
             tags=tags,
             correspondents=correspondents,
+            learned_rules=learned_rules,
         )
         persist_suggestions_fn(
             db,
