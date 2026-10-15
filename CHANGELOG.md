@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-15 (branch: agent/432-duplicate-groups)
+
+### Global duplicate detection (#432)
+- `d7ba1fd` feat(duplicates): new per-document queue task `duplicate_scan` finds candidates via the existing vector similarity search and scores each pair from four OCR-tolerant signals (embedding, character-5-gram text overlap, amounts/identifiers, metadata) in [`duplicate_scoring.py`](backend/app/services/documents/duplicate_scoring.py). Conflicting amounts/identifiers cap a pair at `check`, so serial letters are not reported as duplicates. Pairs are stored in `document_duplicate_pairs` (migration `c3e5a7b9d1f2`); the ignore flag survives rescans.
+- `d7ba1fd` feat(api): `POST /duplicates/scan`, `GET /duplicates/groups` (union-find clusters, `min_level`), `GET /duplicates/ignored`, `POST /duplicates/ignore`, `POST /duplicates/unignore`; OpenAPI spec regenerated.
+- `d7ba1fd` test: `backend/tests/test_duplicate_detection.py` (12 tests: scan-vs-download, series letters, clustering, rescan keeps ignore, routes, worker dispatch).
+- `3212c2e` feat(frontend): `Duplicates` view (More menu) with grouped pairs, signal breakdown, "Not a duplicate" and an "Ignored" tab with "Restore"; regenerated API client; `DuplicatesView.integration.test.ts` (3 tests).
+- docs: manual section 8 of [`12-similar-workflow.md`](docs/manual/12-similar-workflow.md).
+- Not done: no automatic delete/merge (by design); thresholds are code constants (`DEFAULT_EMBEDDING_THRESHOLD=0.85`, `DEFAULT_MIN_SCORE=0.60`), no UI setting yet; not checked in a browser or against a large dataset.
+
 ## 2026-10-11 (branch: agent/398-merge-presets-into-filters)
 
 ### Documents list: merge the preset bar into the filters panel (#398)
