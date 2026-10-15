@@ -7,13 +7,16 @@
           Manage ingestion, embedding, and review analysis status.
         </p>
         <p
-          class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-          title="Documents deleted in Paperless stay in Cortex but are not listed here, so this number can be lower than the synced total."
+          class="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
         >
           Showing {{ visibleCount }} of {{ totalCount }} synced documents
           <template v-if="searchLabel">
             for "{{ searchLabel }}"
           </template>
+          <Info
+            class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500"
+            title="Showing is the number of documents currently listed after your filters; synced is the total in Paperless. Documents deleted in Paperless stay in Cortex but are not listed here, so this number can be lower than the synced total."
+          />
         </p>
       </div>
       <DocumentsOverviewPanel
@@ -48,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { Info } from 'lucide-vue-next'
 import type { DocumentStats, EmbedStatus, SyncStatus } from '../services/documents'
 import DocumentsOverviewPanel from './DocumentsOverviewPanel.vue'
 import DocumentsProcessingToolbar from './DocumentsProcessingToolbar.vue'

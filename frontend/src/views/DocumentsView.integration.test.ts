@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 let DocumentsView: unknown
@@ -53,24 +53,33 @@ const documents = ref([
   },
 ])
 const documentsError = ref(false)
+// Expose the catalog refs so tests can assert the restored filter state.
+const catalogRefs = {
+  selectedReviewStatus: ref<'all' | 'unreviewed' | 'reviewed' | 'needs_review'>('all'),
+  analysisFilter: ref<'all' | 'analyzed' | 'not_analyzed'>('all'),
+  selectedCorrespondent: ref(''),
+  issueDateIsImportDate: ref(false),
+  searchQuery: ref(''),
+  page: ref(1),
+}
 
 vi.mock('../composables/useDocumentsCatalog', () => ({
   useDocumentsCatalog: () => ({
     documents,
-    page: ref(3),
+    page: catalogRefs.page,
     pageSize: ref(20),
     ordering: ref('-date'),
     totalCount: ref(25),
     listRequest: ref({ page_size: 20, ordering: '-date', review_status: 'all' }),
-    issueDateIsImportDate: ref(false),
+    issueDateIsImportDate: catalogRefs.issueDateIsImportDate,
     tags: ref([]),
     correspondents: ref([]),
     selectedTag: ref(''),
-    selectedCorrespondent: ref(''),
-    selectedReviewStatus: ref('all'),
+    selectedCorrespondent: catalogRefs.selectedCorrespondent,
+    selectedReviewStatus: catalogRefs.selectedReviewStatus,
     dateFrom: ref(''),
     dateTo: ref(''),
-    searchQuery: ref(''),
+    searchQuery: catalogRefs.searchQuery,
     documentsLoading: ref(false),
     documentsError,
     refetchDocuments: refetchDocumentsMock,
@@ -149,7 +158,27 @@ vi.mock('../composables/useRunningTaskProgress', () => ({
 }))
 
 vi.mock('../composables/useDocumentsRouteState', () => ({
-  useDocumentsRouteState: vi.fn(),
+  useDocumentsRouteState: (refs: {
+    [key: string]: { value: unknown }
+  } & { selectedReviewStatus: { value: string } }) => {
+    // Mimic the real composable: apply the URL query to the refs on mount so
+    // tests can assert how an explicit URL filter interacts with the restore.
+    onMounted(() => {
+      const reviewStatus = route.query.review_status
+      if (reviewStatus === 'reviewed' || reviewStatus === 'unreviewed' || reviewStatus === 'needs_review') {
+        refs.selectedReviewStatus.value = reviewStatus
+      }
+    })
+  },
+}))
+
+const readLastPresetMock = vi.fn(() => '')
+const writeLastPresetMock = vi.fn()
+const clearLastPresetMock = vi.fn()
+vi.mock('../utils/documentsPresetStorage', () => ({
+  readLastPreset: () => readLastPresetMock(),
+  writeLastPreset: (key: string) => writeLastPresetMock(key),
+  clearLastPreset: () => clearLastPresetMock(),
 }))
 
 vi.mock('../composables/useDocumentsTableControls', () => ({
@@ -178,10 +207,17 @@ describe('DocumentsView', () => {
     route.query = {}
     route.fullPath = '/documents?page=3&view=cards'
     documentsError.value = false
+    catalogRefs.page.value = 1
+    catalogRefs.selectedReviewStatus.value = 'all'
+    catalogRefs.analysisFilter.value = 'all'
+    catalogRefs.selectedCorrespondent.value = ''
+    catalogRefs.issueDateIsImportDate.value = false
+    catalogRefs.searchQuery.value = ''
     vi.clearAllMocks()
   })
 
   it('wires header and table navigation actions through router pushes', async () => {
+    catalogRefs.page.value = 3
     const wrapper = mount(DocumentsView as never, {
       global: {
         stubs: {
@@ -311,5 +347,79 @@ describe('DocumentsView', () => {
     expect(router.push).not.toHaveBeenCalledWith(expect.objectContaining({ path: '/documents/NaN' }))
     expect(toastPush).toHaveBeenCalledTimes(3)
     expect(toastPush).toHaveBeenCalledWith('Invalid document ID.', 'warning', 'Documents')
+  })
+
+  it('restores the last applied preset on mount when the URL has no explicit filter', async () => {
+    readLastPresetMock.mockReturnValue('unreviewed')
+    const wrapper = mount(DocumentsView as never, {
+      global: {
+        stubs: {
+          DocumentsHeaderSection: true,
+          DocumentsFiltersPanel: true,
+          DocumentsActiveFiltersStrip: true,
+          DocumentsPresetBar: true,
+          DocumentsQuickControls: true,
+          DocumentsEmptyState: true,
+          DocumentsTable: true,
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(catalogRefs.selectedReviewStatus.value).toBe('unreviewed')
+    expect(catalogRefs.page.value).toBe(1)
+    wrapper.unmount()
+  })
+
+  it('does not restore the preset when the URL already carries an explicit filter', async () => {
+    route.query = { review_status: 'reviewed' }
+    readLastPresetMock.mockReturnValue('unreviewed')
+    const wrapper = mount(DocumentsView as never, {
+      global: {
+        stubs: {
+          DocumentsHeaderSection: true,
+          DocumentsFiltersPanel: true,
+          DocumentsActiveFiltersStrip: true,
+          DocumentsPresetBar: true,
+          DocumentsQuickControls: true,
+          DocumentsEmptyState: true,
+          DocumentsTable: true,
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // The explicit URL filter wins; the remembered preset is not applied.
+    expect(catalogRefs.selectedReviewStatus.value).toBe('reviewed')
+    wrapper.unmount()
+  })
+
+  it('clears the remembered preset when all filters are cleared', async () => {
+    const wrapper = mount(DocumentsView as never, {
+      global: {
+        stubs: {
+          DocumentsHeaderSection: true,
+          DocumentsFiltersPanel: true,
+          DocumentsActiveFiltersStrip: true,
+          DocumentsPresetBar: true,
+          DocumentsQuickControls: {
+            template:
+              '<div><button data-test="clear-all" @click="clearAll">clear</button></div>',
+            methods: {
+              clearAll() {
+                this.$emit('clear-all-filters')
+              },
+            },
+          },
+          DocumentsEmptyState: true,
+          DocumentsTable: true,
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    await wrapper.get('[data-test="clear-all"]').trigger('click')
+    expect(clearLastPresetMock).toHaveBeenCalled()
+    wrapper.unmount()
   })
 })

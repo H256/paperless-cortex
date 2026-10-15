@@ -125,6 +125,7 @@ import DocumentsHeaderSection from '../components/DocumentsHeaderSection.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
 import { createReviewQueueState, saveReviewQueueState } from '../utils/reviewQueue'
+import { clearLastPreset, readLastPreset, writeLastPreset } from '../utils/documentsPresetStorage'
 
 const router = useRouter()
 const route = useRoute()
@@ -365,6 +366,7 @@ const resetQuickFilters = () => {
   runningOnly.value = false
   issueDateIsImportDate.value = false
   page.value = 1
+  clearLastPreset()
 }
 
 const clearFilter = (
@@ -405,6 +407,7 @@ const clearAllFilters = () => {
   runningOnly.value = false
   issueDateIsImportDate.value = false
   page.value = 1
+  clearLastPreset()
 }
 
 const applyTriagePreset = (
@@ -413,11 +416,16 @@ const applyTriagePreset = (
   // Filter presets keep the other filters (e.g. review status) and toggle on/off.
   if (key === 'no_correspondent') {
     selectedCorrespondent.value = selectedCorrespondent.value === '-1' ? '' : '-1'
+    // Toggling the filter off forgets it; toggling on remembers it.
+    if (selectedCorrespondent.value === '-1') writeLastPreset('no_correspondent')
+    else clearLastPreset()
     page.value = 1
     return
   }
   if (key === 'import_date') {
     issueDateIsImportDate.value = !issueDateIsImportDate.value
+    if (issueDateIsImportDate.value) writeLastPreset('import_date')
+    else clearLastPreset()
     page.value = 1
     return
   }
@@ -439,6 +447,35 @@ const applyTriagePreset = (
   }
   searchQuery.value = ''
   page.value = 1
+  writeLastPreset(key)
+}
+
+// The URL carries an explicit list filter when any of these query keys is set.
+// A "clean" URL (none of them) is when we restore the remembered preset.
+const LIST_FILTER_QUERY_KEYS = [
+  'review_status',
+  'analysis_filter',
+  'correspondent',
+  'import_date',
+  'q',
+  'tag',
+  'model',
+  'running_only',
+  'date_from',
+  'date_to',
+] as const
+
+const hasExplicitListFilter = (): boolean =>
+  LIST_FILTER_QUERY_KEYS.some((key) => {
+    const value = route.query[key]
+    const single = Array.isArray(value) ? value[0] : value
+    return Boolean(single && String(single).trim() !== '')
+  })
+
+const restoreRememberedPreset = () => {
+  const key = readLastPreset()
+  if (!key || hasExplicitListFilter()) return
+  applyTriagePreset(key)
 }
 
 useDocumentsRouteState({
@@ -462,6 +499,10 @@ onMounted(() => {
   if (!hasExplicitViewQuery.value && window.matchMedia('(max-width: 767px)').matches) {
     listViewMode.value = 'cards'
   }
+  // Restore the last applied preset only when the URL does not already carry an
+  // explicit list filter (so a shared/filtered link wins over the remembered one).
+  // Runs after useDocumentsRouteState has applied the URL query to the refs.
+  restoreRememberedPreset()
 })
 
 </script>

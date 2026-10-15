@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-15 (branch: agent/398-list-ux-followup)
+
+### Documents list: remember last preset, explain Synced/Showing (#398)
+- `7061f89` feat(documents): the last applied preset is stored in `localStorage` ([`documentsPresetStorage.ts`](frontend/src/utils/documentsPresetStorage.ts)) and restored on mount only when the URL carries no explicit list filter; resetting/clearing filters forgets it. The header shows an info icon explaining "Showing" vs. "synced".
+- Rebased onto `develop`; the earlier "Processed*" tooltip change was dropped because the overview panel was redesigned there and no longer shows that counter.
+- Verification: `cd frontend && npx vitest run` (`230 passed`), `npx vue-tsc --build` clean; one pre-existing oxlint error in `DocumentSuggestionsSection.test.ts`. Not checked in a browser.
+
 ## 2026-10-15 (branch: agent/432-duplicate-groups)
 
 ### Global duplicate detection (#432)
