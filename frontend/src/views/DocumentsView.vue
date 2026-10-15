@@ -39,7 +39,10 @@
       v-model:search-query="searchQuery"
       v-model:page-size="pageSize"
       :is-loading="documentsLoading"
+      :issue-date-is-import-date="issueDateIsImportDate"
+      :preset-counts="presetCounts"
       @reload="load"
+      @apply-preset="applyTriagePreset"
     />
 
     <DocumentsActiveFiltersStrip
@@ -57,16 +60,6 @@
       :issue-date-is-import-date="issueDateIsImportDate"
       @clear-filter="clearFilter"
       @clear-all="clearAllFilters"
-    />
-
-    <DocumentsPresetBar
-      :analysis-filter="analysisFilter"
-      :review-status="selectedReviewStatus"
-      :search-query="searchQuery"
-      :selected-correspondent="selectedCorrespondent"
-      :issue-date-is-import-date="issueDateIsImportDate"
-      :counts="presetCounts"
-      @apply-preset="applyTriagePreset"
     />
 
     <DocumentsQuickControls
@@ -129,7 +122,6 @@ import DocumentsFiltersPanel from '../components/DocumentsFiltersPanel.vue'
 import DocumentsActiveFiltersStrip from '../components/DocumentsActiveFiltersStrip.vue'
 import DocumentsEmptyState from '../components/DocumentsEmptyState.vue'
 import DocumentsHeaderSection from '../components/DocumentsHeaderSection.vue'
-import DocumentsPresetBar from '../components/DocumentsPresetBar.vue'
 import DocumentsQuickControls from '../components/DocumentsQuickControls.vue'
 import DocumentsTable from '../components/DocumentsTable.vue'
 import { createReviewQueueState, saveReviewQueueState } from '../utils/reviewQueue'
