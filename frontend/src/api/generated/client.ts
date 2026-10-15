@@ -42,6 +42,11 @@ import type {
   DocumentTypeResponse,
   DocumentsPageResponse,
   DryRunPreviewWritebackDryRunPreviewGetParams,
+  DuplicateGroupsResponse,
+  DuplicateIgnoreRequest,
+  DuplicateIgnoreResponse,
+  DuplicateIgnoredResponse,
+  DuplicateScanResponse,
   EmbeddingIngestResponse,
   EmbeddingSearchResponse,
   EmbeddingStatusResponse,
@@ -56,6 +61,7 @@ import type {
   GetDocumentSuggestionsDocumentsDocIdSuggestionsGetParams,
   GetDocumentTextQualityDocumentsDocIdTextQualityGetParams,
   GetDuplicateDocumentsDocumentsDocIdDuplicatesGetParams,
+  GetDuplicateGroupsDuplicatesGroupsGetParams,
   GetFieldVariantsDocumentsDocIdSuggestionsFieldVariantsGetParams,
   GetMissingVectorChunksAuditDocumentsAuditMissingVectorChunksGetParams,
   GetSimilarDocumentsDocumentsDocIdSimilarGetParams,
@@ -1952,6 +1958,247 @@ export const getSimilarMetadataDocumentsDocIdSimilarMetadataGet = async (docId: 
   
   const data: getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getSimilarMetadataDocumentsDocIdSimilarMetadataGetResponse
+}
+
+
+
+/**
+ * Queue a duplicate scan task for every non-deleted document.
+ * @summary Start Duplicate Scan
+ */
+export type startDuplicateScanDuplicatesScanPostResponse200 = {
+  data: DuplicateScanResponse
+  status: 200
+}
+    
+export type startDuplicateScanDuplicatesScanPostResponseSuccess = (startDuplicateScanDuplicatesScanPostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type startDuplicateScanDuplicatesScanPostResponse = (startDuplicateScanDuplicatesScanPostResponseSuccess)
+
+export const getStartDuplicateScanDuplicatesScanPostUrl = () => {
+
+
+  
+
+  return `/api/duplicates/scan`
+}
+
+export const startDuplicateScanDuplicatesScanPost = async ( options?: RequestInit): Promise<startDuplicateScanDuplicatesScanPostResponse> => {
+  
+  const res = await fetch(getStartDuplicateScanDuplicatesScanPostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: startDuplicateScanDuplicatesScanPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as startDuplicateScanDuplicatesScanPostResponse
+}
+
+
+
+/**
+ * @summary Get Duplicate Groups
+ */
+export type getDuplicateGroupsDuplicatesGroupsGetResponse200 = {
+  data: DuplicateGroupsResponse
+  status: 200
+}
+
+export type getDuplicateGroupsDuplicatesGroupsGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDuplicateGroupsDuplicatesGroupsGetResponseSuccess = (getDuplicateGroupsDuplicatesGroupsGetResponse200) & {
+  headers: Headers;
+};
+export type getDuplicateGroupsDuplicatesGroupsGetResponseError = (getDuplicateGroupsDuplicatesGroupsGetResponse422) & {
+  headers: Headers;
+};
+
+export type getDuplicateGroupsDuplicatesGroupsGetResponse = (getDuplicateGroupsDuplicatesGroupsGetResponseSuccess | getDuplicateGroupsDuplicatesGroupsGetResponseError)
+
+export const getGetDuplicateGroupsDuplicatesGroupsGetUrl = (params?: GetDuplicateGroupsDuplicatesGroupsGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/duplicates/groups?${stringifiedParams}` : `/api/duplicates/groups`
+}
+
+export const getDuplicateGroupsDuplicatesGroupsGet = async (params?: GetDuplicateGroupsDuplicatesGroupsGetParams, options?: RequestInit): Promise<getDuplicateGroupsDuplicatesGroupsGetResponse> => {
+  
+  const res = await fetch(getGetDuplicateGroupsDuplicatesGroupsGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getDuplicateGroupsDuplicatesGroupsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDuplicateGroupsDuplicatesGroupsGetResponse
+}
+
+
+
+/**
+ * @summary Get Ignored Duplicates
+ */
+export type getIgnoredDuplicatesDuplicatesIgnoredGetResponse200 = {
+  data: DuplicateIgnoredResponse
+  status: 200
+}
+    
+export type getIgnoredDuplicatesDuplicatesIgnoredGetResponseSuccess = (getIgnoredDuplicatesDuplicatesIgnoredGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getIgnoredDuplicatesDuplicatesIgnoredGetResponse = (getIgnoredDuplicatesDuplicatesIgnoredGetResponseSuccess)
+
+export const getGetIgnoredDuplicatesDuplicatesIgnoredGetUrl = () => {
+
+
+  
+
+  return `/api/duplicates/ignored`
+}
+
+export const getIgnoredDuplicatesDuplicatesIgnoredGet = async ( options?: RequestInit): Promise<getIgnoredDuplicatesDuplicatesIgnoredGetResponse> => {
+  
+  const res = await fetch(getGetIgnoredDuplicatesDuplicatesIgnoredGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getIgnoredDuplicatesDuplicatesIgnoredGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getIgnoredDuplicatesDuplicatesIgnoredGetResponse
+}
+
+
+
+/**
+ * @summary Ignore Duplicate Pair
+ */
+export type ignoreDuplicatePairDuplicatesIgnorePostResponse200 = {
+  data: DuplicateIgnoreResponse
+  status: 200
+}
+
+export type ignoreDuplicatePairDuplicatesIgnorePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type ignoreDuplicatePairDuplicatesIgnorePostResponseSuccess = (ignoreDuplicatePairDuplicatesIgnorePostResponse200) & {
+  headers: Headers;
+};
+export type ignoreDuplicatePairDuplicatesIgnorePostResponseError = (ignoreDuplicatePairDuplicatesIgnorePostResponse422) & {
+  headers: Headers;
+};
+
+export type ignoreDuplicatePairDuplicatesIgnorePostResponse = (ignoreDuplicatePairDuplicatesIgnorePostResponseSuccess | ignoreDuplicatePairDuplicatesIgnorePostResponseError)
+
+export const getIgnoreDuplicatePairDuplicatesIgnorePostUrl = () => {
+
+
+  
+
+  return `/api/duplicates/ignore`
+}
+
+export const ignoreDuplicatePairDuplicatesIgnorePost = async (duplicateIgnoreRequest: DuplicateIgnoreRequest, options?: RequestInit): Promise<ignoreDuplicatePairDuplicatesIgnorePostResponse> => {
+  
+  const res = await fetch(getIgnoreDuplicatePairDuplicatesIgnorePostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      duplicateIgnoreRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: ignoreDuplicatePairDuplicatesIgnorePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ignoreDuplicatePairDuplicatesIgnorePostResponse
+}
+
+
+
+/**
+ * @summary Unignore Duplicate Pair
+ */
+export type unignoreDuplicatePairDuplicatesUnignorePostResponse200 = {
+  data: DuplicateIgnoreResponse
+  status: 200
+}
+
+export type unignoreDuplicatePairDuplicatesUnignorePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type unignoreDuplicatePairDuplicatesUnignorePostResponseSuccess = (unignoreDuplicatePairDuplicatesUnignorePostResponse200) & {
+  headers: Headers;
+};
+export type unignoreDuplicatePairDuplicatesUnignorePostResponseError = (unignoreDuplicatePairDuplicatesUnignorePostResponse422) & {
+  headers: Headers;
+};
+
+export type unignoreDuplicatePairDuplicatesUnignorePostResponse = (unignoreDuplicatePairDuplicatesUnignorePostResponseSuccess | unignoreDuplicatePairDuplicatesUnignorePostResponseError)
+
+export const getUnignoreDuplicatePairDuplicatesUnignorePostUrl = () => {
+
+
+  
+
+  return `/api/duplicates/unignore`
+}
+
+export const unignoreDuplicatePairDuplicatesUnignorePost = async (duplicateIgnoreRequest: DuplicateIgnoreRequest, options?: RequestInit): Promise<unignoreDuplicatePairDuplicatesUnignorePostResponse> => {
+  
+  const res = await fetch(getUnignoreDuplicatePairDuplicatesUnignorePostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      duplicateIgnoreRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: unignoreDuplicatePairDuplicatesUnignorePostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as unignoreDuplicatePairDuplicatesUnignorePostResponse
 }
 
 

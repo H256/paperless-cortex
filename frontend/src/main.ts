@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/documents', component: () => import('./views/DocumentsView.vue') },
     { path: '/documents/:id', component: () => import('./views/DocumentDetailView.vue'), props: true },
     { path: '/dashboard', component: () => import('./views/DashboardView.vue') },
+    { path: '/duplicates', component: () => import('./views/DuplicatesView.vue') },
     { path: '/search', component: () => import('./views/SearchView.vue') },
     { path: '/queue', component: () => import('./views/QueueView.vue') },
     { path: '/logs', component: () => import('./views/LogInspectorView.vue') },
