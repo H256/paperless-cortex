@@ -27,6 +27,7 @@ from app.routes import (
     documents_actions,
     documents_similarity,
     documents_suggestions,
+    duplicates,
     embeddings,
     meta,
     queue,
@@ -310,6 +311,7 @@ api.include_router(documents.router)
 api.include_router(documents_actions.router)
 api.include_router(documents_suggestions.router)
 api.include_router(documents_similarity.router)
+api.include_router(duplicates.router)
 api.include_router(meta.router)
 api.include_router(sync.router)
 api.include_router(embeddings.router)

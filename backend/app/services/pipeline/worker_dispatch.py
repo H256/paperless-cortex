@@ -27,6 +27,7 @@ def build_dispatch_handler(
     process_suggestions_paperless_fn: Callable[[object, Session, int], None],
     process_suggestions_vision_fn: Callable[[object, Session, int], None],
     process_suggest_field_fn: Callable[[object, Session, dict[str, Any]], None],
+    process_duplicate_scan_fn: Callable[[object, Session, int], None] | None = None,
 ) -> Callable[[], None] | None:
     handlers = {
         "sync": lambda: process_sync_only_fn(settings, db, doc_id),
@@ -71,4 +72,6 @@ def build_dispatch_handler(
         "suggestions_vision": lambda: process_suggestions_vision_fn(settings, db, doc_id),
         "suggest_field": lambda: process_suggest_field_fn(settings, db, task or {}),
     }
+    if process_duplicate_scan_fn is not None:
+        handlers["duplicate_scan"] = lambda: process_duplicate_scan_fn(settings, db, doc_id)
     return handlers.get(task_type)

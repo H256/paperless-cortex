@@ -159,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, SlidersHorizontal, Sun, Wrench, FileSearch } from 'lucide-vue-next'
+import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, SlidersHorizontal, Sun, Wrench, FileSearch, Copy } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
@@ -282,6 +282,7 @@ const primaryNavItems: NavItem[] = [
 ]
 
 const secondaryNavItems: NavItem[] = [
+  { to: '/duplicates', label: 'Duplicates', icon: Copy },
   { to: '/chat', label: 'Chat', icon: MessageCircle },
   { to: '/queue', label: 'Queue', icon: List },
   { to: '/logs', label: 'Logs', icon: FileSearch },
