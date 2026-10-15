@@ -13,6 +13,14 @@ All granular implementation slices and refactors are tracked here.
 - docs: manual section 8 of [`12-similar-workflow.md`](docs/manual/12-similar-workflow.md).
 - Not done: no automatic delete/merge (by design); thresholds are code constants (`DEFAULT_EMBEDDING_THRESHOLD=0.85`, `DEFAULT_MIN_SCORE=0.60`), no UI setting yet; not checked in a browser or against a large dataset.
 
+## 2026-10-11 (branch: agent/release-0.9.4)
+
+### Release 0.9.4
+- `ef975da` chore(version): bumped the project version from `0.9.3` to `0.9.4` via `scripts/bump_version.py patch` (`VERSION`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/openapi.json`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/generated/version.ts` and the generated API header comments).
+- Highlights since 0.9.3:
+  - The Summary row of the comparison table shows the summary again; long summaries are clamped with a "Show full text" toggle (#426, #427).
+- Verification: `cd frontend && npx vitest run` (`220 passed`), `npx vue-tsc --build`, `npx oxlint src` clean; no backend code changed since 0.9.3.
+
 ## 2026-10-11 (branch: agent/426-summary-cell)
 
 ### Fix: summary missing in the comparison table
