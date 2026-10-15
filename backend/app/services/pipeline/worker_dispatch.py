@@ -22,6 +22,7 @@ def build_dispatch_handler(
     process_embeddings_vision_fn: Callable[..., None],
     process_similarity_index_fn: Callable[[object, Session, int], None],
     process_cleanup_texts_fn: Callable[..., None],
+    process_duplicate_scan_fn: Callable[[object, Session, int], None],
     process_page_notes_fn: Callable[..., None],
     process_summary_hierarchical_fn: Callable[..., None],
     process_suggestions_paperless_fn: Callable[[object, Session, int], None],
@@ -54,6 +55,7 @@ def build_dispatch_handler(
             source=str((task or {}).get("source")) if (task or {}).get("source") else None,
             clear_first=bool((task or {}).get("clear_first")),
         ),
+        "duplicate_scan": lambda: process_duplicate_scan_fn(settings, db, doc_id),
         "page_notes_paperless": lambda: process_page_notes_fn(
             settings, db, doc_id, "paperless_ocr", run_id=run_id
         ),
