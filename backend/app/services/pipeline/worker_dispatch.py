@@ -22,12 +22,12 @@ def build_dispatch_handler(
     process_embeddings_vision_fn: Callable[..., None],
     process_similarity_index_fn: Callable[[object, Session, int], None],
     process_cleanup_texts_fn: Callable[..., None],
-    process_duplicate_scan_fn: Callable[[object, Session, int], None],
     process_page_notes_fn: Callable[..., None],
     process_summary_hierarchical_fn: Callable[..., None],
     process_suggestions_paperless_fn: Callable[[object, Session, int], None],
     process_suggestions_vision_fn: Callable[[object, Session, int], None],
     process_suggest_field_fn: Callable[[object, Session, dict[str, Any]], None],
+    process_duplicate_scan_fn: Callable[[object, Session, int], None] | None = None,
 ) -> Callable[[], None] | None:
     handlers = {
         "sync": lambda: process_sync_only_fn(settings, db, doc_id),
@@ -55,7 +55,6 @@ def build_dispatch_handler(
             source=str((task or {}).get("source")) if (task or {}).get("source") else None,
             clear_first=bool((task or {}).get("clear_first")),
         ),
-        "duplicate_scan": lambda: process_duplicate_scan_fn(settings, db, doc_id),
         "page_notes_paperless": lambda: process_page_notes_fn(
             settings, db, doc_id, "paperless_ocr", run_id=run_id
         ),
@@ -73,4 +72,6 @@ def build_dispatch_handler(
         "suggestions_vision": lambda: process_suggestions_vision_fn(settings, db, doc_id),
         "suggest_field": lambda: process_suggest_field_fn(settings, db, task or {}),
     }
+    if process_duplicate_scan_fn is not None:
+        handlers["duplicate_scan"] = lambda: process_duplicate_scan_fn(settings, db, doc_id)
     return handlers.get(task_type)

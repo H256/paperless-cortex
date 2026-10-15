@@ -99,6 +99,17 @@ Dann sollten Sie:
 3. prüfen, ob beide Dokumente wirklich eigenständig gebraucht werden,
 4. und Ihre Review-Entscheidung bewusst treffen.
 
+### Globale Dublettenübersicht (`Duplicates`)
+
+Über `More` -> `Duplicates` sehen Sie alle vermuteten Dubletten gruppiert, nicht nur pro Dokument.
+
+- **Scan starten:** `Scan for duplicates` stellt pro Dokument einen Scan-Task in die Queue. Voraussetzung sind vorhandene Embeddings.
+- **Erkennung:** Der Scan vergleicht nicht exakt, sondern kombiniert vier Signale: Embedding-Ähnlichkeit, Textüberlappung (OCR-tolerant, z. B. Download-PDF vs. gescannter Ausdruck), harte Schlüssel (Beträge, Rechnungs-/Aktenzeichen) und Metadaten (Korrespondent, Datum, Seitenzahl, Dokumenttyp).
+- **Stufen:** `Very likely`, `Likely`, `Check`. Weichen Beträge oder Nummern ab (Serienbriefe), bleibt ein Paar höchstens bei `Check` und trägt den Hinweis "amounts/numbers differ".
+- **Gruppen:** Hängen Paare zusammen (A≈B, B≈C), erscheinen sie als eine Gruppe.
+- **Ignorieren:** `Not a duplicate` merkt sich das Paar dauerhaft; spätere Scans bringen es nicht zurück. Im Tab `Ignored` stellt `Restore` es wieder her.
+- Es wird nie automatisch gelöscht oder zusammengeführt; Sie entscheiden pro Dokument.
+
 ## 9. Wann man Similar ignorieren sollte
 
 Ignorieren Sie Similar, wenn:

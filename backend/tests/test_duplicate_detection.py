@@ -192,3 +192,33 @@ def test_scan_route_enqueues_one_task_per_document(api_client: Any, monkeypatch:
     payload = api_client.post("/duplicates/scan").json()
     assert payload == {"queued": True, "docs": 4, "enqueued": 4}
     assert {t["task"] for t in captured} == {"duplicate_scan"}
+
+
+def test_dispatch_routes_duplicate_scan_task() -> None:
+    from app.services.pipeline.worker_dispatch import build_dispatch_handler
+
+    calls: list[int] = []
+    noop = lambda *_a, **_k: None  # noqa: E731
+    handler = build_dispatch_handler(
+        settings=object(),
+        db=None,  # type: ignore[arg-type]
+        task_type="duplicate_scan",
+        doc_id=7,
+        task=None,
+        run_id=None,
+        process_sync_only_fn=noop,
+        process_evidence_index_fn=noop,
+        process_embeddings_paperless_fn=noop,
+        process_embeddings_vision_fn=noop,
+        process_similarity_index_fn=noop,
+        process_cleanup_texts_fn=noop,
+        process_page_notes_fn=noop,
+        process_summary_hierarchical_fn=noop,
+        process_suggestions_paperless_fn=noop,
+        process_suggestions_vision_fn=noop,
+        process_suggest_field_fn=noop,
+        process_duplicate_scan_fn=lambda _s, _d, doc_id: calls.append(doc_id),
+    )
+    assert handler is not None
+    handler()
+    assert calls == [7]
