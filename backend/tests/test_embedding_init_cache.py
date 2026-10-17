@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -78,7 +78,7 @@ def test_ensure_probes_again_for_different_model(monkeypatch: MonkeyPatch) -> No
 def test_ensure_surfaces_dimension_mismatch_after_model_change(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """The store's dimension check still sees the new model's size (no stored-size shortcut)."""
+    """The store's dimension check still sees the new model's size (probe-first fail-fast)."""
     _patch_settings(monkeypatch)
     monkeypatch.setattr(embedding_init, "embed_text", lambda _s, _t: [0.0] * 8)
 
@@ -91,3 +91,53 @@ def test_ensure_surfaces_dimension_mismatch_after_model_change(
 
     with pytest.raises(RuntimeError, match="embedding size is 8"):
         embedding_init.ensure_embedding_collection(load_settings())
+
+
+def test_ensure_proceeds_when_llm_down_but_collection_exists(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Embedding work proceeds when the LLM is down but the collection exists (stored-size fallback)."""
+    _patch_settings(monkeypatch)
+    settings = load_settings()
+
+    def _down(_s: Any, _text: str) -> list[float]:
+        raise RuntimeError("LLM endpoint down")
+
+    monkeypatch.setattr(embedding_init, "embed_text", _down)
+    monkeypatch.setattr(
+        embedding_init.vector_store, "collection_vector_size", lambda _s: 256
+    )
+    ensured: list[int] = []
+    monkeypatch.setattr(
+        embedding_init.vector_store,
+        "ensure_collection",
+        lambda _s, *, vector_size, distance="Cosine": ensured.append(vector_size),
+    )
+
+    embedding_init.ensure_embedding_collection(settings)
+
+    assert ensured == [256]
+
+
+def test_ensure_raises_when_llm_down_and_collection_missing(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """When the LLM is down and the collection is absent, the probe error propagates."""
+    _patch_settings(monkeypatch)
+    settings = load_settings()
+
+    def _down(_s: Any, _text: str) -> list[float]:
+        raise RuntimeError("LLM endpoint down")
+
+    monkeypatch.setattr(embedding_init, "embed_text", _down)
+    monkeypatch.setattr(
+        embedding_init.vector_store, "collection_vector_size", lambda _s: None
+    )
+    monkeypatch.setattr(
+        embedding_init.vector_store,
+        "ensure_collection",
+        lambda _s, *, vector_size, distance="Cosine": None,
+    )
+
+    with pytest.raises(RuntimeError, match="LLM endpoint down"):
+        embedding_init.ensure_embedding_collection(settings)

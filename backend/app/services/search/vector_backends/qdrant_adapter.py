@@ -70,6 +70,25 @@ class QdrantVectorStoreAdapter:
             )
             create.raise_for_status()
 
+    def collection_vector_size(self, settings: Settings) -> int | None:
+        base = qdrant.base_url(settings)
+        collection = qdrant.collection_name(settings)
+        headers = qdrant.headers(settings)
+        with qdrant.client(settings, timeout=30) as client:
+            resp = client.get(f"{base}/collections/{collection}", headers=headers)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            config = (
+                resp.json()
+                .get("result", {})
+                .get("config", {})
+                .get("params", {})
+                .get("vectors", {})
+            )
+            size = config.get("size")
+            return int(size) if size else None
+
     def upsert_points(self, settings: Settings, points: list[dict[str, Any]]) -> None:
         base = qdrant.base_url(settings)
         collection = qdrant.collection_name(settings)
