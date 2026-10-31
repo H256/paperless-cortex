@@ -1,0 +1,5 @@
+
+== Stale active runs by age, and whether a newer run for the same doc+task exists
+status | runs | superseded_by_completed | older_than_1d
+retrying | 54 | 53 | 54
+running | 2 | 2 | 2

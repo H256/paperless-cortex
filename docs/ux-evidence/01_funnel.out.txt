@@ -1,0 +1,100 @@
+
+== 1. Data range and volume per audit action family
+action_family | events | docs | first_at | last_at
+suggestions_generate | 4600 | 2239 | 2026-02-02T10:30:06.288197+00:00 | 2026-10-24T10:27:26.217556+00:00
+apply_to_document | 3720 | 857 | 2026-01-06T20:56:12.339370+01:00 | 2026-10-25T09:11:33.303365+01:00
+field_variants | 351 | 160 | 2026-02-03T21:40:09.544115+00:00 | 2026-10-24T10:28:06.881839+00:00
+hierarchical_summary_generate | 202 | 186 | 2026-02-12T13:47:52.230051+00:00 | 2026-08-27T15:50:35.238344+00:00
+field_override | 170 | 122 | 2026-02-06T07:16:53.994381+00:00 | 2026-10-11T10:01:42.775039+00:00
+mark_reviewed | 15 | 13 | 2026-02-18T13:40:38.549982+00:00 | 2026-10-11T21:01:15.728177+00:00
+
+== 2. Funnel: documents -> suggestion -> reviewed
+docs_total | docs_with_suggestion | docs_with_user_change | docs_written_back
+2239 | 2239 | 857 | 855
+
+== 3. Applied fields per source
+source | field | applies
+writeback | writeback | 934
+vision_ocr | note | 774
+vision_ocr | title | 618
+vision_ocr | tags | 504
+paperless_ocr | title | 184
+paperless_ocr | tags | 178
+paperless_ocr | note | 124
+vision_ocr | correspondent | 87
+vision_ocr | date | 78
+similar_docs | tags | 76
+paperless_ocr | date | 41
+paperless_ocr | correspondent | 34
+text_candidates | date | 23
+similar_docs | correspondent | 20
+text_candidates | correspondent | 14
+best_pick | tags | 12
+best_pick | date | 5
+best_pick | note | 5
+best_pick | title | 4
+preset | date | 3
+similar_docs | title | 1
+best_pick | correspondent | 1
+
+== 4. Regeneration and manual override per field (signal for distrust)
+field | regenerations | overrides
+tags | 103 | 63
+summary | 0 | 41
+title | 72 | 30
+correspondent | 93 | 30
+date | 18 | 6
+note | 65 | 0
+
+== 5. Suggestion -> first apply latency, and time spent per review session
+median_suggest_to_apply | median_gap_between_applies_in_session
+23 days, 18:23:20.942444 | 0:00:05.823797
+
+== 6. Task failures and retries visible to users
+task | status | runs | avg_attempt | p50_ms | p95_ms
+embeddings_paperless | completed | 1973 | 1.00 | 1264.0 | 8632.599999999991
+embeddings_paperless | failed | 50 | 1.00 | 267.0 | 282.75
+embeddings_vision | completed | 2339 | 1.00 | 2789.0 | 38342.299999999974
+embeddings_vision | failed | 11 | 1.00 | 1420.0 | 45653.0
+embeddings_vision | retrying | 8 | 1.00 | 1602.5 | 232981.45
+evidence_index | completed | 2240 | 1.00 | 97.0 | 354.0
+evidence_index | failed | 8 | 1.00 | 11.0 | 48.04999999999998
+page_notes_vision | completed | 241 | 1.01 | 99718.0 | 569980.0
+page_notes_vision | retrying | 5 | 1.00 | 172269.0 | 648228.2
+similarity_index | failed | 3554 | 1.00 | 19.0 | 50.0
+similarity_index | completed | 2257 | 1.00 | 51.0 | 151.0
+suggestions_paperless | completed | 319 | 1.00 | 19350.0 | 80644.49999999988
+suggestions_paperless | failed | 18 | 1.33 | 1299.0 | 361567.15
+suggestions_paperless | retrying | 8 | 1.25 | 361617.5 | 361879.2
+suggestions_paperless | running | 1 | 2.00 | None | None
+suggestions_vision | completed | 414 | 1.00 | 13689.5 | 81437.15
+suggestions_vision | failed | 36 | 1.11 | 74.5 | 245925.25
+suggestions_vision | retrying | 12 | 1.33 | 902046.5 | 903081.2
+summary_hierarchical | completed | 242 | 1.00 | 41797.5 | 352761.6499999999
+summary_hierarchical | running | 1 | 1.00 | None | None
+sync | completed | 16 | 1.00 | 127.0 | 463.5
+sync | failed | 3 | 1.00 | 177.0 | 177.9
+vision_ocr | completed | 345 | 1.01 | 25996.0 | 213559.6
+vision_ocr | failed | 25 | 1.48 | 1447.0 | 4883813.799999986
+vision_ocr | retrying | 21 | 1.33 | 902162.0 | 3171099.0
+
+== 7. Most frequent error types
+task | error_type | runs
+similarity_index | VECTOR_CHUNKS_MISSING | 3537
+embeddings_paperless | WORKER_TASK_ERROR | 50
+suggestions_vision | WORKER_TASK_ERROR | 33
+vision_ocr | LLM_TIMEOUT | 27
+vision_ocr | WORKER_TASK_ERROR | 19
+similarity_index | WORKER_TASK_ERROR | 17
+suggestions_paperless | WORKER_TASK_ERROR | 15
+suggestions_vision | LLM_TIMEOUT | 14
+embeddings_vision | WORKER_TASK_ERROR | 11
+suggestions_paperless | LLM_TIMEOUT | 10
+evidence_index | WORKER_TASK_ERROR | 8
+embeddings_vision | NETWORK_CONNECTION_ERROR | 5
+embeddings_vision | LLM_TIMEOUT | 3
+sync | WORKER_TASK_ERROR | 3
+page_notes_vision | LLM_TIMEOUT | 3
+page_notes_vision | NETWORK_CONNECTION_ERROR | 2
+suggestions_vision | EMBED_CONTEXT_OVERFLOW | 1
+suggestions_paperless | EMBED_CONTEXT_OVERFLOW | 1
