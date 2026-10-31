@@ -3,7 +3,7 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
-## 2026-10-31 (branch: develop)
+## 2026-10-31 (branch: agent/ux-evidence-audit-values)
 
 ### Audit: record suggested and applied value on apply
 - `d8280e96` feat(audit): `apply_to_document:<field>` rows now store `field`, the source's currently stored suggestion in `old_value` and the applied value in `new_value`, so accepted and edited suggestions can be told apart. Sources without a stored suggestion row keep `old_value` empty. Older rows stay empty; no migration needed.
