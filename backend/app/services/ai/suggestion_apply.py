@@ -19,6 +19,7 @@ from app.services.ai.suggestion_operations import format_ai_summary_note
 from app.services.ai.suggestions import sanitize_suggested_string
 from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.documents.note_ids import next_local_note_id
+from app.services.runtime.json_utils import parse_json_object
 from app.services.runtime.string_list_json import (
     dumps_normalized_string_list,
     normalize_string_list,
@@ -58,6 +59,24 @@ def normalize_document_date(value: object) -> str | None:
     return text
 
 
+def _stored_suggestion_value(db: Session, doc_id: int, source: str | None, field: str) -> object:
+    """Return what ``source`` currently suggests for ``field``, for the apply audit.
+
+    Sources without a stored row (``manual``, ``similar_docs``, ...) yield ``None``.
+    """
+    if not source:
+        return None
+    row = db.get(DocumentSuggestion, (doc_id, source))
+    if row is None:
+        return None
+    payload = parse_json_object(row.payload)
+    if not isinstance(payload, dict):
+        return None
+    parsed = payload.get("parsed")
+    data = parsed if isinstance(parsed, dict) else payload
+    return data.get("summary" if field == "note" else field)
+
+
 def apply_suggestion_to_document_payload(
     *,
     db: Session,
@@ -66,7 +85,7 @@ def apply_suggestion_to_document_payload(
     field: str,
     value: object,
     get_document_or_none_fn: Callable[[Session, int], Document | None],
-    audit_suggestion_run_fn: Callable[[Session, int, str, str], None],
+    audit_suggestion_run_fn: Callable[..., None],
     invalidate_writeback_preview_cache_fn: InvalidateAll | None = None,
 ) -> dict[str, object]:
     def find_suggestion_meta() -> tuple[str | None, str | None]:
@@ -248,7 +267,15 @@ def apply_suggestion_to_document_payload(
                 updated = True
 
     if updated:
-        audit_suggestion_run_fn(db, doc_id, source or "manual", f"apply_to_document:{field}")
+        audit_suggestion_run_fn(
+            db,
+            doc_id,
+            source or "manual",
+            f"apply_to_document:{field}",
+            field=field,
+            old_value=_stored_suggestion_value(db, doc_id, source, field),
+            new_value=value,
+        )
         db.commit()
         invalidate_document_caches(doc_id)
         if invalidate_writeback_preview_cache_fn is not None:

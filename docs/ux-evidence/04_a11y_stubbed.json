@@ -1,0 +1,187 @@
+[
+ {
+  "viewportName": "desktop",
+  "route": "/",
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "nodes": 10
+   },
+   {
+    "id": "label",
+    "impact": "critical",
+    "nodes": 1
+   },
+   {
+    "id": "nested-interactive",
+    "impact": "serious",
+    "nodes": 2
+   },
+   {
+    "id": "select-name",
+    "impact": "critical",
+    "nodes": 5
+   }
+  ],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 4,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 40,
+  "tabsToFirstRow": 36,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "desktop",
+  "route": "/queue",
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "nodes": 10
+   }
+  ],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 0,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 24,
+  "tabsToFirstRow": -1,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "desktop",
+  "route": "/writeback",
+  "axe": [],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 1,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 17,
+  "tabsToFirstRow": -1,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "desktop",
+  "route": "/documents/1",
+  "axe": [
+   {
+    "id": "aria-prohibited-attr",
+    "impact": "serious",
+    "nodes": 1
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "nodes": 10
+   },
+   {
+    "id": "label",
+    "impact": "critical",
+    "nodes": 1
+   }
+  ],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 0,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 22,
+  "tabsToFirstRow": -1,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "mobile",
+  "route": "/",
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "nodes": 10
+   },
+   {
+    "id": "label",
+    "impact": "critical",
+    "nodes": 1
+   },
+   {
+    "id": "select-name",
+    "impact": "critical",
+    "nodes": 5
+   }
+  ],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 2,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 40,
+  "tabsToFirstRow": 33,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "mobile",
+  "route": "/queue",
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "nodes": 10
+   }
+  ],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 0,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 24,
+  "tabsToFirstRow": -1,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "mobile",
+  "route": "/writeback",
+  "axe": [],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 1,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 17,
+  "tabsToFirstRow": -1,
+  "invisibleFocus": 0
+ },
+ {
+  "viewportName": "mobile",
+  "route": "/documents/1",
+  "axe": [
+   {
+    "id": "aria-prohibited-attr",
+    "impact": "serious",
+    "nodes": 1
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "nodes": 10
+   },
+   {
+    "id": "label",
+    "impact": "critical",
+    "nodes": 1
+   }
+  ],
+  "layout": {
+   "overflowPx": 0,
+   "smallTargets": 0,
+   "text": "Paperless-NGX Cortex\n\nYour documents, understood.\n\nDashboard\nDocuments\nSearch\nWr"
+  },
+  "tabStops": 22,
+  "tabsToFirstRow": -1,
+  "invisibleFocus": 0
+ }
+]

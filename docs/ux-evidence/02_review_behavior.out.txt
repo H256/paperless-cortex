@@ -1,0 +1,69 @@
+
+== 1. Documents reviewed per month (first field apply), and fields per doc
+month | docs | avg_field_applies
+2026-02 | 375 | 2.9
+2026-03 | 126 | 3.2
+2026-04 | 59 | 3.2
+2026-05 | 41 | 3.4
+2026-06 | 47 | 3.3
+2026-07 | 44 | 3.2
+2026-08 | 18 | 3.4
+2026-09 | 5 | 4.0
+2026-10 | 142 | 4.0
+
+== 2. Review sessions: length, docs and seconds per doc
+sessions | p50_docs | p90_docs | p50_minutes | sec_per_doc_multi_doc_sessions | p50_sec_per_doc
+140 | 2.0 | 20.200000000000017 | 3.0 | 106.1 | 77.8
+
+== 3. Share of reviewed docs that needed correction
+reviewed_docs | with_override | with_regeneration | accepted_as_is
+857 | 122 | 159 | 698
+
+== 4. Fields applied per reviewed doc (distinct fields)
+fields | docs
+1 | 28
+2 | 166
+3 | 469
+4 | 155
+5 | 39
+
+== 5. Coverage per field among reviewed docs
+field | docs
+note | 830
+title | 760
+tags | 701
+correspondent | 147
+date | 144
+
+== 6. Task failures per month for the noisy and user-facing tasks
+month | task | failed
+2026-02 | suggestions_vision | 18
+2026-02 | vision_ocr | 4
+2026-03 | similarity_index | 3554
+2026-03 | suggestions_paperless | 2
+2026-03 | suggestions_vision | 3
+2026-03 | vision_ocr | 1
+2026-07 | suggestions_paperless | 7
+2026-07 | suggestions_vision | 7
+2026-07 | vision_ocr | 8
+2026-08 | suggestions_paperless | 3
+2026-08 | suggestions_vision | 2
+2026-08 | vision_ocr | 5
+2026-09 | suggestions_paperless | 6
+2026-09 | suggestions_vision | 6
+2026-09 | vision_ocr | 7
+
+== 7. Unfinished runs currently stuck
+task | status | runs | oldest_update
+vision_ocr | retrying | 21 | 2026-02-14T07:59:33.052140+00:00
+suggestions_vision | retrying | 12 | 2026-08-15T08:45:31.690687+00:00
+suggestions_paperless | retrying | 8 | 2026-06-08T11:17:00.232808+00:00
+embeddings_vision | retrying | 8 | 2026-02-13T08:42:38.493906+00:00
+page_notes_vision | retrying | 5 | 2026-02-13T08:52:51.846520+00:00
+suggestions_paperless | running | 1 | 2026-08-15T09:39:44.058161+00:00
+summary_hierarchical | running | 1 | 2026-02-17T11:42:27.667081+00:00
+
+== 8. Writeback jobs
+status | dry_run | jobs | docs_changed | last_at
+completed | False | 68 | 570 | 2026-10-11T10:19:01.284049+00:00
+completed | True | 2 | 3 | 2026-02-10T20:04:44.026680+00:00
