@@ -23,6 +23,8 @@ class VectorStoreAdapter(Protocol):
         self, settings: Settings, *, vector_size: int, distance: str = "Cosine"
     ) -> None: ...
 
+    def collection_vector_size(self, settings: Settings) -> int | None: ...
+
     def upsert_points(self, settings: Settings, points: list[dict[str, Any]]) -> None: ...
 
     def delete_all_chunk_points(self, settings: Settings) -> None: ...
@@ -83,6 +85,10 @@ def ensure_collection(settings: Settings, *, vector_size: int, distance: str = "
     get_vector_store_adapter(settings).ensure_collection(
         settings, vector_size=vector_size, distance=distance
     )
+
+
+def collection_vector_size(settings: Settings) -> int | None:
+    return get_vector_store_adapter(settings).collection_vector_size(settings)
 
 
 def upsert_points(settings: Settings, points: list[dict[str, Any]]) -> None:

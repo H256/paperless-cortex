@@ -11,9 +11,11 @@ if TYPE_CHECKING:
 
 # Process-wide cache of probed embedding dimensions, keyed by
 # (provider, collection, model). A re-index of N docs performs at most one
-# LLM dimension probe per model instead of N. The probed size is always passed to
+# LLM dimension probe per model instead of N. The probed size is passed to
 # ensure_collection, so a changed embedding model still fails fast with the
-# store's dimension-mismatch error.
+# store's dimension-mismatch error. If the LLM endpoint is down, the probe
+# falls back to the stored collection size so embedding work proceeds when the
+# collection already exists.
 _PROBE_LOCK = threading.Lock()
 _PROBED_DIMENSIONS: dict[tuple[str, str, str], int] = {}
 
@@ -39,4 +41,15 @@ def _probe_dimension(settings: Settings) -> int:
 
 
 def ensure_embedding_collection(settings: Settings) -> None:
-    vector_store.ensure_collection(settings, vector_size=_probe_dimension(settings))
+    try:
+        vector_size = _probe_dimension(settings)
+    except Exception:
+        # LLM endpoint down/rate-limited: fall back to the stored collection
+        # size so embedding work proceeds when the collection already exists.
+        stored = vector_store.collection_vector_size(settings)
+        if stored is None:
+            # Collection absent and LLM down: nothing to fall back to, so the
+            # original probe error propagates.
+            raise
+        vector_size = stored
+    vector_store.ensure_collection(settings, vector_size=vector_size)
