@@ -7,7 +7,7 @@ import socket
 import time
 from typing import TYPE_CHECKING
 
-from app.config import load_settings
+from app.config import load_settings, reset_settings_cache
 from app.db import SessionLocal
 from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.ai.hierarchical_summary import is_large_document
@@ -461,6 +461,9 @@ def main() -> None:
             doc_id = parsed["doc_id"]
             task_type = parsed["task_type"]
             task = parsed["task_payload"]
+            # Provider overrides are persisted by a separate API process, whose
+            # cache invalidation cannot reach this long-lived worker process.
+            reset_settings_cache()
             active_settings = load_settings()
             if handle_worker_cancel_request(
                 settings,
