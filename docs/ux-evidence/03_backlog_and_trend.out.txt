@@ -1,0 +1,16 @@
+
+== 1. Seconds per doc in multi-doc sessions, before and after 2026-10-11
+period | sessions | docs | p50_sec_per_doc | weighted_sec_per_doc
+after | 6 | 145 | 66.2 | 84.9
+before | 80 | 709 | 78.3 | 110.5
+
+== 2. Correction rate before and after 2026-10-11 (by first apply)
+period | docs | corrected | pct
+after | 141 | 12 | 8.5
+before | 716 | 147 | 20.5
+
+== 3. Blind-check sample: 40 accepted-as-is and 20 corrected docs (fixed seed)
+setseed
+
+accepted_as_is_ids | corrected_ids
+979,2023,1826,833,1973,1768,1566,1914,427,1771,1410,334,2193,150,598,1522,1916,2099,2178,910,944,44,1761,961,1523,568,311,1571,99,954,403,660,793,1817,2199,1723,1722,2022,906,1737 | 1934,89,1853,2028,1899,80,657,133,1920,1924,84,484,2167,1950,1988,1923,911,431,1781,1992

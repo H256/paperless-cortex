@@ -3,6 +3,36 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-10-31 (branch: agent/ux-evidence-audit-values)
+
+### Audit: record suggested and applied value on apply
+- `d8280e96` feat(audit): `apply_to_document:<field>` rows now store `field`, the source's currently stored suggestion in `old_value` and the applied value in `new_value`, so accepted and edited suggestions can be told apart. Sources without a stored suggestion row keep `old_value` empty. Older rows stay empty; no migration needed.
+- docs: UX evidence (queries, outputs, findings) in [`docs/ux-evidence/`](docs/ux-evidence/FINDINGS.md); stubbed accessibility audit in `frontend/e2e-ux/`.
+
+## 2026-10-15 (branch: agent/398-list-ux-followup)
+
+### Documents list: remember last preset, explain Synced/Showing (#398)
+- `7061f89` feat(documents): the last applied preset is stored in `localStorage` ([`documentsPresetStorage.ts`](frontend/src/utils/documentsPresetStorage.ts)) and restored on mount only when the URL carries no explicit list filter; resetting/clearing filters forgets it. The header shows an info icon explaining "Showing" vs. "synced".
+- Rebased onto `develop`; the earlier "Processed*" tooltip change was dropped because the overview panel was redesigned there and no longer shows that counter.
+- Verification: `cd frontend && npx vitest run` (`230 passed`), `npx vue-tsc --build` clean; one pre-existing oxlint error in `DocumentSuggestionsSection.test.ts`. Not checked in a browser.
+
+## 2026-10-15 (branch: agent/432-duplicate-groups)
+
+### Global duplicate detection (#432)
+- `d7ba1fd` feat(duplicates): new per-document queue task `duplicate_scan` finds candidates via the existing vector similarity search and scores each pair from four OCR-tolerant signals (embedding, character-5-gram text overlap, amounts/identifiers, metadata) in [`duplicate_scoring.py`](backend/app/services/documents/duplicate_scoring.py). Conflicting amounts/identifiers cap a pair at `check`, so serial letters are not reported as duplicates. Pairs are stored in `document_duplicate_pairs` (migration `c3e5a7b9d1f2`); the ignore flag survives rescans.
+- `d7ba1fd` feat(api): `POST /duplicates/scan`, `GET /duplicates/groups` (union-find clusters, `min_level`), `GET /duplicates/ignored`, `POST /duplicates/ignore`, `POST /duplicates/unignore`; OpenAPI spec regenerated.
+- `d7ba1fd` test: `backend/tests/test_duplicate_detection.py` (12 tests: scan-vs-download, series letters, clustering, rescan keeps ignore, routes, worker dispatch).
+- `3212c2e` feat(frontend): `Duplicates` view (More menu) with grouped pairs, signal breakdown, "Not a duplicate" and an "Ignored" tab with "Restore"; regenerated API client; `DuplicatesView.integration.test.ts` (3 tests).
+- docs: manual section 8 of [`12-similar-workflow.md`](docs/manual/12-similar-workflow.md).
+- Not done: no automatic delete/merge (by design); thresholds are code constants (`DEFAULT_EMBEDDING_THRESHOLD=0.85`, `DEFAULT_MIN_SCORE=0.60`), no UI setting yet; not checked in a browser or against a large dataset.
+
+## 2026-10-11 (branch: agent/398-merge-presets-into-filters)
+
+### Documents list: merge the preset bar into the filters panel (#398)
+- `2b9e3d9` feat(documents): the presets were a separate card below the list header; they now live inside [`DocumentsFiltersPanel.vue`](frontend/src/components/DocumentsFiltersPanel.vue) as a "Presets" section at the top of the filters card. The preset buttons, their Alt+1..6 shortcuts, active-state logic and library-wide counters moved from the removed `DocumentsPresetBar.vue`; `DocumentsView.vue` wires the preset props and `apply-preset` handler into the panel and drops the separate block.
+- `2b9e3d9` test: the preset assertions moved from the removed `DocumentsPresetBar.test.ts` into `DocumentsFiltersPanel.test.ts` (6 tests); the stale `DocumentsPresetBar` stubs were removed from `DocumentsView.integration.test.ts`.
+- Verification: `cd frontend && npx vitest run` (`220 passed`), `npx vue-tsc --build` clean. Not checked in a browser. Pre-existing, unrelated: one oxlint error in `DocumentSuggestionsSection.test.ts` (unchanged by this change).
+
 ## 2026-10-11 (branch: agent/release-0.9.4)
 
 ### Release 0.9.4

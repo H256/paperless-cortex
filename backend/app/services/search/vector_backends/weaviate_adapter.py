@@ -247,6 +247,12 @@ class WeaviateVectorStoreAdapter:
             else:
                 self._verify_vector_dimension(client, centroid_name, vector_size)
 
+    def collection_vector_size(self, settings: Settings) -> int | None:
+        # Weaviate uses self-provided vectors with no stored dimension, so the
+        # collection config carries no size to read back.
+        del settings
+        return None
+
     @staticmethod
     def _verify_vector_dimension(
         client: WeaviateClient, collection_name: str, vector_size: int

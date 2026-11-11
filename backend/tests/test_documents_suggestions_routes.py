@@ -168,6 +168,38 @@ def test_apply_suggestion_title_invalidates_local_detail_and_writeback_candidate
         assert audit is not None
 
 
+def test_apply_suggestion_audits_suggested_and_applied_value(api_client: Any) -> None:
+    engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
+    with Session(engine) as db:
+        db.add(Document(id=711, title="Doc 711", content="Inhalt"))
+        db.add(
+            DocumentSuggestion(
+                doc_id=711,
+                source="vision_ocr",
+                payload=json.dumps({"parsed": {"title": "Vorschlag", "summary": "Kurz"}}),
+            )
+        )
+        db.commit()
+
+    for body in (
+        {"source": "vision_ocr", "field": "title", "value": "Vom Nutzer geändert"},
+        {"source": "vision_ocr", "field": "note", "value": "Kurz"},
+        {"source": "similar_docs", "field": "date", "value": "2026-01-02"},
+    ):
+        assert api_client.post("/documents/711/apply-suggestion", json=body).status_code == 200
+
+    with Session(engine) as db:
+        rows = {
+            row.field: (row.old_value, row.new_value)
+            for row in db.query(SuggestionAudit).filter(SuggestionAudit.doc_id == 711)
+        }
+    assert rows == {
+        "title": ('"Vorschlag"', '"Vom Nutzer geändert"'),
+        "note": ('"Kurz"', '"Kurz"'),
+        "date": (None, '"2026-01-02"'),
+    }
+
+
 def test_apply_suggestion_date_rejects_non_iso_date(api_client: Any) -> None:
     engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
     with Session(engine) as db:

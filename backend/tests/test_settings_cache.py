@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from typing import Any
 
 import pytest
@@ -98,3 +99,59 @@ def test_apply_runtime_overrides_false_is_uncached(
     second = load_settings(apply_runtime_overrides=False)
     assert first is not second
     assert os.environ["DATABASE_URL"]
+
+
+def test_worker_reloads_external_provider_changes_before_each_task(
+    session_factory: Any,
+    monkeypatch: Any,
+    clean_settings_cache: Any,
+) -> None:
+    from app import worker
+
+    monkeypatch.setenv("QUEUE_ENABLED", "1")
+    with session_factory() as db:
+        db.add(RuntimeModelProviderOverride(role="vision", model="removed-vision-model"))
+        db.commit()
+
+    stop_event = threading.Event()
+    selected_models = iter(["selected-vision-model", "next-vision-model"])
+    consumed_models: list[str | None] = []
+
+    class Queue:
+        def blpop(self, _key: str, *, timeout: int) -> tuple[bytes, bytes]:
+            # Simulate the API committing in another process: no local cache reset.
+            with session_factory() as db:
+                row = db.get(RuntimeModelProviderOverride, "vision")
+                assert row is not None
+                row.model = next(selected_models)
+                db.commit()
+            return b"queue", b'{"doc_id": 2252, "task": "vision_ocr"}'
+
+    def execute_task(**kwargs: Any) -> dict[str, None]:
+        consumed_models.append(kwargs["settings"].vision_model)
+        if len(consumed_models) == 2:
+            stop_event.set()
+        return {
+            "pending_retry_payload": None,
+            "pending_retry_delay_seconds": None,
+            "pending_dead_letter": None,
+        }
+
+    monkeypatch.setattr(worker, "configure_logging", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(worker, "_install_signal_handlers", lambda *_args: None)
+    monkeypatch.setattr(
+        worker, "acquire_worker_runtime",
+        lambda *_args, **_kwargs: (Queue(), None, stop_event, threading.Event()),
+    )
+    monkeypatch.setattr(worker, "run_worker_iteration_gate", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(worker, "run_worker_queue_maintenance", lambda *_args: None)
+    monkeypatch.setattr(worker, "handle_worker_cancel_request", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(worker, "mark_worker_task_start", lambda *_args: None)
+    monkeypatch.setattr(worker, "SessionLocal", session_factory)
+    monkeypatch.setattr(worker, "execute_worker_task", execute_task)
+    monkeypatch.setattr(worker, "finalize_worker_task", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(worker, "shutdown_worker_runtime", lambda *_args, **_kwargs: None)
+
+    worker.main()
+
+    assert consumed_models == ["selected-vision-model", "next-vision-model"]

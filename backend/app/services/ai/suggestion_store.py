@@ -96,11 +96,17 @@ def audit_suggestion_run(
     action: str,
     *,
     commit: bool = True,
+    field: str | None = None,
+    old_value: object = None,
+    new_value: object = None,
 ) -> None:
     audit = SuggestionAudit(
         doc_id=doc_id,
         action=action,
         source=source,
+        field=field,
+        old_value=json.dumps(old_value, ensure_ascii=False) if old_value is not None else None,
+        new_value=json.dumps(new_value, ensure_ascii=False) if new_value is not None else None,
         created_at=datetime.now(UTC).isoformat(),
     )
     db.add(audit)

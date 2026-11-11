@@ -38,6 +38,9 @@ describe('DocumentsHeaderSection', () => {
 
     expect(wrapper.text()).toContain('Showing 5 of 12 synced documents')
     expect(wrapper.text()).toContain('for "invoice"')
+    // The "Showing" vs "synced" distinction is explained by an info icon tooltip.
+    const info = wrapper.find('svg')
+    expect(info.exists()).toBe(true)
 
     const buttons = wrapper.findAll('button')
     await buttons.find((button) => button.text().includes('Continue processing'))?.trigger('click')

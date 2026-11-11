@@ -97,6 +97,7 @@ ALLOWED_DOC_TASKS = {
     "evidence_index",
     "vision_ocr",
     "cleanup_texts",
+    "duplicate_scan",
     "embeddings_paperless",
     "embeddings_vision",
     "similarity_index",

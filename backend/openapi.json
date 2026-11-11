@@ -2150,6 +2150,186 @@
         }
       }
     },
+    "/duplicates/scan": {
+      "post": {
+        "tags": [
+          "duplicates"
+        ],
+        "summary": "Start Duplicate Scan",
+        "description": "Queue a duplicate scan task for every non-deleted document.",
+        "operationId": "start_duplicate_scan_duplicates_scan_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateScanResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicates/groups": {
+      "get": {
+        "tags": [
+          "duplicates"
+        ],
+        "summary": "Get Duplicate Groups",
+        "operationId": "get_duplicate_groups_duplicates_groups_get",
+        "parameters": [
+          {
+            "name": "min_level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "check",
+              "title": "Min Level"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateGroupsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicates/ignored": {
+      "get": {
+        "tags": [
+          "duplicates"
+        ],
+        "summary": "Get Ignored Duplicates",
+        "operationId": "get_ignored_duplicates_duplicates_ignored_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateIgnoredResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicates/ignore": {
+      "post": {
+        "tags": [
+          "duplicates"
+        ],
+        "summary": "Ignore Duplicate Pair",
+        "operationId": "ignore_duplicate_pair_duplicates_ignore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateIgnoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateIgnoreResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicates/unignore": {
+      "post": {
+        "tags": [
+          "duplicates"
+        ],
+        "summary": "Unignore Duplicate Pair",
+        "operationId": "unignore_duplicate_pair_duplicates_unignore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateIgnoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateIgnoreResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tags": {
       "get": {
         "tags": [
@@ -6868,6 +7048,373 @@
         },
         "type": "object",
         "title": "DocumentsPageResponse"
+      },
+      "DuplicateDocumentOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Date"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "correspondent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correspondent Id"
+          },
+          "correspondent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correspondent Name"
+          },
+          "document_type_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Type Id"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "original_file_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original File Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "DuplicateDocumentOut"
+      },
+      "DuplicateGroupOut": {
+        "properties": {
+          "group_id": {
+            "type": "integer",
+            "title": "Group Id"
+          },
+          "doc_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Doc Ids"
+          },
+          "best_score": {
+            "type": "number",
+            "title": "Best Score"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateDocumentOut"
+            },
+            "type": "array",
+            "title": "Documents",
+            "default": []
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicatePairOut"
+            },
+            "type": "array",
+            "title": "Pairs",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_id",
+          "doc_ids",
+          "best_score",
+          "level"
+        ],
+        "title": "DuplicateGroupOut"
+      },
+      "DuplicateGroupsResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateGroupOut"
+            },
+            "type": "array",
+            "title": "Groups",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "DuplicateGroupsResponse"
+      },
+      "DuplicateIgnoreRequest": {
+        "properties": {
+          "doc_a_id": {
+            "type": "integer",
+            "title": "Doc A Id"
+          },
+          "doc_b_id": {
+            "type": "integer",
+            "title": "Doc B Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_a_id",
+          "doc_b_id"
+        ],
+        "title": "DuplicateIgnoreRequest"
+      },
+      "DuplicateIgnoreResponse": {
+        "properties": {
+          "doc_a_id": {
+            "type": "integer",
+            "title": "Doc A Id"
+          },
+          "doc_b_id": {
+            "type": "integer",
+            "title": "Doc B Id"
+          },
+          "ignored": {
+            "type": "boolean",
+            "title": "Ignored"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_a_id",
+          "doc_b_id",
+          "ignored"
+        ],
+        "title": "DuplicateIgnoreResponse"
+      },
+      "DuplicateIgnoredResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicatePairOut"
+            },
+            "type": "array",
+            "title": "Pairs",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "DuplicateIgnoredResponse"
+      },
+      "DuplicatePairOut": {
+        "properties": {
+          "doc_a_id": {
+            "type": "integer",
+            "title": "Doc A Id"
+          },
+          "doc_b_id": {
+            "type": "integer",
+            "title": "Doc B Id"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "embedding_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Score"
+          },
+          "text_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Score"
+          },
+          "keys_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keys Score"
+          },
+          "meta_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Score"
+          },
+          "signals": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Signals",
+            "default": {}
+          },
+          "ignored": {
+            "type": "boolean",
+            "title": "Ignored",
+            "default": false
+          },
+          "ignored_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ignored At"
+          },
+          "scanned_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned At"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateDocumentOut"
+            },
+            "type": "array",
+            "title": "Documents",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_a_id",
+          "doc_b_id",
+          "score",
+          "level"
+        ],
+        "title": "DuplicatePairOut"
+      },
+      "DuplicateScanResponse": {
+        "properties": {
+          "queued": {
+            "type": "boolean",
+            "title": "Queued"
+          },
+          "docs": {
+            "type": "integer",
+            "title": "Docs"
+          },
+          "enqueued": {
+            "type": "integer",
+            "title": "Enqueued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queued",
+          "docs",
+          "enqueued"
+        ],
+        "title": "DuplicateScanResponse"
       },
       "EmbeddingIngestResponse": {
         "properties": {

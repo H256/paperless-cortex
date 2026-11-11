@@ -7,7 +7,7 @@ import socket
 import time
 from typing import TYPE_CHECKING
 
-from app.config import load_settings
+from app.config import load_settings, reset_settings_cache
 from app.db import SessionLocal
 from app.services.ai.correspondent_rules import learn_correspondent_rules
 from app.services.ai.hierarchical_summary import is_large_document
@@ -19,6 +19,7 @@ from app.services.ai.suggestion_store import (
 )
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.documents.documents import get_document_or_none
+from app.services.documents.duplicates import scan_document_duplicates
 from app.services.documents.page_text_store import reclean_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.integrations import paperless
@@ -296,6 +297,15 @@ def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
     )
 
 
+def _process_duplicate_scan(settings, db: Session, doc_id: int) -> None:
+    scan_document_duplicates(
+        settings,
+        db,
+        doc_id,
+        is_cancel_requested_fn=is_cancel_requested,
+    )
+
+
 def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
     _service_process_suggestions_paperless(
         settings,
@@ -362,6 +372,7 @@ def _build_dispatch_handler(
         process_embeddings_vision_fn=_process_embeddings_vision,
         process_similarity_index_fn=_process_similarity_index,
         process_cleanup_texts_fn=_process_cleanup_texts,
+        process_duplicate_scan_fn=_process_duplicate_scan,
         process_page_notes_fn=_process_page_notes,
         process_summary_hierarchical_fn=_process_summary_hierarchical,
         process_suggestions_paperless_fn=_process_suggestions_paperless,
@@ -450,6 +461,9 @@ def main() -> None:
             doc_id = parsed["doc_id"]
             task_type = parsed["task_type"]
             task = parsed["task_payload"]
+            # Provider overrides are persisted by a separate API process, whose
+            # cache invalidation cannot reach this long-lived worker process.
+            reset_settings_cache()
             active_settings = load_settings()
             if handle_worker_cancel_request(
                 settings,

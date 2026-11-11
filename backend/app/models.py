@@ -265,6 +265,29 @@ class TaskRun(Base):
     updated_at: Mapped[str | None] = mapped_column(String(64))
 
 
+class DocumentDuplicatePair(Base):
+    """Scored duplicate candidate; doc_a_id < doc_b_id. ``ignored`` survives rescans."""
+
+    __tablename__ = "document_duplicate_pairs"
+    __table_args__ = (
+        Index("ix_document_duplicate_pairs_doc_b_id", "doc_b_id"),
+        Index("ix_document_duplicate_pairs_ignored_level", "ignored", "level"),
+    )
+
+    doc_a_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    doc_b_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    score: Mapped[float] = mapped_column(Float)
+    level: Mapped[str] = mapped_column(String(16))
+    embedding_score: Mapped[float | None] = mapped_column(Float)
+    text_score: Mapped[float | None] = mapped_column(Float)
+    keys_score: Mapped[float | None] = mapped_column(Float)
+    meta_score: Mapped[float | None] = mapped_column(Float)
+    signals_json: Mapped[str | None] = mapped_column(Text)
+    ignored: Mapped[bool] = mapped_column(Boolean, default=False)
+    ignored_at: Mapped[str | None] = mapped_column(String(64))
+    scanned_at: Mapped[str | None] = mapped_column(String(64))
+
+
 class DocumentPendingTag(Base):
     __tablename__ = "document_pending_tags"
 

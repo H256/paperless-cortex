@@ -321,6 +321,70 @@ class SimilarDocumentsResponse(BaseModel):
     hidden_reviewed: int = 0
 
 
+class DuplicateDocumentOut(BaseModel):
+    id: int
+    title: str | None = None
+    document_date: str | None = None
+    created: str | None = None
+    correspondent_id: int | None = None
+    correspondent_name: str | None = None
+    document_type_id: int | None = None
+    page_count: int | None = None
+    original_file_name: str | None = None
+
+
+class DuplicatePairOut(BaseModel):
+    doc_a_id: int
+    doc_b_id: int
+    score: float
+    level: str
+    embedding_score: float | None = None
+    text_score: float | None = None
+    keys_score: float | None = None
+    meta_score: float | None = None
+    signals: dict[str, Any] = {}
+    ignored: bool = False
+    ignored_at: str | None = None
+    scanned_at: str | None = None
+    documents: list[DuplicateDocumentOut] = []
+
+
+class DuplicateGroupOut(BaseModel):
+    group_id: int
+    doc_ids: list[int]
+    best_score: float
+    level: str
+    documents: list[DuplicateDocumentOut] = []
+    pairs: list[DuplicatePairOut] = []
+
+
+class DuplicateGroupsResponse(BaseModel):
+    total: int
+    groups: list[DuplicateGroupOut] = []
+
+
+class DuplicateIgnoredResponse(BaseModel):
+    total: int
+    pairs: list[DuplicatePairOut] = []
+
+
+class DuplicateScanResponse(BaseModel):
+    queued: bool
+    docs: int
+    enqueued: int
+
+
+class DuplicateIgnoreRequest(BaseModel):
+    doc_a_id: int
+    doc_b_id: int
+
+
+class DuplicateIgnoreResponse(BaseModel):
+    doc_a_id: int
+    doc_b_id: int
+    ignored: bool
+
+
 class SimilarMetadata(BaseModel):
     title: str | None = None
     tags: list[str] = []
