@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-17 (branch: agent/439-sync-duplicate-tag)
+
+### Fix: sync no longer inserts a newly discovered tag twice (500 on process-missing) (#439)
+- `upsert_document` in [`backend/app/services/documents/sync_operations.py`](backend/app/services/documents/sync_operations.py) fetched a tag missing locally, called `db.merge(tag)`, but then appended the original transient `tag` to `doc.tags`. The cascade queued a second `INSERT` with the same id, so Postgres raised `duplicate key value violates unique constraint "tags_pkey"` and `POST /documents/process-missing` (dry-run sync) answered 500, leaving Continue Processing at `Documents 0`.
+- The code now keeps the instance returned by `merge()`.
+- Added `test_upsert_document_inserts_missing_tag_once` in [`backend/tests/test_sync_upsert_notes.py`](backend/tests/test_sync_upsert_notes.py); it failed with the two identical `INSERT` rows from the production log before the fix.
+- Validation: sync/process-missing/documents route tests **68 passed**; Ruff passed. Commit hash: `623f7542`.
+
 ## 2026-10-31 (branch: agent/ux-evidence-audit-values)
 
 ### Audit: record suggested and applied value on apply
