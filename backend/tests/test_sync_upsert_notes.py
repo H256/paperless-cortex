@@ -237,3 +237,47 @@ def test_upsert_document_notes_malformed_ids_do_not_trigger_stale_removal(
         assert len(notes) == 1
         assert notes[0].id == 12880
         assert notes[0].note == "keep-me"
+
+
+def test_upsert_document_inserts_missing_tag_once(
+    session_factory: Any, monkeypatch: Any
+) -> None:
+    """A tag unknown locally is fetched from Paperless and must be inserted exactly once."""
+    from app.models import Tag
+    from app.services.documents import sync_operations
+
+    monkeypatch.setattr(
+        sync_operations.paperless,
+        "get_tag",
+        lambda _settings, tag_id: {
+            "id": tag_id,
+            "name": "Agentur für Arbeit",
+            "color": "#9be391",
+            "is_inbox_tag": False,
+            "slug": "agentur-fur-arbeit",
+            "matching_algorithm": 6,
+            "is_insensitive": True,
+        },
+    )
+    settings = load_settings()
+    data = DocumentIn.model_validate(
+        {
+            "id": 2001,
+            "title": "Doc with new tag",
+            "content": "abc",
+            "created": "2026-02-12T10:00:00+00:00",
+            "modified": "2026-02-12T10:00:00+00:00",
+            "tags": [89],
+            "notes": [],
+        }
+    )
+    cache: CacheSets = {"correspondents": set(), "document_types": set(), "tags": set()}
+
+    with session_factory() as db:
+        _upsert_document(db, settings, data, cache)
+        db.commit()
+
+        doc = db.get(Document, 2001)
+        assert doc is not None
+        assert [tag.id for tag in doc.tags] == [89]
+        assert db.query(Tag).filter(Tag.id == 89).count() == 1

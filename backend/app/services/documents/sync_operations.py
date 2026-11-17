@@ -286,7 +286,9 @@ def upsert_document(
                 matching_algorithm=tag_data.matching_algorithm,
                 is_insensitive=tag_data.is_insensitive,
             )
-            db.merge(tag)
+            # merge() returns the session-attached copy; appending the transient original
+            # would cascade a second INSERT for the same primary key.
+            tag = db.merge(tag)
         cache["tags"].add(tag_id)
         doc.tags.append(tag)
 
