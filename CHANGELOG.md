@@ -3,6 +3,15 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-18 (branch: agent/442-bump-vulnerable-deps)
+
+### Chore: bump Authlib, anyio and certifi to fixed versions (#442)
+- The Arcane image scan of the cortex image reported three Critical findings in transitive dependencies: Authlib 1.6.9 (CVE-2026-96760, fixed in 1.9.0), anyio 4.12.1 (CVE-2026-63374, fixed in 4.14.2) and certifi 2026.1.4 (GHSA-6q48-6c7w-9gw2, fixed in 2026.10.18). The advisories were not independently verified; the target versions come from the scan's "Fixed Version" column.
+- None of the three is imported directly. Authlib arrives through `weaviate-client`, anyio and certifi through httpx/FastAPI, so no library replacement was needed.
+- [`backend/uv.lock`](backend/uv.lock) now pins Authlib 1.9.9, anyio 4.14.2 and certifi 2026.10.23 via a targeted `uv lock --upgrade-package` run. Authlib 1.9 adds `joserfc`.
+- [`backend/requirements.txt`](backend/requirements.txt) was re-exported with `uv export --no-dev`. It had drifted and lacked `weaviate-client` and its dependencies; the Docker image builds from `uv.lock` and does not read it.
+- Validation: full backend suite **730 passed, 5 skipped**. Authlib 1.9 logs a deprecation warning (`httpx module is deprecated; use httpx2`) triggered through Weaviate; it is not an error. The cortex image has to be rebuilt before the scan can show the findings as gone. Commit hash: see the PR merge commit.
+
 ## 2026-11-17 (branch: agent/439-sync-duplicate-tag)
 
 ### Fix: sync no longer inserts a newly discovered tag twice (500 on process-missing) (#439)
