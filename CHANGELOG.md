@@ -5,6 +5,12 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-11-25 (branch: ux/unslop-ui-copy)
 
+### UX: keyboard and motion accessibility
+- Global `:focus-visible` outline in [`frontend/src/index.css`](frontend/src/index.css); before this no component styled keyboard focus.
+- `prefers-reduced-motion` now turns off animations and transitions (e.g. the pulsing processing badge).
+- "Skip to content" link and a focusable `#main-content` in [`frontend/src/App.vue`](frontend/src/App.vue); theme toggle buttons expose `aria-pressed`.
+- Validation: vitest **230 passed**, vue-tsc, ESLint and `vite build` clean.
+
 ### UX: clearer, consistent UI copy across the frontend
 - Replaced the vague term "intelligence" with what it covers (embeddings, suggestions, OCR layers) in the dashboard, Continue Processing, document operations, the reset dialog and Maintenance.
 - Replaced internal terms with plain labels: `Top K` → Sources to retrieve / Results, `Downstream fan-out` → Follow-up tasks, `Clear DLQ` → Clear failed tasks, `Chrono` → Chronological, `Dedupe` → One result per document, `Upserted` → Updated, `clean_text` → cleaned text; key=value debug lines in the vector audit and Duplicates are now readable.

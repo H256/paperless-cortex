@@ -1,5 +1,10 @@
 <template>
   <div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-indigo-700 focus:shadow-lg dark:focus:bg-slate-900 dark:focus:text-indigo-300"
+      >Skip to content</a
+    >
     <header
       class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
     >
@@ -33,6 +38,7 @@
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 "
                 @click="theme = 'light'"
+                :aria-pressed="theme === 'light'"
                 aria-label="Light theme"
                 title="Light"
               >
@@ -47,6 +53,7 @@
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 "
                 @click="theme = 'system'"
+                :aria-pressed="theme === 'system'"
                 aria-label="System theme"
                 title="System"
               >
@@ -61,6 +68,7 @@
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 "
                 @click="theme = 'dark'"
+                :aria-pressed="theme === 'dark'"
                 aria-label="Dark theme"
                 title="Dark"
               >
@@ -71,7 +79,7 @@
         </div>
       </div>
     </header>
-    <main class="mx-auto max-w-[120rem] px-4 py-6 sm:px-6">
+    <main id="main-content" tabindex="-1" class="mx-auto max-w-[120rem] px-4 py-6 sm:px-6">
       <RouterView />
     </main>
     <footer class="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
