@@ -24,7 +24,7 @@
     <div class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
       <div class="flex items-center justify-between gap-2">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Detailed Missing Counters
+          Missing steps by type
         </div>
         <button
           class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
@@ -63,7 +63,7 @@
     >
       <div class="flex items-center justify-between gap-2">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Sample Documents With Gaps
+          Sample documents with gaps
         </div>
         <div
           v-if="highPriorityPreviewCount > 0"
@@ -118,7 +118,7 @@
 
     <div class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        What Happens Next
+        What happens next
       </div>
       <ol class="mt-2 list-decimal space-y-1.5 pl-4">
         <li v-for="step in executionPlanSteps" :key="step">

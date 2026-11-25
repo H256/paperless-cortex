@@ -5,7 +5,7 @@
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          Runtime Configuration
+          Runtime configuration
         </h3>
         <p class="text-sm text-slate-500 dark:text-slate-400">
           Effective server URLs and models currently in use.

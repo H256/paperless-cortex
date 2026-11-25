@@ -30,7 +30,7 @@
         data-testid="preset-issue-date-import"
         @click="applyPresetIssueDateImport"
       >
-        Issue date = import date
+        Use import date as issue date
       </button>
     </div>
 

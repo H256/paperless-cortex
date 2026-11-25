@@ -7,7 +7,7 @@
             Dashboard
           </h2>
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            Visual overview of processing status and document mix.
+            Processing status, review progress and document mix.
           </p>
         </div>
         <button
@@ -136,7 +136,7 @@
                   {{ stats.unprocessed }}
                 </div>
                 <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Missing intelligence
+                  Missing processing steps
                 </div>
               </div>
               <div
@@ -330,7 +330,7 @@
                 Extended
               </div>
               <div class="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-                Deep dive on processing and structure
+                Processing by month, correspondent and document type
               </div>
             </div>
             <div

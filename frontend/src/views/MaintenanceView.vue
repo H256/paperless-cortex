@@ -20,7 +20,7 @@
             Reprocess all documents
           </h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            Clears all intelligence data and rebuilds everything from scratch.
+            Clears all embeddings, suggestions and OCR layers and rebuilds everything from scratch.
           </p>
         </div>
         <button
@@ -46,7 +46,7 @@
         <div>
           <h3 class="text-lg font-semibold text-rose-700 dark:text-rose-300">Wipe local data</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            Removes all documents and intelligence data without reprocessing.
+            Removes all local documents, embeddings, suggestions and OCR layers without reprocessing.
           </p>
         </div>
         <button
@@ -64,8 +64,8 @@
       <div
         class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
       >
-        This action cannot be undone. Paperless data is not modified, so documents will still appear
-        from Paperless until you stop syncing.
+        This action cannot be undone. Paperless data is not modified, so documents reappear with the
+        next sync.
       </div>
       <div
         v-if="clearAllResult"
@@ -74,7 +74,7 @@
         Removed {{ clearAllResult.cleared_documents }} documents,
         {{ clearAllResult.cleared_embeddings }} embeddings,
         {{ clearAllResult.cleared_suggestions }} suggestions,
-        {{ clearAllResult.cleared_page_texts }} vision OCR rows. Qdrant deleted:
+        {{ clearAllResult.cleared_page_texts }} vision OCR rows. Vectors deleted:
         {{ clearAllResult.qdrant_deleted }}, errors: {{ clearAllResult.qdrant_errors }}.
       </div>
     </section>
@@ -102,7 +102,7 @@
 
       <MaintenanceActionCard
         title="Remove Embeddings"
-        description="Deletes all embeddings (paperless + vision) and clears Qdrant points."
+        description="Deletes all embeddings (paperless + vision) and clears the vector store."
         action-label="Remove embeddings"
         loading-label="Removing..."
         :loading="embeddingsLoading"
@@ -172,10 +172,10 @@
                 #{{ item.doc_id }} {{ item.title || 'Untitled document' }}
               </div>
               <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                source={{ item.embedding_source || 'unknown' }},
-                found={{ item.found_vectors }}/{{ item.expected_vectors }},
-                chunks={{ item.chunk_count }},
-                state={{ item.fully_missing ? 'fully missing' : 'partial' }}
+                Source: {{ item.embedding_source || 'unknown' }} ·
+                vectors {{ item.found_vectors }}/{{ item.expected_vectors }} ·
+                {{ item.chunk_count }} chunks ·
+                {{ item.fully_missing ? 'fully missing' : 'partly missing' }}
               </div>
             </div>
           </div>
@@ -196,7 +196,7 @@
       >
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Cleanup page texts</h3>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Rebuilds `clean_text` + token estimates for all stored page texts.
+          Rebuilds the cleaned text and token estimates for all stored page texts.
         </p>
         <label class="mt-3 inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <input v-model="cleanupClearFirst" type="checkbox" />
@@ -247,7 +247,7 @@
             v-if="correspondentsSyncResult"
             class="text-xs text-slate-500 dark:text-slate-400"
           >
-            Upserted {{ correspondentsSyncResult.upserted }} / {{ correspondentsSyncResult.count }}
+            Updated {{ correspondentsSyncResult.upserted }} / {{ correspondentsSyncResult.count }}
           </div>
         </div>
       </div>
@@ -272,7 +272,7 @@
             <span v-else>Sync tags</span>
           </button>
           <div v-if="tagsSyncResult" class="text-xs text-slate-500 dark:text-slate-400">
-            Upserted {{ tagsSyncResult.upserted }} / {{ tagsSyncResult.count }}
+            Updated {{ tagsSyncResult.upserted }} / {{ tagsSyncResult.count }}
           </div>
         </div>
       </div>
@@ -300,7 +300,7 @@
         <div>
           <h3 class="text-lg font-semibold text-rose-700">Reprocess all documents?</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            This wipes all intelligence data (embeddings, suggestions, OCR layers) and rebuilds from
+            This wipes all embeddings, suggestions and OCR layers and rebuilds from
             scratch.
           </p>
         </div>
@@ -355,7 +355,7 @@
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-lg font-semibold text-rose-700">
-            Wipe all local documents & intelligence data?
+            Wipe all local documents and processing data?
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
             This removes every local document plus embeddings, suggestions, and vision OCR data.
@@ -378,7 +378,7 @@
           type="checkbox"
           class="h-4 w-4 rounded border-rose-300 text-rose-600"
         />
-        I understand this will permanently delete all local documents and intelligence data.
+        I understand this will permanently delete all local documents, embeddings, suggestions and OCR layers.
       </label>
 
       <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
@@ -530,12 +530,12 @@ const suggestionsResultText = computed(() =>
 )
 const embeddingsResultText = computed(() =>
   embeddingsResult.value
-    ? `Removed ${embeddingsResult.value.deleted} rows (Qdrant ok: ${embeddingsResult.value.qdrant_deleted}, errors: ${embeddingsResult.value.qdrant_errors})`
+    ? `Removed ${embeddingsResult.value.deleted} rows (vectors deleted: ${embeddingsResult.value.qdrant_deleted}, errors: ${embeddingsResult.value.qdrant_errors})`
     : '',
 )
 const similarityIndexResultText = computed(() =>
   similarityIndexResult.value
-    ? `Reset ${similarityIndexResult.value.deleted} task-runs (Qdrant ok: ${similarityIndexResult.value.qdrant_deleted}, errors: ${similarityIndexResult.value.qdrant_errors})`
+    ? `Reset ${similarityIndexResult.value.deleted} task-runs (vectors deleted: ${similarityIndexResult.value.qdrant_deleted}, errors: ${similarityIndexResult.value.qdrant_errors})`
     : '',
 )
 const missingVectorChunkAuditText = computed(() =>

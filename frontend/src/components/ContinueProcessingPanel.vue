@@ -6,7 +6,7 @@
         <div>
           <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Ready to process</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            Summary of missing intelligence tasks
+            Missing processing steps (OCR, embeddings, suggestions)
           </p>
         </div>
         <button
@@ -34,7 +34,7 @@
         v-if="processPreviewLoading"
         class="mt-4 text-sm text-slate-500 dark:text-slate-400"
       >
-        Calculating...
+        Calculating…
       </div>
       <div v-else class="mt-4 grid gap-3 sm:grid-cols-2">
         <div
@@ -101,7 +101,7 @@
               v-model="includeSyncModel"
               class="h-4 w-4 rounded border-slate-300 text-indigo-600"
             />
-            Sync from Paperless first (insert missing docs + mark deleted)
+            Sync from Paperless first (adds new documents, marks deleted ones)
           </label>
           <label class="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
             Processing strategy
@@ -173,7 +173,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
-            Expected enqueue:
+            Will be queued:
             <strong class="text-slate-900 dark:text-slate-100">up to {{ expectedEnqueueDocs }} docs</strong>
             <span class="text-slate-500 dark:text-slate-400"> ({{ expectedEnqueueTasksLabel }})</span>
           </div>
@@ -253,7 +253,7 @@
               Enqueuing...
             </span>
             <span v-else-if="isSyncingNow">Syncing...</span>
-            <span v-else>Start processing (enqueue)</span>
+            <span v-else>Start processing</span>
           </button>
         </template>
       </div>

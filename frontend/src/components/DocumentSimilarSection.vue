@@ -92,7 +92,7 @@
     >
       {{ error }}
     </div>
-    <div v-else-if="loading" class="text-sm text-slate-500 dark:text-slate-400">Loading...</div>
+    <div v-else-if="loading" class="text-sm text-slate-500 dark:text-slate-400">Loading…</div>
     <div v-else-if="!similarMatches.length" class="text-sm text-slate-500 dark:text-slate-400">
       {{
         hideReviewed && hiddenReviewed > 0

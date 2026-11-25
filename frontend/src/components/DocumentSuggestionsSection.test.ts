@@ -77,13 +77,13 @@ describe('DocumentSuggestionsSection selective apply', () => {
     expect(wrapper.emitted('applyToDocument')).toEqual([[ 'preset', 'correspondent', '' ]])
   })
 
-  it('preset "Issue date = import date" sends only the import date part', async () => {
+  it('preset "Use import date as issue date" sends only the import date part', async () => {
     const wrapper = mountSection()
     await wrapper.find('[data-testid="preset-issue-date-import"]').trigger('click')
     expect(wrapper.emitted('applyToDocument')).toEqual([[ 'preset', 'date', '2026-10-11' ]])
   })
 
-  it('preset "Issue date = import date" is disabled without an import date', async () => {
+  it('preset "Use import date as issue date" is disabled without an import date', async () => {
     const wrapper = mountSectionNoImportDate()
     const button = wrapper.find('[data-testid="preset-issue-date-import"]')
     expect((button.element as HTMLButtonElement).disabled).toBe(true)

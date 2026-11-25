@@ -6,8 +6,8 @@
           Duplicates
         </h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">
-          Likely duplicate documents, grouped. Detection tolerates OCR differences (download vs.
-          scanned print-out).
+          Likely duplicate documents, grouped. Detection tolerates OCR differences, e.g. a downloaded PDF
+          versus a scanned print-out.
         </p>
       </div>
       <button
@@ -54,7 +54,7 @@
     </div>
 
     <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
-    <p v-else-if="loading" class="text-sm text-slate-500 dark:text-slate-400">Loading...</p>
+    <p v-else-if="loading" class="text-sm text-slate-500 dark:text-slate-400">Loading…</p>
 
     <template v-if="activeTab === 'groups'">
       <p v-if="!loading && !groups.length" class="text-sm text-slate-500 dark:text-slate-400">
@@ -106,8 +106,8 @@
             <span class="font-semibold">#{{ pair.doc_a_id }} ↔ #{{ pair.doc_b_id }}</span>
             <span>{{ percent(pair.score) }}</span>
             <span class="text-slate-400">
-              emb {{ percent(pair.embedding_score) }} · text {{ percent(pair.text_score) }} · keys
-              {{ percent(pair.keys_score) }} · meta {{ percent(pair.meta_score) }}
+              embedding {{ percent(pair.embedding_score) }} · text {{ percent(pair.text_score) }} · key fields
+              {{ percent(pair.keys_score) }} · metadata {{ percent(pair.meta_score) }}
             </span>
             <span
               v-if="pair.signals?.key_conflict"

@@ -54,7 +54,7 @@
         </div>
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-            >Top K</label
+            >Sources to retrieve</label
           >
           <select
             v-model.number="topK"
@@ -101,7 +101,7 @@
             class="h-10 min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="none">None</option>
-            <option value="chrono">Chrono</option>
+            <option value="chrono">Chronological</option>
           </select>
         </div>
         <div class="flex flex-wrap items-center gap-3">

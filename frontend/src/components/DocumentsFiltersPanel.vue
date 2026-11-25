@@ -283,7 +283,7 @@ const presets = computed(() => [
   },
   {
     key: 'import_date' as const,
-    label: 'Issue date = import date',
+    label: 'Use import date as issue date',
     count: props.presetCounts?.import_date,
     shortcut: 'Alt+6',
     active: Boolean(props.issueDateIsImportDate),

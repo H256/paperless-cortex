@@ -59,7 +59,7 @@ const descriptionText = computed(() => {
     return 'Background work is currently idle. Disable running-only filter or enqueue processing.'
   }
   if (props.mode === 'empty') {
-    return 'Sync documents from Paperless or continue processing to build local intelligence data.'
+    return 'Sync documents from Paperless or continue processing to build embeddings, OCR layers and suggestions.'
   }
   if (props.mode === 'error') {
     return 'The documents request failed. This is a connection or backend problem — nothing has been lost. Retry once the backend is reachable.'
