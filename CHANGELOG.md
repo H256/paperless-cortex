@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-25 (branch: ux/unslop-ui-copy)
+
+### UX: clearer, consistent UI copy across the frontend
+- Replaced the vague term "intelligence" with what it covers (embeddings, suggestions, OCR layers) in the dashboard, Continue Processing, document operations, the reset dialog and Maintenance.
+- Replaced internal terms with plain labels: `Top K` → Sources to retrieve / Results, `Downstream fan-out` → Follow-up tasks, `Clear DLQ` → Clear failed tasks, `Chrono` → Chronological, `Dedupe` → One result per document, `Upserted` → Updated, `clean_text` → cleaned text; key=value debug lines in the vector audit and Duplicates are now readable.
+- Removed the Qdrant name from Maintenance results so the UI stays provider-neutral ahead of the Weaviate move.
+- Sentence case for section headings and table headers (Queue manager, Runtime configuration, Error type, Due in/at); `copy`/`resume` buttons capitalised; `Loading...` → `Loading…`.
+- Fixed contradictory or unclear copy: queue reorder hint, wipe-data sync note, delayed-retries description, Showing/Synced tooltip, Search placeholder, the "Issue date = import date" preset (now "Use import date as issue date"), and the App tagline.
+- Tests updated for the renamed labels. Validation: vitest **230 passed**, vue-tsc and ESLint clean. Commit hash: `e6b0cc39`.
+
 ## 2026-11-17 (branch: agent/439-sync-duplicate-tag)
 
 ### Fix: sync no longer inserts a newly discovered tag twice (500 on process-missing) (#439)
