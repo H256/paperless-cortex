@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-25 (branch: ux/touch-targets)
+
+### UX: 40 px touch targets for in-page controls on touch devices
+- One `@media (pointer: coarse)` rule in [`frontend/src/index.css`](frontend/src/index.css) gives buttons, `summary`, `select`, button-styled links (`a.inline-flex`) and checkbox/radio labels a 40 px minimum height (buttons and links also 40 px minimum width), and enlarges checkboxes/radios to 20 px. Enlarged flex buttons center their content.
+- `:where()` keeps specificity at zero, so component classes still win; mouse/trackpad (fine pointer) layouts are unchanged (desktop buttons measured 26–36 px as before).
+- Validation: at 375×812 with touch emulation, no visible control under 40 px on Documents, Queue, Search, Chat, Logs and Writeback, and no horizontal overflow; vitest **236 passed**, `vite build` clean.
+
 ## 2026-11-25 (branch: ux/mobile-readability)
 
 ### UX: mobile readability, touch targets and error stack
