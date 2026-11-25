@@ -103,7 +103,7 @@
           Follow-up tasks
         </div>
         <button
-          class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           :disabled="pipelineFanoutLoading"
           @click="$emit('reload-fanout')"
         >
@@ -169,7 +169,7 @@
           Processing timeline
         </div>
         <div class="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end">
-          <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
+          <label class="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-300">
             Status
             <select
               :value="timelineStatusFilter"
@@ -184,7 +184,7 @@
               <option value="done">done</option>
             </select>
           </label>
-          <label class="flex flex-col text-[11px] font-medium text-slate-500 dark:text-slate-300">
+          <label class="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-300">
             Search
             <input
               :value="timelineQueryFilter"
@@ -195,7 +195,7 @@
             />
           </label>
           <button
-            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
             :disabled="taskRunsLoading"
             @click="$emit('refresh-task-runs')"
           >
@@ -228,19 +228,19 @@
             <div class="mt-1 text-slate-500 dark:text-slate-400">
               Checkpoint: {{ checkpointLabel(run.checkpoint) }}
             </div>
-            <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="mt-1 text-[11px] text-amber-600 dark:text-amber-300">
+            <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="mt-1 text-xs text-amber-600 dark:text-amber-300">
               {{ embeddingTelemetryLabel(run.checkpoint) }}
             </div>
             <div class="mt-1 text-rose-600 dark:text-rose-300">
               {{ run.error_type || '-' }}
             </div>
-            <div v-if="run.error_message" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
+            <div v-if="run.error_message" class="mt-1 text-xs text-slate-500 dark:text-slate-400" :title="run.error_message">
               {{ compactErrorMessage(run.error_message) }}
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
               <button
                 v-if="run.status === 'failed'"
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 :disabled="docOpsLoading"
                 @click="$emit('retry-task-run', run)"
               >
@@ -248,7 +248,7 @@
               </button>
               <button
                 v-if="run.error_message"
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 :disabled="docOpsLoading"
                 @click="$emit('copy-run-error', run.error_message)"
               >
@@ -280,13 +280,13 @@
                 <td class="px-2 py-1.5">{{ run.attempt ?? 1 }}</td>
                 <td class="px-2 py-1.5">
                   <div>{{ checkpointLabel(run.checkpoint) }}</div>
-                  <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="text-[11px] text-amber-600 dark:text-amber-300">
+                  <div v-if="embeddingTelemetryLabel(run.checkpoint)" class="text-xs text-amber-600 dark:text-amber-300">
                     {{ embeddingTelemetryLabel(run.checkpoint) }}
                   </div>
                 </td>
                 <td class="px-2 py-1.5">
                   <div>{{ run.error_type || '-' }}</div>
-                  <div v-if="run.error_message" class="text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
+                  <div v-if="run.error_message" class="text-xs text-slate-500 dark:text-slate-400" :title="run.error_message">
                     {{ compactErrorMessage(run.error_message) }}
                   </div>
                 </td>
@@ -294,7 +294,7 @@
                   <div class="flex items-center gap-1.5">
                     <button
                       v-if="run.status === 'failed'"
-                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                       :disabled="docOpsLoading"
                       @click="$emit('retry-task-run', run)"
                     >
@@ -302,7 +302,7 @@
                     </button>
                     <button
                       v-if="run.error_message"
-                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                       :disabled="docOpsLoading"
                       @click="$emit('copy-run-error', run.error_message)"
                     >

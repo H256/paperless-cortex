@@ -17,7 +17,7 @@
           <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition hover:opacity-90"
+            class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold transition hover:opacity-90"
             :class="processingBadgeClass"
             :title="processingBadgeTitle"
             @click="openProcessingActivity"
@@ -31,7 +31,7 @@
             >
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
+                class="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:min-h-0 sm:min-w-0 sm:px-2"
                 :class="
                   theme === 'light'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -46,7 +46,7 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
+                class="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:min-h-0 sm:min-w-0 sm:px-2"
                 :class="
                   theme === 'system'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -61,7 +61,7 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:px-2"
+                class="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-1.5 py-1 text-xs font-semibold transition sm:min-h-0 sm:min-w-0 sm:px-2"
                 :class="
                   theme === 'dark'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -142,23 +142,25 @@
       </div>
     </footer>
     <ToastHost />
-    <div class="fixed right-4 top-4 z-40 flex w-full max-w-sm flex-col gap-2">
+    <div class="fixed inset-x-4 top-4 z-40 flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-full sm:max-w-sm" role="alert">
       <div
         v-for="err in errorStore.errors"
         :key="err.id"
-        class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-md dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200"
+        class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-md dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
       >
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="font-semibold">Error</div>
-            <div class="mt-1">{{ err.message }}</div>
+            <div class="mt-1">{{ err.message }}<span v-if="err.count > 1"> (×{{ err.count }})</span></div>
             <div v-if="err.detail" class="mt-1 text-xs text-rose-600">{{ err.detail }}</div>
           </div>
           <button
-            class="text-rose-400 hover:text-rose-600 dark:text-rose-300"
+            type="button"
+            class="-m-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-rose-400 hover:text-rose-600 dark:text-rose-300"
+            aria-label="Dismiss error"
             @click="errorStore.remove(err.id)"
           >
-            x
+            <X class="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -167,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, SlidersHorizontal, Sun, Wrench, FileSearch, Copy } from 'lucide-vue-next'
+import { ChartPie, ClipboardCheck, FileText, Laptop, List, MessageCircle, Moon, Search, SlidersHorizontal, Sun, Wrench, FileSearch, Copy, X } from 'lucide-vue-next'
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
@@ -312,7 +314,7 @@ const onErrorEvent = (event: Event) => {
   const detail = (event as CustomEvent).detail || {}
   const message = detail.message || 'Unexpected error'
   const status = detail.status ? `(${detail.status})` : ''
-  const combined = status ? `${message} ${status}` : message
+  const combined = status && !message.includes(status) ? `${message} ${status}` : message
   errorStore.add(combined, detail.detail)
 }
 

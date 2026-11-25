@@ -171,7 +171,7 @@
               <div class="font-semibold text-slate-800 dark:text-slate-100">
                 #{{ item.doc_id }} {{ item.title || 'Untitled document' }}
               </div>
-              <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Source: {{ item.embedding_source || 'unknown' }} ·
                 vectors {{ item.found_vectors }}/{{ item.expected_vectors }} ·
                 {{ item.chunk_count }} chunks ·
@@ -184,7 +184,7 @@
           </div>
           <div
             v-if="missingVectorChunkAudit.truncated"
-            class="mt-3 text-[11px] text-amber-700 dark:text-amber-300"
+            class="mt-3 text-xs text-amber-700 dark:text-amber-300"
           >
             Showing the first {{ missingVectorChunkAudit.limit }} affected docs.
           </div>

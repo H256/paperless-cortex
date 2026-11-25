@@ -154,7 +154,7 @@
           </div>
           <div class="flex shrink-0 items-center gap-1.5">
             <span
-              class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+              class="rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide"
               :class="run.status === 'failed'
                 ? 'border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200'
                 : 'border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200'"
@@ -163,14 +163,14 @@
             </span>
             <span
               v-if="run.error_type"
-              class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               :title="run.error_message || run.error_type"
             >
               {{ run.error_type }}
             </span>
             <span
               v-if="run.duration_ms != null"
-              class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
             >
               {{ run.duration_ms }} ms
             </span>

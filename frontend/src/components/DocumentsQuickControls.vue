@@ -7,13 +7,13 @@
         Actions & View
       </span>
       <button
-        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
         @click="$emit('reset-quick-filters')"
       >
         Reset
       </button>
       <button
-        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
         @click="$emit('clear-all-filters')"
       >
         Clear all
@@ -42,7 +42,7 @@
         Continue processing
       </button>
       <div class="ml-auto flex items-center gap-2">
-        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
           View
         </span>
         <button

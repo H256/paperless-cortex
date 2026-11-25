@@ -179,7 +179,7 @@
               <td class="px-2 py-1.5">
                 <button
                   v-if="run.doc_id"
-                  class="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  class="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                   @click="openDocument(run.doc_id)"
                 >
                   {{ run.doc_id }}
@@ -193,7 +193,7 @@
                 <div>{{ run.error_type || '-' }}</div>
                 <div
                   v-if="run.error_type && getErrorCategory(run)"
-                  class="text-[11px] text-slate-500 dark:text-slate-400"
+                  class="text-xs text-slate-500 dark:text-slate-400"
                 >
                   {{ getErrorCategory(run) }}
                   <span
@@ -207,7 +207,7 @@
                     {{ isErrorRetryable(run) ? 'retryable' : 'terminal' }}
                   </span>
                 </div>
-                <div v-if="run.error_message" class="text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
+                <div v-if="run.error_message" class="text-xs text-slate-500 dark:text-slate-400" :title="run.error_message">
                   {{ compactMessage(run.error_message) }}
                   <button class="ml-1 text-indigo-600 dark:text-indigo-300" @click="copyError(run.error_message)">Copy</button>
                 </div>

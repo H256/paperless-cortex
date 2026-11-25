@@ -62,7 +62,7 @@
       <DocumentAttentionBadges :doc="doc" />
       <div
         v-if="doc.id != null && runningLabel"
-        class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+        class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
         :title="runningLabel"
       >
         {{ runningLabel }}

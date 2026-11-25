@@ -6,7 +6,7 @@
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ description }}</p>
       </div>
       <span
-        class="rounded-full px-2.5 py-1 text-[10px] font-semibold"
+        class="rounded-full px-2.5 py-1 text-xs font-semibold"
         :class="dirty ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'"
       >
         {{ dirty ? 'Unsaved changes' : 'Saved' }}
@@ -54,7 +54,7 @@
         <button
           v-if="models.length"
           type="button"
-          class="mt-2 text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-300"
+          class="mt-2 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-300"
           @click="manualModelEntry = !manualModelEntry"
         >
           {{ manualModelEntry ? 'Back to dropdown' : 'Type model manually' }}

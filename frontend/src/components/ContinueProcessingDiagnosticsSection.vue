@@ -27,7 +27,7 @@
           Missing steps by type
         </div>
         <button
-          class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           @click="$emit('toggle-detailed-counters')"
         >
           {{ showDetailedCounters ? 'Hide details' : 'Show details' }}
@@ -35,7 +35,7 @@
       </div>
       <label
         v-if="showDetailedCounters"
-        class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400"
+        class="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
       >
         <input
           :checked="showOnlyNonZeroCounters"
@@ -67,7 +67,7 @@
         </div>
         <div
           v-if="highPriorityPreviewCount > 0"
-          class="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+          class="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
         >
           {{ highPriorityPreviewCount }} high-priority
         </div>
@@ -92,23 +92,23 @@
               </button>
               <span
                 v-if="isHighPriorityPreviewDoc(item)"
-                class="shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                class="shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
               >
                 priority
               </span>
             </div>
-            <div class="truncate text-[11px] text-slate-500 dark:text-slate-400">
+            <div class="truncate text-xs text-slate-500 dark:text-slate-400">
               {{ (item.missing_tasks || []).join(', ') || '-' }}
             </div>
           </div>
           <div class="shrink-0 text-right">
             <div
               v-if="isHighPriorityPreviewDoc(item)"
-              class="text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+              class="text-xs font-semibold text-amber-700 dark:text-amber-300"
             >
               High priority
             </div>
-            <div class="text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+            <div class="text-xs font-semibold text-amber-600 dark:text-amber-300">
               {{ formatMissingSteps(item.missing_steps) }}
             </div>
           </div>
@@ -136,7 +136,7 @@
         >
           <span>{{ item.label }}</span>
           <span
-            class="text-[11px] font-semibold"
+            class="text-xs font-semibold"
             :class="item.included
               ? 'text-emerald-700 dark:text-emerald-300'
               : 'text-slate-500 dark:text-slate-400'"

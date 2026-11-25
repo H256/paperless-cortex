@@ -23,13 +23,13 @@
           </div>
           <div class="mt-2 grid gap-3 md:grid-cols-2">
             <div>
-              <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Paperless</div>
+              <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Paperless</div>
               <div class="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {{ conflictValue(conflict.paperless) }}
               </div>
             </div>
             <div>
-              <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Local</div>
+              <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Local</div>
               <div class="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {{ conflictValue(conflict.local) }}
               </div>

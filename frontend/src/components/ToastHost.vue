@@ -1,10 +1,10 @@
 <template>
-  <div class="fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-2">
+  <div class="fixed inset-x-4 top-4 z-50 flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-full sm:max-w-sm">
     <Toast
       v-for="toast in toasts"
       :key="toast.id"
       :title="toast.title"
-      :message="toast.message"
+      :message="toast.count > 1 ? `${toast.message} (×${toast.count})` : toast.message"
       :tone="toast.tone"
       @close="remove(toast.id)"
     />

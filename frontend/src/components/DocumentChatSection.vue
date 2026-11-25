@@ -123,7 +123,7 @@
           </label>
         </div>
       </details>
-      <div class="text-[11px] text-slate-500 dark:text-slate-400">
+      <div class="text-xs text-slate-500 dark:text-slate-400">
         If an answer stops halfway, turn off Streaming and retry.
       </div>
     </div>
@@ -149,7 +149,7 @@
           class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
         >
           <span>Question</span>
-          <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">
+          <span class="text-xs font-normal text-slate-400 dark:text-slate-500">
             {{ formatAge(message.createdAt) }}
           </span>
         </div>
@@ -161,7 +161,7 @@
           <span>Answer</span>
           <span
             v-if="loading && messages[0]?.id === message.id"
-            class="inline-flex items-center gap-2 text-[11px] font-normal text-slate-500 dark:text-slate-400"
+            class="inline-flex items-center gap-2 text-xs font-normal text-slate-500 dark:text-slate-400"
           >
             Thinking
             <span class="chat-dots" aria-hidden="true">
@@ -180,7 +180,7 @@
         >
           <span>Stream interrupted — this answer may be incomplete.</span>
           <button
-            class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+            class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-amber-700 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
             :disabled="loading"
             @click="retryMessage(message)"
           >
@@ -191,7 +191,7 @@
         <div
           class="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
         >
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Follow-up questions
           </div>
           <div v-if="message.followupsLoading" class="mt-2 inline-flex items-center gap-2 text-xs">
@@ -207,7 +207,7 @@
             <button
               v-for="(followup, index) in message.followups"
               :key="`${message.id}-followup-${index}`"
-              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
               @click="askFollowup(followup)"
             >
               {{ followup }}
@@ -222,7 +222,7 @@
         </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-2">
-          <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
             >Sources</span
           >
           <span v-if="!message.citations || message.citations.length === 0" class="text-xs text-slate-500 dark:text-slate-400"
@@ -239,7 +239,7 @@
                 :aria-label="`Source ${citation.id}`"
               >
                 <BookOpen class="h-4 w-4" />
-                <span class="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                <span class="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-xs font-semibold text-white">
                   {{ citation.id }}
                 </span>
               </component>
@@ -249,7 +249,7 @@
                 <div class="flex items-center justify-between">
                   <span class="font-semibold">Source {{ citation.id }}</span>
                 </div>
-                <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
                   Doc {{ citation.doc_id ?? 'n/a' }} - Page {{ citation.page ?? 'n/a' }} -
                   {{ citation.source || 'unknown' }}
                 </div>

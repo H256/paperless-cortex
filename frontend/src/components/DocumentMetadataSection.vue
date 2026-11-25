@@ -10,7 +10,7 @@
         class="rounded-lg border p-3"
         :class="cardToneClass(card.tone)"
       >
-        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-75">
+        <div class="text-xs font-semibold uppercase tracking-wide opacity-75">
           {{ card.label }}
         </div>
         <div class="mt-1 text-sm font-semibold">
@@ -32,7 +32,7 @@
         ]"
       >
         <dt
-          class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+          class="text-xs font-semibold uppercase tracking-wide text-slate-400"
           :class="row.align === 'right' ? 'text-right' : ''"
         >
           {{ row.label }}
