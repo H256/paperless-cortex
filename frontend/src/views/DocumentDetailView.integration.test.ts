@@ -570,13 +570,13 @@ describe('DocumentDetailView', () => {
     detailLoading.value = true
     await nextTick()
     expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('Loading...')
+    expect(wrapper.text()).not.toContain('Loading…')
 
     // another document is being loaded: placeholder instead of stale content
     route.params.id = '2'
     await nextTick()
     expect(wrapper.find('[data-test="suggestions-section"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Loading...')
+    expect(wrapper.text()).toContain('Loading…')
 
     detailLoading.value = false
     route.params.id = '1'

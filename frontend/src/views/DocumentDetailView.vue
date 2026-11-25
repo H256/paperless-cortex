@@ -27,7 +27,7 @@
     />
 
     <div v-if="showLoading" class="mt-6 space-y-4" data-testid="detail-skeleton" aria-busy="true">
-      <div class="text-sm text-slate-500">Loading...</div>
+      <div class="text-sm text-slate-500">Loading…</div>
       <div class="h-10 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"></div>
       <div class="grid gap-4 xl:grid-cols-2">
         <div class="h-64 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"></div>
@@ -207,7 +207,7 @@
       <ConfirmDialog
         :open="resetConfirmOpen"
         title="Reset document and reprocess?"
-        message="This deletes local intelligence data for this document, resyncs metadata/content from Paperless, and re-enqueues processing."
+        message="This deletes embeddings, suggestions and OCR layers for this document, syncs metadata and content from Paperless, and queues processing again."
         confirm-label="Reset + Reprocess"
         @confirm="confirmResetAndReprocessDoc"
         @cancel="resetConfirmOpen = false"

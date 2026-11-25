@@ -19,7 +19,7 @@
               v-model="query"
               class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
-              placeholder="Ask a question or search..."
+              placeholder="Search your documents…"
               @keyup.enter="runSearchAction"
             />
             <button
@@ -47,7 +47,7 @@
         </div>
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-            >Top K</label
+            >Results</label
           >
           <select
             v-model.number="topK"
@@ -95,13 +95,13 @@
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
             <input type="checkbox" v-model="dedupe" class="h-4 w-4" />
-            Dedupe
+            One result per document
           </label>
           <label
             class="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
           >
             <input type="checkbox" v-model="rerank" class="h-4 w-4" />
-            Rerank
+            Rerank results
           </label>
         </div>
       </div>

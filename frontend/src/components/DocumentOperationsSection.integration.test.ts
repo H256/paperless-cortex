@@ -72,7 +72,7 @@ describe('DocumentOperationsSection emits', () => {
     await wrapper.find('button[title="Cleans stored page texts (e.g., line wraps or HTML noise) and updates clean fields."]').trigger('click')
     expect(wrapper.emitted('run-doc-cleanup')).toBeTruthy()
 
-    await wrapper.find('button[title="Deletes local intelligence data for this document, resyncs from Paperless, and enqueues processing."]').trigger('click')
+    await wrapper.find('button[title="Deletes embeddings, suggestions and OCR layers for this document, syncs it from Paperless, then queues full processing."]').trigger('click')
     expect(wrapper.emitted('open-reset-confirm')).toBeTruthy()
   })
 })

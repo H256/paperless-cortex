@@ -25,7 +25,7 @@
         <div>
           <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Upcoming items</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            Drag order with the arrows or remove individual tasks.
+            Reorder with the arrow buttons or remove tasks.
           </p>
         </div>
         <div class="flex flex-wrap items-end gap-3">
@@ -54,7 +54,7 @@
             @click="loadPeek"
           >
             <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': peekLoading || busy }" />
-            {{ peekLoading || busy ? 'Loading...' : 'Load' }}
+            {{ peekLoading || busy ? 'Loading…' : 'Load' }}
           </button>
         </div>
       </div>
@@ -211,7 +211,7 @@
             @click="loadTaskRuns"
           >
             <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': taskRunsLoading }" />
-            {{ taskRunsLoading ? 'Loading...' : 'Reload' }}
+            {{ taskRunsLoading ? 'Loading…' : 'Reload' }}
           </button>
           <button
             class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 shadow-sm hover:border-amber-300 disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
@@ -234,7 +234,7 @@
               <th class="px-2 py-1">Doc</th>
               <th class="px-2 py-1">Task</th>
               <th class="px-2 py-1">Status</th>
-              <th class="px-2 py-1">Error Type</th>
+              <th class="px-2 py-1">Error type</th>
               <th class="px-2 py-1">Message</th>
               <th class="px-2 py-1">Checkpoint</th>
               <th class="px-2 py-1">Duration</th>
@@ -268,7 +268,7 @@
                   v-if="hasResumeMarker(run)"
                   class="ml-1 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
                 >
-                  resume
+                  Resume
                 </span>
               </td>
               <td class="px-2 py-2">{{ run.error_type || '-' }}</td>
@@ -301,7 +301,7 @@
         <div>
           <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Delayed retries</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            Retry tasks waiting for backoff timeout before re-entering the queue.
+            Tasks waiting for their retry delay before they rejoin the queue.
           </p>
         </div>
         <div class="flex flex-wrap items-end gap-3">
@@ -321,7 +321,7 @@
             @click="loadDelayed"
           >
             <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': delayedLoading }" />
-            {{ delayedLoading ? 'Loading...' : 'Reload' }}
+            {{ delayedLoading ? 'Loading…' : 'Reload' }}
           </button>
         </div>
       </div>
@@ -334,8 +334,8 @@
           <thead class="text-left text-slate-500 dark:text-slate-400">
             <tr>
               <th class="px-2 py-1">Task</th>
-              <th class="px-2 py-1">Due In</th>
-              <th class="px-2 py-1">Due At</th>
+              <th class="px-2 py-1">Due in</th>
+              <th class="px-2 py-1">Due at</th>
             </tr>
           </thead>
           <tbody>
@@ -354,7 +354,7 @@
     >
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Dead-letter queue</h3>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Failed tasks (dead-letter queue)</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">
             Tasks that failed after retries. Requeue manually after fixing root cause.
           </p>
@@ -376,14 +376,14 @@
             @click="loadDlq"
           >
             <RefreshCcw class="h-4 w-4" :class="{ 'animate-spin': dlqLoading }" />
-            {{ dlqLoading ? 'Loading...' : 'Reload' }}
+            {{ dlqLoading ? 'Loading…' : 'Reload' }}
           </button>
           <button
             class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:border-rose-300 disabled:opacity-60 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
             :disabled="dlqLoading || dlqItems.length === 0"
             @click="clearDlq"
           >
-            Clear DLQ
+            Clear failed tasks
           </button>
         </div>
       </div>
@@ -396,7 +396,7 @@
           <thead class="text-left text-slate-500 dark:text-slate-400">
             <tr>
               <th class="px-2 py-1">Task</th>
-              <th class="px-2 py-1">Error Type</th>
+              <th class="px-2 py-1">Error type</th>
               <th class="px-2 py-1">Attempt</th>
               <th class="px-2 py-1">Created</th>
               <th class="px-2 py-1">Action</th>

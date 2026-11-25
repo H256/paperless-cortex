@@ -15,7 +15,7 @@
           :disabled="loading"
           @click="refresh"
         >
-          {{ loading ? 'Loading...' : 'Reload' }}
+          {{ loading ? 'Loading…' : 'Reload' }}
         </button>
       </div>
     </div>
@@ -209,7 +209,7 @@
                 </div>
                 <div v-if="run.error_message" class="text-[11px] text-slate-500 dark:text-slate-400" :title="run.error_message">
                   {{ compactMessage(run.error_message) }}
-                  <button class="ml-1 text-indigo-600 dark:text-indigo-300" @click="copyError(run.error_message)">copy</button>
+                  <button class="ml-1 text-indigo-600 dark:text-indigo-300" @click="copyError(run.error_message)">Copy</button>
                 </div>
               </td>
               <td class="px-2 py-1.5" :title="formatDateTime(run.started_at) || '-'">{{ formatRelativeTime(run.started_at) }}</td>

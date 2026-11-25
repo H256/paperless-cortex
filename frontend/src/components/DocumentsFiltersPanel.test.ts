@@ -25,7 +25,7 @@ describe('DocumentsFiltersPanel presets', () => {
   it('offers the no-correspondent and import-date presets with their shortcuts', () => {
     const wrapper = mount(DocumentsFiltersPanel, { props: baseProps })
     expect(buttonByLabel(wrapper, 'No correspondent')?.text()).toContain('Alt+5')
-    expect(buttonByLabel(wrapper, 'Issue date = import date')?.text()).toContain('Alt+6')
+    expect(buttonByLabel(wrapper, 'Use import date as issue date')?.text()).toContain('Alt+6')
     wrapper.unmount()
   })
 
@@ -34,7 +34,7 @@ describe('DocumentsFiltersPanel presets', () => {
       props: { ...baseProps, selectedCorrespondent: '-1', issueDateIsImportDate: true },
     })
     expect(buttonByLabel(wrapper, 'No correspondent')?.classes().join(' ')).toContain('indigo')
-    expect(buttonByLabel(wrapper, 'Issue date = import date')?.classes().join(' ')).toContain(
+    expect(buttonByLabel(wrapper, 'Use import date as issue date')?.classes().join(' ')).toContain(
       'indigo',
     )
     expect(buttonByLabel(wrapper, 'Unreviewed')?.classes().join(' ')).not.toContain('indigo')
@@ -53,7 +53,7 @@ describe('DocumentsFiltersPanel presets', () => {
     const wrapper = mount(DocumentsFiltersPanel, { props: baseProps })
 
     await buttonByLabel(wrapper, 'No correspondent')?.trigger('click')
-    await buttonByLabel(wrapper, 'Issue date = import date')?.trigger('click')
+    await buttonByLabel(wrapper, 'Use import date as issue date')?.trigger('click')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '5', altKey: true }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '6', altKey: true }))
 

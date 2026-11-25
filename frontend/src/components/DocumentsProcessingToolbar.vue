@@ -21,7 +21,7 @@
         class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
         :disabled="continueProcessingRunning || processingKickoffPending || isProcessing"
         @click="$emit('open-preview')"
-        title="Sync new documents and process missing intelligence items"
+        title="Sync new documents and run missing processing steps"
       >
         <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': continueProcessingRunning || processingKickoffPending }" />
         {{ processingKickoffPending ? 'Starting...' : continueProcessingRunning ? 'Working...' : 'Continue processing' }}

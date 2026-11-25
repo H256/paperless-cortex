@@ -15,7 +15,7 @@
           </template>
           <Info
             class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500"
-            title="Showing is the number of documents currently listed after your filters; synced is the total in Paperless. Documents deleted in Paperless stay in Cortex but are not listed here, so this number can be lower than the synced total."
+            title="Showing counts the documents that match your filters; Synced is the total in Paperless. Documents deleted in Paperless stay in Cortex but are not listed here, so this number can be lower than the synced total."
           />
         </p>
       </div>

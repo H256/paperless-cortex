@@ -47,7 +47,7 @@ describe('QueueOverviewSection', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Queue Manager')
+    expect(wrapper.text()).toContain('Queue manager')
     expect(wrapper.text()).toContain('Auto-refresh active')
     expect(wrapper.text()).toContain('Doc 42')
     expect(wrapper.text()).toContain('embeddings_paperless')

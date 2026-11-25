@@ -87,7 +87,7 @@ test('documents route loads', async ({ page }) => {
 
 test('queue route loads', async ({ page }) => {
   await page.goto('/queue')
-  await expect(page.getByRole('heading', { name: 'Queue Manager' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Queue manager' })).toBeVisible()
 })
 
 test('documents list renders rows from a stubbed backend', async ({ page }) => {

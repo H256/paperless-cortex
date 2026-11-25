@@ -6,7 +6,7 @@
       <div class="mx-auto flex max-w-[120rem] flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between md:py-4">
         <div>
           <h1 class="text-lg font-semibold tracking-tight">Paperless-NGX Cortex</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Your documents, understood.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">AI metadata and search for Paperless-NGX</p>
         </div>
         <div class="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:gap-4">
           <AppNav :primary-items="primaryNavItems" :secondary-items="secondaryNavItems" />

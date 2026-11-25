@@ -39,7 +39,7 @@
             :disabled="previewLoading"
             @click="loadPreview"
           >
-            {{ previewLoading ? 'Loading...' : 'Reload preview' }}
+            {{ previewLoading ? 'Loading…' : 'Reload preview' }}
           </button>
         </div>
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -209,7 +209,7 @@
             :disabled="jobsLoading"
             @click="loadJobs"
           >
-            {{ jobsLoading ? 'Loading...' : 'Reload jobs' }}
+            {{ jobsLoading ? 'Loading…' : 'Reload jobs' }}
           </button>
         </div>
       </div>
@@ -345,7 +345,7 @@
           :disabled="historyLoading"
           @click="loadHistory"
         >
-          {{ historyLoading ? 'Loading...' : 'Reload history' }}
+          {{ historyLoading ? 'Loading…' : 'Reload history' }}
         </button>
       </div>
       <div class="space-y-2 md:hidden">

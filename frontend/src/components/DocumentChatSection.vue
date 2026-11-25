@@ -40,7 +40,7 @@
         <div class="mt-3 grid gap-3 md:grid-cols-4">
           <div class="flex flex-col gap-1">
             <label class="text-xs font-medium text-slate-600 whitespace-nowrap dark:text-slate-300"
-              >Top K</label
+              >Sources to retrieve</label
             >
             <select
               v-model.number="topK"
@@ -81,7 +81,7 @@
               class="h-9 min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="none">None</option>
-              <option value="chrono">Chrono</option>
+              <option value="chrono">Chronological</option>
             </select>
           </div>
         </div>
@@ -124,7 +124,7 @@
         </div>
       </details>
       <div class="text-[11px] text-slate-500 dark:text-slate-400">
-        Tip: If a response does not complete, disable `Streaming` and retry once.
+        If an answer stops halfway, turn off Streaming and retry.
       </div>
     </div>
 

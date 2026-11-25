@@ -119,7 +119,7 @@ describe('SettingsView', () => {
 
     await flush()
 
-    expect(wrapper.text()).toContain('Runtime Configuration')
+    expect(wrapper.text()).toContain('Runtime configuration')
     expect(wrapper.text()).toContain('Text model')
     expect(wrapper.text()).toContain('Chat model')
 

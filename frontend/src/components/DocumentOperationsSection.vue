@@ -48,7 +48,7 @@
         Tasks enqueued. Waiting for worker pickup...
       </span>
       <span v-else>
-        Worker picked up tasks. Progress is visible in timeline and fan-out below.
+        Worker picked up tasks. Progress shows in the timeline and follow-up tasks below.
       </span>
     </div>
 
@@ -100,21 +100,21 @@
     <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-          Downstream fan-out
+          Follow-up tasks
         </div>
         <button
           class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           :disabled="pipelineFanoutLoading"
           @click="$emit('reload-fanout')"
         >
-          {{ pipelineFanoutLoading ? 'Loading...' : 'Reload fan-out' }}
+          {{ pipelineFanoutLoading ? 'Loading…' : 'Reload follow-up tasks' }}
         </button>
       </div>
       <div v-if="pipelineFanoutError" class="mt-2 text-xs text-rose-600 dark:text-rose-300">
         {{ pipelineFanoutError }}
       </div>
       <div v-else-if="!pipelineFanoutItems.length" class="mt-2 text-xs text-slate-500 dark:text-slate-300">
-        No downstream fan-out tasks available.
+        No follow-up tasks.
       </div>
       <template v-else>
         <div class="mt-2 space-y-2 md:hidden">
@@ -199,7 +199,7 @@
             :disabled="taskRunsLoading"
             @click="$emit('refresh-task-runs')"
           >
-            {{ taskRunsLoading ? 'Loading...' : 'Reload timeline' }}
+            {{ taskRunsLoading ? 'Loading…' : 'Reload timeline' }}
           </button>
         </div>
       </div>
@@ -356,13 +356,13 @@
       <button
         class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"
         :disabled="docOpsLoading"
-        title="Deletes local intelligence data for this document, resyncs from Paperless, and enqueues processing."
+        title="Deletes embeddings, suggestions and OCR layers for this document, syncs it from Paperless, then queues full processing."
         @click="$emit('open-reset-confirm')"
       >
         Reset document + sync + full reprocess
       </button>
       <p class="mt-2 text-xs text-rose-700 dark:text-rose-200">
-        Deletes local intelligence for this document, syncs from Paperless, then enqueues full processing.
+        Deletes embeddings, suggestions and OCR layers for this document, syncs it from Paperless, then queues full processing.
       </p>
     </div>
   </section>

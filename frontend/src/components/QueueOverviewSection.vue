@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-          Queue Manager
+          Queue manager
         </h2>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Control processing order and check what is coming next.
@@ -119,7 +119,7 @@
         <div>
           <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Recent task runs</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            Compact timeline for quick worker triage.
+            Latest worker runs, newest first.
           </p>
         </div>
         <button
@@ -128,7 +128,7 @@
           @click="$emit('reload-task-runs')"
         >
           <RefreshCcw class="h-3.5 w-3.5" :class="{ 'animate-spin': taskRunsLoading }" />
-          {{ taskRunsLoading ? 'Loading...' : 'Reload' }}
+          {{ taskRunsLoading ? 'Loading…' : 'Reload' }}
         </button>
       </div>
       <div
