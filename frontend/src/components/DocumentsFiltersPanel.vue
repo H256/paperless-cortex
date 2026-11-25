@@ -31,11 +31,11 @@
           {{ preset.label }}
           <span
             v-if="preset.count != null"
-            class="ml-1 rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            class="ml-1 rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
             :data-testid="`preset-count-${preset.key}`"
             >{{ preset.count }}</span
           >
-          <span class="text-[10px] opacity-70">{{ preset.shortcut }}</span>
+          <span class="text-xs opacity-70">{{ preset.shortcut }}</span>
         </button>
       </div>
     </div>
@@ -44,7 +44,7 @@
         <label class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
           Quick search
           <span
-            class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:border-slate-700 dark:text-slate-400"
+            class="rounded border border-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-500 dark:border-slate-700 dark:text-slate-400"
           >
             /
           </span>

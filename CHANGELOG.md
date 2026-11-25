@@ -3,6 +3,16 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-25 (branch: ux/mobile-readability)
+
+### UX: mobile readability, touch targets and error stack
+- Replaced all 118 `text-[10px]`/`text-[11px]` uses with `text-xs` (12 px) for legibility on phones.
+- Nav links, the More menu and the theme toggle are at least 40 px tall below the `sm` breakpoint.
+- Error stack in [`frontend/src/App.vue`](frontend/src/App.vue) / [`stores/errorStore.ts`](frontend/src/stores/errorStore.ts): identical errors merge into one with a `(×n)` count, at most three show at once, the stack stays within the screen on phones, dark mode uses an opaque background, and the dismiss button is a labelled 40 px icon button. The HTTP status is no longer appended twice ("(500) (500)").
+- Same merge-and-cap logic and mobile width for [`stores/toastStore.ts`](frontend/src/stores/toastStore.ts) / `ToastHost.vue`.
+- With the backend offline, the dashboard at 375 px went from 16 overlapping error boxes covering the page to a single "Request failed (500) (×6)".
+- New tests: `errorStore.test.ts`, `toastStore.test.ts`. Validation: vitest **236 passed**, vue-tsc and ESLint clean; checked in the browser at 375×812 with no horizontal overflow.
+
 ## 2026-11-25 (branch: ux/unslop-ui-copy)
 
 ### UX: keyboard and motion accessibility

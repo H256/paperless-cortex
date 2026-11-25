@@ -251,7 +251,7 @@
               <td class="px-2 py-2">
                 <button
                   v-if="run.doc_id"
-                  class="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  class="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                   @click="openDocument(run.doc_id)"
                 >
                   {{ run.doc_id }}
@@ -266,7 +266,7 @@
                 {{ run.status }}
                 <span
                   v-if="hasResumeMarker(run)"
-                  class="ml-1 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                  class="ml-1 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
                 >
                   Resume
                 </span>
@@ -276,7 +276,7 @@
                 <div>{{ compactMessage(run.error_message) }}</div>
                 <button
                   v-if="run.error_message"
-                  class="mt-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  class="mt-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                   @click="copyError(run.error_message)"
                 >
                   copy
@@ -289,7 +289,7 @@
           </tbody>
         </table>
       </div>
-      <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+      <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Showing {{ taskRuns.length }} of {{ taskRunsCount }} run(s)
       </div>
     </section>
@@ -410,7 +410,7 @@
               <td class="px-2 py-1.5">{{ item.created_at ? formatStartedAt(item.created_at) : '-' }}</td>
               <td class="px-2 py-1.5">
                 <button
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                   @click="requeueDlqItem(index)"
                 >
                   Requeue

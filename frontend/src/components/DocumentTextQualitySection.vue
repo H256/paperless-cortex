@@ -80,12 +80,12 @@
           >
             <div class="flex items-center justify-between">
               <div
-                class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
               >
                 {{ score.label }}
               </div>
               <span
-                class="rounded-full px-2 py-1 text-[11px] font-semibold"
+                class="rounded-full px-2 py-1 text-xs font-semibold"
                 :class="score.badge"
                 :title="`Total penalty ${formatScore(score.quality_score)} (lower is better); verdict ${score.verdict || 'n/a'}`"
               >
@@ -95,7 +95,7 @@
             <div class="mt-2 space-y-1">
               <div class="flex items-center justify-between">
                 <span
-                  class="text-[11px] text-slate-500 dark:text-slate-400"
+                  class="text-xs text-slate-500 dark:text-slate-400"
                   title="Perplexity of the text under the language model. Needs a server that returns prompt logprobs."
                 >
                   Language model check
@@ -105,19 +105,19 @@
                 </span>
               </div>
               <div v-if="score.model_name" class="flex items-center justify-between">
-                <span class="text-[11px] text-slate-500 dark:text-slate-400">Model</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">Model</span>
                 <span>{{ score.model_name }}</span>
               </div>
               <div v-if="score.processed_at" class="flex items-center justify-between">
-                <span class="text-[11px] text-slate-500 dark:text-slate-400">Updated</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">Updated</span>
                 <span>{{ formatDateTime(score.processed_at) }}</span>
               </div>
             </div>
             <details class="mt-2">
-              <summary class="cursor-pointer text-[11px] font-semibold text-slate-500">
+              <summary class="cursor-pointer text-xs font-semibold text-slate-500">
                 Penalties
               </summary>
-              <div class="mt-1 space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+              <div class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
                 <div class="flex items-center justify-between">
                   <span>Noise heuristics</span>
                   <span>{{ formatScore(score.components?.heuristics) }}</span>
@@ -136,7 +136,7 @@
         </div>
       </template>
 
-      <details class="mt-3 text-[11px] text-slate-600 dark:text-slate-300">
+      <details class="mt-3 text-xs text-slate-600 dark:text-slate-300">
         <summary class="cursor-pointer font-semibold text-slate-500">How is this computed?</summary>
         <div class="mt-2 space-y-1 rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
           <div>
@@ -190,7 +190,7 @@
             <div
               v-for="(value, key) in contentQuality.metrics"
               :key="key"
-              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
             >
               {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
             </div>

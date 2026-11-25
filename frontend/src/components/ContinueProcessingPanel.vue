@@ -10,7 +10,7 @@
           </p>
         </div>
         <button
-          class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           @click="showDiagnostics = !showDiagnostics"
         >
           {{ showDiagnostics ? 'Hide diagnostics' : 'Show diagnostics' }}
@@ -26,7 +26,7 @@
           Sync {{ syncStatus.processed }} / {{ syncStatus.total }} ({{ progressPercent }}%) - ETA
           {{ etaText }}
         </div>
-        <div class="mt-1 text-[11px] text-indigo-600/80 dark:text-indigo-200/70">
+        <div class="mt-1 text-xs text-indigo-600/80 dark:text-indigo-200/70">
           Sync is running. Start is available as soon as sync is complete.
         </div>
       </div>
@@ -89,7 +89,7 @@
                 {{ batchLabel }}
               </span>
             </div>
-            <span class="text-[11px] text-slate-400 dark:text-slate-500">
+            <span class="text-xs text-slate-400 dark:text-slate-500">
               Use a smaller batch if your LLM server is not always online.
             </span>
           </div>
@@ -117,7 +117,7 @@
           </label>
           <div
             v-if="recommendedStrategyInfo"
-            class="flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-[11px] text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300 sm:col-span-2"
+            class="flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300 sm:col-span-2"
           >
             <div>
               Recommended now:
@@ -126,18 +126,18 @@
             </div>
             <button
               v-if="processOptions.strategy !== recommendedStrategyInfo.strategy"
-              class="rounded-md border border-indigo-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-700 hover:border-indigo-400 dark:border-indigo-700 dark:bg-slate-900 dark:text-indigo-300"
+              class="rounded-md border border-indigo-300 bg-white px-2 py-0.5 text-xs font-semibold text-indigo-700 hover:border-indigo-400 dark:border-indigo-700 dark:bg-slate-900 dark:text-indigo-300"
               @click="applyRecommendedStrategy"
             >
               Use recommended
             </button>
           </div>
-          <div class="rounded-md border border-slate-200 bg-white p-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2">
+          <div class="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2">
             {{ strategyHint }}
           </div>
           <div
             v-if="strategyWarnings.length"
-            class="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 sm:col-span-2"
+            class="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 sm:col-span-2"
           >
             <div v-for="warning in strategyWarnings" :key="warning">
               {{ warning }}
@@ -178,7 +178,7 @@
             <span class="text-slate-500 dark:text-slate-400"> ({{ expectedEnqueueTasksLabel }})</span>
           </div>
           <div
-            class="rounded-md border px-2 py-0.5 text-[11px] font-semibold"
+            class="rounded-md border px-2 py-0.5 text-xs font-semibold"
             :class="canStartProcessing
               ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
               : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300'"
@@ -197,13 +197,13 @@
         {{ processStartResult.tasks ?? 0 }} tasks. Use Queue/Document timeline to monitor progress.
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <button
-            class="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300"
+            class="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300"
             @click="$emit('open-queue')"
           >
             Open Queue
           </button>
           <button
-            class="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300"
+            class="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-400 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300"
             @click="$emit('open-logs')"
           >
             Open Logs

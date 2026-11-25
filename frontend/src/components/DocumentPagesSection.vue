@@ -100,7 +100,7 @@
               <div
                 v-for="(value, key) in page.quality.metrics"
                 :key="key"
-                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               >
                 {{ key }}: {{ value.toFixed ? value.toFixed(3) : value }}
               </div>

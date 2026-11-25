@@ -81,7 +81,7 @@
               <button
                 v-if="candidate.page"
                 type="button"
-                class="ml-1.5 rounded border border-sky-200 bg-white px-1 py-0.5 text-[10px] font-semibold text-sky-600 hover:border-sky-300 dark:border-sky-900/50 dark:bg-slate-900 dark:text-sky-300"
+                class="ml-1.5 rounded border border-sky-200 bg-white px-1 py-0.5 text-xs font-semibold text-sky-600 hover:border-sky-300 dark:border-sky-900/50 dark:bg-slate-900 dark:text-sky-300"
                 :data-testid="`jump-page-candidate-date-${candidate.value}`"
                 title="Jump to the PDF page where this date was found"
                 @click.stop="jumpToPage(candidate.page)"
@@ -290,12 +290,12 @@
                     </button>
                   </span>
                 </div>
-                <div v-if="suggestionMetaLine(column.source)" class="mt-1 text-[11px] font-normal">
+                <div v-if="suggestionMetaLine(column.source)" class="mt-1 text-xs font-normal">
                   {{ suggestionMetaLine(column.source) }}
                 </div>
                 <div
                   v-if="warningsFor(column.source).length"
-                  class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                  class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
                 >
                   <div class="font-semibold">Check these suggested values</div>
                   <ul class="mt-1 list-disc space-y-0.5 pl-4">
@@ -303,8 +303,8 @@
                   </ul>
                 </div>
                 <div v-if="column.suggestion?.raw" class="mt-1">
-                  <div class="text-[11px] font-semibold">Raw output</div>
-                  <pre class="max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-white p-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">{{ column.suggestion.raw }}</pre>
+                  <div class="text-xs font-semibold">Raw output</div>
+                  <pre class="max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">{{ column.suggestion.raw }}</pre>
                 </div>
               </th>
               <th class="px-3 py-2"></th>
@@ -334,7 +334,7 @@
                 <span v-else class="text-xs text-slate-500 dark:text-slate-400">{{ field.label }}</span>
                 <span
                   v-if="field.agreement"
-                  class="mt-1 inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                  class="mt-1 inline-block rounded-full border px-2 py-0.5 text-xs font-semibold"
                   :class="
                     field.agreement.startsWith('single')
                       ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200'
@@ -402,7 +402,7 @@
                     <button
                       v-if="isLongText(column.valueFor(field.key))"
                       type="button"
-                      class="mt-1 text-[11px] font-semibold text-slate-500 hover:underline dark:text-slate-400"
+                      class="mt-1 text-xs font-semibold text-slate-500 hover:underline dark:text-slate-400"
                       :data-testid="`expand-${column.key}-${field.key}`"
                       @click="toggleExpanded(column.key, field.key)"
                     >
@@ -412,7 +412,7 @@
                   <div v-if="column.allowActions" class="mt-1">
                     <button
                       type="button"
-                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                       :disabled="suggestionsLoading || isVariantLoading(column.source, field.key)"
                       :data-testid="`suggest-${column.key}-${field.key}`"
                       @click="requestSuggest(column.source, field.key)"
@@ -432,7 +432,7 @@
                     class="mt-1"
                   >
                     <button
-                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                       :data-testid="`jump-page-${column.key}-${field.key}`"
                       @click="jumpToPage(column.pageFor(field.key))"
                     >

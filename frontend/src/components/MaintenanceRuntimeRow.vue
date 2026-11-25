@@ -5,7 +5,7 @@
       <span class="max-w-[220px] truncate">{{ displayValue }}</span>
       <button
         v-if="copyable"
-        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         @click="$emit('copy')"
       >
         {{ copied ? 'Copied' : 'Copy' }}

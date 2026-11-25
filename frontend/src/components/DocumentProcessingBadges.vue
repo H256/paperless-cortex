@@ -12,7 +12,7 @@
       </div>
       <div
         v-if="fulfilledCount > 0"
-        class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+        class="inline-flex items-center gap-1 text-xs font-semibold text-slate-400"
         :title="fulfilledTooltip"
       >
         +{{ fulfilledCount }}
@@ -26,7 +26,7 @@
     </template>
     <span
       v-if="writebackBadge"
-      class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+      class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs font-semibold"
       :class="writebackBadge.className"
       :title="writebackBadge.title"
     >

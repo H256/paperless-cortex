@@ -121,13 +121,13 @@
                 :href="documentLink(item.doc_id)"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Open
                 <ExternalLink class="h-3.5 w-3.5" />
               </a>
               <span
-                class="rounded-full px-2 py-1 text-[11px] font-semibold"
+                class="rounded-full px-2 py-1 text-xs font-semibold"
                 :class="item.changed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'"
               >
                 {{ item.changed ? `changed: ${(item.changed_fields || []).map(fieldLabel).join(', ')}` : 'no changes' }}
@@ -143,11 +143,11 @@
               :class="row.changed ? 'border-amber-200 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-900/10' : 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/40'"
             >
               <div class="font-semibold text-slate-700 dark:text-slate-200">{{ fieldLabel(row.field) }}</div>
-              <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Original</div>
+              <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Original</div>
               <div class="whitespace-pre-wrap text-slate-700 dark:text-slate-200">
                 {{ displayValue(row.field, row.original, row.changed, 'original') }}
               </div>
-              <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">New</div>
+              <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">New</div>
               <div
                 class="whitespace-pre-wrap"
                 :class="row.changed ? 'font-semibold text-amber-800 dark:text-amber-200' : 'text-slate-400 dark:text-slate-500'"
@@ -220,7 +220,7 @@
         <div class="mb-2 flex items-center justify-between gap-2">
           <div class="font-semibold text-slate-700 dark:text-slate-200">Last bulk run details</div>
           <button
-            class="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             @click="lastExecuteAllResults = []"
           >
             Clear

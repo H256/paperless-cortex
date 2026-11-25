@@ -73,7 +73,7 @@
             <div class="shrink-0">
               <button
                 type="button"
-                class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 @click.stop="copyDocId(doc.id)"
               >
                 {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
@@ -85,7 +85,7 @@
           </div>
           <div
             v-if="doc.id != null && runningByDocId[doc.id]"
-            class="mt-1 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+            class="mt-1 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
             :title="runningByDocId[doc.id]"
           >
             {{ runningByDocId[doc.id] }}
@@ -93,7 +93,7 @@
           <div class="mt-2 flex flex-wrap items-center gap-1.5">
             <button
               type="button"
-              class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+              class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
               @click.stop="onOpenDocOperations(doc.id)"
             >
               Continue
@@ -101,14 +101,14 @@
             <button
               v-if="needsReview(doc)"
               type="button"
-              class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+              class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
               @click.stop="onOpenDocSuggestions(doc.id)"
             >
               Review
             </button>
             <a
               v-if="paperlessBaseUrl"
-              class="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              class="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               :href="paperlessDocUrl(doc.id ?? 0)"
               target="_blank"
               rel="noopener"
@@ -229,7 +229,7 @@
                 <DocumentAttentionBadges :doc="doc" />
                 <div
                   v-if="doc.id != null && runningByDocId[doc.id]"
-                  class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                  class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
                   :title="runningByDocId[doc.id]"
                 >
                   {{ runningByDocId[doc.id] }}
@@ -237,14 +237,14 @@
                 <div class="flex flex-wrap items-center gap-1.5 pt-1">
                   <button
                     type="button"
-                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                    class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
                     @click.stop="copyDocId(doc.id)"
                   >
                     {{ copiedDocId === doc.id ? 'Copied' : 'Copy ID' }}
                   </button>
                   <button
                     type="button"
-                    class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
+                    class="rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 hover:border-indigo-300 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-200"
                     @click.stop="onOpenDocOperations(doc.id)"
                   >
                     Continue
@@ -252,7 +252,7 @@
                   <button
                     v-if="needsReview(doc)"
                     type="button"
-                    class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                    class="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-700 hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
                     @click.stop="onOpenDocSuggestions(doc.id)"
                   >
                     Review

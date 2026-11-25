@@ -382,13 +382,13 @@
                 >
                   Monthly processing
                 </div>
-                <div class="text-[11px] text-slate-400">processed vs. open</div>
+                <div class="text-xs text-slate-400">processed vs. open</div>
               </div>
               <div class="mt-5 flex items-end gap-3 overflow-x-auto pb-2">
                 <div
                   v-for="item in monthlySeries"
                   :key="item.label"
-                  class="flex w-12 flex-shrink-0 flex-col items-center gap-2 text-[10px] text-slate-400"
+                  class="flex w-12 flex-shrink-0 flex-col items-center gap-2 text-xs text-slate-400"
                 >
                   <div
                     class="flex h-28 w-7 flex-col-reverse overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
