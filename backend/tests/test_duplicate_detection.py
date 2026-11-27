@@ -213,7 +213,7 @@ def test_dispatch_routes_duplicate_scan_task(monkeypatch: Any) -> None:
     )
 
     handler = build_dispatch_handler(
-        settings=object(),
+        settings=load_settings(),
         db=None,  # type: ignore[arg-type]
         task_type="duplicate_scan",
         doc_id=7,

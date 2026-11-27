@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.pipeline.queue_tasks import build_task_sequence
+from app.config import load_settings
 from app.services.pipeline import worker_dispatch
+from app.services.pipeline.queue_tasks import build_task_sequence
 from app.services.pipeline.worker_dispatch import build_dispatch_handler
 
 
@@ -66,7 +67,7 @@ def test_dispatch_embeddings_vision_passes_force_to_handler(
     )
 
     handler = build_dispatch_handler(
-        settings=object(),
+        settings=load_settings(),
         db=object(),
         task_type="embeddings_vision",
         doc_id=103,
@@ -100,7 +101,7 @@ def test_dispatch_embeddings_vision_defaults_force_to_false(
     )
 
     handler = build_dispatch_handler(
-        settings=object(),
+        settings=load_settings(),
         db=object(),
         task_type="embeddings_vision",
         doc_id=104,

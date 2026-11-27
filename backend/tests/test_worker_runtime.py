@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.config import load_settings
 from app.services.pipeline import worker_dispatch
 from app.services.pipeline.worker_dispatch import build_dispatch_handler
 from app.services.pipeline.worker_runtime import (
@@ -85,7 +86,7 @@ def test_dispatch_worker_task_routes_vision_ocr_force_flag() -> None:
     calls: list[tuple[str, Any]] = []
 
     dispatch_worker_task(
-        settings=object(),
+        settings=load_settings(),
         db=object(),
         task_type="vision_ocr",
         doc_id=7,
@@ -105,7 +106,7 @@ def test_dispatch_worker_task_uses_handler_before_full_fallback() -> None:
     calls: list[str] = []
 
     dispatch_worker_task(
-        settings=object(),
+        settings=load_settings(),
         db=object(),
         task_type="sync",
         doc_id=5,
@@ -137,7 +138,7 @@ def test_build_dispatch_handler_routes_cleanup_texts_options(
     monkeypatch.setattr(worker_dispatch, "reclean_page_texts", _reclean_page_texts)
 
     handler = build_dispatch_handler(
-        settings=object(),
+        settings=load_settings(),
         db=object(),
         task_type="cleanup_texts",
         doc_id=41,

@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from sqlalchemy.orm import Session
+
+    from app.config import Settings
 
 from app.services.documents.duplicates import scan_document_duplicates
 from app.services.documents.page_text_store import reclean_page_texts
@@ -32,16 +37,16 @@ logger = logging.getLogger(__name__)
 
 def build_dispatch_handler(
     *,
-    settings: object,
+    settings: Settings,
     db: Session,
     task_type: str,
     doc_id: int,
     task: dict[str, Any] | None,
     run_id: int | None,
-    is_cancel_requested_fn: Callable[[object], bool],
-    get_tags_fn: Callable[[object], Sequence[object]],
-    get_correspondents_fn: Callable[[object], Sequence[object]],
-    get_document_fn: Callable[[object, int], dict[str, Any]],
+    is_cancel_requested_fn: Callable[[Settings], bool],
+    get_tags_fn: Callable[[Settings], Sequence[object]],
+    get_correspondents_fn: Callable[[Settings], Sequence[object]],
+    get_document_fn: Callable[[Settings, int], dict[str, Any]],
     generate_suggestions_fn: Callable[..., dict[str, Any]],
     persist_suggestions_fn: Callable[..., None],
     learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
@@ -56,7 +61,7 @@ def build_dispatch_handler(
     source = task.get("source") if task else None
     clear_first = bool(task.get("clear_first")) if task else False
 
-    handlers: dict[str, Callable[[], None]] = {
+    handlers = {
         "sync": lambda: process_sync_only(
             settings, db, doc_id, is_cancel_requested_fn=is_cancel_requested_fn
         ),

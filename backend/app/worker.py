@@ -91,7 +91,6 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from app.config import Settings
-    from app.models import Document
 
 logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
