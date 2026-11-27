@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/sync-embed-queue-ids)
+
+### Sync no longer reloads each document to enqueue embed tasks (issue #456)
+- [`run_documents_sync`](backend/app/services/documents/sync_operations.py) keeps embed candidates as ids instead of ORM objects. In queue mode, reading `doc.id` on objects expired by `commit()` cost one SELECT per document; the non-queue path now loads documents in chunks of 500.
+- Test `test_queue_mode_embed_enqueue_issues_no_per_document_selects` fails on the old code. Sync tests pass.
+
 ## 2026-11-25 (branch: ux/touch-targets)
 
 ### UX: 40 px touch targets for in-page controls on touch devices
