@@ -487,7 +487,7 @@ def run_documents_sync(
         seen_ids: set[int] = set()
         cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
         total = 0
-        embed_queue: list[Document] = []
+        embed_ids: list[int] = []
         while True:
             payload = list_documents_fn(
                 settings,
@@ -535,7 +535,7 @@ def run_documents_sync(
             if embed:
                 ids = inserted_ids if insert_only else [DocumentIn.model_validate(raw).id for raw in results]
                 if ids:
-                    embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
+                    embed_ids.extend(ids)
             if not payload.get("next") or page_only:
                 break
             normalized_page += 1
@@ -575,11 +575,13 @@ def run_documents_sync(
                 "refusing to mass-delete the local library on an empty list"
             )
         embedded = 0
-        if embed and embed_queue:
+        if embed and embed_ids:
             if settings.queue_enabled:
-                for doc in embed_queue:
+                # Ids only: ORM objects are expired by commit(), so touching `doc.id`
+                # would cost one SELECT per document.
+                for doc_id in embed_ids:
                     tasks = build_task_sequence_fn(
-                        settings, doc.id, include_sync=False, force=bool(force_embed)
+                        settings, doc_id, include_sync=False, force=bool(force_embed)
                     )
                     enqueue_task_sequence_fn(settings, tasks)
                 embed_state = get_or_create_state(db, "embeddings")
@@ -588,6 +590,10 @@ def run_documents_sync(
                 embed_state.last_synced_at = datetime.now(UTC).isoformat()
                 db.commit()
             else:
+                embed_queue: list[Document] = []
+                for start in range(0, len(embed_ids), 500):
+                    chunk = embed_ids[start : start + 500]
+                    embed_queue.extend(db.query(Document).filter(Document.id.in_(chunk)).all())
                 embedded = embed_documents(db, settings, embed_queue, force_embed=force_embed)
         return {
             "count": total,

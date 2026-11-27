@@ -399,3 +399,54 @@ def test_mark_missing_does_not_bind_every_seen_id(session_factory: Any) -> None:
         assert gone is not None and str(gone.deleted_at).startswith("DELETED in Paperless")
     finally:
         db.close()
+
+
+def test_queue_mode_embed_enqueue_issues_no_per_document_selects(session_factory: Any) -> None:
+    """Enqueueing embed tasks must not reload each document (N+1 after commit)."""
+    from dataclasses import replace
+
+    from sqlalchemy import event
+
+    settings = load_settings()
+    settings = replace(settings, queue=replace(settings.queue, enabled=True))
+    doc_ids = list(range(8000, 8030))
+    statements = {"count": 0}
+    seen_at_call: list[int] = []
+
+    db = session_factory()
+    event.listen(
+        db.get_bind(),
+        "before_cursor_execute",
+        lambda *_a, **_k: statements.__setitem__("count", statements["count"] + 1),
+    )
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        docs = [_doc_payload(doc_id, f"Doc {doc_id}", "c") for doc_id in doc_ids]
+        return _page_payload(len(docs), None, docs)
+
+    def _build_tasks(_settings: Any, doc_id: int, **_kw: Any) -> list[dict[str, object]]:
+        seen_at_call.append(statements["count"])
+        return []
+
+    try:
+        run_documents_sync(
+            db=db,
+            settings=settings,
+            page_size=200,
+            incremental=False,
+            embed=True,
+            page=1,
+            page_only=False,
+            force_embed=False,
+            mark_missing=False,
+            insert_only=False,
+            list_documents_fn=_list_documents,
+            build_task_sequence_fn=_build_tasks,
+            enqueue_task_sequence_fn=lambda *args, **kwargs: 0,
+        )
+    finally:
+        db.close()
+    assert len(seen_at_call) == len(doc_ids)
+    assert len(set(seen_at_call)) == 1, "a SELECT ran between enqueued documents"
