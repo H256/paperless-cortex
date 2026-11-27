@@ -9,6 +9,46 @@ All granular implementation slices and refactors are tracked here.
 - `refresh_worker_lock` / `release_worker_lock` in [`queue.py`](backend/app/services/pipeline/queue.py) now compare the owner and act inside one Lua script. The old GET-then-SET/DEL let the lock expire in between, so a refresh could overwrite (or a release delete) another worker's fresh lock. Scripts checked in a real Lua 5.1 interpreter; not run on a live Redis. Tests: `test_worker_lock_atomic.py`.
 - Removed the tracked `home/klemens/.local/state/opencode/...` tool note and added `home/` to `.gitignore`.
 
+## 2026-11-27 (branch: fix/chat-request-limits)
+
+### Size limits on chat request bodies (issue #459)
+- [`api_models.py`](backend/app/api_models.py): `question` ≤ 4000 chars, history/followup/citation text ≤ 20 000 chars, lists ≤ 100 items for `ChatRequest`, `ChatFollowupsRequest`, `EvidenceResolveRequest` (the UI sends at most 12 history turns). Oversized bodies now get a 422 instead of reaching the LLM call and logs.
+- `backend/openapi.json` regenerated (only the new `maxLength`/`maxItems`); generated frontend types do not change. Tests: `test_chat_models_limits.py`; full backend suite passes.
+
+## 2026-11-27 (branch: fix/sync-embed-queue-ids)
+
+### Sync no longer reloads each document to enqueue embed tasks (issue #456)
+- [`run_documents_sync`](backend/app/services/documents/sync_operations.py) keeps embed candidates as ids instead of ORM objects. In queue mode, reading `doc.id` on objects expired by `commit()` cost one SELECT per document; the non-queue path now loads documents in chunks of 500.
+- Test `test_queue_mode_embed_enqueue_issues_no_per_document_selects` fails on the old code. Sync tests pass.
+
+## 2026-11-27 (branch: fix/sync-mark-missing-large)
+
+### Full sync `mark_missing` works on large libraries (issue #455)
+- [`run_documents_sync`](backend/app/services/documents/sync_operations.py) no longer runs `NOT IN (all seen ids)`, which exceeds the bind-parameter limit (~32k) and ended the sync in "error" after all the work. It now loads local ids, subtracts the seen ids in Python and loads only the missing documents in chunks of 500.
+- Test `test_mark_missing_does_not_bind_every_seen_id` lowers SQLite's variable limit to 50 and fails on the old query. Sync tests: 87 passed.
+
+## 2026-11-27 (branch: fix/queue-lua-large-lists)
+
+### Queue reorder/remove work on large queues (issue #454)
+- `_REORDER_QUEUE_LUA` / `_REMOVE_QUEUE_ITEM_LUA` in [`queue.py`](backend/app/services/pipeline/queue.py) no longer rewrite the list with `RPUSH ... unpack(items)` (fails above ~8000 items). They move/remove one element in place with `LSET` marker + `LREM`/`LINSERT`, still atomic.
+- Redis errors in `reorder_queue` / `remove_queue_item` are now logged instead of silently returning False.
+- Validation: scripts run in a real Lua 5.1 interpreter against a Redis-semantics list model, 3000 randomized cases plus a 20 000-item list, all matching the previous behaviour; backend queue tests pass. Not run against a live Redis server (none available here).
+
+## 2026-11-27 (branch: fix/audit-p1-writeback-auth)
+
+### Audit P1 fixes (issues #448, #450, #451)
+- Writeback (#448, #450): `execute_calls_with_audit` now writes audit rows in a `finally`, so docs that already succeeded keep their audit row when a later call aborts a job. It rolls back a failed call's partial local changes and commits per successful call, so Paperless and the local DB cannot drift apart mid-batch.
+- SSRF (#451): `validate_provider_base_url` also checks DNS answers and legacy decimal/hex IPv4 forms; the API logs a warning at startup when `API_TOKEN` is empty.
+- Tests: `test_writeback_execution_partial_failure.py`, `test_provider_base_url_ssrf.py`, non-ASCII case in `test_api_auth.py`; full backend suite passes.
+- Still open from the audit: #449 (job conflict check), #453-#462.
+
+## 2026-11-27 (branch: agent/452-api-token-non-ascii-401)
+
+### Fix: non-ASCII `X-API-Token` header returned 500 instead of 401 (#452)
+- `hmac.compare_digest` in [`backend/app/deps.py`](backend/app/deps.py) compared the provided token and the configured `API_TOKEN` as `str`; Python raises `TypeError` for non-ASCII str arguments, so a header like `X-API-Token: é` produced a 500 for unauthenticated callers.
+- The comparison now encodes both sides to UTF-8 bytes before `compare_digest`; the check stays constant-time and behavior for ASCII tokens is unchanged.
+- New test `test_auth_on_rejects_non_ascii_token_with_401` in [`backend/tests/test_api_auth.py`](backend/tests/test_api_auth.py) sends the header as raw latin-1 bytes (httpx only accepts ASCII str header values) and asserts 401. Validation: full backend suite **736 passed, 0 failed**; ruff clean on touched files; mypy shows only the 9 pre-existing errors (none in touched files).
+
 ## 2026-11-25 (branch: ux/touch-targets)
 
 ### UX: 40 px touch targets for in-page controls on touch devices

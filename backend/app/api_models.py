@@ -886,6 +886,12 @@ class DocumentResetReprocessResponse(BaseModel):
     enqueued: int
 
 
+# Upper bounds for free text sent to the LLM: far above real use, far below a memory/cost problem.
+CHAT_TEXT_MAX = 20_000
+CHAT_QUESTION_MAX = 4_000
+CHAT_LIST_MAX = 100
+
+
 class ChatCitation(BaseModel):
     id: int
     doc_id: int | None = None
@@ -894,7 +900,7 @@ class ChatCitation(BaseModel):
     bbox: Any | None = None
     score: float | None = None
     quality_score: float | None = None
-    snippet: str | None = None
+    snippet: str | None = Field(default=None, max_length=CHAT_TEXT_MAX)
     evidence_status: str | None = None
     evidence_confidence: float | None = None
     evidence_error: str | None = None
@@ -908,25 +914,25 @@ class ChatResponse(BaseModel):
 
 
 class ChatHistoryItem(BaseModel):
-    question: str
-    answer: str
+    question: str = Field(max_length=CHAT_TEXT_MAX)
+    answer: str = Field(max_length=CHAT_TEXT_MAX)
 
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(max_length=CHAT_QUESTION_MAX)
     top_k: int = 6
     source: str | None = None
     min_quality: int | None = None
     doc_id: int | None = None
     relationship_mode: str | None = None
-    history: list[ChatHistoryItem] | None = None
+    history: list[ChatHistoryItem] | None = Field(default=None, max_length=CHAT_LIST_MAX)
     conversation_id: str | None = None
 
 
 class ChatFollowupsRequest(BaseModel):
-    question: str
-    answer: str
-    citations: list[ChatCitation] = []
+    question: str = Field(max_length=CHAT_QUESTION_MAX)
+    answer: str = Field(max_length=CHAT_TEXT_MAX)
+    citations: list[ChatCitation] = Field(default=[], max_length=CHAT_LIST_MAX)
     doc_id: int | None = None
     relationship_mode: str | None = None
 
@@ -938,13 +944,13 @@ class ChatFollowupsResponse(BaseModel):
 class EvidenceCitationRequest(BaseModel):
     doc_id: int
     page: int
-    snippet: str
+    snippet: str = Field(max_length=CHAT_TEXT_MAX)
     source: str | None = None
     bbox: Any | None = None
 
 
 class EvidenceResolveRequest(BaseModel):
-    citations: list[EvidenceCitationRequest] = []
+    citations: list[EvidenceCitationRequest] = Field(default=[], max_length=CHAT_LIST_MAX)
     max_pages: int = 3
     timeout_seconds: int = 45
 

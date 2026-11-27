@@ -487,7 +487,7 @@ def run_documents_sync(
         seen_ids: set[int] = set()
         cache: ReferenceCache = {"correspondents": set(), "document_types": set(), "tags": set()}
         total = 0
-        embed_queue: list[Document] = []
+        embed_ids: list[int] = []
         while True:
             payload = list_documents_fn(
                 settings,
@@ -535,7 +535,7 @@ def run_documents_sync(
             if embed:
                 ids = inserted_ids if insert_only else [DocumentIn.model_validate(raw).id for raw in results]
                 if ids:
-                    embed_queue.extend(db.query(Document).filter(Document.id.in_(ids)).all())
+                    embed_ids.extend(ids)
             if not payload.get("next") or page_only:
                 break
             normalized_page += 1
@@ -546,7 +546,14 @@ def run_documents_sync(
         marked_deleted = 0
         if mark_missing_allowed and seen_ids:
             timestamp = datetime.now(UTC).isoformat()
-            missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
+            # Diff in Python: `NOT IN (every seen id)` overflows the database's bind
+            # parameter limit (~32k) on big libraries.
+            local_ids = {row[0] for row in db.query(Document.id).all()}
+            missing_ids = sorted(local_ids - seen_ids)
+            missing_docs: list[Document] = []
+            for start in range(0, len(missing_ids), 500):
+                chunk = missing_ids[start : start + 500]
+                missing_docs.extend(db.query(Document).filter(Document.id.in_(chunk)).all())
             confirmed_missing = _revalidate_missing(
                 settings, [doc.id for doc in missing_docs], get_document_for_mark_fn
             )
@@ -568,11 +575,13 @@ def run_documents_sync(
                 "refusing to mass-delete the local library on an empty list"
             )
         embedded = 0
-        if embed and embed_queue:
+        if embed and embed_ids:
             if settings.queue_enabled:
-                for doc in embed_queue:
+                # Ids only: ORM objects are expired by commit(), so touching `doc.id`
+                # would cost one SELECT per document.
+                for doc_id in embed_ids:
                     tasks = build_task_sequence_fn(
-                        settings, doc.id, include_sync=False, force=bool(force_embed)
+                        settings, doc_id, include_sync=False, force=bool(force_embed)
                     )
                     enqueue_task_sequence_fn(settings, tasks)
                 embed_state = get_or_create_state(db, "embeddings")
@@ -581,6 +590,10 @@ def run_documents_sync(
                 embed_state.last_synced_at = datetime.now(UTC).isoformat()
                 db.commit()
             else:
+                embed_queue: list[Document] = []
+                for start in range(0, len(embed_ids), 500):
+                    chunk = embed_ids[start : start + 500]
+                    embed_queue.extend(db.query(Document).filter(Document.id.in_(chunk)).all())
                 embedded = embed_documents(db, settings, embed_queue, force_embed=force_embed)
         return {
             "count": total,
