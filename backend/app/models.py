@@ -234,6 +234,8 @@ class WritebackJob(Base):
     doc_ids_json: Mapped[str | None] = mapped_column(Text)
     calls_json: Mapped[str | None] = mapped_column(Text)
     applied_call_indexes_json: Mapped[str | None] = mapped_column(Text)
+    # {doc_id: hash of the previewed original/proposed values}; NULL for jobs created before this existed.
+    preview_fingerprint_json: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(String(64))
     started_at: Mapped[str | None] = mapped_column(String(64))
