@@ -176,6 +176,12 @@ def _run_startup_sync() -> None:
 
 @asynccontextmanager
 async def _app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    if not SETTINGS.api.token:
+        log_event(
+            logger,
+            logging.WARNING,
+            "API_TOKEN is not set: /api is open, including provider settings endpoints",
+        )
     _run_startup_sync()
     yield
 
