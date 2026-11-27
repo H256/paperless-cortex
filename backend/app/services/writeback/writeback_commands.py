@@ -30,6 +30,7 @@ from app.services.writeback.writeback_jobs import (
     is_stale_running_job,
     job_detail,
     missing_writeback_jobs_table,
+    preview_fingerprints,
     raise_missing_writeback_jobs_table,
 )
 from app.services.writeback.writeback_preview import preview_for_doc_ids
@@ -200,6 +201,7 @@ def create_job_response(
         calls_count=len(calls),
         doc_ids_json=doc_ids_json,
         calls_json=json.dumps([call.model_dump() for call in calls]),
+        preview_fingerprint_json=json.dumps(preview_fingerprints(preview_items)),
         created_at=utc_now_iso(),
     )
     try:

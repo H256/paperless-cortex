@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/writeback-job-stale-check)
+
+### Saved writeback jobs refuse to overwrite newer edits (issue #449)
+- New nullable column `writeback_jobs.preview_fingerprint_json` (migration `d4f6b8a0c2e3`). Job creation stores a hash of the original/proposed values the user was shown, per changed document.
+- Real (non dry-run) execution recomputes the preview first. If any document's values differ, the job is marked `failed` with the affected doc ids and nothing is sent to Paperless; the user deletes the job and creates a new one. Jobs created before the migration (NULL fingerprint) run as before.
+- Tests: `test_writeback_job_stale_preview.py` (Paperless edit after creation is refused, unchanged runs, legacy job runs); migration sanity and full backend suite pass. Stacked on `fix/audit-p1-writeback-auth` (#464).
+
 ## 2026-11-27 (branch: fix/writeback-stale-running-jobs)
 
 ### Writeback jobs stuck in "running" no longer block re-runs (issue #457)
