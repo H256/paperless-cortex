@@ -18,6 +18,7 @@ from app.api_models import (
 from app.models import WritebackJob
 from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.runtime.time_utils import utc_now_iso
+from app.services.writeback.writeback_apply import writeback_metadata_scope
 from app.services.writeback.writeback_execution import (
     collect_changed_calls,
     execute_calls_with_audit,
@@ -84,17 +85,18 @@ def execute_now_response(
             exc,
         )
 
-    executed_doc_ids = execute_calls_with_audit(
-        settings=settings,
-        db=db,
-        calls=calls,
-        dry_run=False,
-        execute_call=execute_call,
-        cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
-        reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
-        logger=logger,
-        on_call_error=_record_call_error,
-    )
+    with writeback_metadata_scope():
+        executed_doc_ids = execute_calls_with_audit(
+            settings=settings,
+            db=db,
+            calls=calls,
+            dry_run=False,
+            execute_call=execute_call,
+            cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
+            reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
+            logger=logger,
+            on_call_error=_record_call_error,
+        )
     db.commit()
     invalidate_writeback_preview_cache()
     if executed_doc_ids:
