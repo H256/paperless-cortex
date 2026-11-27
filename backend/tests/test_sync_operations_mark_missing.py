@@ -344,6 +344,63 @@ def test_run_documents_sync_doc_still_in_paperless_not_marked_deleted(
         assert gone.deleted_at.startswith("DELETED in Paperless")
 
 
+def test_mark_missing_does_not_bind_every_seen_id(session_factory: Any) -> None:
+    """A full walk of a big library must not put every seen id into one IN clause.
+
+    SQLite (and Postgres drivers) cap bind parameters around 32k; the cap is
+    lowered to 50 here so 80 seen documents would overflow a `NOT IN (...)`.
+    """
+    import sqlite3
+
+    from sqlalchemy import event
+
+    settings = load_settings()
+    seen_total = 80
+    for doc_id in range(7000, 7000 + seen_total):
+        _insert_local_document(session_factory, doc_id, f"Doc {doc_id}")
+    _insert_local_document(session_factory, 9999, "Gone Doc")
+
+    db = session_factory()
+    engine = db.get_bind()
+    engine.dispose()
+    event.listen(
+        engine,
+        "connect",
+        lambda conn, _rec: conn.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 50),
+    )
+
+    def _list_documents(
+        _settings: Any, page: int, page_size: int, modified__gte: str | None = None
+    ) -> dict[str, Any]:
+        docs = [
+            _doc_payload(doc_id, f"Doc {doc_id}", "c") for doc_id in range(7000, 7000 + seen_total)
+        ]
+        return _page_payload(seen_total, None, docs)
+
+    try:
+        result = run_documents_sync(
+            db=db,
+            settings=settings,
+            page_size=200,
+            incremental=False,
+            embed=False,
+            page=1,
+            page_only=False,
+            force_embed=False,
+            mark_missing=True,
+            insert_only=False,
+            list_documents_fn=_list_documents,
+            build_task_sequence_fn=lambda *args, **kwargs: [],
+            enqueue_task_sequence_fn=lambda *args, **kwargs: 0,
+            get_document_for_mark_fn=_get_document_for_mark({}),
+        )
+        assert result["marked_deleted"] == 1
+        gone = db.get(Document, 9999)
+        assert gone is not None and str(gone.deleted_at).startswith("DELETED in Paperless")
+    finally:
+        db.close()
+
+
 def test_queue_mode_embed_enqueue_issues_no_per_document_selects(session_factory: Any) -> None:
     """Enqueueing embed tasks must not reload each document (N+1 after commit)."""
     from dataclasses import replace

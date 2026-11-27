@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import socket
 from dataclasses import replace
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -69,13 +70,40 @@ def validate_provider_base_url(value: str | None) -> str | None:
         raise ValueError("Missing host in base URL")
     if host.lower() == "localhost":
         raise ValueError("Base URL host is loopback")
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return normalized
-    if _is_blocked_host_ip(ip):
-        raise ValueError(f"Base URL host {host} is a blocked (loopback/link-local/metadata) address")
+    for ip in _resolve_host_ips(host):
+        if _is_blocked_host_ip(ip):
+            raise ValueError(
+                f"Base URL host {host} is a blocked (loopback/link-local/metadata) address"
+            )
     return normalized
+
+
+def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """Return the IPs a host stands for: the literal itself, or its DNS answers.
+
+    Legacy decimal/hex IPv4 forms are parsed too. A name that
+    does not resolve here is allowed: the API host may not see the same LAN DNS.
+    """
+    try:
+        return [ipaddress.ip_address(host)]
+    except ValueError:
+        pass
+    try:
+        # inet_aton accepts the legacy decimal/hex/short IPv4 forms (2130706433, 0x7f.1).
+        return [ipaddress.IPv4Address(socket.inet_aton(host))]
+    except OSError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return []
+    ips = []
+    for info in infos:
+        try:
+            ips.append(ipaddress.ip_address(info[4][0].split("%")[0]))
+        except ValueError:
+            continue
+    return ips
 
 
 def _mask_api_key(value: str | None) -> str | None:

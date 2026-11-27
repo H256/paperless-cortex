@@ -546,7 +546,14 @@ def run_documents_sync(
         marked_deleted = 0
         if mark_missing_allowed and seen_ids:
             timestamp = datetime.now(UTC).isoformat()
-            missing_docs = db.query(Document).filter(~Document.id.in_(list(seen_ids))).all()
+            # Diff in Python: `NOT IN (every seen id)` overflows the database's bind
+            # parameter limit (~32k) on big libraries.
+            local_ids = {row[0] for row in db.query(Document.id).all()}
+            missing_ids = sorted(local_ids - seen_ids)
+            missing_docs: list[Document] = []
+            for start in range(0, len(missing_ids), 500):
+                chunk = missing_ids[start : start + 500]
+                missing_docs.extend(db.query(Document).filter(Document.id.in_(chunk)).all())
             confirmed_missing = _revalidate_missing(
                 settings, [doc.id for doc in missing_docs], get_document_for_mark_fn
             )
