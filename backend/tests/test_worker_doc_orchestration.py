@@ -26,7 +26,7 @@ def test_process_doc_large_document_with_vision_runs_expected_flow(
         db.commit()
 
         monkeypatch.setattr(worker_mod, "is_cancel_requested", lambda *_args, **_kwargs: False)
-        monkeypatch.setattr(worker_mod, "_process_sync_only", lambda *_args, **_kwargs: calls.append(("sync", 704)))
+        monkeypatch.setattr(worker_mod, "_service_process_sync_only", lambda *_args, **_kwargs: calls.append(("sync", 704)))
         monkeypatch.setattr(
             worker_mod.paperless,
             "get_document",
@@ -35,7 +35,7 @@ def test_process_doc_large_document_with_vision_runs_expected_flow(
         monkeypatch.setattr(worker_mod, "get_document_or_none", lambda *_args, **_kwargs: db.get(Document, 704))
         monkeypatch.setattr(
             worker_mod,
-            "_process_evidence_index",
+            "_service_process_evidence_index",
             lambda *_args, **kwargs: calls.append(("evidence", kwargs.get("run_id"))),
         )
         monkeypatch.setattr(
@@ -54,22 +54,22 @@ def test_process_doc_large_document_with_vision_runs_expected_flow(
         )
         monkeypatch.setattr(
             worker_mod,
-            "_embed_with_pages",
+            "_service_embed_with_pages",
             lambda _settings, _db, _doc, baseline_pages, vision_pages, source, **kwargs: calls.append(
                 ("embed", source, len(baseline_pages), len(vision_pages), kwargs.get("run_id"))
             ),
         )
-        monkeypatch.setattr(worker_mod, "_is_large_doc", lambda *_args, **_kwargs: True)
+        monkeypatch.setattr(worker_mod, "is_large_document", lambda *_args, **_kwargs: True)
         monkeypatch.setattr(
             worker_mod,
-            "_process_page_notes",
+            "_service_process_page_notes",
             lambda _settings, _db, _doc_id, source, **kwargs: calls.append(
                 ("page_notes", source, kwargs.get("run_id"))
             ),
         )
         monkeypatch.setattr(
             worker_mod,
-            "_process_summary_hierarchical",
+            "_service_process_summary_hierarchical",
             lambda _settings, _db, _doc_id, source, **kwargs: calls.append(
                 ("summary", source, kwargs.get("run_id"))
             ),
@@ -150,7 +150,7 @@ def test_process_doc_aborts_early_when_cancel_requested(
         monkeypatch.setattr(worker_mod, "is_cancel_requested", lambda *_args, **_kwargs: True)
         monkeypatch.setattr(
             worker_mod,
-            "_process_sync_only",
+            "_service_process_sync_only",
             lambda *_args, **_kwargs: called.__setitem__("sync", called["sync"] + 1),
         )
 

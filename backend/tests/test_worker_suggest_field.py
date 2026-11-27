@@ -5,7 +5,7 @@ from typing import Any
 
 from app.config import load_settings
 from app.models import Document, DocumentPageText
-from app.worker import _process_suggest_field
+from app.worker import _build_dispatch_handler
 
 
 def test_process_suggest_field_uses_vision_pages_and_persists_variants(
@@ -65,9 +65,11 @@ def test_process_suggest_field_uses_vision_pages_and_persists_variants(
         monkeypatch.setattr(worker_mod, "upsert_suggestion", fake_upsert)
         monkeypatch.setattr(worker_mod, "audit_suggestion_run", fake_audit)
 
-        _process_suggest_field(
+        _build_dispatch_handler(
             settings,
             db,
+            "suggest_field",
+            703,
             {
                 "doc_id": 703,
                 "source": "vision_ocr",
@@ -75,7 +77,8 @@ def test_process_suggest_field_uses_vision_pages_and_persists_variants(
                 "count": 2,
                 "current": "Current title",
             },
-        )
+            None,
+        )()
 
     assert "Vision page one" in str(captured.get("text", ""))
     assert "Vision page two" in str(captured.get("text", ""))
@@ -138,9 +141,11 @@ def test_process_suggest_field_note_is_not_dropped_in_queue_mode(
         monkeypatch.setattr(worker_mod, "upsert_suggestion", fake_upsert)
         monkeypatch.setattr(worker_mod, "audit_suggestion_run", fake_audit)
 
-        _process_suggest_field(
+        _build_dispatch_handler(
             settings,
             db,
+            "suggest_field",
+            708,
             {
                 "doc_id": 708,
                 "source": "paperless_ocr",
@@ -148,7 +153,8 @@ def test_process_suggest_field_note_is_not_dropped_in_queue_mode(
                 "count": 2,
                 "current": "Current summary",
             },
-        )
+            None,
+        )()
 
     # The worker must have generated and persisted note variants (not dropped).
     assert captured.get("upsert") == (
@@ -189,9 +195,11 @@ def test_process_suggest_field_forwards_queued_focus_passage_and_hint(
         monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
         monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
 
-        _process_suggest_field(
+        _build_dispatch_handler(
             settings,
             db,
+            "suggest_field",
+            704,
             {
                 "doc_id": 704,
                 "source": "paperless_ocr",
@@ -200,7 +208,8 @@ def test_process_suggest_field_forwards_queued_focus_passage_and_hint(
                 "focus_text": "Rechnungsdatum: 20.09.2026",
                 "hint": "Rechnungsdatum, nicht Lieferdatum",
             },
-        )
+            None,
+        )()
 
     assert captured["focus_text"] == "Rechnungsdatum: 20.09.2026"
     assert captured["hint"] == "Rechnungsdatum, nicht Lieferdatum"
@@ -230,9 +239,11 @@ def test_process_suggest_field_forwards_queued_avoid_variants(
         monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
         monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
 
-        _process_suggest_field(
+        _build_dispatch_handler(
             settings,
             db,
+            "suggest_field",
+            705,
             {
                 "doc_id": 705,
                 "source": "paperless_ocr",
@@ -240,7 +251,8 @@ def test_process_suggest_field_forwards_queued_avoid_variants(
                 "count": 1,
                 "avoid_variants": ["Already shown A", "Already shown B"],
             },
-        )
+            None,
+        )()
 
     assert captured["avoid_variants"] == ["Already shown A", "Already shown B"]
 
@@ -270,9 +282,11 @@ def test_process_suggest_field_reads_the_requested_text_source(
         monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
         monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
 
-        _process_suggest_field(
+        _build_dispatch_handler(
             settings,
             db,
+            "suggest_field",
+            705,
             {
                 "doc_id": 705,
                 "source": "vision_ocr",
@@ -280,7 +294,8 @@ def test_process_suggest_field_reads_the_requested_text_source(
                 "count": 1,
                 "text_source": "paperless_ocr",
             },
-        )
+            None,
+        )()
 
     assert "PAPERLESS TEXT" in seen["text"]
     assert "VISION TEXT" not in seen["text"]
@@ -314,10 +329,13 @@ def test_process_suggest_field_reads_only_the_requested_pages(
         monkeypatch.setattr(worker_mod, "upsert_suggestion", lambda *_a, **_k: None)
         monkeypatch.setattr(worker_mod, "audit_suggestion_run", lambda *_a, **_k: None)
 
-        _process_suggest_field(
+        _build_dispatch_handler(
             settings,
             db,
+            "suggest_field",
+            706,
             {"doc_id": 706, "source": "vision_ocr", "field": "title", "count": 1, "pages": [1, 3]},
-        )
+            None,
+        )()
 
     assert seen["text"] == "P ONE\n\nP THREE"

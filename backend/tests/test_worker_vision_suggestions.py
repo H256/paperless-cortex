@@ -6,7 +6,7 @@ import pytest
 
 from app.config import load_settings
 from app.models import Document, DocumentPageText
-from app.worker import _process_suggestions_vision
+from app.services.pipeline import worker_dispatch
 
 
 def test_process_suggestions_vision_backfills_missing_pages(
@@ -43,6 +43,7 @@ def test_process_suggestions_vision_backfills_missing_pages(
             doc_id: int,
             force: bool = False,
             run_id: int | None = None,
+            **_kwargs: Any,
         ) -> None:
             assert force is False
             assert run_id is None
@@ -58,9 +59,13 @@ def test_process_suggestions_vision_backfills_missing_pages(
 
         monkeypatch.setattr(worker_mod, "generate_normalized_suggestions", fake_generate)
         monkeypatch.setattr(worker_mod, "persist_suggestions", fake_persist)
-        monkeypatch.setattr(worker_mod, "_process_vision_ocr_only", fake_vision_ocr_only)
+        monkeypatch.setattr(worker_dispatch, "process_vision_ocr_only", fake_vision_ocr_only)
 
-        _process_suggestions_vision(settings, db, 701)
+        handler = worker_mod._build_dispatch_handler(
+            settings, db, "suggestions_vision", 701, None, None
+        )
+        assert handler is not None
+        handler()
 
     assert "Recovered vision OCR text" in str(captured.get("text", ""))
     assert captured.get("persist") == (701, "vision_ocr", {"title": "Vision Title"})
@@ -81,7 +86,11 @@ def test_process_suggestions_vision_raises_when_no_pages_available(
         monkeypatch.setattr(worker_mod.paperless, "get_document", lambda *_args, **_kwargs: {"id": 702})
         monkeypatch.setattr(worker_mod, "get_cached_tags", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(worker_mod, "get_cached_correspondents", lambda *_args, **_kwargs: [])
-        monkeypatch.setattr(worker_mod, "_process_vision_ocr_only", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(worker_dispatch, "process_vision_ocr_only", lambda *_args, **_kwargs: None)
 
+        handler = worker_mod._build_dispatch_handler(
+            settings, db, "suggestions_vision", 702, None, None
+        )
+        assert handler is not None
         with pytest.raises(RuntimeError, match="vision_suggestions_missing_pages"):
-            _process_suggestions_vision(settings, db, 702)
+            handler()
