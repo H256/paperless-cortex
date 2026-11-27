@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/queue-lua-large-lists)
+
+### Queue reorder/remove work on large queues (issue #454)
+- `_REORDER_QUEUE_LUA` / `_REMOVE_QUEUE_ITEM_LUA` in [`queue.py`](backend/app/services/pipeline/queue.py) no longer rewrite the list with `RPUSH ... unpack(items)` (fails above ~8000 items). They move/remove one element in place with `LSET` marker + `LREM`/`LINSERT`, still atomic.
+- Redis errors in `reorder_queue` / `remove_queue_item` are now logged instead of silently returning False.
+- Validation: scripts run in a real Lua 5.1 interpreter against a Redis-semantics list model, 3000 randomized cases plus a 20 000-item list, all matching the previous behaviour; backend queue tests pass. Not run against a live Redis server (none available here).
+
 ## 2026-11-27 (branch: fix/audit-p1-writeback-auth)
 
 ### Audit P1 fixes (issues #448, #450, #451)

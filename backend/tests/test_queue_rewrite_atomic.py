@@ -289,3 +289,17 @@ def test_reorder_and_remove_do_not_duplicate_or_lose_tasks_under_blpop(
     }
     # Every executed payload was one we enqueued (no phantom tasks).
     assert set(executed) <= tasks
+
+
+def test_reorder_and_remove_log_redis_errors(monkeypatch: Any, caplog: Any) -> None:
+    from redis.exceptions import ResponseError
+
+    class _Broken:
+        def eval(self, *_a: Any, **_k: Any) -> Any:
+            raise ResponseError("too many results to unpack")
+
+    monkeypatch.setattr(queue_mod, "_get_client", lambda _settings: _Broken())
+    assert queue_mod.reorder_queue(_settings(), 0, 1) is False
+    assert queue_mod.remove_queue_item(_settings(), 0) is False
+    assert "Queue reorder failed" in caplog.text
+    assert "Queue remove failed" in caplog.text
