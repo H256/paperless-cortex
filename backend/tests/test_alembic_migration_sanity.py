@@ -10,6 +10,7 @@ Catches:
 
 from __future__ import annotations
 
+import logging
 import tempfile
 import uuid
 from pathlib import Path
@@ -65,6 +66,30 @@ def test_all_migration_files_importable_and_well_formed() -> None:
 # ---------------------------------------------------------------------------
 # 3. Schema drift: alembic upgrade head vs Base.metadata.create_all
 # ---------------------------------------------------------------------------
+
+
+def _snapshot_disabled_loggers() -> dict[str, bool]:
+    """Snapshot the ``disabled`` flag of every currently-known logger.
+
+    Alembic's ``fileConfig`` (default ``disable_existing_loggers=True``) sets
+    ``disabled=True`` on all loggers that exist before the upgrade but are not
+    named in the config file. That state would otherwise leak into later tests
+    (e.g. ``test_reorder_and_remove_log_redis_errors``), whose records are then
+    silently dropped and never reach ``caplog``.
+    """
+    return {
+        name: logger.disabled
+        for name, logger in logging.Logger.manager.loggerDict.items()
+        if isinstance(logger, logging.Logger)
+    }
+
+
+def _restore_disabled_loggers(snapshot: dict[str, bool]) -> None:
+    """Restore the ``disabled`` flags captured by :func:`_snapshot_disabled_loggers`."""
+    for name, disabled in snapshot.items():
+        logger = logging.Logger.manager.loggerDict.get(name)
+        if isinstance(logger, logging.Logger):
+            logger.disabled = disabled
 
 
 def _run_alembic_upgrade(db_path: Path) -> None:
@@ -152,11 +177,15 @@ def _run_alembic_upgrade(db_path: Path) -> None:
     # supports these; SQLite does not enforce them at DDL time). No-op them so
     # the migrations run to completion; only the resulting tables/columns are
     # compared, not the constraints themselves.
-    with mock.patch.object(SQLiteImpl, "add_constraint", return_value=None), \
-         mock.patch.object(SQLiteImpl, "drop_constraint", return_value=None), \
-         mock.patch.object(SQLiteImpl, "create_foreign_key", return_value=None, create=True), \
-         mock.patch.object(SQLiteImpl, "alter_column", side_effect=_alter_column, autospec=True):
-        command.upgrade(cfg, "head")
+    _disabled_snapshot = _snapshot_disabled_loggers()
+    try:
+        with mock.patch.object(SQLiteImpl, "add_constraint", return_value=None), \
+             mock.patch.object(SQLiteImpl, "drop_constraint", return_value=None), \
+             mock.patch.object(SQLiteImpl, "create_foreign_key", return_value=None, create=True), \
+             mock.patch.object(SQLiteImpl, "alter_column", side_effect=_alter_column, autospec=True):
+            command.upgrade(cfg, "head")
+    finally:
+        _restore_disabled_loggers(_disabled_snapshot)
 
 
 def test_alembic_upgrade_head_matches_model_metadata() -> None:
