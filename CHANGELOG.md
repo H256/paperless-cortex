@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/sync-mark-missing-large)
+
+### Full sync `mark_missing` works on large libraries (issue #455)
+- [`run_documents_sync`](backend/app/services/documents/sync_operations.py) no longer runs `NOT IN (all seen ids)`, which exceeds the bind-parameter limit (~32k) and ended the sync in "error" after all the work. It now loads local ids, subtracts the seen ids in Python and loads only the missing documents in chunks of 500.
+- Test `test_mark_missing_does_not_bind_every_seen_id` lowers SQLite's variable limit to 50 and fails on the old query. Sync tests: 87 passed.
+
 ## 2026-11-25 (branch: ux/touch-targets)
 
 ### UX: 40 px touch targets for in-page controls on touch devices
