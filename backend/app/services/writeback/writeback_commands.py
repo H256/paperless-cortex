@@ -26,6 +26,7 @@ from app.services.writeback.writeback_execution import (
 from app.services.writeback.writeback_jobs import (
     deserialize_calls,
     deserialize_doc_ids,
+    is_stale_running_job,
     job_detail,
     missing_writeback_jobs_table,
     raise_missing_writeback_jobs_table,
@@ -162,6 +163,13 @@ def create_job_response(
         .order_by(WritebackJob.id.desc())
         .first()
     )
+    if existing and is_stale_running_job(existing):
+        # Cut off mid-run (crash/restart): retire it so the same selection can be re-run.
+        existing.status = "failed"
+        existing.error = "Interrupted: job stayed in running state and never finished"
+        existing.finished_at = utc_now_iso()
+        db.commit()
+        existing = None
     if existing:
         return job_detail(existing)
 

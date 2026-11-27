@@ -17,6 +17,7 @@ from app.services.writeback.writeback_execution import run_writeback_job_executi
 from app.services.writeback.writeback_jobs import (
     deserialize_calls,
     deserialize_doc_ids,
+    is_stale_running_job,
     job_detail,
     job_summary,
     missing_writeback_jobs_table,
@@ -70,7 +71,7 @@ def delete_job_response(db: Session, *, job_id: int) -> WritebackJobDeleteRespon
         raise
     if not job:
         return WritebackJobDeleteResponse(ok=True, removed=False, job_id=int(job_id))
-    if str(job.status or "") == "running":
+    if str(job.status or "") == "running" and not is_stale_running_job(job):
         raise HTTPException(status_code=409, detail="Cannot delete a running writeback job")
     db.delete(job)
     db.commit()

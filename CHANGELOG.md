@@ -3,6 +3,13 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/writeback-stale-running-jobs)
+
+### Writeback jobs stuck in "running" no longer block re-runs (issue #457)
+- [`writeback_jobs.py`](backend/app/services/writeback/writeback_jobs.py) `is_stale_running_job`: a job "running" for more than 30 minutes (or with no readable `started_at`) was cut off by a crash/restart.
+- Creating a job for the same selection retires such a job (status `failed`, error set) and creates a new one; deleting a stale running job is allowed (fresh running jobs still return 409).
+- Tests: `test_writeback_stale_running_jobs.py`; the existing running-job delete test now sets `started_at`. Stacked on `fix/audit-p1-writeback-auth` (#464).
+
 ## 2026-11-27 (branch: fix/audit-p1-writeback-auth)
 
 ### Audit P1 fixes (issues #448, #450, #451, #452)
