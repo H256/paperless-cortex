@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/chat-request-limits)
+
+### Size limits on chat request bodies (issue #459)
+- [`api_models.py`](backend/app/api_models.py): `question` ≤ 4000 chars, history/followup/citation text ≤ 20 000 chars, lists ≤ 100 items for `ChatRequest`, `ChatFollowupsRequest`, `EvidenceResolveRequest` (the UI sends at most 12 history turns). Oversized bodies now get a 422 instead of reaching the LLM call and logs.
+- `backend/openapi.json` regenerated (only the new `maxLength`/`maxItems`); generated frontend types do not change. Tests: `test_chat_models_limits.py`; full backend suite passes.
+
 ## 2026-11-27 (branch: fix/sync-embed-queue-ids)
 
 ### Sync no longer reloads each document to enqueue embed tasks (issue #456)
