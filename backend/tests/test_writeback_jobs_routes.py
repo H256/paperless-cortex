@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -480,6 +481,8 @@ def test_writeback_job_delete_rejects_running_job(api_client: Any) -> None:
                 doc_ids_json="[550]",
                 calls_json="[]",
                 created_at="2026-02-20T10:00:00+00:00",
+                # A genuinely running job was started moments ago; older ones count as stale.
+                started_at=datetime.now(UTC).isoformat(),
             )
         )
         db.commit()

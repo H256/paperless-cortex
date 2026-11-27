@@ -47,7 +47,13 @@ def test_auth_on_rejects_missing_and_wrong_token(api_client: Any, monkeypatch: A
     assert bearer.status_code == 200
 
 
-def test_auth_non_ascii_token_is_401_not_500(api_client: Any, monkeypatch: Any) -> None:
+def test_auth_on_rejects_non_ascii_token_with_401(api_client: Any, monkeypatch: Any) -> None:
+    """A non-ASCII token header must be rejected with 401, not a 500 (issue #452).
+
+    The header value is sent as raw bytes (latin-1) because httpx only accepts
+    ASCII str header values; Starlette decodes header bytes as latin-1, which
+    is what a real client sending ``X-API-Token: é`` produces.
+    """
     client = _client_with_token(monkeypatch, "secret-123")
     response = client.get(PROBE, headers={"X-API-Token": "é".encode("latin-1")})
     assert response.status_code == 401

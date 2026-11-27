@@ -13,15 +13,19 @@ from app.api_models import (
 )
 from app.models import WritebackJob
 from app.services.documents.cache_invalidation import invalidate_document_caches
+from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_execution import run_writeback_job_execution
 from app.services.writeback.writeback_jobs import (
+    changed_since_preview,
     deserialize_calls,
     deserialize_doc_ids,
+    is_stale_running_job,
     job_detail,
     job_summary,
     missing_writeback_jobs_table,
     raise_missing_writeback_jobs_table,
 )
+from app.services.writeback.writeback_preview import preview_for_doc_ids
 from app.services.writeback.writeback_preview_cache import invalidate_writeback_preview_cache
 
 if TYPE_CHECKING:
@@ -70,7 +74,7 @@ def delete_job_response(db: Session, *, job_id: int) -> WritebackJobDeleteRespon
         raise
     if not job:
         return WritebackJobDeleteResponse(ok=True, removed=False, job_id=int(job_id))
-    if str(job.status or "") == "running":
+    if str(job.status or "") == "running" and not is_stale_running_job(job):
         raise HTTPException(status_code=409, detail="Cannot delete a running writeback job")
     db.delete(job)
     db.commit()
@@ -96,6 +100,22 @@ def execute_job_response(
         raise
     if not job:
         raise HTTPException(status_code=404, detail="Writeback job not found")
+
+    if not dry_run:
+        drifted = changed_since_preview(
+            job, preview_for_doc_ids(settings, db, deserialize_doc_ids(job))
+        )
+        if drifted:
+            # Replaying stored calls would overwrite edits made after the user approved the preview.
+            job.status = "failed"
+            job.error = (
+                f"Not executed: documents {drifted} changed (in Paperless or locally) since this job "
+                "was created. Delete the job and create a new one from the current preview."
+            )
+            job.finished_at = utc_now_iso()
+            db.commit()
+            db.refresh(job)
+            return job_detail(job)
 
     job = run_writeback_job_execution(
         settings=settings,

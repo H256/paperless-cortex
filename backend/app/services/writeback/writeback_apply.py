@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -10,8 +13,54 @@ from app.models import Correspondent, Document, DocumentPendingCorrespondent, Ta
 from app.services.integrations import paperless
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from app.api_models import WritebackDryRunCall
     from app.config import Settings
+
+
+@dataclass
+class _MetadataScope:
+    """Paperless tag/correspondent state shared by all calls of one writeback batch."""
+
+    tags: list[dict[str, Any]] | None = None
+    correspondents: list[dict[str, Any]] | None = None
+    shared_tag_ids: set[int] = field(default_factory=set)
+    shared_correspondent_ids: set[int] = field(default_factory=set)
+
+
+_scope: ContextVar[_MetadataScope | None] = ContextVar("writeback_metadata_scope", default=None)
+
+
+@contextmanager
+def writeback_metadata_scope() -> Iterator[None]:
+    """Fetch Paperless tags/correspondents once per batch instead of once per document.
+
+    Without a scope (single-document writeback) every call still reads fresh lists.
+    """
+    token = _scope.set(_MetadataScope())
+    try:
+        yield
+    finally:
+        _scope.reset(token)
+
+
+def _remote_tags(settings: Settings) -> list[dict[str, Any]]:
+    scope = _scope.get()
+    if scope is None:
+        return paperless.list_all_tags(settings)
+    if scope.tags is None:
+        scope.tags = paperless.list_all_tags(settings)
+    return scope.tags
+
+
+def _remote_correspondents(settings: Settings) -> list[dict[str, Any]]:
+    scope = _scope.get()
+    if scope is None:
+        return paperless.list_all_correspondents(settings)
+    if scope.correspondents is None:
+        scope.correspondents = paperless.list_all_correspondents(settings)
+    return scope.correspondents
 
 
 def resolve_paperless_tag_ids(
@@ -33,7 +82,7 @@ def resolve_paperless_tag_ids(
             local_names.append(clean)
     if not local_names:
         return []
-    remote_tags = paperless.list_all_tags(settings)
+    remote_tags = _remote_tags(settings)
     remote_by_id: dict[int, dict[str, Any]] = {}
     remote_by_name: dict[str, dict[str, Any]] = {}
     for tag in remote_tags:
@@ -44,7 +93,8 @@ def resolve_paperless_tag_ids(
             if raw_name:
                 remote_by_name[raw_name.lower()] = tag
     resolved_ids: list[int] = []
-    unowned_tag_ids: set[int] = set()
+    scope = _scope.get()
+    unowned_tag_ids = scope.shared_tag_ids if scope is not None else set()
 
     def _ensure_shared_tag(tag_id: int) -> None:
         if int(tag_id) in unowned_tag_ids:
@@ -70,6 +120,8 @@ def resolve_paperless_tag_ids(
             if created_id is not None:
                 existing_id = created_id
                 remote_by_name[key] = created
+                if scope is not None and scope.tags is not None:
+                    scope.tags.append(created)
         if isinstance(existing_id, int):
             resolved_ids.append(existing_id)
             local_tag = db.query(Tag).filter(Tag.id == existing_id).one_or_none()
@@ -138,7 +190,16 @@ def resolve_paperless_correspondent_id(
         local_row = db.query(Correspondent).filter(Correspondent.id == int(local_id)).one_or_none()
         local_name = str(local_row.name or "").strip() if local_row else ""
 
-    remote_rows = paperless.list_all_correspondents(settings)
+    remote_rows = _remote_correspondents(settings)
+    scope = _scope.get()
+    shared_ids = scope.shared_correspondent_ids if scope is not None else set()
+
+    def _ensure_shared_correspondent(correspondent_id: int) -> None:
+        if correspondent_id in shared_ids:
+            return
+        paperless.update_correspondent(settings, correspondent_id, {"owner": None})
+        shared_ids.add(correspondent_id)
+
     remote_by_id: dict[int, str] = {}
     remote_row_by_id: dict[int, dict[str, Any]] = {}
     for row in remote_rows:
@@ -147,7 +208,7 @@ def resolve_paperless_correspondent_id(
             remote_by_id[row_id] = str(row.get("name") or "").strip()
             remote_row_by_id[row_id] = row
     if local_id and local_id in remote_by_id:
-        paperless.update_correspondent(settings, local_id, {"owner": None})
+        _ensure_shared_correspondent(local_id)
         return local_id
 
     remote_by_name: dict[str, dict[str, Any]] = {}
@@ -161,12 +222,14 @@ def resolve_paperless_correspondent_id(
     existing_row = remote_by_name.get(local_name.lower())
     existing_id = _as_int(existing_row.get("id")) if existing_row else None
     if existing_id is not None:
-        paperless.update_correspondent(settings, existing_id, {"owner": None})
+        _ensure_shared_correspondent(existing_id)
     if existing_id is None:
         created = paperless.create_correspondent(settings, local_name)
         created_id = _as_int(created.get("id"))
         if created_id is not None:
             existing_id = created_id
+            if scope is not None and scope.correspondents is not None:
+                scope.correspondents.append(created)
 
     if isinstance(existing_id, int):
         _migrate_local_references(local_id, int(existing_id), local_name)

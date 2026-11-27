@@ -18,6 +18,7 @@ from app.api_models import (
 from app.models import WritebackJob
 from app.services.documents.cache_invalidation import invalidate_document_caches
 from app.services.runtime.time_utils import utc_now_iso
+from app.services.writeback.writeback_apply import writeback_metadata_scope
 from app.services.writeback.writeback_execution import (
     collect_changed_calls,
     execute_calls_with_audit,
@@ -26,8 +27,10 @@ from app.services.writeback.writeback_execution import (
 from app.services.writeback.writeback_jobs import (
     deserialize_calls,
     deserialize_doc_ids,
+    is_stale_running_job,
     job_detail,
     missing_writeback_jobs_table,
+    preview_fingerprints,
     raise_missing_writeback_jobs_table,
 )
 from app.services.writeback.writeback_preview import preview_for_doc_ids
@@ -83,17 +86,18 @@ def execute_now_response(
             exc,
         )
 
-    executed_doc_ids = execute_calls_with_audit(
-        settings=settings,
-        db=db,
-        calls=calls,
-        dry_run=False,
-        execute_call=execute_call,
-        cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
-        reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
-        logger=logger,
-        on_call_error=_record_call_error,
-    )
+    with writeback_metadata_scope():
+        executed_doc_ids = execute_calls_with_audit(
+            settings=settings,
+            db=db,
+            calls=calls,
+            dry_run=False,
+            execute_call=execute_call,
+            cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
+            reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
+            logger=logger,
+            on_call_error=_record_call_error,
+        )
     db.commit()
     invalidate_writeback_preview_cache()
     if executed_doc_ids:
@@ -162,6 +166,13 @@ def create_job_response(
         .order_by(WritebackJob.id.desc())
         .first()
     )
+    if existing and is_stale_running_job(existing):
+        # Cut off mid-run (crash/restart): retire it so the same selection can be re-run.
+        existing.status = "failed"
+        existing.error = "Interrupted: job stayed in running state and never finished"
+        existing.finished_at = utc_now_iso()
+        db.commit()
+        existing = None
     if existing:
         return job_detail(existing)
 
@@ -190,6 +201,7 @@ def create_job_response(
         calls_count=len(calls),
         doc_ids_json=doc_ids_json,
         calls_json=json.dumps([call.model_dump() for call in calls]),
+        preview_fingerprint_json=json.dumps(preview_fingerprints(preview_items)),
         created_at=utc_now_iso(),
     )
     try:
