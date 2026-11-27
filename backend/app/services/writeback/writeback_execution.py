@@ -53,55 +53,64 @@ def execute_calls_with_audit(
 ) -> set[int]:
     executed_doc_ids: set[int] = set()
     failed_doc_ids: set[int] = set()
-    for index, call in enumerate(calls):
-        if not dry_run and skip_call_indexes is not None and index in skip_call_indexes:
+    try:
+        for index, call in enumerate(calls):
+            if not dry_run and skip_call_indexes is not None and index in skip_call_indexes:
+                logger.info(
+                    "WRITEBACK SKIP doc=%s method=%s path=%s (already applied)",
+                    call.doc_id,
+                    call.method,
+                    call.path,
+                )
+                continue
             logger.info(
-                "WRITEBACK SKIP doc=%s method=%s path=%s (already applied)",
+                "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
+                "DRY-RUN" if dry_run else "EXECUTE",
                 call.doc_id,
                 call.method,
                 call.path,
+                call.payload,
             )
-            continue
-        logger.info(
-            "WRITEBACK %s doc=%s method=%s path=%s payload=%s",
-            "DRY-RUN" if dry_run else "EXECUTE",
-            call.doc_id,
-            call.method,
-            call.path,
-            call.payload,
-        )
-        if dry_run:
+            if dry_run:
+                executed_doc_ids.add(int(call.doc_id))
+                continue
+            try:
+                execute_call(settings, db, call)
+            except (RuntimeError, ValueError, httpx.HTTPError) as exc:
+                # Drop this call's half-applied local changes so they are not
+                # committed together with the calls that did succeed.
+                db.rollback()
+                failed_doc_ids.add(int(call.doc_id))
+                if on_call_error is None:
+                    raise
+                on_call_error(call, exc)
+                continue
             executed_doc_ids.add(int(call.doc_id))
-            continue
-        try:
-            execute_call(settings, db, call)
-        except (RuntimeError, ValueError, httpx.HTTPError) as exc:
-            if on_call_error is None:
-                raise
-            failed_doc_ids.add(int(call.doc_id))
-            on_call_error(call, exc)
-            continue
-        executed_doc_ids.add(int(call.doc_id))
-        if on_call_applied is not None:
-            on_call_applied(index, call)
-        if call.method.upper() == "PATCH" and isinstance(call.payload, dict):
-            cleanup_pending_rows_after_patch(db, int(call.doc_id), call.payload)
-
-    successful_doc_ids = executed_doc_ids - failed_doc_ids
-    if not dry_run and successful_doc_ids:
-        for doc_id in sorted(successful_doc_ids):
-            reviewed_at = reviewed_timestamp_for_doc(settings, db, int(doc_id))
-            db.add(
-                SuggestionAudit(
-                    doc_id=int(doc_id),
-                    action="apply_to_document:writeback",
-                    source="writeback",
-                    field=None,
-                    old_value=None,
-                    new_value=None,
-                    created_at=reviewed_at,
+            if on_call_applied is not None:
+                on_call_applied(index, call)
+            if call.method.upper() == "PATCH" and isinstance(call.payload, dict):
+                cleanup_pending_rows_after_patch(db, int(call.doc_id), call.payload)
+            # Paperless already changed: persist the local side now so a crash
+            # later in the batch cannot leave Paperless and the local DB apart.
+            db.commit()
+    finally:
+        # Runs on the error path too, so docs that already succeeded still get
+        # their audit row even when a later call aborts the run.
+        successful_doc_ids = executed_doc_ids - failed_doc_ids
+        if not dry_run and successful_doc_ids:
+            for doc_id in sorted(successful_doc_ids):
+                reviewed_at = reviewed_timestamp_for_doc(settings, db, int(doc_id))
+                db.add(
+                    SuggestionAudit(
+                        doc_id=int(doc_id),
+                        action="apply_to_document:writeback",
+                        source="writeback",
+                        field=None,
+                        old_value=None,
+                        new_value=None,
+                        created_at=reviewed_at,
+                    )
                 )
-            )
     return successful_doc_ids
 
 
