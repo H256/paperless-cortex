@@ -3,7 +3,22 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.pipeline.queue_tasks import build_task_sequence
+from app.services.pipeline import worker_dispatch
 from app.services.pipeline.worker_dispatch import build_dispatch_handler
+
+
+def _no_deps() -> dict[str, Any]:
+    return {
+        "is_cancel_requested_fn": lambda _s: False,
+        "get_tags_fn": lambda _s: [],
+        "get_correspondents_fn": lambda _s: [],
+        "get_document_fn": lambda _s, _i: {},
+        "generate_suggestions_fn": lambda *_a, **_k: {},
+        "persist_suggestions_fn": lambda *_a, **_k: None,
+        "generate_field_variants_fn": lambda *_a, **_k: {},
+        "upsert_suggestion_fn": lambda *_a, **_k: None,
+        "audit_suggestion_run_fn": lambda *_a, **_k: None,
+    }
 
 
 def _vision_settings() -> Any:
@@ -30,7 +45,9 @@ def test_build_task_sequence_default_force_is_false() -> None:
     assert _find_task(tasks, "embeddings_vision").get("force") is False
 
 
-def test_dispatch_embeddings_vision_passes_force_to_handler() -> None:
+def test_dispatch_embeddings_vision_passes_force_to_handler(
+    monkeypatch: Any,
+) -> None:
     calls: list[dict[str, Any]] = []
 
     def _process_embeddings_vision_fn(
@@ -40,8 +57,13 @@ def test_dispatch_embeddings_vision_passes_force_to_handler() -> None:
         run_id: int | None = None,
         embeddings_mode: str | None = None,
         force: bool = False,
+        is_cancel_requested_fn: Any = None,
     ) -> None:
         calls.append({"doc_id": doc_id, "run_id": run_id, "force": force})
+
+    monkeypatch.setattr(
+        worker_dispatch, "process_embeddings_vision", _process_embeddings_vision_fn
+    )
 
     handler = build_dispatch_handler(
         settings=object(),
@@ -50,24 +72,16 @@ def test_dispatch_embeddings_vision_passes_force_to_handler() -> None:
         doc_id=103,
         task={"doc_id": 103, "task": "embeddings_vision", "force": True},
         run_id=7,
-        process_sync_only_fn=lambda *_args: None,
-        process_evidence_index_fn=lambda *_args, **_kwargs: None,
-        process_embeddings_paperless_fn=lambda *_args, **_kwargs: None,
-        process_embeddings_vision_fn=_process_embeddings_vision_fn,
-        process_similarity_index_fn=lambda *_args: None,
-        process_cleanup_texts_fn=lambda *_args, **_kwargs: None,
-        process_page_notes_fn=lambda *_args, **_kwargs: None,
-        process_summary_hierarchical_fn=lambda *_args, **_kwargs: None,
-        process_suggestions_paperless_fn=lambda *_args: None,
-        process_suggestions_vision_fn=lambda *_args: None,
-        process_suggest_field_fn=lambda *_args: None,
+        **_no_deps(),
     )
     assert handler is not None
     handler()
     assert calls == [{"doc_id": 103, "run_id": 7, "force": True}]
 
 
-def test_dispatch_embeddings_vision_defaults_force_to_false() -> None:
+def test_dispatch_embeddings_vision_defaults_force_to_false(
+    monkeypatch: Any,
+) -> None:
     calls: list[dict[str, Any]] = []
 
     def _process_embeddings_vision_fn(
@@ -77,8 +91,13 @@ def test_dispatch_embeddings_vision_defaults_force_to_false() -> None:
         run_id: int | None = None,
         embeddings_mode: str | None = None,
         force: bool = False,
+        is_cancel_requested_fn: Any = None,
     ) -> None:
         calls.append({"doc_id": doc_id, "force": force})
+
+    monkeypatch.setattr(
+        worker_dispatch, "process_embeddings_vision", _process_embeddings_vision_fn
+    )
 
     handler = build_dispatch_handler(
         settings=object(),
@@ -87,17 +106,7 @@ def test_dispatch_embeddings_vision_defaults_force_to_false() -> None:
         doc_id=104,
         task={"doc_id": 104, "task": "embeddings_vision"},
         run_id=None,
-        process_sync_only_fn=lambda *_args: None,
-        process_evidence_index_fn=lambda *_args, **_kwargs: None,
-        process_embeddings_paperless_fn=lambda *_args, **_kwargs: None,
-        process_embeddings_vision_fn=_process_embeddings_vision_fn,
-        process_similarity_index_fn=lambda *_args: None,
-        process_cleanup_texts_fn=lambda *_args, **_kwargs: None,
-        process_page_notes_fn=lambda *_args, **_kwargs: None,
-        process_summary_hierarchical_fn=lambda *_args, **_kwargs: None,
-        process_suggestions_paperless_fn=lambda *_args: None,
-        process_suggestions_vision_fn=lambda *_args: None,
-        process_suggest_field_fn=lambda *_args: None,
+        **_no_deps(),
     )
     assert handler is not None
     handler()

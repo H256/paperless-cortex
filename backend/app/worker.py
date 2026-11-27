@@ -19,8 +19,6 @@ from app.services.ai.suggestion_store import (
 )
 from app.services.ai.suggestions import generate_field_variants, generate_normalized_suggestions
 from app.services.documents.documents import get_document_or_none
-from app.services.documents.duplicates import scan_document_duplicates
-from app.services.documents.page_text_store import reclean_page_texts
 from app.services.documents.page_texts_merge import collect_page_texts
 from app.services.integrations import paperless
 from app.services.integrations.meta_cache import get_cached_correspondents, get_cached_tags
@@ -49,16 +47,7 @@ from app.services.pipeline.worker_document_tasks import (
     embed_with_pages as _service_embed_with_pages,
 )
 from app.services.pipeline.worker_document_tasks import (
-    process_embeddings_paperless as _service_process_embeddings_paperless,
-)
-from app.services.pipeline.worker_document_tasks import (
-    process_embeddings_vision as _service_process_embeddings_vision,
-)
-from app.services.pipeline.worker_document_tasks import (
     process_evidence_index as _service_process_evidence_index,
-)
-from app.services.pipeline.worker_document_tasks import (
-    process_similarity_index as _service_process_similarity_index,
 )
 from app.services.pipeline.worker_document_tasks import (
     process_sync_only as _service_process_sync_only,
@@ -88,15 +77,6 @@ from app.services.pipeline.worker_suggestion_tasks import (
 from app.services.pipeline.worker_suggestion_tasks import (
     join_page_texts_limited as _service_join_page_texts_limited,
 )
-from app.services.pipeline.worker_suggestion_tasks import (
-    process_suggest_field as _service_process_suggest_field,
-)
-from app.services.pipeline.worker_suggestion_tasks import (
-    process_suggestions_paperless as _service_process_suggestions_paperless,
-)
-from app.services.pipeline.worker_suggestion_tasks import (
-    process_suggestions_vision as _service_process_suggestions_vision,
-)
 from app.services.pipeline.worker_task_execution import execute_worker_task
 from app.services.runtime.logging_setup import (
     configure_logging,
@@ -117,60 +97,36 @@ logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_SECONDS = 5
 
 
-def _is_large_doc(settings, doc: Document) -> bool:
-    return is_large_document(
-        page_count=doc.page_count,
-        total_text=doc.content,
-        threshold_pages=settings.large_doc_page_threshold,
-    )
-
-
-def _embed_with_pages(
-    settings,
-    db: Session,
-    doc: Document,
-    baseline_pages,
-    vision_pages,
-    embedding_source: str,
-    run_id: int | None = None,
-) -> None:
-    _service_embed_with_pages(
-        settings,
-        db,
-        doc,
-        baseline_pages,
-        vision_pages,
-        embedding_source,
-        run_id=run_id,
-    )
-
-
-def _process_sync_only(settings, db: Session, doc_id: int) -> None:
-    _service_process_sync_only(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-    )
 
 
 def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) -> None:
+    """Run the full document pipeline, binding worker-level dependencies once."""
     _service_process_full_document(
         settings,
         db,
         doc_id,
         run_id=run_id,
         is_cancel_requested_fn=is_cancel_requested,
-        process_sync_only_fn=_process_sync_only,
+        process_sync_only_fn=lambda s, d, i: _service_process_sync_only(
+            s, d, i, is_cancel_requested_fn=is_cancel_requested
+        ),
         get_document_fn=paperless.get_document,
         get_local_document_fn=get_document_or_none,
-        process_evidence_index_fn=_process_evidence_index,
+        process_evidence_index_fn=lambda s, d, i, **kw: _service_process_evidence_index(
+            s, d, i, is_cancel_requested_fn=is_cancel_requested, **kw
+        ),
         ensure_ocr_score_fn=ensure_document_ocr_score,
         collect_page_texts_fn=collect_page_texts,
-        embed_with_pages_fn=_embed_with_pages,
-        is_large_doc_fn=_is_large_doc,
-        process_page_notes_fn=_process_page_notes,
-        process_summary_hierarchical_fn=_process_summary_hierarchical,
+        embed_with_pages_fn=_service_embed_with_pages,
+        is_large_doc_fn=lambda s, doc: is_large_document(
+            page_count=doc.page_count,
+            total_text=doc.content,
+            threshold_pages=s.large_doc_page_threshold,
+        ),
+        process_page_notes_fn=lambda s, d, i, source, **kw: _service_process_page_notes(
+            s, d, i, source, is_cancel_requested_fn=is_cancel_requested, **kw
+        ),
+        process_summary_hierarchical_fn=_service_process_summary_hierarchical,
         get_tags_fn=get_cached_tags,
         get_correspondents_fn=get_cached_correspondents,
         build_hier_summary_fn=_service_build_distilled_context_from_hier_summary,
@@ -179,175 +135,6 @@ def _process_doc(settings, db: Session, doc_id: int, run_id: int | None = None) 
         generate_suggestions_fn=generate_normalized_suggestions,
         persist_suggestions_fn=persist_suggestions,
         learn_rules_fn=learn_correspondent_rules,
-    )
-
-
-def _process_vision_ocr_only(
-    settings, db: Session, doc_id: int, force: bool = False, run_id: int | None = None
-) -> None:
-    _service_process_vision_ocr_only(
-        settings,
-        db,
-        doc_id,
-        force=force,
-        run_id=run_id,
-        is_cancel_requested_fn=is_cancel_requested,
-    )
-
-
-def _process_cleanup_texts(
-    settings,
-    db: Session,
-    doc_id: int,
-    *,
-    source: str | None = None,
-    clear_first: bool = False,
-) -> None:
-    if is_cancel_requested(settings):
-        logger.info("Worker cancel requested; abort cleanup texts doc=%s", doc_id)
-        return
-    reclean_page_texts(
-        db,
-        settings,
-        doc_id=doc_id,
-        source=source,
-        clear_first=clear_first,
-    )
-
-
-def _process_page_notes(
-    settings, db: Session, doc_id: int, source: str, run_id: int | None = None
-) -> None:
-    _service_process_page_notes(
-        settings,
-        db,
-        doc_id,
-        source,
-        run_id=run_id,
-        is_cancel_requested_fn=is_cancel_requested,
-    )
-
-
-def _process_summary_hierarchical(
-    settings, db: Session, doc_id: int, source: str, run_id: int | None = None
-) -> None:
-    _service_process_summary_hierarchical(
-        settings,
-        db,
-        doc_id,
-        source,
-        run_id=run_id,
-    )
-
-
-def _process_embeddings_paperless(
-    settings, db: Session, doc_id: int, run_id: int | None = None,
-    embeddings_mode: str = "",
-) -> None:
-    _service_process_embeddings_paperless(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-        run_id=run_id,
-        embeddings_mode=embeddings_mode,
-    )
-
-
-def _process_evidence_index(
-    settings,
-    db: Session,
-    doc_id: int,
-    *,
-    source: str = "paperless_pdf",
-    run_id: int | None = None,
-) -> None:
-    _service_process_evidence_index(
-        settings,
-        db,
-        doc_id,
-        source=source,
-        is_cancel_requested_fn=is_cancel_requested,
-        run_id=run_id,
-    )
-
-
-def _process_embeddings_vision(
-    settings, db: Session, doc_id: int, run_id: int | None = None,
-    embeddings_mode: str = "",
-    force: bool = False,
-) -> None:
-    _service_process_embeddings_vision(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-        run_id=run_id,
-        embeddings_mode=embeddings_mode,
-        force=force,
-    )
-
-
-def _process_similarity_index(settings, db: Session, doc_id: int) -> None:
-    _service_process_similarity_index(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-    )
-
-
-def _process_duplicate_scan(settings, db: Session, doc_id: int) -> None:
-    scan_document_duplicates(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-    )
-
-
-def _process_suggestions_paperless(settings, db: Session, doc_id: int) -> None:
-    _service_process_suggestions_paperless(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-        get_tags_fn=get_cached_tags,
-        get_correspondents_fn=get_cached_correspondents,
-        get_document_fn=paperless.get_document,
-        generate_suggestions_fn=generate_normalized_suggestions,
-        persist_suggestions_fn=persist_suggestions,
-        learn_rules_fn=learn_correspondent_rules,
-    )
-
-
-def _process_suggestions_vision(settings, db: Session, doc_id: int) -> None:
-    _service_process_suggestions_vision(
-        settings,
-        db,
-        doc_id,
-        is_cancel_requested_fn=is_cancel_requested,
-        get_tags_fn=get_cached_tags,
-        get_correspondents_fn=get_cached_correspondents,
-        get_document_fn=paperless.get_document,
-        generate_suggestions_fn=generate_normalized_suggestions,
-        persist_suggestions_fn=persist_suggestions,
-        process_vision_ocr_only_fn=_process_vision_ocr_only,
-        learn_rules_fn=learn_correspondent_rules,
-    )
-
-
-def _process_suggest_field(settings, db: Session, task: dict) -> None:
-    _service_process_suggest_field(
-        settings,
-        db,
-        task,
-        get_document_fn=paperless.get_document,
-        get_tags_fn=get_cached_tags,
-        get_correspondents_fn=get_cached_correspondents,
-        generate_field_variants_fn=generate_field_variants,
-        upsert_suggestion_fn=upsert_suggestion,
-        audit_suggestion_run_fn=audit_suggestion_run,
     )
 
 
@@ -366,18 +153,16 @@ def _build_dispatch_handler(
         doc_id=doc_id,
         task=task,
         run_id=run_id,
-        process_sync_only_fn=_process_sync_only,
-        process_evidence_index_fn=_process_evidence_index,
-        process_embeddings_paperless_fn=_process_embeddings_paperless,
-        process_embeddings_vision_fn=_process_embeddings_vision,
-        process_similarity_index_fn=_process_similarity_index,
-        process_cleanup_texts_fn=_process_cleanup_texts,
-        process_duplicate_scan_fn=_process_duplicate_scan,
-        process_page_notes_fn=_process_page_notes,
-        process_summary_hierarchical_fn=_process_summary_hierarchical,
-        process_suggestions_paperless_fn=_process_suggestions_paperless,
-        process_suggestions_vision_fn=_process_suggestions_vision,
-        process_suggest_field_fn=_process_suggest_field,
+        is_cancel_requested_fn=is_cancel_requested,
+        get_tags_fn=get_cached_tags,
+        get_correspondents_fn=get_cached_correspondents,
+        get_document_fn=paperless.get_document,
+        generate_suggestions_fn=generate_normalized_suggestions,
+        persist_suggestions_fn=persist_suggestions,
+        learn_rules_fn=learn_correspondent_rules,
+        generate_field_variants_fn=generate_field_variants,
+        upsert_suggestion_fn=upsert_suggestion,
+        audit_suggestion_run_fn=audit_suggestion_run,
     )
 
 
@@ -518,12 +303,13 @@ def main() -> None:
                     retry_attempt=retry_attempt,
                     dispatch_worker_task_fn=dispatch_worker_task,
                     build_handler_fn=build_handler,
-                    process_vision_ocr_force_fn=lambda active_settings, active_db, active_doc_id, force, active_run_id: _process_vision_ocr_only(
+                    process_vision_ocr_force_fn=lambda active_settings, active_db, active_doc_id, force, active_run_id: _service_process_vision_ocr_only(
                         active_settings,
                         active_db,
                         active_doc_id,
                         force=force,
                         run_id=active_run_id,
+                        is_cancel_requested_fn=is_cancel_requested,
                     ),
                     process_full_doc_fn=lambda active_settings, active_db, active_doc_id, active_run_id: _process_doc(
                         active_settings,

@@ -194,11 +194,24 @@ def test_scan_route_enqueues_one_task_per_document(api_client: Any, monkeypatch:
     assert {t["task"] for t in captured} == {"duplicate_scan"}
 
 
-def test_dispatch_routes_duplicate_scan_task() -> None:
+def test_dispatch_routes_duplicate_scan_task(monkeypatch: Any) -> None:
+    from app.services.pipeline import worker_dispatch
     from app.services.pipeline.worker_dispatch import build_dispatch_handler
 
     calls: list[int] = []
-    noop = lambda *_a, **_k: None  # noqa: E731
+
+    def _scan_document_duplicates(
+        _db: Any,
+        _settings: Any,
+        doc_id: int | None = None,
+        **_kw: Any,
+    ) -> None:
+        calls.append(doc_id)
+
+    monkeypatch.setattr(
+        worker_dispatch, "scan_document_duplicates", _scan_document_duplicates
+    )
+
     handler = build_dispatch_handler(
         settings=object(),
         db=None,  # type: ignore[arg-type]
@@ -206,18 +219,15 @@ def test_dispatch_routes_duplicate_scan_task() -> None:
         doc_id=7,
         task=None,
         run_id=None,
-        process_sync_only_fn=noop,
-        process_evidence_index_fn=noop,
-        process_embeddings_paperless_fn=noop,
-        process_embeddings_vision_fn=noop,
-        process_similarity_index_fn=noop,
-        process_cleanup_texts_fn=noop,
-        process_page_notes_fn=noop,
-        process_summary_hierarchical_fn=noop,
-        process_suggestions_paperless_fn=noop,
-        process_suggestions_vision_fn=noop,
-        process_suggest_field_fn=noop,
-        process_duplicate_scan_fn=lambda _s, _d, doc_id: calls.append(doc_id),
+        is_cancel_requested_fn=lambda _s: False,
+        get_tags_fn=lambda _s: [],
+        get_correspondents_fn=lambda _s: [],
+        get_document_fn=lambda _s, _i: {},
+        generate_suggestions_fn=lambda *_a, **_k: {},
+        persist_suggestions_fn=lambda *_a, **_k: None,
+        generate_field_variants_fn=lambda *_a, **_k: {},
+        upsert_suggestion_fn=lambda *_a, **_k: None,
+        audit_suggestion_run_fn=lambda *_a, **_k: None,
     )
     assert handler is not None
     handler()

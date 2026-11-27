@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.services.pipeline import worker_dispatch
 from app.services.pipeline.worker_dispatch import build_dispatch_handler
 from app.services.pipeline.worker_runtime import (
     dispatch_worker_task,
@@ -118,8 +119,22 @@ def test_dispatch_worker_task_uses_handler_before_full_fallback() -> None:
     assert calls == ["handler"]
 
 
-def test_build_dispatch_handler_routes_cleanup_texts_options() -> None:
+def test_build_dispatch_handler_routes_cleanup_texts_options(
+    monkeypatch: Any,
+) -> None:
     calls: list[dict[str, Any]] = []
+
+    def _reclean_page_texts(
+        _db: Any,
+        _settings: Any,
+        *,
+        doc_id: int | None = None,
+        source: str | None = None,
+        clear_first: bool = False,
+    ) -> None:
+        calls.append({"doc_id": doc_id, "source": source, "clear_first": clear_first})
+
+    monkeypatch.setattr(worker_dispatch, "reclean_page_texts", _reclean_page_texts)
 
     handler = build_dispatch_handler(
         settings=object(),
@@ -128,19 +143,15 @@ def test_build_dispatch_handler_routes_cleanup_texts_options() -> None:
         doc_id=41,
         task={"source": "vision_ocr", "clear_first": True},
         run_id=9,
-        process_sync_only_fn=lambda *_args: None,
-        process_evidence_index_fn=lambda *_args, **_kwargs: None,
-        process_embeddings_paperless_fn=lambda *_args, **_kwargs: None,
-        process_embeddings_vision_fn=lambda *_args, **_kwargs: None,
-        process_similarity_index_fn=lambda *_args: None,
-        process_cleanup_texts_fn=lambda _settings, _db, doc_id, **kwargs: calls.append(
-            {"doc_id": doc_id, **kwargs}
-        ),
-        process_page_notes_fn=lambda *_args, **_kwargs: None,
-        process_summary_hierarchical_fn=lambda *_args, **_kwargs: None,
-        process_suggestions_paperless_fn=lambda *_args: None,
-        process_suggestions_vision_fn=lambda *_args: None,
-        process_suggest_field_fn=lambda *_args: None,
+        is_cancel_requested_fn=lambda _s: False,
+        get_tags_fn=lambda _s: [],
+        get_correspondents_fn=lambda _s: [],
+        get_document_fn=lambda _s, _i: {},
+        generate_suggestions_fn=lambda *_a, **_k: {},
+        persist_suggestions_fn=lambda *_a, **_k: None,
+        generate_field_variants_fn=lambda *_a, **_k: {},
+        upsert_suggestion_fn=lambda *_a, **_k: None,
+        audit_suggestion_run_fn=lambda *_a, **_k: None,
     )
 
     assert handler is not None

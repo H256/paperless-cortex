@@ -1,11 +1,33 @@
+"""Worker task dispatch: build a handler for a queued task type."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import logging
+from typing import Any, Callable, Sequence
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from sqlalchemy.orm import Session
 
-    from sqlalchemy.orm import Session
+from app.services.documents.duplicates import scan_document_duplicates
+from app.services.documents.page_text_store import reclean_page_texts
+from app.services.pipeline.worker_content_tasks import (
+    process_page_notes,
+    process_summary_hierarchical,
+    process_vision_ocr_only,
+)
+from app.services.pipeline.worker_document_tasks import (
+    process_embeddings_paperless,
+    process_embeddings_vision,
+    process_evidence_index,
+    process_similarity_index,
+    process_sync_only,
+)
+from app.services.pipeline.worker_suggestion_tasks import (
+    process_suggest_field,
+    process_suggestions_paperless,
+    process_suggestions_vision,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def build_dispatch_handler(
@@ -16,62 +38,123 @@ def build_dispatch_handler(
     doc_id: int,
     task: dict[str, Any] | None,
     run_id: int | None,
-    process_sync_only_fn: Callable[[object, Session, int], None],
-    process_evidence_index_fn: Callable[..., None],
-    process_embeddings_paperless_fn: Callable[..., None],
-    process_embeddings_vision_fn: Callable[..., None],
-    process_similarity_index_fn: Callable[[object, Session, int], None],
-    process_cleanup_texts_fn: Callable[..., None],
-    process_page_notes_fn: Callable[..., None],
-    process_summary_hierarchical_fn: Callable[..., None],
-    process_suggestions_paperless_fn: Callable[[object, Session, int], None],
-    process_suggestions_vision_fn: Callable[[object, Session, int], None],
-    process_suggest_field_fn: Callable[[object, Session, dict[str, Any]], None],
-    process_duplicate_scan_fn: Callable[[object, Session, int], None] | None = None,
+    is_cancel_requested_fn: Callable[[object], bool],
+    get_tags_fn: Callable[[object], Sequence[object]],
+    get_correspondents_fn: Callable[[object], Sequence[object]],
+    get_document_fn: Callable[[object, int], dict[str, Any]],
+    generate_suggestions_fn: Callable[..., dict[str, Any]],
+    persist_suggestions_fn: Callable[..., None],
+    learn_rules_fn: Callable[[Session, int], dict[str, object]] | None = None,
+    generate_field_variants_fn: Callable[..., dict[str, Any] | list[object]],
+    upsert_suggestion_fn: Callable[..., None],
+    audit_suggestion_run_fn: Callable[..., None],
 ) -> Callable[[], None] | None:
-    handlers = {
-        "sync": lambda: process_sync_only_fn(settings, db, doc_id),
-        "evidence_index": lambda: process_evidence_index_fn(
+    """Build the handler for one queued task type.
+
+    Returns None for unknown task types.
+    """
+    source = task.get("source") if task else None
+    clear_first = bool(task.get("clear_first")) if task else False
+
+    handlers: dict[str, Callable[[], None]] = {
+        "sync": lambda: process_sync_only(
+            settings, db, doc_id, is_cancel_requested_fn=is_cancel_requested_fn
+        ),
+        "evidence_index": lambda: process_evidence_index(
             settings,
             db,
             doc_id,
-            source=str((task or {}).get("source") or "paperless_pdf"),
+            is_cancel_requested_fn=is_cancel_requested_fn,
             run_id=run_id,
         ),
-        "embeddings_paperless": lambda: process_embeddings_paperless_fn(
-            settings, db, doc_id, run_id=run_id,
-            embeddings_mode=str((task or {}).get("embeddings_mode") or ""),
-        ),
-        "embeddings_vision": lambda: process_embeddings_vision_fn(
-            settings, db, doc_id, run_id=run_id,
-            embeddings_mode=str((task or {}).get("embeddings_mode") or ""),
-            force=bool((task or {}).get("force")),
-        ),
-        "similarity_index": lambda: process_similarity_index_fn(settings, db, doc_id),
-        "cleanup_texts": lambda: process_cleanup_texts_fn(
+        "embeddings_paperless": lambda: process_embeddings_paperless(
             settings,
             db,
             doc_id,
-            source=str((task or {}).get("source")) if (task or {}).get("source") else None,
-            clear_first=bool((task or {}).get("clear_first")),
+            is_cancel_requested_fn=is_cancel_requested_fn,
+            run_id=run_id,
         ),
-        "page_notes_paperless": lambda: process_page_notes_fn(
+        "embeddings_vision": lambda: process_embeddings_vision(
+            settings,
+            db,
+            doc_id,
+            is_cancel_requested_fn=is_cancel_requested_fn,
+            run_id=run_id,
+            embeddings_mode=task.get("embeddings_mode") if task else None,
+            force=bool(task.get("force")) if task else False,
+        ),
+        "similarity_index": lambda: process_similarity_index(
+            settings, db, doc_id, is_cancel_requested_fn=is_cancel_requested_fn
+        ),
+        "cleanup_texts": lambda: (
+            logger.info("Worker cancel requested; abort cleanup texts doc=%s", doc_id)
+            if is_cancel_requested_fn(settings)
+            else reclean_page_texts(
+                db,
+                settings,
+                doc_id=doc_id,
+                source=source,
+                clear_first=clear_first,
+            )
+        ),
+        "page_notes": lambda: process_page_notes(
+            settings,
+            db,
+            doc_id,
+            "paperless_ocr",
+            is_cancel_requested_fn=is_cancel_requested_fn,
+            run_id=run_id,
+        ),
+        "summary_hierarchical": lambda: process_summary_hierarchical(
             settings, db, doc_id, "paperless_ocr", run_id=run_id
         ),
-        "page_notes_vision": lambda: process_page_notes_fn(
-            settings, db, doc_id, "vision_ocr", run_id=run_id
-        ),
-        "summary_hierarchical": lambda: process_summary_hierarchical_fn(
+        "suggestions_paperless": lambda: process_suggestions_paperless(
             settings,
             db,
             doc_id,
-            str((task or {}).get("source") or "vision_ocr"),
-            run_id=run_id,
+            is_cancel_requested_fn=is_cancel_requested_fn,
+            get_tags_fn=get_tags_fn,
+            get_correspondents_fn=get_correspondents_fn,
+            get_document_fn=get_document_fn,
+            generate_suggestions_fn=generate_suggestions_fn,
+            persist_suggestions_fn=persist_suggestions_fn,
+            learn_rules_fn=learn_rules_fn,
         ),
-        "suggestions_paperless": lambda: process_suggestions_paperless_fn(settings, db, doc_id),
-        "suggestions_vision": lambda: process_suggestions_vision_fn(settings, db, doc_id),
-        "suggest_field": lambda: process_suggest_field_fn(settings, db, task or {}),
+        "suggestions_vision": lambda: process_suggestions_vision(
+            settings,
+            db,
+            doc_id,
+            is_cancel_requested_fn=is_cancel_requested_fn,
+            get_tags_fn=get_tags_fn,
+            get_correspondents_fn=get_correspondents_fn,
+            get_document_fn=get_document_fn,
+            generate_suggestions_fn=generate_suggestions_fn,
+            persist_suggestions_fn=persist_suggestions_fn,
+            process_vision_ocr_only_fn=lambda s, d, i, force=False, run_id=None: (
+                process_vision_ocr_only(
+                    s,
+                    d,
+                    i,
+                    force=force,
+                    run_id=run_id,
+                    is_cancel_requested_fn=is_cancel_requested_fn,
+                )
+            ),
+            learn_rules_fn=learn_rules_fn,
+        ),
+        "suggest_field": lambda: process_suggest_field(
+            settings,
+            db,
+            task or {},
+            get_document_fn=get_document_fn,
+            get_tags_fn=get_tags_fn,
+            get_correspondents_fn=get_correspondents_fn,
+            generate_field_variants_fn=generate_field_variants_fn,
+            upsert_suggestion_fn=upsert_suggestion_fn,
+            audit_suggestion_run_fn=audit_suggestion_run_fn,
+        ),
+        "duplicate_scan": lambda: scan_document_duplicates(
+            settings, db, doc_id, is_cancel_requested_fn=is_cancel_requested_fn
+        ),
     }
-    if process_duplicate_scan_fn is not None:
-        handlers["duplicate_scan"] = lambda: process_duplicate_scan_fn(settings, db, doc_id)
     return handlers.get(task_type)
