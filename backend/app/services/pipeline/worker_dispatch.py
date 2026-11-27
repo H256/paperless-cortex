@@ -78,6 +78,7 @@ def build_dispatch_handler(
             doc_id,
             is_cancel_requested_fn=is_cancel_requested_fn,
             run_id=run_id,
+            embeddings_mode=(task or {}).get("embeddings_mode") or None,
         ),
         "embeddings_vision": lambda: process_embeddings_vision(
             settings,
@@ -102,7 +103,7 @@ def build_dispatch_handler(
                 clear_first=clear_first,
             )
         ),
-        "page_notes": lambda: process_page_notes(
+        "page_notes_paperless": lambda: process_page_notes(
             settings,
             db,
             doc_id,
@@ -110,8 +111,20 @@ def build_dispatch_handler(
             is_cancel_requested_fn=is_cancel_requested_fn,
             run_id=run_id,
         ),
+        "page_notes_vision": lambda: process_page_notes(
+            settings,
+            db,
+            doc_id,
+            "vision_ocr",
+            is_cancel_requested_fn=is_cancel_requested_fn,
+            run_id=run_id,
+        ),
         "summary_hierarchical": lambda: process_summary_hierarchical(
-            settings, db, doc_id, "paperless_ocr", run_id=run_id
+            settings,
+            db,
+            doc_id,
+            str((task or {}).get("source") or "vision_ocr"),
+            run_id=run_id,
         ),
         "suggestions_paperless": lambda: process_suggestions_paperless(
             settings,

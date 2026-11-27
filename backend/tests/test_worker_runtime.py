@@ -160,6 +160,108 @@ def test_build_dispatch_handler_routes_cleanup_texts_options(
     assert calls == [{"doc_id": 41, "source": "vision_ocr", "clear_first": True}]
 
 
+def test_build_dispatch_handler_routes_producer_task_types(
+    monkeypatch: Any,
+) -> None:
+    """Producers enqueue page_notes_paperless/page_notes_vision/summary_hierarchical/
+    embeddings_paperless; each must route to its dedicated handler (not the
+    full-document fallback) with the correct source/mode."""
+    calls: list[dict[str, Any]] = []
+
+    def _page_notes(
+        _settings: Any,
+        _db: Any,
+        doc_id: int,
+        source: str,
+        *,
+        run_id: int | None = None,
+        is_cancel_requested_fn: Any = None,
+    ) -> None:
+        calls.append({"fn": "page_notes", "doc_id": doc_id, "source": source})
+
+    def _summary(
+        _settings: Any,
+        _db: Any,
+        doc_id: int,
+        source: str,
+        *,
+        run_id: int | None = None,
+    ) -> None:
+        calls.append({"fn": "summary", "doc_id": doc_id, "source": source})
+
+    def _embeddings(
+        _settings: Any,
+        _db: Any,
+        doc_id: int,
+        *,
+        is_cancel_requested_fn: Any = None,
+        run_id: int | None = None,
+        embeddings_mode: str | None = None,
+    ) -> None:
+        calls.append({"fn": "embeddings", "doc_id": doc_id, "mode": embeddings_mode})
+
+    monkeypatch.setattr(worker_dispatch, "process_page_notes", _page_notes)
+    monkeypatch.setattr(worker_dispatch, "process_summary_hierarchical", _summary)
+    monkeypatch.setattr(worker_dispatch, "process_embeddings_paperless", _embeddings)
+
+    def _build(task_type: str, task: dict[str, Any]) -> Any:
+        return build_dispatch_handler(
+            settings=load_settings(),
+            db=object(),
+            task_type=task_type,
+            doc_id=41,
+            task=task,
+            run_id=9,
+            is_cancel_requested_fn=lambda _s: False,
+            get_tags_fn=lambda _s: [],
+            get_correspondents_fn=lambda _s: [],
+            get_document_fn=lambda _s, _i: {},
+            generate_suggestions_fn=lambda *_a, **_k: {},
+            persist_suggestions_fn=lambda *_a, **_k: None,
+            generate_field_variants_fn=lambda *_a, **_k: {},
+            upsert_suggestion_fn=lambda *_a, **_k: None,
+            audit_suggestion_run_fn=lambda *_a, **_k: None,
+        )
+
+    cases = [
+        (
+            "page_notes_paperless",
+            {},
+            {"fn": "page_notes", "doc_id": 41, "source": "paperless_ocr"},
+        ),
+        (
+            "page_notes_vision",
+            {},
+            {"fn": "page_notes", "doc_id": 41, "source": "vision_ocr"},
+        ),
+        (
+            "summary_hierarchical",
+            {"source": "vision_ocr"},
+            {"fn": "summary", "doc_id": 41, "source": "vision_ocr"},
+        ),
+        (
+            "summary_hierarchical",
+            {},
+            {"fn": "summary", "doc_id": 41, "source": "vision_ocr"},
+        ),
+        (
+            "embeddings_paperless",
+            {"embeddings_mode": "both"},
+            {"fn": "embeddings", "doc_id": 41, "mode": "both"},
+        ),
+        (
+            "embeddings_paperless",
+            {},
+            {"fn": "embeddings", "doc_id": 41, "mode": None},
+        ),
+    ]
+    for task_type, task, expected in cases:
+        handler = _build(task_type, task)
+        assert handler is not None, f"missing dispatch handler for {task_type}"
+        handler()
+        assert calls[-1] == expected
+
+
 def _gate_kwargs(
     calls: list[str],
     *,
