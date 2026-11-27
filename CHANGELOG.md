@@ -3,6 +3,14 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/audit-p1-writeback-auth)
+
+### Audit P1 fixes (issues #448, #450, #451)
+- Writeback (#448, #450): `execute_calls_with_audit` now writes audit rows in a `finally`, so docs that already succeeded keep their audit row when a later call aborts a job. It rolls back a failed call's partial local changes and commits per successful call, so Paperless and the local DB cannot drift apart mid-batch.
+- SSRF (#451): `validate_provider_base_url` also checks DNS answers and legacy decimal/hex IPv4 forms; the API logs a warning at startup when `API_TOKEN` is empty.
+- Tests: `test_writeback_execution_partial_failure.py`, `test_provider_base_url_ssrf.py`, non-ASCII case in `test_api_auth.py`; full backend suite passes.
+- Still open from the audit: #449 (job conflict check), #453-#462.
+
 ## 2026-11-27 (branch: agent/452-api-token-non-ascii-401)
 
 ### Fix: non-ASCII `X-API-Token` header returned 500 instead of 401 (#452)
