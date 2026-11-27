@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/writeback-resolve-once)
+
+### Batch writeback resolves Paperless tags/correspondents once (issue #453)
+- New `writeback_metadata_scope()` in [`writeback_apply.py`](backend/app/services/writeback/writeback_apply.py), used by `execute-now` and job execution. Inside one batch the Paperless tag and correspondent lists are fetched once, newly created objects are added to that cached list, and the `owner: None` PATCH runs once per tag/correspondent instead of once per document. Single-document writeback is unchanged (fresh lists per call).
+- Behaviour kept as-is and still worth a decision: existing Paperless tags/correspondents are made shared (`owner: None`) when written back. Test `test_writeback_metadata_scope.py`; writeback tests pass.
+
 ## 2026-11-25 (branch: ux/touch-targets)
 
 ### UX: 40 px touch targets for in-page controls on touch devices

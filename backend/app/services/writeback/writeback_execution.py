@@ -6,6 +6,7 @@ import httpx
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.models import SuggestionAudit, WritebackJob
+from app.services.writeback.writeback_apply import writeback_metadata_scope
 from app.services.runtime.time_utils import utc_now_iso
 from app.services.writeback.writeback_selection import (
     parse_applied_call_indexes,
@@ -138,18 +139,19 @@ def run_writeback_job_execution(
         applied_call_indexes.add(index)
 
     try:
-        execute_calls_with_audit(
-            settings=settings,
-            db=db,
-            calls=calls,
-            dry_run=dry_run,
-            execute_call=execute_call,
-            cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
-            reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
-            logger=logger,
-            skip_call_indexes=None if dry_run else applied_call_indexes,
-            on_call_applied=_record_applied if not dry_run else None,
-        )
+        with writeback_metadata_scope():
+            execute_calls_with_audit(
+                settings=settings,
+                db=db,
+                calls=calls,
+                dry_run=dry_run,
+                execute_call=execute_call,
+                cleanup_pending_rows_after_patch=cleanup_pending_rows_after_patch,
+                reviewed_timestamp_for_doc=reviewed_timestamp_for_doc,
+                logger=logger,
+                skip_call_indexes=None if dry_run else applied_call_indexes,
+                on_call_applied=_record_applied if not dry_run else None,
+            )
     except (RuntimeError, ValueError, httpx.HTTPError) as exc:
         execution_error = str(exc)
 
