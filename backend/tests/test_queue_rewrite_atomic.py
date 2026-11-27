@@ -299,6 +299,8 @@ def test_reorder_and_remove_log_redis_errors(monkeypatch: Any, caplog: Any) -> N
             raise ResponseError("too many results to unpack")
 
     monkeypatch.setattr(queue_mod, "_get_client", lambda _settings: _Broken())
+    # Alembic's fileConfig (run by the migration sanity test) disables existing loggers.
+    monkeypatch.setattr(queue_mod.logger, "disabled", False)
     assert queue_mod.reorder_queue(_settings(), 0, 1) is False
     assert queue_mod.remove_queue_item(_settings(), 0) is False
     assert "Queue reorder failed" in caplog.text
