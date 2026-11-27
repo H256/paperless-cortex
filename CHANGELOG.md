@@ -3,6 +3,12 @@
 All granular implementation slices and refactors are tracked here.
 `agents.md` keeps only high-level project state.
 
+## 2026-11-27 (branch: fix/worker-lock-atomic)
+
+### Atomic worker lock refresh/release; remove stray tracked file (issue #460)
+- `refresh_worker_lock` / `release_worker_lock` in [`queue.py`](backend/app/services/pipeline/queue.py) now compare the owner and act inside one Lua script. The old GET-then-SET/DEL let the lock expire in between, so a refresh could overwrite (or a release delete) another worker's fresh lock. Scripts checked in a real Lua 5.1 interpreter; not run on a live Redis. Tests: `test_worker_lock_atomic.py`.
+- Removed the tracked `home/klemens/.local/state/opencode/...` tool note and added `home/` to `.gitignore`.
+
 ## 2026-11-25 (branch: ux/touch-targets)
 
 ### UX: 40 px touch targets for in-page controls on touch devices
