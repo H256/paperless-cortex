@@ -37,7 +37,9 @@ def verify_api_token(
     if not expected:
         return
     provided = _extract_token(request)
-    if not provided or not hmac.compare_digest(provided, expected):
+    if not provided or not hmac.compare_digest(
+        provided.encode("utf-8"), expected.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API token",
