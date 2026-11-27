@@ -5037,7 +5037,8 @@
           "snippet": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 20000
               },
               {
                 "type": "null"
@@ -5089,10 +5090,12 @@
         "properties": {
           "question": {
             "type": "string",
+            "maxLength": 4000,
             "title": "Question"
           },
           "answer": {
             "type": "string",
+            "maxLength": 20000,
             "title": "Answer"
           },
           "citations": {
@@ -5100,6 +5103,7 @@
               "$ref": "#/components/schemas/ChatCitation"
             },
             "type": "array",
+            "maxItems": 100,
             "title": "Citations",
             "default": []
           },
@@ -5151,10 +5155,12 @@
         "properties": {
           "question": {
             "type": "string",
+            "maxLength": 20000,
             "title": "Question"
           },
           "answer": {
             "type": "string",
+            "maxLength": 20000,
             "title": "Answer"
           }
         },
@@ -5169,6 +5175,7 @@
         "properties": {
           "question": {
             "type": "string",
+            "maxLength": 4000,
             "title": "Question"
           },
           "top_k": {
@@ -5226,7 +5233,8 @@
                 "items": {
                   "$ref": "#/components/schemas/ChatHistoryItem"
                 },
-                "type": "array"
+                "type": "array",
+                "maxItems": 100
               },
               {
                 "type": "null"
@@ -7790,6 +7798,7 @@
           },
           "snippet": {
             "type": "string",
+            "maxLength": 20000,
             "title": "Snippet"
           },
           "source": {
@@ -7881,6 +7890,7 @@
               "$ref": "#/components/schemas/EvidenceCitationRequest"
             },
             "type": "array",
+            "maxItems": 100,
             "title": "Citations",
             "default": []
           },

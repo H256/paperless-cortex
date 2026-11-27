@@ -47,30 +47,61 @@ _CLIENT_BY_URL: dict[str, object] = {}
 # requeue_dead_letter_item (issue #116): a task popped by the worker between
 # the snapshot and the DELETE was previously re-inserted (duplicate execution)
 # or lost entirely.
+# The scripts move/remove one element in place (LSET to a marker, then LREM) instead
+# of reading the whole list and re-pushing it with unpack(): unpack() fails above
+# ~8000 values in Lua, which silently broke reorder/remove on large queues.
 _REORDER_QUEUE_LUA = """
-local items = redis.call('LRANGE', KEYS[1], 0, -1)
-local n = #items
 local from = tonumber(ARGV[1])
 local to = tonumber(ARGV[2])
-if n == 0 then return 0 end
-if from < 0 or from >= n then return 0 end
-local entry = table.remove(items, from + 1)
+local n = redis.call('LLEN', KEYS[1])
+if n == 0 or from < 0 or from >= n then return 0 end
+local marker = '@@queue-move-marker@@'
+local entry = redis.call('LINDEX', KEYS[1], from)
+redis.call('LSET', KEYS[1], from, marker)
+redis.call('LREM', KEYS[1], 1, marker)
+n = n - 1
 if to < 0 then to = 0 end
-if to > #items then to = #items end
-table.insert(items, to + 1, entry)
-redis.call('DEL', KEYS[1])
-if #items > 0 then redis.call('RPUSH', KEYS[1], unpack(items)) end
+if to > n then to = n end
+if to == n then
+  redis.call('RPUSH', KEYS[1], entry)
+elseif to == 0 then
+  redis.call('LPUSH', KEYS[1], entry)
+else
+  local pivot = redis.call('LINDEX', KEYS[1], to)
+  redis.call('LSET', KEYS[1], to, marker)
+  redis.call('LINSERT', KEYS[1], 'BEFORE', marker, entry)
+  redis.call('LSET', KEYS[1], to + 1, pivot)
+end
 return 1
 """
 
 _REMOVE_QUEUE_ITEM_LUA = """
-local items = redis.call('LRANGE', KEYS[1], 0, -1)
 local idx = tonumber(ARGV[1])
-if #items == 0 or idx < 0 or idx >= #items then return 0 end
-local entry = table.remove(items, idx + 1)
-redis.call('DEL', KEYS[1])
-if #items > 0 then redis.call('RPUSH', KEYS[1], unpack(items)) end
+local n = redis.call('LLEN', KEYS[1])
+if n == 0 or idx < 0 or idx >= n then return 0 end
+local marker = '@@queue-remove-marker@@'
+local entry = redis.call('LINDEX', KEYS[1], idx)
+redis.call('LSET', KEYS[1], idx, marker)
+redis.call('LREM', KEYS[1], 1, marker)
 return entry
+"""
+
+# Compare-and-act on the worker lock in one step. A separate GET then SET/DEL lets the
+# lock expire in between, so a refresh could overwrite (or a release delete) the lock
+# that another worker just acquired.
+_REFRESH_LOCK_LUA = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+  return 1
+end
+return 0
+"""
+
+_RELEASE_LOCK_LUA = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
 """
 
 _REQUEUE_DLQ_ITEM_LUA = """
@@ -503,6 +534,7 @@ def reorder_queue(settings: Settings, from_index: int, to_index: int) -> bool:
     try:
         result = client.eval(_REORDER_QUEUE_LUA, 1, QUEUE_KEY, from_index, to_index)
     except (RedisError, RuntimeError):
+        logger.warning("Queue reorder failed", exc_info=True)
         return False
     return bool(result)
 
@@ -528,6 +560,7 @@ def remove_queue_item(settings: Settings, index: int) -> bool:
     try:
         entry = client.eval(_REMOVE_QUEUE_ITEM_LUA, 1, QUEUE_KEY, index)
     except (RedisError, RuntimeError):
+        logger.warning("Queue remove failed", exc_info=True)
         return False
     if not entry:
         return False
@@ -561,11 +594,7 @@ def refresh_worker_lock(settings: Settings, token: str) -> bool:
     if not client:
         return False
     try:
-        current = client.get(WORKER_LOCK_KEY)
-        if current != token:
-            return False
-        client.set(WORKER_LOCK_KEY, token, ex=WORKER_LOCK_TTL)
-        return True
+        return bool(client.eval(_REFRESH_LOCK_LUA, 1, WORKER_LOCK_KEY, token, WORKER_LOCK_TTL))
     except (RedisError, RuntimeError):
         return False
 
@@ -575,9 +604,7 @@ def release_worker_lock(settings: Settings, token: str) -> None:
     if not client:
         return
     try:
-        current = client.get(WORKER_LOCK_KEY)
-        if current == token:
-            client.delete(WORKER_LOCK_KEY)
+        client.eval(_RELEASE_LOCK_LUA, 1, WORKER_LOCK_KEY, token)
     except (RedisError, RuntimeError):
         return
 
