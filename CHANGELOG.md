@@ -5,12 +5,18 @@ All granular implementation slices and refactors are tracked here.
 
 ## 2026-11-27 (branch: fix/audit-p1-writeback-auth)
 
-### Audit P1 fixes (issues #448, #450, #451, #452)
+### Audit P1 fixes (issues #448, #450, #451)
 - Writeback (#448, #450): `execute_calls_with_audit` now writes audit rows in a `finally`, so docs that already succeeded keep their audit row when a later call aborts a job. It rolls back a failed call's partial local changes and commits per successful call, so Paperless and the local DB cannot drift apart mid-batch.
-- Auth (#452): token compare uses bytes, so a non-ASCII header gives 401 instead of 500.
 - SSRF (#451): `validate_provider_base_url` also checks DNS answers and legacy decimal/hex IPv4 forms; the API logs a warning at startup when `API_TOKEN` is empty.
 - Tests: `test_writeback_execution_partial_failure.py`, `test_provider_base_url_ssrf.py`, non-ASCII case in `test_api_auth.py`; full backend suite passes.
 - Still open from the audit: #449 (job conflict check), #453-#462.
+
+## 2026-11-27 (branch: agent/452-api-token-non-ascii-401)
+
+### Fix: non-ASCII `X-API-Token` header returned 500 instead of 401 (#452)
+- `hmac.compare_digest` in [`backend/app/deps.py`](backend/app/deps.py) compared the provided token and the configured `API_TOKEN` as `str`; Python raises `TypeError` for non-ASCII str arguments, so a header like `X-API-Token: é` produced a 500 for unauthenticated callers.
+- The comparison now encodes both sides to UTF-8 bytes before `compare_digest`; the check stays constant-time and behavior for ASCII tokens is unchanged.
+- New test `test_auth_on_rejects_non_ascii_token_with_401` in [`backend/tests/test_api_auth.py`](backend/tests/test_api_auth.py) sends the header as raw latin-1 bytes (httpx only accepts ASCII str header values) and asserts 401. Validation: full backend suite **736 passed, 0 failed**; ruff clean on touched files; mypy shows only the 9 pre-existing errors (none in touched files).
 
 ## 2026-11-25 (branch: ux/touch-targets)
 
