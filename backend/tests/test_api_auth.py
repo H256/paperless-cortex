@@ -45,3 +45,9 @@ def test_auth_on_rejects_missing_and_wrong_token(api_client: Any, monkeypatch: A
     # Bearer form is also accepted.
     bearer = client.get(PROBE, headers={"Authorization": "Bearer secret-123"})
     assert bearer.status_code == 200
+
+
+def test_auth_non_ascii_token_is_401_not_500(api_client: Any, monkeypatch: Any) -> None:
+    client = _client_with_token(monkeypatch, "secret-123")
+    response = client.get(PROBE, headers={"X-API-Token": "é".encode("latin-1")})
+    assert response.status_code == 401
