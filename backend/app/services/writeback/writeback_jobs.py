@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
@@ -42,6 +43,22 @@ def changed_since_preview(job: WritebackJob, fresh_items: list[WritebackDryRunIt
         return []
     fresh = preview_fingerprints(fresh_items)
     return sorted(int(doc_id) for doc_id, digest in stored.items() if fresh.get(doc_id) != digest)
+
+
+# A job that has been "running" longer than this was cut off (crash/restart) and will never finish.
+STALE_RUNNING_JOB = timedelta(minutes=30)
+
+
+def is_stale_running_job(job: WritebackJob) -> bool:
+    if str(job.status or "") != "running":
+        return False
+    try:
+        started = datetime.fromisoformat(str(job.started_at))
+    except ValueError:
+        return True
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=UTC)
+    return datetime.now(UTC) - started > STALE_RUNNING_JOB
 
 
 def missing_writeback_jobs_table(exc: Exception) -> bool:

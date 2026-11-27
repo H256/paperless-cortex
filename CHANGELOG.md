@@ -10,14 +10,64 @@ All granular implementation slices and refactors are tracked here.
 - Real (non dry-run) execution recomputes the preview first. If any document's values differ, the job is marked `failed` with the affected doc ids and nothing is sent to Paperless; the user deletes the job and creates a new one. Jobs created before the migration (NULL fingerprint) run as before.
 - Tests: `test_writeback_job_stale_preview.py` (Paperless edit after creation is refused, unchanged runs, legacy job runs); migration sanity and full backend suite pass. Stacked on `fix/audit-p1-writeback-auth` (#464).
 
+## 2026-11-27 (branch: fix/writeback-stale-running-jobs)
+
+### Writeback jobs stuck in "running" no longer block re-runs (issue #457)
+- [`writeback_jobs.py`](backend/app/services/writeback/writeback_jobs.py) `is_stale_running_job`: a job "running" for more than 30 minutes (or with no readable `started_at`) was cut off by a crash/restart.
+- Creating a job for the same selection retires such a job (status `failed`, error set) and creates a new one; deleting a stale running job is allowed (fresh running jobs still return 409).
+- Tests: `test_writeback_stale_running_jobs.py`; the existing running-job delete test now sets `started_at`. Stacked on `fix/audit-p1-writeback-auth` (#464).
+
+## 2026-11-27 (branch: fix/writeback-resolve-once)
+
+### Batch writeback resolves Paperless tags/correspondents once (issue #453)
+- New `writeback_metadata_scope()` in [`writeback_apply.py`](backend/app/services/writeback/writeback_apply.py), used by `execute-now` and job execution. Inside one batch the Paperless tag and correspondent lists are fetched once, newly created objects are added to that cached list, and the `owner: None` PATCH runs once per tag/correspondent instead of once per document. Single-document writeback is unchanged (fresh lists per call).
+- Behaviour kept as-is and still worth a decision: existing Paperless tags/correspondents are made shared (`owner: None`) when written back. Test `test_writeback_metadata_scope.py`; writeback tests pass.
+
+## 2026-11-27 (branch: fix/worker-lock-atomic)
+
+### Atomic worker lock refresh/release; remove stray tracked file (issue #460)
+- `refresh_worker_lock` / `release_worker_lock` in [`queue.py`](backend/app/services/pipeline/queue.py) now compare the owner and act inside one Lua script. The old GET-then-SET/DEL let the lock expire in between, so a refresh could overwrite (or a release delete) another worker's fresh lock. Scripts checked in a real Lua 5.1 interpreter; not run on a live Redis. Tests: `test_worker_lock_atomic.py`.
+- Removed the tracked `home/klemens/.local/state/opencode/...` tool note and added `home/` to `.gitignore`.
+
+## 2026-11-27 (branch: fix/chat-request-limits)
+
+### Size limits on chat request bodies (issue #459)
+- [`api_models.py`](backend/app/api_models.py): `question` ≤ 4000 chars, history/followup/citation text ≤ 20 000 chars, lists ≤ 100 items for `ChatRequest`, `ChatFollowupsRequest`, `EvidenceResolveRequest` (the UI sends at most 12 history turns). Oversized bodies now get a 422 instead of reaching the LLM call and logs.
+- `backend/openapi.json` regenerated (only the new `maxLength`/`maxItems`); generated frontend types do not change. Tests: `test_chat_models_limits.py`; full backend suite passes.
+
+## 2026-11-27 (branch: fix/sync-embed-queue-ids)
+
+### Sync no longer reloads each document to enqueue embed tasks (issue #456)
+- [`run_documents_sync`](backend/app/services/documents/sync_operations.py) keeps embed candidates as ids instead of ORM objects. In queue mode, reading `doc.id` on objects expired by `commit()` cost one SELECT per document; the non-queue path now loads documents in chunks of 500.
+- Test `test_queue_mode_embed_enqueue_issues_no_per_document_selects` fails on the old code. Sync tests pass.
+
+## 2026-11-27 (branch: fix/sync-mark-missing-large)
+
+### Full sync `mark_missing` works on large libraries (issue #455)
+- [`run_documents_sync`](backend/app/services/documents/sync_operations.py) no longer runs `NOT IN (all seen ids)`, which exceeds the bind-parameter limit (~32k) and ended the sync in "error" after all the work. It now loads local ids, subtracts the seen ids in Python and loads only the missing documents in chunks of 500.
+- Test `test_mark_missing_does_not_bind_every_seen_id` lowers SQLite's variable limit to 50 and fails on the old query. Sync tests: 87 passed.
+
+## 2026-11-27 (branch: fix/queue-lua-large-lists)
+
+### Queue reorder/remove work on large queues (issue #454)
+- `_REORDER_QUEUE_LUA` / `_REMOVE_QUEUE_ITEM_LUA` in [`queue.py`](backend/app/services/pipeline/queue.py) no longer rewrite the list with `RPUSH ... unpack(items)` (fails above ~8000 items). They move/remove one element in place with `LSET` marker + `LREM`/`LINSERT`, still atomic.
+- Redis errors in `reorder_queue` / `remove_queue_item` are now logged instead of silently returning False.
+- Validation: scripts run in a real Lua 5.1 interpreter against a Redis-semantics list model, 3000 randomized cases plus a 20 000-item list, all matching the previous behaviour; backend queue tests pass. Not run against a live Redis server (none available here).
+
 ## 2026-11-27 (branch: fix/audit-p1-writeback-auth)
 
-### Audit P1 fixes (issues #448, #450, #451, #452)
+### Audit P1 fixes (issues #448, #450, #451)
 - Writeback (#448, #450): `execute_calls_with_audit` now writes audit rows in a `finally`, so docs that already succeeded keep their audit row when a later call aborts a job. It rolls back a failed call's partial local changes and commits per successful call, so Paperless and the local DB cannot drift apart mid-batch.
-- Auth (#452): token compare uses bytes, so a non-ASCII header gives 401 instead of 500.
 - SSRF (#451): `validate_provider_base_url` also checks DNS answers and legacy decimal/hex IPv4 forms; the API logs a warning at startup when `API_TOKEN` is empty.
 - Tests: `test_writeback_execution_partial_failure.py`, `test_provider_base_url_ssrf.py`, non-ASCII case in `test_api_auth.py`; full backend suite passes.
 - Still open from the audit: #449 (job conflict check), #453-#462.
+
+## 2026-11-27 (branch: agent/452-api-token-non-ascii-401)
+
+### Fix: non-ASCII `X-API-Token` header returned 500 instead of 401 (#452)
+- `hmac.compare_digest` in [`backend/app/deps.py`](backend/app/deps.py) compared the provided token and the configured `API_TOKEN` as `str`; Python raises `TypeError` for non-ASCII str arguments, so a header like `X-API-Token: é` produced a 500 for unauthenticated callers.
+- The comparison now encodes both sides to UTF-8 bytes before `compare_digest`; the check stays constant-time and behavior for ASCII tokens is unchanged.
+- New test `test_auth_on_rejects_non_ascii_token_with_401` in [`backend/tests/test_api_auth.py`](backend/tests/test_api_auth.py) sends the header as raw latin-1 bytes (httpx only accepts ASCII str header values) and asserts 401. Validation: full backend suite **736 passed, 0 failed**; ruff clean on touched files; mypy shows only the 9 pre-existing errors (none in touched files).
 
 ## 2026-11-25 (branch: ux/touch-targets)
 
