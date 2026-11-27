@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
@@ -11,6 +12,22 @@ from app.services.writeback.writeback_selection import parse_applied_call_indexe
 
 if TYPE_CHECKING:
     from app.models import WritebackJob
+
+
+# A job that has been "running" longer than this was cut off (crash/restart) and will never finish.
+STALE_RUNNING_JOB = timedelta(minutes=30)
+
+
+def is_stale_running_job(job: WritebackJob) -> bool:
+    if str(job.status or "") != "running":
+        return False
+    try:
+        started = datetime.fromisoformat(str(job.started_at))
+    except ValueError:
+        return True
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=UTC)
+    return datetime.now(UTC) - started > STALE_RUNNING_JOB
 
 
 def missing_writeback_jobs_table(exc: Exception) -> bool:
