@@ -86,6 +86,24 @@ redis.call('LREM', KEYS[1], 1, marker)
 return entry
 """
 
+# Compare-and-act on the worker lock in one step. A separate GET then SET/DEL lets the
+# lock expire in between, so a refresh could overwrite (or a release delete) the lock
+# that another worker just acquired.
+_REFRESH_LOCK_LUA = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+  return 1
+end
+return 0
+"""
+
+_RELEASE_LOCK_LUA = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+"""
+
 _REQUEUE_DLQ_ITEM_LUA = """
 local entry = redis.call('LINDEX', KEYS[1], tonumber(ARGV[1]))
 if not entry then return nil end
@@ -576,11 +594,7 @@ def refresh_worker_lock(settings: Settings, token: str) -> bool:
     if not client:
         return False
     try:
-        current = client.get(WORKER_LOCK_KEY)
-        if current != token:
-            return False
-        client.set(WORKER_LOCK_KEY, token, ex=WORKER_LOCK_TTL)
-        return True
+        return bool(client.eval(_REFRESH_LOCK_LUA, 1, WORKER_LOCK_KEY, token, WORKER_LOCK_TTL))
     except (RedisError, RuntimeError):
         return False
 
@@ -590,9 +604,7 @@ def release_worker_lock(settings: Settings, token: str) -> None:
     if not client:
         return
     try:
-        current = client.get(WORKER_LOCK_KEY)
-        if current == token:
-            client.delete(WORKER_LOCK_KEY)
+        client.eval(_RELEASE_LOCK_LUA, 1, WORKER_LOCK_KEY, token)
     except (RedisError, RuntimeError):
         return
 
